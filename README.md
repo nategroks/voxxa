@@ -33,3 +33,4 @@ Local-only automated slide advancer for worship services using OpenAI Whisper.
    ```
 
 2. Edit `setlist.example.json` to add your songs and lyrics.
+
