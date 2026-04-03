@@ -1,0 +1,23 @@
+# Rust / Cargo
+src-tauri/target/
+**/*.rs.bk
+
+# Node
+node_modules/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Whisper models (large binary files)
+*.bin
+models/
+
+# Environment
+.env
+.env.local

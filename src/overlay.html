@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: transparent;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        overflow: hidden;
+      }
+      .overlay {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px;
+        background: rgba(10, 10, 15, 0.92);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        max-width: 340px;
+        margin: 8px auto;
+      }
+      .pulse-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #ef4444;
+        flex-shrink: 0;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      .text {
+        color: #e4e4ef;
+        font-size: 14px;
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .text.partial { color: #8888a0; font-style: italic; }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.8); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="overlay">
+      <div class="pulse-dot"></div>
+      <div class="text" id="overlay-text">Listening...</div>
+    </div>
+    <script type="module">
+      const { listen } = window.__TAURI__.event;
+      const text = document.getElementById("overlay-text");
+      await listen("transcription", (event) => {
+        const result = event.payload;
+        text.textContent = result.text || "Listening...";
+        text.classList.toggle("partial", result.is_partial);
+      });
+    </script>
+  </body>
+</html>

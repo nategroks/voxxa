@@ -1,0 +1,62 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicbarker/tauri/refs/heads/dev/crates/tauri-cli/schema.json",
+  "productName": "Voxxa",
+  "version": "0.1.0",
+  "identifier": "com.voxxa.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "trayIcon": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true
+    },
+    "windows": [
+      {
+        "title": "Voxxa",
+        "label": "main",
+        "width": 420,
+        "height": 600,
+        "resizable": true,
+        "visible": false,
+        "decorations": true,
+        "transparent": false
+      },
+      {
+        "title": "Voxxa Overlay",
+        "label": "overlay",
+        "width": 360,
+        "height": 80,
+        "resizable": false,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {
+    "global-shortcut": {
+      "shortcuts": []
+    }
+  }
+}
