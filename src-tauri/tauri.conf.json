@@ -52,11 +52,26 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-"
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com"
+    }
   },
   "plugins": {
     "global-shortcut": {
       "shortcuts": []
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/nategroks/voxxa/releases/latest/download/latest.json"
+      ],
+      "pubkey": ""
     }
   }
 }

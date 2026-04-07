@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voxxa — Local Voice Dictation</title>
+  <meta name="description" content="Free, private voice dictation that runs entirely on your device. No cloud, no subscription, no data collection." />
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #18181b;
+      --border: #27272a;
+      --text: #fafafa;
+      --text-dim: #a1a1aa;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Nav */
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px 24px;
+    }
+    nav .logo { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    nav .links { display: flex; gap: 28px; }
+    nav .links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 15px;
+      transition: color 0.2s;
+    }
+    nav .links a:hover { color: var(--text); }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 64px);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, var(--accent), #a78bfa, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--text-dim);
+      max-width: 540px;
+      margin: 0 auto 40px;
+    }
+
+    /* Download CTA */
+    .download-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 36px;
+      font-size: 17px;
+      font-weight: 600;
+      color: white;
+      background: var(--accent);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .download-btn:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.3);
+    }
+    .download-btn svg { width: 22px; height: 22px; }
+    .download-meta {
+      font-size: 14px;
+      color: var(--text-dim);
+    }
+    .download-meta a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .download-meta a:hover { text-decoration: underline; }
+
+    /* All platforms */
+    .all-platforms {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .platform-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--text-dim);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .platform-link:hover {
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    /* Features */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      max-width: 1100px;
+      margin: 80px auto;
+      padding: 0 24px;
+    }
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .feature .icon {
+      width: 44px;
+      height: 44px;
+      background: rgba(99, 102, 241, 0.12);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 22px;
+    }
+    .feature h3 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .feature p {
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* How it works */
+    .how-it-works {
+      max-width: 700px;
+      margin: 0 auto 80px;
+      padding: 0 24px;
+      text-align: center;
+    }
+    .how-it-works h2 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 40px;
+    }
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      text-align: left;
+    }
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .step-text h4 { font-size: 16px; margin-bottom: 4px; }
+    .step-text p { font-size: 14px; color: var(--text-dim); }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 24px;
+      border-top: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="logo">Voxxa</div>
+    <div class="links">
+      <a href="https://github.com/nategroks/voxxa">GitHub</a>
+      <a href="https://github.com/nategroks/voxxa/releases">Releases</a>
+      <a href="https://github.com/nategroks/voxxa/issues">Support</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <h1>Voice dictation that<br/><span class="gradient">stays on your device</span></h1>
+    <p>Free, private voice-to-text powered by Whisper. No cloud, no subscription, no data leaves your machine. Just press a key and talk.</p>
+
+    <div class="download-section">
+      <a class="download-btn" id="download-btn" href="https://github.com/nategroks/voxxa/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span id="download-label">Download for your platform</span>
+      </a>
+      <div class="download-meta">
+        <span id="download-version"></span>
+        <span id="download-size"></span>
+      </div>
+
+      <div class="all-platforms">
+        <a class="platform-link" href="https://github.com/nategroks/voxxa/releases/latest" data-os="mac-arm">
+          macOS (Apple Silicon)
+        </a>
+        <a class="platform-link" href="https://github.com/nategroks/voxxa/releases/latest" data-os="mac-intel">
+          macOS (Intel)
+        </a>
+        <a class="platform-link" href="https://github.com/nategroks/voxxa/releases/latest" data-os="windows">
+          Windows
+        </a>
+        <a class="platform-link" href="https://github.com/nategroks/voxxa/releases/latest" data-os="linux-deb">
+          Linux (.deb)
+        </a>
+        <a class="platform-link" href="https://github.com/nategroks/voxxa/releases/latest" data-os="linux-appimage">
+          Linux (.AppImage)
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="feature">
+      <div class="icon">&#128274;</div>
+      <h3>100% Private</h3>
+      <p>All processing happens on your CPU. No audio is ever sent to a server. No account required. No telemetry.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#9889;</div>
+      <h3>Fast &amp; Lightweight</h3>
+      <p>~50MB RAM idle. Transcribes in real-time on modern hardware. Ships as a single installer under 15MB.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#127760;</div>
+      <h3>99 Languages</h3>
+      <p>Powered by OpenAI's Whisper. Supports English, Spanish, French, German, Japanese, Chinese, and 90+ more.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#128293;</div>
+      <h3>Works Everywhere</h3>
+      <p>Dictate into any app — email, docs, Slack, code editors. Text is typed directly via your OS accessibility layer.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#127911;</div>
+      <h3>Smart Voice Detection</h3>
+      <p>Built-in VAD filters silence automatically. Only speech reaches the model, saving CPU and improving accuracy.</p>
+    </div>
+    <div class="feature">
+      <div class="icon">&#128736;</div>
+      <h3>Open Source</h3>
+      <p>MIT licensed. Audit the code, contribute, or build your own extensions. Community-driven development.</p>
+    </div>
+  </section>
+
+  <section class="how-it-works">
+    <h2>Up and running in 60 seconds</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <h4>Download &amp; install</h4>
+          <p>Grab the installer for your OS above. Double-click to install — just like Chrome or Brave.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <h4>Download a Whisper model</h4>
+          <p>Open Voxxa, go to the Models tab, and download "Base" (142MB). Larger models = better accuracy.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <h4>Press the hotkey and talk</h4>
+          <p>Hit <strong>Ctrl+Shift+Space</strong> (or Cmd+Shift+Space on Mac) and start speaking. Text appears wherever your cursor is.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Built by <a href="https://github.com/nategroks">nategroks</a> &middot;
+    <a href="https://github.com/nategroks/voxxa">Source on GitHub</a> &middot;
+    MIT License
+  </footer>
+
+  <script>
+    // OS detection — auto-select the right download
+    const REPO = 'nategroks/voxxa';
+    const btn = document.getElementById('download-btn');
+    const label = document.getElementById('download-label');
+    const versionEl = document.getElementById('download-version');
+
+    function detectOS() {
+      const ua = navigator.userAgent.toLowerCase();
+      const platform = navigator.platform?.toLowerCase() || '';
+
+      if (ua.includes('mac') || platform.includes('mac')) {
+        // Check Apple Silicon vs Intel
+        // navigator.platform = "MacIntel" even on AS via Rosetta,
+        // but we can use GPU renderer heuristic
+        return 'mac';
+      }
+      if (ua.includes('win') || platform.includes('win')) return 'windows';
+      if (ua.includes('linux')) return 'linux';
+      return 'unknown';
+    }
+
+    const os = detectOS();
+    const osLabels = {
+      mac: 'Download for macOS',
+      windows: 'Download for Windows',
+      linux: 'Download for Linux',
+      unknown: 'Download Voxxa',
+    };
+
+    label.textContent = osLabels[os] || osLabels.unknown;
+
+    // Fetch latest release info and set direct download links
+    fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
+      .then(r => r.json())
+      .then(release => {
+        if (!release.assets) return;
+        versionEl.textContent = release.tag_name + ' · ';
+
+        const assets = release.assets;
+        const find = (pattern) => assets.find(a => pattern.test(a.name));
+
+        const dmgArm = find(/aarch64.*\.dmg$/i);
+        const dmgIntel = find(/x64.*\.dmg$/i) || find(/x86_64.*\.dmg$/i);
+        const msi = find(/\.msi$/i);
+        const exe = find(/\.exe$/i);
+        const deb = find(/\.deb$/i);
+        const appimage = find(/\.AppImage$/i);
+
+        // Set primary button to detected OS
+        if (os === 'mac' && (dmgArm || dmgIntel)) {
+          btn.href = (dmgArm || dmgIntel).browser_download_url;
+        } else if (os === 'windows' && (msi || exe)) {
+          btn.href = (msi || exe).browser_download_url;
+        } else if (os === 'linux' && (appimage || deb)) {
+          btn.href = (appimage || deb).browser_download_url;
+        }
+
+        // Set platform-specific links
+        const links = {
+          'mac-arm': dmgArm,
+          'mac-intel': dmgIntel,
+          'windows': msi || exe,
+          'linux-deb': deb,
+          'linux-appimage': appimage,
+        };
+
+        document.querySelectorAll('.platform-link').forEach(el => {
+          const key = el.dataset.os;
+          if (links[key]) {
+            el.href = links[key].browser_download_url;
+          }
+        });
+      })
+      .catch(() => {
+        // Fallback to releases page
+      });
+  </script>
+</body>
+</html>
