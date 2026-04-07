@@ -212,12 +212,13 @@ body {
 
 /* Panels */
 .panel {
+  flex: 1;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
-  max-height: 300px;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .panel h2 {

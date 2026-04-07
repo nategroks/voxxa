@@ -53,11 +53,15 @@
     <script type="module">
       const { listen } = window.__TAURI__.event;
       const text = document.getElementById("overlay-text");
-      await listen("transcription", (event) => {
-        const result = event.payload;
-        text.textContent = result.text || "Listening...";
-        text.classList.toggle("partial", result.is_partial);
-      });
+
+      async function init() {
+        await listen("transcription", (event) => {
+          const result = event.payload;
+          text.textContent = result.text || "Listening...";
+          text.classList.toggle("partial", result.is_partial);
+        });
+      }
+      init();
     </script>
   </body>
 </html>

@@ -13,6 +13,9 @@ const transcriptionOutput = document.getElementById("transcription-output");
 const modelList = document.getElementById("model-list");
 const tabs = document.querySelectorAll(".tab");
 
+const HINT_IDLE = 'Press <kbd>Ctrl+Shift+Space</kbd> or click to record';
+const HINT_RECORDING = "Recording... click or press hotkey to stop";
+
 // --- Recording Toggle ---
 async function toggleRecording() {
   try {
@@ -25,7 +28,7 @@ async function toggleRecording() {
     }
   } catch (err) {
     console.error("Recording toggle error:", err);
-    showError(err);
+    showError(String(err));
   }
 }
 
@@ -36,9 +39,7 @@ function setRecordingState(recording) {
   statusBadge.classList.toggle("ready", !recording);
   statusBadge.textContent = recording ? "Recording" : "Ready";
   waveform.hidden = !recording;
-  recordHint.textContent = recording
-    ? "Recording... click or press hotkey to stop"
-    : "Press Ctrl+Shift+Space or click to record";
+  recordHint.innerHTML = recording ? HINT_RECORDING : HINT_IDLE;
 }
 
 // --- Transcription Events ---
@@ -73,31 +74,39 @@ function appendTranscription(text) {
 }
 
 function showError(message) {
-  statusBadge.textContent = "Error";
+  statusBadge.textContent = message || "Error";
+  statusBadge.className = "status-badge";
   statusBadge.style.color = "var(--danger)";
+  statusBadge.style.borderColor = "var(--danger)";
   setTimeout(() => {
-    statusBadge.textContent = isRecording ? "Recording" : "Ready";
     statusBadge.style.color = "";
+    statusBadge.style.borderColor = "";
+    statusBadge.textContent = isRecording ? "Recording" : "Ready";
+    statusBadge.classList.toggle("recording", isRecording);
+    statusBadge.classList.toggle("ready", !isRecording);
   }, 3000);
 }
 
 // --- Tab Navigation ---
+const recordingSection = document.querySelector(".recording-section");
+const transcriptionSection = document.querySelector(".transcription-section");
+
 tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     tabs.forEach((t) => t.classList.remove("active"));
     tab.classList.add("active");
 
     const tabName = tab.dataset.tab;
+    const isHome = tabName === "home";
 
     // Hide all panels
     document.querySelectorAll(".panel").forEach((p) => (p.hidden = true));
 
     // Show/hide main sections
-    const homeVisible = tabName === "home";
-    document.querySelector(".recording-section").hidden = !homeVisible;
-    document.querySelector(".transcription-section").hidden = !homeVisible;
+    recordingSection.hidden = !isHome;
+    transcriptionSection.hidden = !isHome;
 
-    if (tabName !== "home") {
+    if (!isHome) {
       const panel = document.getElementById(`panel-${tabName}`);
       if (panel) panel.hidden = false;
     }
@@ -116,26 +125,27 @@ async function loadModels() {
     models.forEach((model) => {
       const item = document.createElement("div");
       item.className = "model-item";
-      item.innerHTML = `
-        <div>
-          <div class="model-name">${model.display_name}</div>
-          <div class="model-status">${model.downloaded ? "Downloaded" : "Not downloaded"}</div>
-          <div class="progress-bar" id="progress-${model.name}" hidden>
-            <div class="fill" style="width: 0%"></div>
-          </div>
-        </div>
-        <button class="download-btn ${model.downloaded ? "downloaded" : ""}"
-                data-model="${model.name}"
-                ${model.downloaded ? "disabled" : ""}>
-          ${model.downloaded ? "✓ Ready" : "Download"}
-        </button>
-      `;
-      modelList.appendChild(item);
-    });
 
-    // Download button handlers
-    modelList.querySelectorAll(".download-btn:not(.downloaded)").forEach((btn) => {
-      btn.addEventListener("click", () => downloadModel(btn.dataset.model));
+      const info = document.createElement("div");
+      info.innerHTML = `
+        <div class="model-name">${escapeHtml(model.display_name)}</div>
+        <div class="model-status">${model.downloaded ? "Downloaded" : "Not downloaded"}</div>
+        <div class="progress-bar" id="progress-${escapeHtml(model.name)}" hidden>
+          <div class="fill" style="width: 0%"></div>
+        </div>
+      `;
+
+      const btn = document.createElement("button");
+      btn.className = "download-btn" + (model.downloaded ? " downloaded" : "");
+      btn.textContent = model.downloaded ? "Ready" : "Download";
+      btn.disabled = model.downloaded;
+      if (!model.downloaded) {
+        btn.addEventListener("click", () => downloadModel(model.name));
+      }
+
+      item.appendChild(info);
+      item.appendChild(btn);
+      modelList.appendChild(item);
     });
   } catch (err) {
     console.error("Failed to load models:", err);
@@ -154,7 +164,7 @@ async function downloadModel(modelName) {
     loadModels(); // Refresh list
   } catch (err) {
     console.error("Download failed:", err);
-    showError(err);
+    showError("Download failed");
   }
   currentDownloadModel = null;
 }
@@ -168,11 +178,13 @@ function updateDownloadProgress(percent) {
 // --- Settings ---
 async function loadSettings() {
   try {
-    const [devices, settings] = await Promise.all([
+    const [devices, models, settings] = await Promise.all([
       invoke("list_audio_devices"),
+      invoke("get_model_status"),
       invoke("get_settings"),
     ]);
 
+    // Audio devices
     const deviceSelect = document.getElementById("select-device");
     deviceSelect.innerHTML = '<option value="">Default</option>';
     devices.forEach((d) => {
@@ -183,6 +195,26 @@ async function loadSettings() {
       deviceSelect.appendChild(opt);
     });
 
+    // Whisper models
+    const modelSelect = document.getElementById("select-model");
+    modelSelect.innerHTML = "";
+    models.forEach((m) => {
+      if (m.downloaded) {
+        const opt = document.createElement("option");
+        opt.value = m.name;
+        opt.textContent = m.display_name;
+        if (settings.model === m.name) opt.selected = true;
+        modelSelect.appendChild(opt);
+      }
+    });
+    if (modelSelect.options.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No models downloaded";
+      opt.disabled = true;
+      modelSelect.appendChild(opt);
+    }
+
     document.getElementById("input-hotkey").value = settings.hotkey;
     document.getElementById("toggle-vad").checked = settings.vad_enabled;
     document.getElementById("toggle-overlay").checked = settings.show_overlay;
@@ -190,6 +222,13 @@ async function loadSettings() {
   } catch (err) {
     console.error("Failed to load settings:", err);
   }
+}
+
+// --- Helpers ---
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 // --- Init ---
