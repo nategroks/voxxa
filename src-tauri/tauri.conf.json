@@ -23,7 +23,7 @@
         "width": 420,
         "height": 600,
         "resizable": true,
-        "visible": false,
+        "visible": true,
         "decorations": true,
         "transparent": false
       },
