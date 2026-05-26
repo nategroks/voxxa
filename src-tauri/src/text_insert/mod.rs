@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use enigo::{Enigo, Keyboard, Settings};
 
 /// Insert text at the current cursor position using platform accessibility APIs.

@@ -8,7 +8,7 @@ use std::sync::Arc;
 pub const SAMPLE_RATE: u32 = 16000;
 
 /// Wrapper to make cpal::Stream Send+Sync (it's only used from one thread at a time).
-struct SendStream(cpal::Stream);
+struct SendStream(#[allow(dead_code)] cpal::Stream);
 unsafe impl Send for SendStream {}
 unsafe impl Sync for SendStream {}
 

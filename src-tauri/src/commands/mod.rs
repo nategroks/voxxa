@@ -96,6 +96,9 @@ pub async fn start_recording(
                                 Ok(result) if !result.text.is_empty() => {
                                     log::info!("Transcribed: {}", result.text);
                                     let _ = app_handle.emit("transcription", &result);
+                                    if let Err(e) = crate::text_insert::insert_text(&result.text) {
+                                        log::warn!("Text insertion failed: {}", e);
+                                    }
                                 }
                                 Ok(_) => {}
                                 Err(e) => log::error!("Transcription error: {}", e),
