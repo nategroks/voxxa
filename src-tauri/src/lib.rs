@@ -1,3 +1,4 @@
+mod aligner;
 mod audio;
 mod commands;
 mod text_insert;
@@ -11,16 +12,18 @@ mod mcp;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+pub use aligner::{AlignConfig, LyricsAligner, Setlist, Slide, Song};
 pub use audio::AudioEngine;
 pub use transcription::TranscriptionEngine;
 pub use vad::VadEngine;
 
-/// Shared application state accessible from Tauri commands.
+/// Shared application state.
 pub struct AppState {
     pub audio: Arc<Mutex<AudioEngine>>,
     pub transcription: Arc<Mutex<TranscriptionEngine>>,
     pub vad: Arc<Mutex<VadEngine>>,
-    pub is_recording: Arc<std::sync::atomic::AtomicBool>,
+    pub aligner: Arc<Mutex<Option<LyricsAligner>>>,
+    pub is_running: Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -30,13 +33,15 @@ pub fn run() {
     let audio = Arc::new(Mutex::new(AudioEngine::new()));
     let transcription = Arc::new(Mutex::new(TranscriptionEngine::new()));
     let vad = Arc::new(Mutex::new(VadEngine::new()));
-    let is_recording = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let aligner = Arc::new(Mutex::new(None::<LyricsAligner>));
+    let is_running = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let state = AppState {
         audio: audio.clone(),
         transcription: transcription.clone(),
         vad: vad.clone(),
-        is_recording: is_recording.clone(),
+        aligner: aligner.clone(),
+        is_running: is_running.clone(),
     };
 
     tauri::Builder::default()
@@ -46,16 +51,17 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
-            commands::start_recording,
-            commands::stop_recording,
+            commands::load_setlist,
+            commands::start_listening,
+            commands::stop_listening,
             commands::get_status,
             commands::list_audio_devices,
             commands::get_model_status,
             commands::download_model,
-            commands::set_hotkey,
             commands::get_settings,
             commands::save_settings,
-            commands::get_transcription_history,
+            commands::next_slide_manual,
+            commands::prev_slide_manual,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

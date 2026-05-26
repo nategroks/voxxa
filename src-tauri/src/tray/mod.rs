@@ -6,7 +6,7 @@ use tauri::{
 
 /// Create the system tray icon and menu.
 pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
-    let toggle = MenuItem::with_id(app, "toggle", "Start Recording", true, None::<&str>)?;
+    let toggle = MenuItem::with_id(app, "toggle", "Start Listening", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
     let separator = MenuItem::with_id(app, "sep", "---", false, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Voxxa", true, None::<&str>)?;
@@ -15,7 +15,7 @@ pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 
     TrayIconBuilder::new()
         .menu(&menu)
-        .tooltip("Voxxa - Voice Dictation")
+        .tooltip("Voxxa - Auto Slide Advancer")
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "toggle" => {
                 log::info!("Toggle recording from tray");

@@ -1,25 +1,43 @@
-use crate::AppState;
+use crate::aligner::{AlignConfig, LyricsAligner, Setlist, Slide, Song};
 use crate::transcription::WhisperModel;
+use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
 use tauri::{Emitter, State};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StatusInfo {
-    pub is_recording: bool,
+    pub is_running: bool,
     pub model_loaded: bool,
-    pub current_model: Option<String>,
+    pub current_slide: usize,
+    pub total_slides: usize,
+    pub song_title: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SlideAdvanced {
+    pub slide_index: usize,
+    pub total_slides: usize,
+    pub slide_text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TranscriptionEvent {
+    pub text: String,
+    pub curr_score: f64,
+    pub next_score: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
     pub model: String,
     pub language: Option<String>,
-    pub hotkey: String,
-    pub auto_paste: bool,
-    pub show_overlay: bool,
     pub device: Option<String>,
     pub vad_enabled: bool,
+    pub similarity_threshold: f64,
+    pub margin: f64,
+    pub max_buffer_words: usize,
+    pub block_duration: f64,
 }
 
 impl Default for Settings {
@@ -27,11 +45,12 @@ impl Default for Settings {
         Self {
             model: "Base".to_string(),
             language: None,
-            hotkey: "CmdOrCtrl+Shift+Space".to_string(),
-            auto_paste: true,
-            show_overlay: true,
             device: None,
             vad_enabled: true,
+            similarity_threshold: 70.0,
+            margin: 10.0,
+            max_buffer_words: 40,
+            block_duration: 5.0,
         }
     }
 }
@@ -50,37 +69,71 @@ pub struct DownloadProgress {
     pub percent: f32,
 }
 
-/// Start recording audio and transcribing.
+/// Load a setlist JSON file and prepare the aligner.
 #[tauri::command]
-pub async fn start_recording(
+pub async fn load_setlist(
+    state: State<'_, AppState>,
+    setlist_json: String,
+) -> Result<Vec<Song>, String> {
+    let setlist: Setlist = serde_json::from_str(&setlist_json).map_err(|e| e.to_string())?;
+
+    // Flatten all slides across all songs
+    let mut all_slides: Vec<Slide> = Vec::new();
+    for song in &setlist.setlist {
+        for slide in &song.slides {
+            all_slides.push(slide.clone());
+        }
+    }
+
+    let config = AlignConfig::default();
+    let aligner = LyricsAligner::new(all_slides, config);
+
+    *state.aligner.lock().await = Some(aligner);
+
+    log::info!(
+        "Loaded setlist with {} songs",
+        setlist.setlist.len()
+    );
+
+    Ok(setlist.setlist)
+}
+
+/// Start listening and auto-advancing slides.
+#[tauri::command]
+pub async fn start_listening(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    if state.is_recording.load(Ordering::SeqCst) {
-        return Err("Already recording".to_string());
+    if state.is_running.load(Ordering::SeqCst) {
+        return Err("Already running".to_string());
     }
 
-    state.is_recording.store(true, Ordering::SeqCst);
+    {
+        let aligner = state.aligner.lock().await;
+        if aligner.is_none() {
+            return Err("No setlist loaded. Load a setlist first.".to_string());
+        }
+    }
 
-    // Start audio capture
+    state.is_running.store(true, Ordering::SeqCst);
+
     let rx = {
         let mut audio = state.audio.lock().await;
         audio.start().map_err(|e| e.to_string())?
     };
 
-    // Spawn a task to process audio through VAD and Whisper
     let vad = state.vad.clone();
     let transcription = state.transcription.clone();
-    let is_recording = state.is_recording.clone();
+    let aligner = state.aligner.clone();
+    let is_running = state.is_running.clone();
     let app_handle = app.clone();
 
     tokio::task::spawn_blocking(move || {
         let mut accumulated = Vec::new();
 
-        while is_recording.load(Ordering::SeqCst) {
+        while is_running.load(Ordering::SeqCst) {
             match rx.recv_timeout(std::time::Duration::from_millis(100)) {
                 Ok(samples) => {
-                    // Run through VAD
                     let speech_segment = {
                         let mut vad = vad.blocking_lock();
                         vad.process(&samples)
@@ -89,15 +142,39 @@ pub async fn start_recording(
                     if let Some(segment) = speech_segment {
                         accumulated.extend_from_slice(&segment);
 
-                        // Transcribe when we have enough audio (>1 second)
-                        if accumulated.len() >= 16000 {
+                        // Transcribe when we have enough audio (~5 seconds)
+                        if accumulated.len() >= 16000 * 5 {
                             let transcription = transcription.blocking_lock();
                             match transcription.transcribe(&accumulated) {
                                 Ok(result) if !result.text.is_empty() => {
-                                    log::info!("Transcribed: {}", result.text);
-                                    let _ = app_handle.emit("transcription", &result);
-                                    if let Err(e) = crate::text_insert::insert_text(&result.text) {
-                                        log::warn!("Text insertion failed: {}", e);
+                                    log::info!("Heard: {}", result.text);
+
+                                    let mut aligner_lock = aligner.blocking_lock();
+                                    if let Some(ref mut aligner) = *aligner_lock {
+                                        let advanced = aligner.update(&result.text);
+
+                                        let _ = app_handle.emit("transcription", TranscriptionEvent {
+                                            text: result.text.clone(),
+                                            curr_score: 0.0,
+                                            next_score: 0.0,
+                                        });
+
+                                        if advanced {
+                                            if let Err(e) = crate::text_insert::send_next_slide() {
+                                                log::error!("Failed to advance slide: {}", e);
+                                            }
+
+                                            let slide_text = aligner
+                                                .current_slide()
+                                                .map(|s| s.text.clone())
+                                                .unwrap_or_default();
+
+                                            let _ = app_handle.emit("slide-advanced", SlideAdvanced {
+                                                slide_index: aligner.current_index(),
+                                                total_slides: aligner.total_slides(),
+                                                slide_text,
+                                            });
+                                        }
                                     }
                                 }
                                 Ok(_) => {}
@@ -111,25 +188,15 @@ pub async fn start_recording(
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
-
-        // Transcribe any remaining audio
-        if !accumulated.is_empty() {
-            let transcription = transcription.blocking_lock();
-            if let Ok(result) = transcription.transcribe(&accumulated) {
-                if !result.text.is_empty() {
-                    let _ = app_handle.emit("transcription", &result);
-                }
-            }
-        }
     });
 
     Ok(())
 }
 
-/// Stop recording.
+/// Stop listening.
 #[tauri::command]
-pub async fn stop_recording(state: State<'_, AppState>) -> Result<(), String> {
-    state.is_recording.store(false, Ordering::SeqCst);
+pub async fn stop_listening(state: State<'_, AppState>) -> Result<(), String> {
+    state.is_running.store(false, Ordering::SeqCst);
     let mut audio = state.audio.lock().await;
     audio.stop();
     let mut vad = state.vad.lock().await;
@@ -137,14 +204,21 @@ pub async fn stop_recording(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
-/// Get current app status.
+/// Get current status.
 #[tauri::command]
 pub async fn get_status(state: State<'_, AppState>) -> Result<StatusInfo, String> {
-    let transcription = state.transcription.lock().await;
+    let aligner = state.aligner.lock().await;
+    let (current_slide, total_slides) = match &*aligner {
+        Some(a) => (a.current_index(), a.total_slides()),
+        None => (0, 0),
+    };
+
     Ok(StatusInfo {
-        is_recording: state.is_recording.load(Ordering::SeqCst),
-        model_loaded: transcription.model_status().iter().any(|(_, d)| *d),
-        current_model: None,
+        is_running: state.is_running.load(Ordering::SeqCst),
+        model_loaded: true,
+        current_slide,
+        total_slides,
+        song_title: None,
     })
 }
 
@@ -211,14 +285,6 @@ pub async fn download_model(
     Ok(())
 }
 
-/// Set the global hotkey for push-to-talk.
-#[tauri::command]
-pub async fn set_hotkey(_hotkey: String) -> Result<(), String> {
-    // Hotkey registration is handled via tauri-plugin-global-shortcut
-    // This command stores the preference
-    Ok(())
-}
-
 /// Get current settings.
 #[tauri::command]
 pub async fn get_settings() -> Result<Settings, String> {
@@ -231,8 +297,20 @@ pub async fn save_settings(_settings: Settings) -> Result<(), String> {
     Ok(())
 }
 
-/// Get transcription history.
+/// Manually advance to next slide.
 #[tauri::command]
-pub async fn get_transcription_history() -> Result<Vec<String>, String> {
-    Ok(Vec::new())
+pub async fn next_slide_manual(state: State<'_, AppState>) -> Result<(), String> {
+    crate::text_insert::send_next_slide().map_err(|e| e.to_string())?;
+    let mut aligner = state.aligner.lock().await;
+    if let Some(ref mut a) = *aligner {
+        // Manually bump the index to keep in sync
+        let _ = a.update("__manual_advance__");
+    }
+    Ok(())
+}
+
+/// Manually go back a slide.
+#[tauri::command]
+pub async fn prev_slide_manual() -> Result<(), String> {
+    crate::text_insert::send_prev_slide().map_err(|e| e.to_string())
 }

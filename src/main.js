@@ -2,118 +2,188 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 // --- State ---
-let isRecording = false;
+let isListening = false;
+let slides = [];
+let currentSlideIndex = 0;
 
-// --- DOM Elements ---
-const recordBtn = document.getElementById("record-btn");
-const recordHint = document.getElementById("record-hint");
+// --- DOM ---
 const statusBadge = document.getElementById("status-badge");
-const waveform = document.getElementById("waveform");
-const transcriptionOutput = document.getElementById("transcription-output");
-const modelList = document.getElementById("model-list");
+const setlistLoader = document.getElementById("setlist-loader");
+const slideView = document.getElementById("slide-view");
+const songTitle = document.getElementById("song-title");
+const currentSlideText = document.getElementById("current-slide-text");
+const nextSlideText = document.getElementById("next-slide-text");
+const slideCounter = document.getElementById("slide-counter");
+const slideProgressFill = document.getElementById("slide-progress-fill");
+const heardText = document.getElementById("heard-text");
+const listenBtn = document.getElementById("listen-btn");
+const listenLabel = document.getElementById("listen-label");
+const prevBtn = document.getElementById("prev-btn");
+const nextBtn = document.getElementById("next-btn");
+const fileInput = document.getElementById("file-input");
 const tabs = document.querySelectorAll(".tab");
+const modelList = document.getElementById("model-list");
 
-const HINT_IDLE = 'Press <kbd>Ctrl+Shift+Space</kbd> or click to record';
-const HINT_RECORDING = "Recording... click or press hotkey to stop";
+// --- Setlist Loading ---
+fileInput.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  await loadSetlist(text);
+});
 
-// --- Recording Toggle ---
-async function toggleRecording() {
+// Drag and drop
+setlistLoader.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  setlistLoader.style.borderColor = "var(--accent)";
+});
+setlistLoader.addEventListener("dragleave", () => {
+  setlistLoader.style.borderColor = "";
+});
+setlistLoader.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  setlistLoader.style.borderColor = "";
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith(".json")) {
+    const text = await file.text();
+    await loadSetlist(text);
+  }
+});
+
+async function loadSetlist(jsonText) {
   try {
-    if (isRecording) {
-      await invoke("stop_recording");
-      setRecordingState(false);
-    } else {
-      await invoke("start_recording");
-      setRecordingState(true);
+    const songs = await invoke("load_setlist", { setlistJson: jsonText });
+
+    // Flatten slides for display
+    slides = [];
+    let title = "";
+    for (const song of songs) {
+      title = song.title;
+      for (const slide of song.slides) {
+        slides.push(slide);
+      }
     }
+
+    currentSlideIndex = 0;
+    songTitle.textContent = title;
+    setlistLoader.hidden = true;
+    slideView.hidden = false;
+    updateSlideDisplay();
   } catch (err) {
-    console.error("Recording toggle error:", err);
-    showError(String(err));
+    console.error("Failed to load setlist:", err);
+    alert("Failed to load setlist: " + err);
   }
 }
 
-function setRecordingState(recording) {
-  isRecording = recording;
-  recordBtn.classList.toggle("recording", recording);
-  statusBadge.classList.toggle("recording", recording);
-  statusBadge.classList.toggle("ready", !recording);
-  statusBadge.textContent = recording ? "Recording" : "Ready";
-  waveform.hidden = !recording;
-  recordHint.innerHTML = recording ? HINT_RECORDING : HINT_IDLE;
+function updateSlideDisplay() {
+  const curr = slides[currentSlideIndex];
+  const next = slides[currentSlideIndex + 1];
+
+  currentSlideText.textContent = curr ? curr.text : "—";
+  nextSlideText.textContent = next ? next.text : "(End of setlist)";
+  slideCounter.textContent = `${currentSlideIndex + 1} / ${slides.length}`;
+
+  const pct = slides.length > 1
+    ? (currentSlideIndex / (slides.length - 1)) * 100
+    : 100;
+  slideProgressFill.style.width = `${pct}%`;
 }
 
-// --- Transcription Events ---
+// --- Listening Toggle ---
+listenBtn.addEventListener("click", toggleListening);
+
+async function toggleListening() {
+  try {
+    if (isListening) {
+      await invoke("stop_listening");
+      setListeningState(false);
+    } else {
+      await invoke("start_listening");
+      setListeningState(true);
+    }
+  } catch (err) {
+    console.error("Listen toggle error:", err);
+    alert(String(err));
+    setListeningState(false);
+  }
+}
+
+function setListeningState(listening) {
+  isListening = listening;
+  listenBtn.classList.toggle("active", listening);
+  statusBadge.classList.toggle("listening", listening);
+  statusBadge.classList.toggle("ready", !listening);
+  statusBadge.textContent = listening ? "Listening" : "Ready";
+  listenLabel.textContent = listening ? "Stop" : "Start Listening";
+  heardText.textContent = listening ? "Waiting for audio..." : "—";
+}
+
+// --- Manual Slide Controls ---
+prevBtn.addEventListener("click", async () => {
+  try {
+    await invoke("prev_slide_manual");
+    if (currentSlideIndex > 0) {
+      currentSlideIndex--;
+      updateSlideDisplay();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+nextBtn.addEventListener("click", async () => {
+  try {
+    await invoke("next_slide_manual");
+    if (currentSlideIndex < slides.length - 1) {
+      currentSlideIndex++;
+      updateSlideDisplay();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+});
+
+// --- Events ---
 async function setupListeners() {
   await listen("transcription", (event) => {
-    const result = event.payload;
-    appendTranscription(result.text);
+    const { text } = event.payload;
+    if (text) {
+      heardText.textContent = text;
+    }
+  });
+
+  await listen("slide-advanced", (event) => {
+    const { slide_index } = event.payload;
+    currentSlideIndex = slide_index;
+    updateSlideDisplay();
   });
 
   await listen("download-progress", (event) => {
-    const { percent } = event.payload;
-    updateDownloadProgress(percent);
+    updateDownloadProgress(event.payload.percent);
   });
 
   await listen("tray-toggle-recording", () => {
-    toggleRecording();
+    toggleListening();
   });
 }
 
-function appendTranscription(text) {
-  if (!text) return;
-
-  // Remove placeholder
-  const placeholder = transcriptionOutput.querySelector(".placeholder");
-  if (placeholder) placeholder.remove();
-
-  const p = document.createElement("p");
-  p.textContent = text;
-  p.style.marginBottom = "8px";
-  transcriptionOutput.appendChild(p);
-  transcriptionOutput.scrollTop = transcriptionOutput.scrollHeight;
-}
-
-function showError(message) {
-  statusBadge.textContent = message || "Error";
-  statusBadge.className = "status-badge";
-  statusBadge.style.color = "var(--danger)";
-  statusBadge.style.borderColor = "var(--danger)";
-  setTimeout(() => {
-    statusBadge.style.color = "";
-    statusBadge.style.borderColor = "";
-    statusBadge.textContent = isRecording ? "Recording" : "Ready";
-    statusBadge.classList.toggle("recording", isRecording);
-    statusBadge.classList.toggle("ready", !isRecording);
-  }, 3000);
-}
-
 // --- Tab Navigation ---
-const recordingSection = document.querySelector(".recording-section");
-const transcriptionSection = document.querySelector(".transcription-section");
+const homeSection = document.getElementById("section-home");
+const modelsSection = document.getElementById("section-models");
+const settingsSection = document.getElementById("section-settings");
 
 tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
     tabs.forEach((t) => t.classList.remove("active"));
     tab.classList.add("active");
 
-    const tabName = tab.dataset.tab;
-    const isHome = tabName === "home";
+    const name = tab.dataset.tab;
+    homeSection.hidden = name !== "home";
+    modelsSection.hidden = name !== "models";
+    settingsSection.hidden = name !== "settings";
 
-    // Hide all panels
-    document.querySelectorAll(".panel").forEach((p) => (p.hidden = true));
-
-    // Show/hide main sections
-    recordingSection.hidden = !isHome;
-    transcriptionSection.hidden = !isHome;
-
-    if (!isHome) {
-      const panel = document.getElementById(`panel-${tabName}`);
-      if (panel) panel.hidden = false;
-    }
-
-    // Load data for tabs
-    if (tabName === "models") loadModels();
-    if (tabName === "settings") loadSettings();
+    if (name === "models") loadModels();
+    if (name === "settings") loadSettings();
   });
 });
 
@@ -156,15 +226,13 @@ let currentDownloadModel = null;
 
 async function downloadModel(modelName) {
   currentDownloadModel = modelName;
-  const progressBar = document.getElementById(`progress-${modelName}`);
-  if (progressBar) progressBar.hidden = false;
-
+  const bar = document.getElementById(`progress-${modelName}`);
+  if (bar) bar.hidden = false;
   try {
     await invoke("download_model", { modelName });
-    loadModels(); // Refresh list
+    loadModels();
   } catch (err) {
     console.error("Download failed:", err);
-    showError("Download failed");
   }
   currentDownloadModel = null;
 }
@@ -184,7 +252,6 @@ async function loadSettings() {
       invoke("get_settings"),
     ]);
 
-    // Audio devices
     const deviceSelect = document.getElementById("select-device");
     deviceSelect.innerHTML = '<option value="">Default</option>';
     devices.forEach((d) => {
@@ -195,7 +262,6 @@ async function loadSettings() {
       deviceSelect.appendChild(opt);
     });
 
-    // Whisper models
     const modelSelect = document.getElementById("select-model");
     modelSelect.innerHTML = "";
     models.forEach((m) => {
@@ -203,22 +269,31 @@ async function loadSettings() {
         const opt = document.createElement("option");
         opt.value = m.name;
         opt.textContent = m.display_name;
-        if (settings.model === m.name) opt.selected = true;
         modelSelect.appendChild(opt);
       }
     });
     if (modelSelect.options.length === 0) {
       const opt = document.createElement("option");
-      opt.value = "";
       opt.textContent = "No models downloaded";
       opt.disabled = true;
       modelSelect.appendChild(opt);
     }
 
-    document.getElementById("input-hotkey").value = settings.hotkey;
-    document.getElementById("toggle-vad").checked = settings.vad_enabled;
-    document.getElementById("toggle-overlay").checked = settings.show_overlay;
-    document.getElementById("toggle-autopaste").checked = settings.auto_paste;
+    const threshold = document.getElementById("input-threshold");
+    const thresholdVal = document.getElementById("threshold-val");
+    threshold.value = settings.similarity_threshold;
+    thresholdVal.textContent = settings.similarity_threshold + "%";
+    threshold.addEventListener("input", () => {
+      thresholdVal.textContent = threshold.value + "%";
+    });
+
+    const margin = document.getElementById("input-margin");
+    const marginVal = document.getElementById("margin-val");
+    margin.value = settings.margin;
+    marginVal.textContent = settings.margin;
+    margin.addEventListener("input", () => {
+      marginVal.textContent = margin.value;
+    });
   } catch (err) {
     console.error("Failed to load settings:", err);
   }
@@ -232,5 +307,4 @@ function escapeHtml(str) {
 }
 
 // --- Init ---
-recordBtn.addEventListener("click", toggleRecording);
 setupListeners();
