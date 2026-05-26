@@ -64,9 +64,6 @@
     }
   },
   "plugins": {
-    "global-shortcut": {
-      "shortcuts": []
-    },
     "updater": {
       "endpoints": [
         "https://github.com/nategroks/voxxa/releases/latest/download/latest.json"
