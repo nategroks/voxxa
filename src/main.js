@@ -779,11 +779,37 @@ async function loadPresenterPanel() {
       });
     }
 
-    selectPresenter.value = info.kind;
-    showPresenterConfigFor(info.kind);
+    // Restore last-used non-secret form fields. Passwords are never persisted
+    // and the user re-enters them each session.
+    const saved = readJsonStorage(PRESENTER_STORAGE_KEY);
+    const kindToShow = (saved && saved.kind) || info.kind;
+    selectPresenter.value = kindToShow;
+    if (saved) restorePresenterForm(saved);
+    showPresenterConfigFor(kindToShow);
     updatePresenterStatus(info);
   } catch (err) {
     console.error("loadPresenterPanel:", err);
+  }
+}
+
+function restorePresenterForm(saved) {
+  if (saved.host) {
+    if (inputPresenterHost) inputPresenterHost.value = saved.host;
+    if (inputOpenLpHost) inputOpenLpHost.value = saved.host;
+    if (inputOpenSongHost) inputOpenSongHost.value = saved.host;
+    if (inputPro7WsHost) inputPro7WsHost.value = saved.host;
+  }
+  if (saved.port) {
+    if (inputPresenterPort) inputPresenterPort.value = saved.port;
+    if (inputOpenLpPort) inputOpenLpPort.value = saved.port;
+    if (inputOpenSongPort) inputOpenSongPort.value = saved.port;
+    if (inputPro7WsPort) inputPro7WsPort.value = saved.port;
+  }
+  if (saved.username && inputOpenLpUsername) {
+    inputOpenLpUsername.value = saved.username;
+  }
+  if (saved.keystroke_profile && selectKeystrokeProfile) {
+    selectKeystrokeProfile.value = saved.keystroke_profile;
   }
 }
 
@@ -914,6 +940,14 @@ if (connectPresenterBtn) {
     try {
       const info = await invoke("connect_presenter", { args });
       updatePresenterStatus(info);
+      // Persist non-secret form values so the next launch starts here.
+      writeJsonStorage(PRESENTER_STORAGE_KEY, {
+        kind: args.kind,
+        host: args.host,
+        port: args.port,
+        username: args.username,
+        keystroke_profile: args.keystroke_profile,
+      });
     } catch (err) {
       console.error("connect_presenter:", err);
       presenterStatus.textContent = "Failed: " + err;
@@ -1003,6 +1037,14 @@ async function loadSmartConfig() {
   if (!smartSilence) return;
   try {
     smartConfig = await invoke("get_smart_config");
+    // Persisted overrides shadow the backend defaults so the user's last
+    // session-tuned values come back automatically.
+    const stored = readJsonStorage(SMART_STORAGE_KEY);
+    if (stored && typeof stored === "object") {
+      smartConfig = { ...smartConfig, ...stored };
+      // Push back to the backend in case it started with defaults.
+      try { await invoke("set_smart_config", { cfg: smartConfig }); } catch {}
+    }
     smartSilence.value = smartConfig.silence_to_blank_secs;
     smartUnrec.value = smartConfig.unrecognized_speech_to_blank_secs;
     smartConf.value = Math.round(smartConfig.song_confidence_floor * 100);
@@ -1010,6 +1052,26 @@ async function loadSmartConfig() {
     updateSmartLabels();
   } catch (err) {
     console.error("get_smart_config:", err);
+  }
+}
+
+const SMART_STORAGE_KEY = "voxxa.smartConfig";
+const PRESENTER_STORAGE_KEY = "voxxa.presenterForm";
+
+function readJsonStorage(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeJsonStorage(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage quota exceeded or disabled — non-fatal.
   }
 }
 
@@ -1037,6 +1099,7 @@ function saveSmartConfigSoon() {
     try {
       await invoke("set_smart_config", { cfg });
       smartConfig = cfg;
+      writeJsonStorage(SMART_STORAGE_KEY, cfg);
     } catch (err) {
       console.error("set_smart_config:", err);
     }
