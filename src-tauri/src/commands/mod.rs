@@ -55,6 +55,21 @@ pub struct MicLevel {
     pub rms: f32,
 }
 
+/// One row of the conductor's per-song confidence table, denormalised with
+/// the song title so the frontend can render without a second lookup.
+#[derive(Debug, Serialize, Clone)]
+pub struct DetectionRow {
+    pub song_index: usize,
+    pub song_title: String,
+    pub probability: f64,
+    pub raw_score: f64,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct DetectionEvent {
+    pub rows: Vec<DetectionRow>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
     pub model: String,
@@ -316,16 +331,39 @@ pub async fn start_listening_with_state(
                                             text: r.text.clone(),
                                         },
                                     );
-                                    let (action, total) = {
+                                    let (action, total, detection) = {
                                         let mut cl = conductor.blocking_lock();
                                         match cl.as_mut() {
-                                            Some(c) => (
-                                                c.on_transcript(&r.text, now),
-                                                Some(c.total_slides()),
-                                            ),
-                                            None => (Action::Noop, None),
+                                            Some(c) => {
+                                                let act = c.on_transcript(&r.text, now);
+                                                let titles = c.song_titles();
+                                                // Top 5 candidates is enough — beyond
+                                                // that the UI bars get noisy.
+                                                let rows: Vec<DetectionRow> = c
+                                                    .last_scores()
+                                                    .iter()
+                                                    .take(5)
+                                                    .map(|s| DetectionRow {
+                                                        song_index: s.song_index,
+                                                        song_title: titles
+                                                            .get(s.song_index)
+                                                            .cloned()
+                                                            .unwrap_or_default(),
+                                                        probability: s.probability,
+                                                        raw_score: s.raw_score,
+                                                    })
+                                                    .collect();
+                                                (act, Some(c.total_slides()), rows)
+                                            }
+                                            None => (Action::Noop, None, Vec::new()),
                                         }
                                     };
+                                    if !detection.is_empty() {
+                                        let _ = app_handle.emit(
+                                            "song-detection",
+                                            DetectionEvent { rows: detection },
+                                        );
+                                    }
                                     dispatch_action_with_total(
                                         &rt_handle,
                                         action,

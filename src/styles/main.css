@@ -886,3 +886,55 @@ body {
 .recent-row:hover { border-color: var(--accent); }
 .recent-row-title { font-size: 13px; font-weight: 600; }
 .recent-row-when { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
+/* Detection confidence bars — top 3 conductor candidates with softmax %. */
+.detect-section {
+  margin-top: 10px;
+  padding: 10px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.detect-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.detect-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.detect-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 32px;
+  align-items: center;
+  gap: 8px;
+}
+.detect-name {
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.detect-bar {
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.detect-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease-out;
+}
+.detect-pct {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  text-align: right;
+}

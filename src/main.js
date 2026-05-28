@@ -786,12 +786,41 @@ const micMeterPeak = document.getElementById("mic-meter-peak");
 let micPeakHold = 0;
 let micPeakDecayTimer = null;
 
+const detectSection = document.getElementById("detect-section");
+const detectRows = document.getElementById("detect-rows");
+
+function renderDetection(rows) {
+  if (!detectSection || !detectRows) return;
+  // Show top 3 only — the conductor sends 5; the long tail is noise.
+  const top = rows.slice(0, 3);
+  if (!top.length) {
+    detectSection.hidden = true;
+    return;
+  }
+  detectSection.hidden = false;
+  detectRows.innerHTML = "";
+  for (const r of top) {
+    const row = document.createElement("div");
+    row.className = "detect-row";
+    const pct = Math.round((r.probability || 0) * 100);
+    row.innerHTML =
+      '<div class="detect-name">' + escapeHtml(r.song_title || "(untitled)") + "</div>" +
+      '<div class="detect-bar"><div class="detect-bar-fill" style="width: ' + pct + '%"></div></div>' +
+      '<div class="detect-pct">' + pct + "%</div>";
+    detectRows.appendChild(row);
+  }
+}
+
 async function setupListeners() {
   await listen("transcription", (event) => {
     const { text } = event.payload;
     if (text) {
       heardText.textContent = text;
     }
+  });
+
+  await listen("song-detection", (event) => {
+    renderDetection(event.payload.rows || []);
   });
 
   await listen("mic-level", (event) => {

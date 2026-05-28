@@ -120,6 +120,11 @@ pub struct Conductor {
 
     last_speech: Option<Instant>,
     last_advance: Option<Instant>,
+
+    /// Most recent per-song softmax scores. Refreshed on every on_transcript
+    /// call so the UI can render confidence bars in real time. Empty before
+    /// the first transcript arrives.
+    last_scores: Vec<SongScore>,
 }
 
 impl Conductor {
@@ -145,7 +150,19 @@ impl Conductor {
             buffer_words: Vec::new(),
             last_speech: None,
             last_advance: None,
+            last_scores: Vec::new(),
         }
+    }
+
+    /// Most recent per-song confidences. Cheap clone — at most one entry per
+    /// song in the setlist.
+    pub fn last_scores(&self) -> &[SongScore] {
+        &self.last_scores
+    }
+
+    /// Map song index → title for the UI's confidence display.
+    pub fn song_titles(&self) -> Vec<String> {
+        self.songs.iter().map(|s| s.title.clone()).collect()
     }
 
     pub fn state(&self) -> MachineState {
@@ -244,6 +261,7 @@ impl Conductor {
         let buffer_text = self.buffer_words.join(" ");
 
         let scores = self.score_all_songs(&buffer_text);
+        self.last_scores = scores.clone();
         if scores.is_empty() {
             return Action::Noop;
         }
