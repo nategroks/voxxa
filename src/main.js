@@ -686,20 +686,32 @@ async function loadModels() {
       const item = document.createElement("div");
       item.className = "model-item";
 
+      const statusText = model.loaded
+        ? "In use"
+        : (model.downloaded ? "Downloaded" : "Not downloaded");
       const info = document.createElement("div");
       info.innerHTML = `
         <div class="model-name">${escapeHtml(model.display_name)}</div>
-        <div class="model-status">${model.downloaded ? "Downloaded" : "Not downloaded"}</div>
+        <div class="model-status">${statusText}</div>
         <div class="progress-bar" id="progress-${escapeHtml(model.name)}" hidden>
           <div class="fill" style="width: 0%"></div>
         </div>
       `;
 
       const btn = document.createElement("button");
-      btn.className = "download-btn" + (model.downloaded ? " downloaded" : "");
-      btn.textContent = model.downloaded ? "Ready" : "Download";
-      btn.disabled = model.downloaded;
-      if (!model.downloaded) {
+      // Three states: download (not downloaded), use (downloaded but not loaded),
+      // in-use (loaded). Each maps to a different label + action.
+      if (model.loaded) {
+        btn.className = "download-btn downloaded";
+        btn.textContent = "In use";
+        btn.disabled = true;
+      } else if (model.downloaded) {
+        btn.className = "download-btn use";
+        btn.textContent = "Use";
+        btn.addEventListener("click", () => loadModelByName(model.name));
+      } else {
+        btn.className = "download-btn";
+        btn.textContent = "Download";
         btn.addEventListener("click", () => downloadModel(model.name));
       }
 
@@ -712,6 +724,47 @@ async function loadModels() {
   }
 }
 
+async function loadModelByName(modelName) {
+  try {
+    await invoke("load_model", { modelName });
+    await loadModels();
+    writeJsonStorage("voxxa.lastModel", modelName);
+  } catch (err) {
+    console.error("load_model:", err);
+    alert("Failed to load model: " + err);
+  }
+}
+
+async function saveLanguageChoice() {
+  const sel = document.getElementById("select-language");
+  if (!sel) return;
+  const language = sel.value || null;
+  try {
+    await invoke("set_language", { language });
+    writeJsonStorage("voxxa.language", sel.value);
+  } catch (err) {
+    console.error("set_language:", err);
+  }
+}
+
+// On startup, re-apply the last language choice. Auto-reload of the model
+// is intentionally NOT done — model files can be large and reloading them
+// every launch is expensive; the user clicks Use once and then Voxxa
+// remembers it for the next session via writeJsonStorage above.
+async function restoreLastSession() {
+  const lang = readJsonStorage("voxxa.language");
+  if (typeof lang === "string") {
+    try { await invoke("set_language", { language: lang || null }); } catch {}
+  }
+  const lastModel = readJsonStorage("voxxa.lastModel");
+  if (typeof lastModel === "string" && lastModel) {
+    // Try to load — silently no-op if the file was deleted.
+    try { await invoke("load_model", { modelName: lastModel }); } catch (e) {
+      console.warn("could not restore last model:", e);
+    }
+  }
+}
+
 let currentDownloadModel = null;
 
 async function downloadModel(modelName) {
@@ -720,9 +773,12 @@ async function downloadModel(modelName) {
   if (bar) bar.hidden = false;
   try {
     await invoke("download_model", { modelName });
+    // Backend auto-loads the model on first download; reflect that here.
+    writeJsonStorage("voxxa.lastModel", modelName);
     loadModels();
   } catch (err) {
     console.error("Download failed:", err);
+    alert("Download failed: " + err);
   }
   currentDownloadModel = null;
 }
@@ -736,10 +792,11 @@ function updateDownloadProgress(percent) {
 // --- Settings ---
 async function loadSettings() {
   try {
-    const [devices, models, settings] = await Promise.all([
+    const [devices, models, settings, currentLang] = await Promise.all([
       invoke("list_audio_devices"),
       invoke("get_model_status"),
       invoke("get_settings"),
+      invoke("get_language"),
     ]);
 
     const deviceSelect = document.getElementById("select-device");
@@ -752,21 +809,28 @@ async function loadSettings() {
       deviceSelect.appendChild(opt);
     });
 
+    // Active model is display-only — the user picks one from the Models tab.
     const modelSelect = document.getElementById("select-model");
     modelSelect.innerHTML = "";
-    models.forEach((m) => {
-      if (m.downloaded) {
-        const opt = document.createElement("option");
-        opt.value = m.name;
-        opt.textContent = m.display_name;
-        modelSelect.appendChild(opt);
-      }
-    });
-    if (modelSelect.options.length === 0) {
+    const loaded = models.find((m) => m.loaded);
+    if (loaded) {
       const opt = document.createElement("option");
-      opt.textContent = "No models downloaded";
+      opt.value = loaded.name;
+      opt.textContent = loaded.display_name;
+      opt.selected = true;
+      modelSelect.appendChild(opt);
+    } else {
+      const opt = document.createElement("option");
+      opt.textContent = models.some((m) => m.downloaded)
+        ? "None loaded — pick one in the Models tab"
+        : "No models downloaded";
       opt.disabled = true;
       modelSelect.appendChild(opt);
+    }
+
+    const langSelect = document.getElementById("select-language");
+    if (langSelect) {
+      langSelect.value = currentLang || "";
     }
 
     const threshold = document.getElementById("input-threshold");
@@ -1142,6 +1206,9 @@ function saveSmartConfigSoon() {
   if (el) el.addEventListener("input", saveSmartConfigSoon);
 });
 
+const langSelectOnce = document.getElementById("select-language");
+if (langSelectOnce) langSelectOnce.addEventListener("change", saveLanguageChoice);
+
 // --- Diagnostics ---
 const diagBtn = document.getElementById("diag-btn");
 const diagOverlay = document.getElementById("diag-overlay");
@@ -1185,4 +1252,5 @@ if (diagCopy) {
 // --- Init ---
 setupListeners();
 loadPresenterPanel();
+restoreLastSession();
 maybeShowWelcome();

@@ -86,6 +86,7 @@ pub struct ModelInfo {
     pub name: String,
     pub display_name: String,
     pub downloaded: bool,
+    pub loaded: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,6 +158,15 @@ pub async fn start_listening(
         let c = state.conductor.lock().await;
         if c.is_none() {
             return Err("No setlist loaded. Load a setlist first.".to_string());
+        }
+    }
+    {
+        let t = state.transcription.lock().await;
+        if t.current_model().is_none() {
+            return Err(
+                "No Whisper model loaded. Download one from the Models tab first."
+                    .to_string(),
+            );
         }
     }
     state.is_running.store(true, Ordering::SeqCst);
@@ -490,12 +500,57 @@ pub async fn get_model_status(state: State<'_, AppState>) -> Result<Vec<ModelInf
     Ok(transcription
         .model_status()
         .into_iter()
-        .map(|(m, downloaded)| ModelInfo {
+        .map(|(m, downloaded, loaded)| ModelInfo {
             name: format!("{:?}", m),
             display_name: m.display_name().to_string(),
             downloaded,
+            loaded,
         })
         .collect())
+}
+
+/// Load a downloaded Whisper model into memory so transcription can run.
+/// Must be called before start_listening — otherwise the audio loop errors
+/// on every Whisper call.
+#[tauri::command]
+pub async fn load_model(
+    state: State<'_, AppState>,
+    model_name: String,
+) -> Result<(), String> {
+    let model = parse_model(&model_name)?;
+    let mut transcription = state.transcription.lock().await;
+    transcription.load_model(&model).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn set_language(
+    state: State<'_, AppState>,
+    language: Option<String>,
+) -> Result<(), String> {
+    let mut transcription = state.transcription.lock().await;
+    // Treat empty string the same as "auto-detect" so the UI's `<option value="">`
+    // doesn't accidentally set the language to an empty Whisper language code.
+    let normalised = language.filter(|s| !s.is_empty());
+    transcription.set_language(normalised);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_language(state: State<'_, AppState>) -> Result<Option<String>, String> {
+    let transcription = state.transcription.lock().await;
+    Ok(transcription.language().map(String::from))
+}
+
+fn parse_model(name: &str) -> Result<WhisperModel, String> {
+    Ok(match name {
+        "Tiny" => WhisperModel::Tiny,
+        "Base" => WhisperModel::Base,
+        "Small" => WhisperModel::Small,
+        "Medium" => WhisperModel::Medium,
+        "LargeV3Turbo" => WhisperModel::LargeV3Turbo,
+        "DistilLargeV3" => WhisperModel::DistilLargeV3,
+        other => return Err(format!("Unknown model: {other}")),
+    })
 }
 
 #[tauri::command]
@@ -504,35 +559,40 @@ pub async fn download_model(
     app: tauri::AppHandle,
     model_name: String,
 ) -> Result<(), String> {
-    let model = match model_name.as_str() {
-        "Tiny" => WhisperModel::Tiny,
-        "Base" => WhisperModel::Base,
-        "Small" => WhisperModel::Small,
-        "Medium" => WhisperModel::Medium,
-        "LargeV3Turbo" => WhisperModel::LargeV3Turbo,
-        "DistilLargeV3" => WhisperModel::DistilLargeV3,
-        _ => return Err(format!("Unknown model: {}", model_name)),
-    };
-    let transcription = state.transcription.lock().await;
-    let app_handle = app.clone();
-    transcription
-        .download_model(&model, move |downloaded, total| {
-            let percent = if total > 0 {
-                (downloaded as f32 / total as f32) * 100.0
-            } else {
-                0.0
-            };
-            let _ = app_handle.emit(
-                "download-progress",
-                DownloadProgress {
-                    downloaded,
-                    total,
-                    percent,
-                },
-            );
-        })
-        .await
-        .map_err(|e| e.to_string())?;
+    let model = parse_model(&model_name)?;
+    // Drop the transcription lock before awaiting the download so other commands
+    // (status polls, language sets) don't block for the duration of a 1 GB pull.
+    {
+        let transcription = state.transcription.lock().await;
+        let app_handle = app.clone();
+        transcription
+            .download_model(&model, move |downloaded, total| {
+                let percent = if total > 0 {
+                    (downloaded as f32 / total as f32) * 100.0
+                } else {
+                    0.0
+                };
+                let _ = app_handle.emit(
+                    "download-progress",
+                    DownloadProgress {
+                        downloaded,
+                        total,
+                        percent,
+                    },
+                );
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    // Auto-load on first download so the operator doesn't have to remember to
+    // hit a separate "Use" button before pressing record. If a model is already
+    // loaded, leave the active model alone.
+    let mut transcription = state.transcription.lock().await;
+    if transcription.current_model().is_none() {
+        if let Err(e) = transcription.load_model(&model) {
+            log::warn!("auto-load after download failed: {e}");
+        }
+    }
     Ok(())
 }
 

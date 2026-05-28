@@ -123,6 +123,9 @@ pub fn run() {
             commands::generate_diagnostic_report,
             commands::get_smart_config,
             commands::set_smart_config,
+            commands::load_model,
+            commands::set_language,
+            commands::get_language,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

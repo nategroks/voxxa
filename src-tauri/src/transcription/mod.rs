@@ -96,8 +96,10 @@ impl TranscriptionEngine {
         self.model_dir.join(model.filename()).exists()
     }
 
-    /// Get the status of all available models.
-    pub fn model_status(&self) -> Vec<(WhisperModel, bool)> {
+    /// Get the status of all available models. `loaded` indicates which model
+    /// (if any) is currently in memory and ready for transcription.
+    pub fn model_status(&self) -> Vec<(WhisperModel, bool, bool)> {
+        let active = self.current_model.as_ref();
         vec![
             WhisperModel::Tiny,
             WhisperModel::Base,
@@ -109,9 +111,20 @@ impl TranscriptionEngine {
         .into_iter()
         .map(|m| {
             let downloaded = self.is_model_downloaded(&m);
-            (m, downloaded)
+            let loaded = active == Some(&m);
+            (m, downloaded, loaded)
         })
         .collect()
+    }
+
+    /// Currently loaded model, if any.
+    pub fn current_model(&self) -> Option<&WhisperModel> {
+        self.current_model.as_ref()
+    }
+
+    /// Current target language (None = auto-detect).
+    pub fn language(&self) -> Option<&str> {
+        self.language.as_deref()
     }
 
     /// Load a Whisper model for transcription.
