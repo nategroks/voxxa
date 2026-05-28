@@ -48,12 +48,41 @@ pub async fn discover_all(timeout: Duration) -> Vec<DiscoveredService> {
 }
 
 async fn probe_localhost() -> Vec<DiscoveredService> {
-    let (pro7, freeshow, openlp) = tokio::join!(
+    let (pro7, freeshow, openlp, opensong) = tokio::join!(
         probe_pro7_rest("127.0.0.1", 1025),
         probe_freeshow("127.0.0.1", 5506),
         probe_openlp("127.0.0.1", 4316),
+        probe_opensong("127.0.0.1", 8082),
     );
-    [pro7, freeshow, openlp].into_iter().flatten().collect()
+    [pro7, freeshow, openlp, opensong]
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+async fn probe_opensong(host: &str, port: u16) -> Option<DiscoveredService> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_millis(500))
+        .build()
+        .ok()?;
+    let url = format!("http://{host}:{port}/presentation/status");
+    crate::net_stats::record_request();
+    let res = client.get(&url).send().await.ok()?;
+    let status = res.status();
+    // OpenSong returns XML on /status; 401 means we found it but auth is set.
+    if !status.is_success()
+        && status != reqwest::StatusCode::UNAUTHORIZED
+        && status != reqwest::StatusCode::NOT_FOUND
+    {
+        return None;
+    }
+    Some(DiscoveredService {
+        kind: PresenterKind::OpenSong,
+        host: host.to_string(),
+        port,
+        name: format!("OpenSong on {host}"),
+        source: DiscoverySource::Localhost,
+    })
 }
 
 async fn probe_pro7_rest(host: &str, port: u16) -> Option<DiscoveredService> {

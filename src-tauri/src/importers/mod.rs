@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 pub mod chordpro;
 pub mod openlyrics;
 pub mod opensong;
+pub mod pdf;
 pub mod pptx;
 pub mod txt;
 
@@ -24,6 +25,7 @@ pub enum ImportFormat {
     OpenSong,
     ChordPro,
     Pptx,
+    Pdf,
 }
 
 /// Parse a text-source song. Returns an error for binary formats.
@@ -33,14 +35,17 @@ pub fn parse_text(format: ImportFormat, content: &str, fallback_title: &str) -> 
         ImportFormat::OpenLyrics => openlyrics::parse(content, fallback_title),
         ImportFormat::OpenSong => opensong::parse(content, fallback_title),
         ImportFormat::ChordPro => chordpro::parse(content, fallback_title),
-        ImportFormat::Pptx => Err(anyhow!("pptx is binary — use parse_bytes")),
+        ImportFormat::Pptx | ImportFormat::Pdf => {
+            Err(anyhow!("{:?} is binary — use parse_bytes", format))
+        }
     }
 }
 
-/// Parse a binary-source song. Currently only pptx.
+/// Parse a binary-source song (.pptx, .pdf).
 pub fn parse_bytes(format: ImportFormat, bytes: &[u8], fallback_title: &str) -> Result<Song> {
     match format {
         ImportFormat::Pptx => pptx::parse(bytes, fallback_title),
+        ImportFormat::Pdf => pdf::parse(bytes, fallback_title),
         _ => Err(anyhow!("{:?} expects text content", format)),
     }
 }

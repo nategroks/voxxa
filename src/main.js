@@ -28,6 +28,7 @@ const selectPresenter = document.getElementById("select-presenter");
 const presenterKeystrokeConfig = document.getElementById("presenter-keystroke-config");
 const presenterRestConfig = document.getElementById("presenter-rest-config");
 const presenterOpenLpConfig = document.getElementById("presenter-openlp-config");
+const presenterOpenSongConfig = document.getElementById("presenter-opensong-config");
 const selectKeystrokeProfile = document.getElementById("select-keystroke-profile");
 const inputPresenterHost = document.getElementById("input-presenter-host");
 const inputPresenterPort = document.getElementById("input-presenter-port");
@@ -36,6 +37,9 @@ const inputOpenLpHost = document.getElementById("input-openlp-host");
 const inputOpenLpPort = document.getElementById("input-openlp-port");
 const inputOpenLpUsername = document.getElementById("input-openlp-username");
 const inputOpenLpPassword = document.getElementById("input-openlp-password");
+const inputOpenSongHost = document.getElementById("input-opensong-host");
+const inputOpenSongPort = document.getElementById("input-opensong-port");
+const inputOpenSongKey = document.getElementById("input-opensong-key");
 const connectPresenterBtn = document.getElementById("connect-presenter-btn");
 const discoverBtn = document.getElementById("discover-btn");
 const discoveredList = document.getElementById("discovered-list");
@@ -232,11 +236,11 @@ async function parseOneFile(file) {
   const lower = file.name.toLowerCase();
   const fallbackTitle = file.name.replace(/\.[^.]+$/, "");
 
-  if (lower.endsWith(".pptx")) {
+  if (lower.endsWith(".pptx") || lower.endsWith(".pdf")) {
     const bytesB64 = await readFileAsBase64(file);
     return invoke("parse_song_bytes", {
       bytesB64,
-      format: "pptx",
+      format: lower.endsWith(".pdf") ? "pdf" : "pptx",
       fallbackTitle,
     });
   }
@@ -652,6 +656,7 @@ function showPresenterConfigFor(kind) {
     if (restHelper) restHelper.textContent = "Enable FreeShow → Settings → Connections. Default 5506 (HTTP).";
   }
   presenterOpenLpConfig.hidden = kind !== "open_lp_v2";
+  if (presenterOpenSongConfig) presenterOpenSongConfig.hidden = kind !== "open_song";
 }
 
 function updatePresenterStatus(info) {
@@ -724,6 +729,9 @@ function useDiscovered(svc) {
   } else if (svc.kind === "open_lp_v2") {
     inputOpenLpHost.value = svc.host;
     inputOpenLpPort.value = svc.port;
+  } else if (svc.kind === "open_song") {
+    inputOpenSongHost.value = svc.host;
+    inputOpenSongPort.value = svc.port;
   }
 }
 
@@ -744,6 +752,11 @@ if (connectPresenterBtn) {
       const pass = inputOpenLpPassword.value;
       if (user) args.username = user;
       if (pass) args.password = pass;
+    } else if (kind === "open_song") {
+      args.host = inputOpenSongHost.value.trim() || "127.0.0.1";
+      args.port = parseInt(inputOpenSongPort.value, 10) || 8082;
+      const key = inputOpenSongKey.value;
+      if (key) args.password = key;
     }
     connectPresenterBtn.disabled = true;
     presenterStatus.textContent = "Connecting...";

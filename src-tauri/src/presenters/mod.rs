@@ -12,11 +12,13 @@ use std::fmt;
 pub mod freeshow;
 pub mod keystroke;
 pub mod openlp_v2;
+pub mod opensong;
 pub mod propresenter7_rest;
 
 pub use freeshow::FreeShowDriver;
 pub use keystroke::{KeystrokeDriver, KeystrokeProfile};
 pub use openlp_v2::OpenLpV2Driver;
+pub use opensong::OpenSongDriver;
 pub use propresenter7_rest::ProPresenter7RestDriver;
 
 /// Identifier for a driver implementation. Stable across releases — settings persist this.
@@ -31,6 +33,8 @@ pub enum PresenterKind {
     FreeShow,
     /// OpenLP v2 web API (REST on 4316, optional Basic Auth).
     OpenLpV2,
+    /// OpenSong Automation API (REST on 8082, optional API key).
+    OpenSong,
 }
 
 impl PresenterKind {
@@ -40,6 +44,7 @@ impl PresenterKind {
             Self::ProPresenter7Rest => "ProPresenter 7.9+ (REST API)",
             Self::FreeShow => "FreeShow",
             Self::OpenLpV2 => "OpenLP (Web Remote v2)",
+            Self::OpenSong => "OpenSong (Automation API)",
         }
     }
 
@@ -49,6 +54,7 @@ impl PresenterKind {
             Self::ProPresenter7Rest,
             Self::FreeShow,
             Self::OpenLpV2,
+            Self::OpenSong,
         ]
     }
 }
@@ -161,5 +167,6 @@ pub fn make_controller(kind: PresenterKind) -> Box<dyn PresentationController> {
         PresenterKind::ProPresenter7Rest => Box::new(ProPresenter7RestDriver::new()),
         PresenterKind::FreeShow => Box::new(FreeShowDriver::new()),
         PresenterKind::OpenLpV2 => Box::new(OpenLpV2Driver::new()),
+        PresenterKind::OpenSong => Box::new(OpenSongDriver::new()),
     }
 }

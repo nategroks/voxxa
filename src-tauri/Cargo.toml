@@ -54,9 +54,10 @@ async-trait = "0.1"
 # OpenLP optional Basic Auth header
 base64 = "0.22"
 
-# Setlist importers (OpenLyrics, OpenSong, ChordPro, .pptx)
+# Setlist importers (OpenLyrics, OpenSong, ChordPro, .pptx, .pdf)
 quick-xml = "0.36"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+pdf-extract = "0.8"
 
 # mDNS auto-discovery of ProPresenter on the LAN
 mdns-sd = "0.13"
