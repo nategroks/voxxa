@@ -433,11 +433,77 @@ async function loadSetlist(jsonText) {
     slideView.hidden = false;
     renderSongStrip();
     updateSlideDisplay();
+    // Persist a snapshot so a restart mid-service can pick up where we
+    // were — file paths or Planning Center sessions may not be reachable
+    // by then. Skip empty setlists.
+    if (songs.length > 0) saveRecentSetlist(songs);
   } catch (err) {
     console.error("Failed to load setlist:", err);
     showImportError("Failed to load setlist: " + err);
   }
 }
+
+// --- Recent setlists ---
+const RECENT_KEY = "voxxa.recentSetlists";
+const RECENT_LIMIT = 8;
+// Hard cap total stored payload at ~1 MB to keep localStorage from getting
+// fat on big Planning Center plans.
+const RECENT_MAX_BYTES = 1_000_000;
+const recentSection = document.getElementById("recent-section");
+const recentList = document.getElementById("recent-list");
+
+function saveRecentSetlist(songs) {
+  try {
+    const summary = songs.length === 1
+      ? songs[0].title
+      : `${songs.length} songs · ${songs[0].title}…`;
+    const entry = {
+      summary,
+      saved_at: Date.now(),
+      setlist: songs,
+    };
+    const stored = readJsonStorage(RECENT_KEY) || [];
+    // Dedupe by summary so re-loading the same setlist updates the timestamp.
+    const filtered = stored.filter((e) => e.summary !== summary);
+    filtered.unshift(entry);
+    // Trim by count, then by total bytes if still too large.
+    let trimmed = filtered.slice(0, RECENT_LIMIT);
+    while (trimmed.length > 1) {
+      const size = JSON.stringify(trimmed).length;
+      if (size <= RECENT_MAX_BYTES) break;
+      trimmed.pop();
+    }
+    writeJsonStorage(RECENT_KEY, trimmed);
+    renderRecentSetlists();
+  } catch (err) {
+    console.warn("saveRecentSetlist:", err);
+  }
+}
+
+function renderRecentSetlists() {
+  if (!recentList || !recentSection) return;
+  const stored = readJsonStorage(RECENT_KEY) || [];
+  if (!stored.length) {
+    recentSection.hidden = true;
+    return;
+  }
+  recentSection.hidden = false;
+  recentList.innerHTML = "";
+  for (const entry of stored) {
+    const row = document.createElement("button");
+    row.className = "recent-row";
+    const when = new Date(entry.saved_at).toLocaleString();
+    row.innerHTML =
+      '<div class="recent-row-title">' + escapeHtml(entry.summary) + "</div>" +
+      '<div class="recent-row-when">' + escapeHtml(when) + "</div>";
+    row.addEventListener("click", async () => {
+      await loadSetlist(JSON.stringify({ setlist: entry.setlist }));
+    });
+    recentList.appendChild(row);
+  }
+}
+
+renderRecentSetlists();
 
 // Song-jump strip: one button per song in the loaded setlist. Hidden for
 // single-song setlists since there's nothing to navigate.

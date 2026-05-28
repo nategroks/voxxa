@@ -855,3 +855,34 @@ body {
   max-height: 240px;
   overflow-y: auto;
 }
+
+.recent-section {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.recent-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.recent-row {
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--text);
+}
+.recent-row:hover { border-color: var(--accent); }
+.recent-row-title { font-size: 13px; font-weight: 600; }
+.recent-row-when { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
