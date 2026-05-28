@@ -4,6 +4,7 @@ mod commands;
 mod diagnostics;
 mod discovery;
 mod http_api;
+mod hymnary;
 mod importers;
 mod net_stats;
 mod planning_center;
@@ -123,6 +124,8 @@ pub fn run() {
             commands::parse_song_text,
             commands::parse_song_bytes,
             commands::import_easyworship_db,
+            commands::hymnary_search,
+            commands::hymnary_fetch,
             commands::discover_presenters,
             commands::pco_verify,
             commands::pco_list_service_types,

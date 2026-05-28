@@ -841,3 +841,17 @@ body {
   color: white;
   border-color: var(--accent);
 }
+
+.hymnary-row {
+  display: flex;
+  gap: 6px;
+}
+.hymnary-row input { flex: 1; }
+.hymnary-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}

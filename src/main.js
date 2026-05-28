@@ -55,6 +55,72 @@ const presenterStatus = document.getElementById("presenter-status");
 // --- Setlist Loading ---
 const importError = document.getElementById("import-error");
 
+// Hymnary.org public-domain hymn lookup.
+const hymnaryInput = document.getElementById("hymnary-q");
+const hymnarySearchBtn = document.getElementById("hymnary-search-btn");
+const hymnaryResults = document.getElementById("hymnary-results");
+
+if (hymnarySearchBtn) {
+  hymnarySearchBtn.addEventListener("click", runHymnarySearch);
+}
+if (hymnaryInput) {
+  hymnaryInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      runHymnarySearch();
+    }
+  });
+}
+
+async function runHymnarySearch() {
+  const q = (hymnaryInput?.value || "").trim();
+  if (!q) return;
+  hymnaryResults.innerHTML = '<div class="discovered-empty">Searching…</div>';
+  hymnarySearchBtn.disabled = true;
+  try {
+    const results = await invoke("hymnary_search", { query: q });
+    renderHymnaryResults(results || []);
+  } catch (err) {
+    console.error("hymnary_search:", err);
+    hymnaryResults.innerHTML =
+      '<div class="discovered-empty">Search failed: ' + escapeHtml(String(err)) + "</div>";
+  } finally {
+    hymnarySearchBtn.disabled = false;
+  }
+}
+
+function renderHymnaryResults(results) {
+  hymnaryResults.innerHTML = "";
+  if (!results.length) {
+    hymnaryResults.innerHTML =
+      '<div class="discovered-empty">No matches. Try a shorter query.</div>';
+    return;
+  }
+  for (const r of results.slice(0, 20)) {
+    const row = document.createElement("button");
+    row.className = "discovered-row";
+    const meta = [r.author, r.year].filter(Boolean).join(" · ");
+    row.innerHTML =
+      '<div class="discovered-name">' + escapeHtml(r.title) + "</div>" +
+      (meta ? '<div class="discovered-meta">' + escapeHtml(meta) + "</div>" : "");
+    row.addEventListener("click", () => loadHymnaryHymn(r));
+    hymnaryResults.appendChild(row);
+  }
+}
+
+async function loadHymnaryHymn(result) {
+  try {
+    const song = await invoke("hymnary_fetch", { slug: result.slug });
+    if (!song) return;
+    let id = 0;
+    for (const slide of song.slides) slide.id = id++;
+    await loadSetlist(JSON.stringify({ setlist: [song] }));
+  } catch (err) {
+    console.error("hymnary_fetch:", err);
+    alert("Couldn't load this hymn: " + err);
+  }
+}
+
 // Planning Center (in-memory credentials only).
 const pcoAppId = document.getElementById("pco-app-id");
 const pcoSecret = document.getElementById("pco-secret");

@@ -78,6 +78,23 @@
           </p>
           <p class="import-error" id="import-error" hidden></p>
 
+          <!-- Hymnary.org public-domain hymn lookup -->
+          <details class="pco-section" id="hymnary-section">
+            <summary>Or search Hymnary.org for a public-domain hymn</summary>
+            <div class="pco-body">
+              <label for="hymnary-q">Search</label>
+              <div class="hymnary-row">
+                <input type="text" id="hymnary-q" placeholder="e.g. Amazing Grace" autocomplete="off" />
+                <button class="primary-btn" id="hymnary-search-btn">Search</button>
+              </div>
+              <p class="helper-sub">
+                Hymnary returns full text only for hymns whose copyright has expired.
+                Modern worship songs are generally not here.
+              </p>
+              <div class="hymnary-results" id="hymnary-results"></div>
+            </div>
+          </details>
+
           <!-- Planning Center import -->
           <details class="pco-section" id="pco-section">
             <summary>Or import from Planning Center</summary>

@@ -1,5 +1,6 @@
 use crate::aligner::{Action, Conductor, MachineState, Setlist, SmartConfig, Song};
 use crate::discovery::{self, DiscoveredService};
+use crate::hymnary::{HymnaryClient, HymnaryResult};
 use crate::importers::{self, ImportFormat};
 use crate::net_stats::{self, NetworkStats};
 use crate::planning_center::{PcoClient, PcoPlan, PcoServiceType};
@@ -923,6 +924,21 @@ pub fn parse_song_bytes(
         .map_err(|e| format!("invalid base64: {e}"))?;
     let fallback = fallback_title.unwrap_or_else(|| "Untitled".to_string());
     importers::parse_bytes(format, &bytes, &fallback).map_err(|e| e.to_string())
+}
+
+/// Search Hymnary.org for public-domain hymns. No auth required.
+#[tauri::command]
+pub async fn hymnary_search(query: String) -> Result<Vec<HymnaryResult>, String> {
+    let client = HymnaryClient::new().map_err(|e| e.to_string())?;
+    client.search(&query).await.map_err(|e| e.to_string())
+}
+
+/// Fetch a Hymnary hymn's full lyric text. Errors when the hymn is still in
+/// copyright (Hymnary only returns text for public-domain hymns).
+#[tauri::command]
+pub async fn hymnary_fetch(slug: String) -> Result<Song, String> {
+    let client = HymnaryClient::new().map_err(|e| e.to_string())?;
+    client.fetch_song(&slug).await.map_err(|e| e.to_string())
 }
 
 /// Import an EasyWorship 6 SQLite library file. Returns every song in the
