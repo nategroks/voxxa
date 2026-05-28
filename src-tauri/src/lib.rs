@@ -3,6 +3,7 @@ mod audio;
 mod commands;
 mod discovery;
 mod importers;
+mod planning_center;
 mod presenters;
 mod transcription;
 mod tray;
@@ -104,6 +105,10 @@ pub fn run() {
             commands::parse_song_text,
             commands::parse_song_bytes,
             commands::discover_presenters,
+            commands::pco_verify,
+            commands::pco_list_service_types,
+            commands::pco_list_plans,
+            commands::pco_import_plan,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

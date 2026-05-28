@@ -44,6 +44,129 @@ const presenterStatus = document.getElementById("presenter-status");
 // --- Setlist Loading ---
 const importError = document.getElementById("import-error");
 
+// Planning Center (in-memory credentials only).
+const pcoAppId = document.getElementById("pco-app-id");
+const pcoSecret = document.getElementById("pco-secret");
+const pcoConnectBtn = document.getElementById("pco-connect-btn");
+const pcoStatus = document.getElementById("pco-status");
+const pcoStepService = document.getElementById("pco-step-service");
+const pcoServiceType = document.getElementById("pco-service-type");
+const pcoStepPlan = document.getElementById("pco-step-plan");
+const pcoPlan = document.getElementById("pco-plan");
+const pcoImportBtn = document.getElementById("pco-import-btn");
+let pcoCreds = null;
+
+if (pcoConnectBtn) {
+  pcoConnectBtn.addEventListener("click", pcoConnect);
+}
+if (pcoServiceType) {
+  pcoServiceType.addEventListener("change", pcoLoadPlans);
+}
+if (pcoImportBtn) {
+  pcoImportBtn.addEventListener("click", pcoImportSelectedPlan);
+}
+
+async function pcoConnect() {
+  const appId = (pcoAppId?.value || "").trim();
+  const secret = pcoSecret?.value || "";
+  if (!appId || !secret) {
+    setPcoStatus("Enter both an application ID and secret.", "err");
+    return;
+  }
+  pcoConnectBtn.disabled = true;
+  setPcoStatus("Verifying...");
+  try {
+    const name = await invoke("pco_verify", { appId, secret });
+    pcoCreds = { appId, secret };
+    setPcoStatus(`Connected as ${name}`, "ok");
+    const types = await invoke("pco_list_service_types", { appId, secret });
+    pcoServiceType.innerHTML = "";
+    if (!types.length) {
+      setPcoStatus("No service types on this account.", "err");
+      return;
+    }
+    for (const t of types) {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.name;
+      pcoServiceType.appendChild(opt);
+    }
+    pcoStepService.hidden = false;
+    await pcoLoadPlans();
+  } catch (err) {
+    console.error("PCO connect:", err);
+    setPcoStatus("Failed: " + err, "err");
+  } finally {
+    pcoConnectBtn.disabled = false;
+  }
+}
+
+async function pcoLoadPlans() {
+  if (!pcoCreds || !pcoServiceType.value) return;
+  pcoStepPlan.hidden = true;
+  pcoPlan.innerHTML = "";
+  setPcoStatus("Loading plans...");
+  try {
+    const plans = await invoke("pco_list_plans", {
+      appId: pcoCreds.appId,
+      secret: pcoCreds.secret,
+      serviceTypeId: pcoServiceType.value,
+    });
+    if (!plans.length) {
+      setPcoStatus("No future plans on this service type.", "err");
+      return;
+    }
+    for (const p of plans) {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      const label = p.dates ? `${p.dates} — ${p.title || "(untitled)"}` : (p.title || p.id);
+      opt.textContent = label;
+      pcoPlan.appendChild(opt);
+    }
+    pcoStepPlan.hidden = false;
+    setPcoStatus(`${plans.length} plan${plans.length === 1 ? "" : "s"} found.`, "ok");
+  } catch (err) {
+    console.error("PCO plans:", err);
+    setPcoStatus("Failed: " + err, "err");
+  }
+}
+
+async function pcoImportSelectedPlan() {
+  if (!pcoCreds || !pcoServiceType.value || !pcoPlan.value) return;
+  pcoImportBtn.disabled = true;
+  setPcoStatus("Importing songs...");
+  try {
+    const songs = await invoke("pco_import_plan", {
+      appId: pcoCreds.appId,
+      secret: pcoCreds.secret,
+      serviceTypeId: pcoServiceType.value,
+      planId: pcoPlan.value,
+    });
+    if (!songs || !songs.length) {
+      setPcoStatus("Plan imported but contained no usable songs.", "err");
+      return;
+    }
+    let id = 0;
+    for (const song of songs) {
+      for (const slide of song.slides) slide.id = id++;
+    }
+    await loadSetlist(JSON.stringify({ setlist: songs }));
+    setPcoStatus(`Imported ${songs.length} song${songs.length === 1 ? "" : "s"}.`, "ok");
+  } catch (err) {
+    console.error("PCO import:", err);
+    setPcoStatus("Failed: " + err, "err");
+  } finally {
+    pcoImportBtn.disabled = false;
+  }
+}
+
+function setPcoStatus(msg, kind) {
+  if (!pcoStatus) return;
+  pcoStatus.textContent = msg;
+  pcoStatus.classList.remove("ok", "err");
+  if (kind) pcoStatus.classList.add(kind);
+}
+
 fileInput.addEventListener("change", async (e) => {
   await importFiles(Array.from(e.target.files || []));
   // Clear the input so the same file can be re-selected.

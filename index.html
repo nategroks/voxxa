@@ -40,6 +40,35 @@
             Setlist JSON, .txt, OpenLyrics / OpenSong XML, ChordPro, or .pptx — drop one or many.
           </p>
           <p class="import-error" id="import-error" hidden></p>
+
+          <!-- Planning Center import -->
+          <details class="pco-section" id="pco-section">
+            <summary>Or import from Planning Center</summary>
+            <div class="pco-body">
+              <label for="pco-app-id">Application ID</label>
+              <input type="text" id="pco-app-id" autocomplete="off" spellcheck="false" />
+              <label for="pco-secret">Secret</label>
+              <input type="password" id="pco-secret" autocomplete="off" />
+              <p class="helper-sub">
+                Create a Personal Access Token at
+                api.planningcenteronline.com/oauth/applications.
+                Credentials are kept in memory only — not persisted to disk.
+              </p>
+              <button class="primary-btn" id="pco-connect-btn">Connect</button>
+              <div class="pco-status" id="pco-status"></div>
+
+              <div class="pco-step" id="pco-step-service" hidden>
+                <label for="pco-service-type">Service Type</label>
+                <select id="pco-service-type"></select>
+              </div>
+
+              <div class="pco-step" id="pco-step-plan" hidden>
+                <label for="pco-plan">Plan</label>
+                <select id="pco-plan"></select>
+                <button class="primary-btn" id="pco-import-btn">Import this plan</button>
+              </div>
+            </div>
+          </details>
         </div>
 
         <!-- Active slide view (hidden until setlist loaded) -->

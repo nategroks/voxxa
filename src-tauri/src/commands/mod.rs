@@ -1,6 +1,7 @@
 use crate::aligner::{Action, Conductor, MachineState, Setlist, SmartConfig, Song};
 use crate::discovery::{self, DiscoveredService};
 use crate::importers::{self, ImportFormat};
+use crate::planning_center::{PcoClient, PcoPlan, PcoServiceType};
 use crate::presenters::{
     make_controller, Capabilities, KeystrokeProfile, PresenterConfig, PresenterKind,
     PresenterState,
@@ -573,6 +574,49 @@ pub async fn get_presenter_info(state: State<'_, AppState>) -> Result<PresenterI
         connected: p.is_connected(),
         capabilities: p.capabilities(),
     })
+}
+
+/// Test Planning Center credentials. Returns the authenticated user's name.
+#[tauri::command]
+pub async fn pco_verify(app_id: String, secret: String) -> Result<String, String> {
+    let client = PcoClient::new(&app_id, &secret).map_err(|e| e.to_string())?;
+    client.verify().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn pco_list_service_types(
+    app_id: String,
+    secret: String,
+) -> Result<Vec<PcoServiceType>, String> {
+    let client = PcoClient::new(&app_id, &secret).map_err(|e| e.to_string())?;
+    client.list_service_types().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn pco_list_plans(
+    app_id: String,
+    secret: String,
+    service_type_id: String,
+) -> Result<Vec<PcoPlan>, String> {
+    let client = PcoClient::new(&app_id, &secret).map_err(|e| e.to_string())?;
+    client
+        .list_plans(&service_type_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn pco_import_plan(
+    app_id: String,
+    secret: String,
+    service_type_id: String,
+    plan_id: String,
+) -> Result<Vec<Song>, String> {
+    let client = PcoClient::new(&app_id, &secret).map_err(|e| e.to_string())?;
+    client
+        .import_plan(&service_type_id, &plan_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Probe localhost ports + browse mDNS for ProPresenter / FreeShow / OpenLP.

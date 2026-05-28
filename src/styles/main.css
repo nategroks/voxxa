@@ -465,3 +465,50 @@ body {
   color: var(--text-dim);
   padding: 6px 0;
 }
+
+.pco-section {
+  margin-top: 12px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.pco-section summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.pco-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+}
+.pco-body label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.pco-body input,
+.pco-body select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.pco-body .helper-sub { color: var(--text-dim); font-size: 11px; }
+.pco-status {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.pco-status.ok { color: var(--success); }
+.pco-status.err { color: var(--danger); }
+.pco-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
