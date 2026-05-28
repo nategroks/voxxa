@@ -33,6 +33,9 @@ pub enum PresenterKind {
     ProPresenter7Rest,
     /// ProPresenter 7.0–7.8 WebSocket fallback (reverse-engineered protocol).
     ProPresenter7Ws,
+    /// ProPresenter 6 WebSocket — same wire format as 7.x with protocol 600
+    /// and integer slideIndex.
+    ProPresenter6Ws,
     /// FreeShow JSON action protocol over HTTP (port 5506) or socket.io (port 5505).
     FreeShow,
     /// OpenLP v2 web API (REST on 4316, optional Basic Auth).
@@ -47,6 +50,7 @@ impl PresenterKind {
             Self::Keystroke => "Keystroke (any app)",
             Self::ProPresenter7Rest => "ProPresenter 7.9+ (REST API)",
             Self::ProPresenter7Ws => "ProPresenter 7.0–7.8 (WebSocket)",
+            Self::ProPresenter6Ws => "ProPresenter 6 (WebSocket)",
             Self::FreeShow => "FreeShow",
             Self::OpenLpV2 => "OpenLP (Web Remote v2)",
             Self::OpenSong => "OpenSong (Automation API)",
@@ -58,6 +62,7 @@ impl PresenterKind {
             Self::Keystroke,
             Self::ProPresenter7Rest,
             Self::ProPresenter7Ws,
+            Self::ProPresenter6Ws,
             Self::FreeShow,
             Self::OpenLpV2,
             Self::OpenSong,
@@ -172,6 +177,7 @@ pub fn make_controller(kind: PresenterKind) -> Box<dyn PresentationController> {
         PresenterKind::Keystroke => Box::new(KeystrokeDriver::new()),
         PresenterKind::ProPresenter7Rest => Box::new(ProPresenter7RestDriver::new()),
         PresenterKind::ProPresenter7Ws => Box::new(ProPresenter7WsDriver::new()),
+        PresenterKind::ProPresenter6Ws => Box::new(ProPresenter7WsDriver::new_pro6()),
         PresenterKind::FreeShow => Box::new(FreeShowDriver::new()),
         PresenterKind::OpenLpV2 => Box::new(OpenLpV2Driver::new()),
         PresenterKind::OpenSong => Box::new(OpenSongDriver::new()),

@@ -559,11 +559,39 @@ if (blankBtn) {
 }
 
 // --- Events ---
+const micMeterFill = document.getElementById("mic-meter-fill");
+const micMeterPeak = document.getElementById("mic-meter-peak");
+let micPeakHold = 0;
+let micPeakDecayTimer = null;
+
 async function setupListeners() {
   await listen("transcription", (event) => {
     const { text } = event.payload;
     if (text) {
       heardText.textContent = text;
+    }
+  });
+
+  await listen("mic-level", (event) => {
+    const { peak, rms } = event.payload;
+    if (micMeterFill) {
+      // RMS-based fill maps to perceptual "loudness" better than peak.
+      // Visual scale: 0–0.3 covers normal speech.
+      const pct = Math.min(rms / 0.3, 1) * 100;
+      micMeterFill.style.width = `${pct}%`;
+    }
+    if (micMeterPeak) {
+      // Peak indicator with slow decay so transients are visible.
+      if (peak > micPeakHold) {
+        micPeakHold = peak;
+        clearTimeout(micPeakDecayTimer);
+        micPeakDecayTimer = setTimeout(() => {
+          micPeakHold = 0;
+          if (micMeterPeak) micMeterPeak.style.left = "0%";
+        }, 600);
+      }
+      const peakPct = Math.min(micPeakHold / 0.5, 1) * 100;
+      micMeterPeak.style.left = `${peakPct}%`;
     }
   });
 
@@ -828,7 +856,11 @@ function showPresenterConfigFor(kind) {
   }
   presenterOpenLpConfig.hidden = kind !== "open_lp_v2";
   if (presenterOpenSongConfig) presenterOpenSongConfig.hidden = kind !== "open_song";
-  if (presenterPro7WsConfig) presenterPro7WsConfig.hidden = kind !== "pro_presenter7_ws";
+  // Same WS config form (host/port/password) for both Pro7 7.0-7.8 and Pro6.
+  if (presenterPro7WsConfig) {
+    presenterPro7WsConfig.hidden =
+      kind !== "pro_presenter7_ws" && kind !== "pro_presenter6_ws";
+  }
 }
 
 function updatePresenterStatus(info) {
@@ -929,7 +961,7 @@ if (connectPresenterBtn) {
       args.port = parseInt(inputOpenSongPort.value, 10) || 8082;
       const key = inputOpenSongKey.value;
       if (key) args.password = key;
-    } else if (kind === "pro_presenter7_ws") {
+    } else if (kind === "pro_presenter7_ws" || kind === "pro_presenter6_ws") {
       args.host = inputPro7WsHost.value.trim() || "127.0.0.1";
       args.port = parseInt(inputPro7WsPort.value, 10) || 50001;
       args.password = inputPro7WsPassword.value || "";

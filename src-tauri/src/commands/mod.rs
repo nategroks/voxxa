@@ -46,6 +46,14 @@ pub struct TranscriptionEvent {
     pub text: String,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct MicLevel {
+    /// Peak amplitude in this window, 0.0–1.0. Clipped to 1.0 if the mic is hot.
+    pub peak: f32,
+    /// RMS energy in the same window — what the VAD effectively sees.
+    pub rms: f32,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
     pub model: String,
@@ -174,7 +182,13 @@ pub async fn start_listening(
         let mut last_state = MachineState::Listening;
         let mut last_blank = true;
         let mut last_tick = Instant::now();
+        let mut last_mic_emit = Instant::now();
+        let mut peak_window: f32 = 0.0;
+        let mut sumsq_window: f64 = 0.0;
+        let mut samples_window: usize = 0;
         const TICK_EVERY: Duration = Duration::from_millis(200);
+        // ~33 Hz UI updates — fast enough to look live, cheap enough to ignore.
+        const MIC_EMIT_EVERY: Duration = Duration::from_millis(33);
 
         while is_running.load(Ordering::SeqCst) {
             let now = Instant::now();
@@ -220,6 +234,37 @@ pub async fn start_listening(
 
             match rx.recv_timeout(Duration::from_millis(100)) {
                 Ok(samples) => {
+                    // Mic level: track peak + sum-of-squares across the
+                    // emission window. Cheap to compute (single pass over the
+                    // chunk) and worth surfacing so operators can verify mic
+                    // signal at a glance.
+                    for &s in &samples {
+                        let a = s.abs();
+                        if a > peak_window {
+                            peak_window = a;
+                        }
+                        sumsq_window += (s as f64) * (s as f64);
+                    }
+                    samples_window += samples.len();
+                    if now.duration_since(last_mic_emit) >= MIC_EMIT_EVERY {
+                        let rms = if samples_window > 0 {
+                            (sumsq_window / samples_window as f64).sqrt() as f32
+                        } else {
+                            0.0
+                        };
+                        let _ = app_handle.emit(
+                            "mic-level",
+                            MicLevel {
+                                peak: peak_window.min(1.0),
+                                rms,
+                            },
+                        );
+                        peak_window = 0.0;
+                        sumsq_window = 0.0;
+                        samples_window = 0;
+                        last_mic_emit = now;
+                    }
+
                     let speech_segment = {
                         let mut v = vad.blocking_lock();
                         let seg = v.process(&samples);

@@ -34,9 +34,19 @@ use super::{
 /// stage display / remote channel; the actual value is whatever the operator
 /// configured in Settings → Network.
 const DEFAULT_PORT: u16 = 50001;
-const PROTOCOL_VERSION: &str = "701"; // Pro 7.4.2+
+const PROTOCOL_VERSION_PRO7: &str = "701"; // Pro 7.4.2+
+const PROTOCOL_VERSION_PRO6: &str = "600";
+
+/// Which Pro protocol family we're talking to. Pro6 takes integer slideIndex;
+/// Pro7 takes a string (per the upstream Pro7 bug doc).
+#[derive(Clone, Copy)]
+enum Family {
+    Pro7,
+    Pro6,
+}
 
 pub struct ProPresenter7WsDriver {
+    family: Family,
     /// Sender to the bridge task that owns the live WebSocket. Dropping it
     /// closes the connection.
     tx: Option<mpsc::Sender<Message>>,
@@ -44,7 +54,11 @@ pub struct ProPresenter7WsDriver {
 
 impl ProPresenter7WsDriver {
     pub fn new() -> Self {
-        Self { tx: None }
+        Self { family: Family::Pro7, tx: None }
+    }
+
+    pub fn new_pro6() -> Self {
+        Self { family: Family::Pro6, tx: None }
     }
 
     async fn send_action(&self, action_json: serde_json::Value) -> Result<(), CtlError> {
@@ -109,7 +123,10 @@ async fn bridge(
 #[async_trait]
 impl PresentationController for ProPresenter7WsDriver {
     fn kind(&self) -> PresenterKind {
-        PresenterKind::ProPresenter7Ws
+        match self.family {
+            Family::Pro7 => PresenterKind::ProPresenter7Ws,
+            Family::Pro6 => PresenterKind::ProPresenter6Ws,
+        }
     }
 
     fn capabilities(&self) -> Capabilities {
@@ -145,10 +162,14 @@ impl PresentationController for ProPresenter7WsDriver {
         .map_err(|e| CtlError::Network(format!("ws connect failed: {e}")))?;
 
         // Authenticate. Pro7 replies with {"action":"authenticate","authenticated":1}
-        // on success; 0 with an error field on failure.
+        // on success; 0 with an error field on failure. Pro6 uses protocol 600.
+        let protocol = match self.family {
+            Family::Pro7 => PROTOCOL_VERSION_PRO7,
+            Family::Pro6 => PROTOCOL_VERSION_PRO6,
+        };
         let auth = json!({
             "action": "authenticate",
-            "protocol": PROTOCOL_VERSION,
+            "protocol": protocol,
             "password": password,
         });
         ws.send(Message::Text(auth.to_string()))
@@ -208,16 +229,22 @@ impl PresentationController for ProPresenter7WsDriver {
     }
 
     async fn goto_slide(&self, index: u32) -> Result<(), CtlError> {
-        // slideIndex must be a STRING on Pro7 (the upstream API docs flag this
-        // as a Pro7 bug — Pro6 takes an integer). presentationPath "0:0" means
-        // the currently-selected presentation, slide group 0.
-        self.send_action(json!({
-            "action": "presentationTriggerIndex",
-            "slideIndex": index.to_string(),
-            "presentationPath": "0:0",
-        }))
-        .await?;
-        log::info!("[PRO7-WS] goto_slide {index}");
+        // slideIndex is STRING on Pro7 (upstream bug) and INT on Pro6.
+        // presentationPath "0:0" = currently-selected presentation, group 0.
+        let payload = match self.family {
+            Family::Pro7 => json!({
+                "action": "presentationTriggerIndex",
+                "slideIndex": index.to_string(),
+                "presentationPath": "0:0",
+            }),
+            Family::Pro6 => json!({
+                "action": "presentationTriggerIndex",
+                "slideIndex": index,
+                "presentationPath": "0",
+            }),
+        };
+        self.send_action(payload).await?;
+        log::info!("[PRO-WS] goto_slide {index}");
         Ok(())
     }
 }
