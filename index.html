@@ -266,6 +266,38 @@
           </label>
         </div>
 
+        <!-- Smart-blanking tuning. Per the plan §4.4 the defaults are
+             reasonable, but rooms vary — exposing the knobs so beta operators
+             can dial them in without recompiling. -->
+        <div class="setting-group smart-group">
+          <div class="smart-title">Smart-blanking thresholds</div>
+          <p class="helper-sub">Changes apply immediately to the active service.</p>
+
+          <label for="smart-silence">
+            Silence before holding slide
+            <span id="smart-silence-val">3.0 s</span>
+          </label>
+          <input type="range" id="smart-silence" min="1" max="10" step="0.5" value="3" />
+
+          <label for="smart-unrecognized">
+            Unrecognized speech before blanking
+            <span id="smart-unrecognized-val">5.0 s</span>
+          </label>
+          <input type="range" id="smart-unrecognized" min="2" max="15" step="0.5" value="5" />
+
+          <label for="smart-confidence">
+            Song detection confidence floor
+            <span id="smart-confidence-val">60 %</span>
+          </label>
+          <input type="range" id="smart-confidence" min="30" max="90" step="5" value="60" />
+
+          <label for="smart-dwell">
+            Minimum dwell before re-detecting
+            <span id="smart-dwell-val">8.0 s</span>
+          </label>
+          <input type="range" id="smart-dwell" min="4" max="30" step="1" value="8" />
+        </div>
+
         <!-- Privacy: outbound network counter -->
         <div class="privacy-card" id="privacy-card">
           <div class="privacy-title">Privacy</div>

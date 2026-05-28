@@ -735,3 +735,32 @@ body {
   justify-content: flex-end;
   gap: 8px;
 }
+
+.smart-group {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.smart-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.smart-group label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 10px;
+}
+.smart-group label span {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-weight: 500;
+}
+.smart-group input[type="range"] {
+  width: 100%;
+}

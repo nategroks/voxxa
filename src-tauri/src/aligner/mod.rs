@@ -168,6 +168,13 @@ impl Conductor {
             .and_then(|i| self.songs.get(i).map(|s| s.title.as_str()))
     }
 
+    /// Hot-swap tuning thresholds without losing position. Useful when the
+    /// operator is dialing in smart-blanking mid-rehearsal.
+    pub fn set_config(&mut self, cfg: SmartConfig) {
+        log::info!("[CONDUCTOR] config updated");
+        self.config = cfg;
+    }
+
     /// Notify the machine that VAD says the user is speaking.
     pub fn on_speech(&mut self, now: Instant) {
         self.last_speech = Some(now);

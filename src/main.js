@@ -617,6 +617,7 @@ tabs.forEach((tab) => {
     if (name === "settings") {
       loadSettings();
       loadPresenterPanel();
+      loadSmartConfig();
       refreshPrivacyCount();
     }
   });
@@ -986,6 +987,65 @@ if (welcomeSetlist) {
     if (fileInput) fileInput.click();
   });
 }
+
+// --- Smart-blanking threshold tuning ---
+const smartSilence = document.getElementById("smart-silence");
+const smartSilenceVal = document.getElementById("smart-silence-val");
+const smartUnrec = document.getElementById("smart-unrecognized");
+const smartUnrecVal = document.getElementById("smart-unrecognized-val");
+const smartConf = document.getElementById("smart-confidence");
+const smartConfVal = document.getElementById("smart-confidence-val");
+const smartDwell = document.getElementById("smart-dwell");
+const smartDwellVal = document.getElementById("smart-dwell-val");
+let smartConfig = null;
+
+async function loadSmartConfig() {
+  if (!smartSilence) return;
+  try {
+    smartConfig = await invoke("get_smart_config");
+    smartSilence.value = smartConfig.silence_to_blank_secs;
+    smartUnrec.value = smartConfig.unrecognized_speech_to_blank_secs;
+    smartConf.value = Math.round(smartConfig.song_confidence_floor * 100);
+    smartDwell.value = smartConfig.min_song_dwell_secs;
+    updateSmartLabels();
+  } catch (err) {
+    console.error("get_smart_config:", err);
+  }
+}
+
+function updateSmartLabels() {
+  smartSilenceVal.textContent = parseFloat(smartSilence.value).toFixed(1) + " s";
+  smartUnrecVal.textContent = parseFloat(smartUnrec.value).toFixed(1) + " s";
+  smartConfVal.textContent = smartConf.value + " %";
+  smartDwellVal.textContent = parseFloat(smartDwell.value).toFixed(1) + " s";
+}
+
+// Debounce config writes so dragging a slider doesn't flood IPC.
+let smartSaveTimer = null;
+function saveSmartConfigSoon() {
+  updateSmartLabels();
+  clearTimeout(smartSaveTimer);
+  smartSaveTimer = setTimeout(async () => {
+    if (!smartConfig) return;
+    const cfg = {
+      ...smartConfig,
+      silence_to_blank_secs: parseFloat(smartSilence.value),
+      unrecognized_speech_to_blank_secs: parseFloat(smartUnrec.value),
+      song_confidence_floor: parseInt(smartConf.value, 10) / 100,
+      min_song_dwell_secs: parseFloat(smartDwell.value),
+    };
+    try {
+      await invoke("set_smart_config", { cfg });
+      smartConfig = cfg;
+    } catch (err) {
+      console.error("set_smart_config:", err);
+    }
+  }, 250);
+}
+
+[smartSilence, smartUnrec, smartConf, smartDwell].forEach((el) => {
+  if (el) el.addEventListener("input", saveSmartConfigSoon);
+});
 
 // --- Diagnostics ---
 const diagBtn = document.getElementById("diag-btn");

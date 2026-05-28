@@ -109,11 +109,31 @@ pub async fn load_setlist(
 ) -> Result<Vec<Song>, String> {
     let setlist: Setlist = serde_json::from_str(&setlist_json).map_err(|e| e.to_string())?;
     let songs = setlist.setlist.clone();
-    let conductor = Conductor::new(songs.clone(), SmartConfig::default());
+    let cfg = state.smart_config.lock().await.clone();
+    let conductor = Conductor::new(songs.clone(), cfg);
     *state.conductor.lock().await = Some(conductor);
     state.last_dispatched_global.store(-1, Ordering::SeqCst);
     log::info!("Loaded setlist with {} songs", songs.len());
     Ok(songs)
+}
+
+#[tauri::command]
+pub async fn get_smart_config(state: State<'_, AppState>) -> Result<SmartConfig, String> {
+    Ok(state.smart_config.lock().await.clone())
+}
+
+/// Update smart-blanking thresholds. Hot-swaps into the active conductor so
+/// the change takes effect immediately without losing position.
+#[tauri::command]
+pub async fn set_smart_config(
+    state: State<'_, AppState>,
+    cfg: SmartConfig,
+) -> Result<(), String> {
+    *state.smart_config.lock().await = cfg.clone();
+    if let Some(c) = state.conductor.lock().await.as_mut() {
+        c.set_config(cfg);
+    }
+    Ok(())
 }
 
 /// Start listening: drives VAD → Whisper → Conductor → presenter.

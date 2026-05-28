@@ -33,6 +33,10 @@ pub struct AppState {
     pub vad: Arc<Mutex<VadEngine>>,
     pub conductor: Arc<Mutex<Option<Conductor>>>,
     pub presenter: Arc<Mutex<Box<dyn PresentationController>>>,
+    /// User-tunable smart-blanking thresholds. Applied to every new conductor
+    /// constructed by load_setlist; can also be hot-swapped into the current
+    /// conductor via set_smart_config.
+    pub smart_config: Arc<Mutex<SmartConfig>>,
     /// Last global slide index the dispatcher actually sent to the presenter.
     /// Used to translate a `Goto` action into next/prev keypresses or a single
     /// `goto_slide` API call, depending on driver capabilities.
@@ -50,6 +54,7 @@ pub fn run() {
     let transcription = Arc::new(Mutex::new(TranscriptionEngine::new()));
     let vad = Arc::new(Mutex::new(VadEngine::new()));
     let conductor = Arc::new(Mutex::new(None::<Conductor>));
+    let smart_config = Arc::new(Mutex::new(SmartConfig::default()));
     let last_dispatched_global = Arc::new(std::sync::atomic::AtomicI64::new(-1));
     // Default driver: keystroke / universal — works the moment the user focuses any
     // presentation app, no configuration required.
@@ -78,6 +83,7 @@ pub fn run() {
         vad: vad.clone(),
         conductor: conductor.clone(),
         presenter: presenter.clone(),
+        smart_config: smart_config.clone(),
         last_dispatched_global: last_dispatched_global.clone(),
         is_running: is_running.clone(),
     };
@@ -115,6 +121,8 @@ pub fn run() {
             commands::pco_import_plan,
             commands::get_network_stats,
             commands::generate_diagnostic_report,
+            commands::get_smart_config,
+            commands::set_smart_config,
         ])
         .setup(|app| {
             tray::create_tray(app)?;
