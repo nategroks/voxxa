@@ -5853,6 +5853,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64 0.22.1",
+ "chrono",
  "cpal",
  "dirs",
  "enigo",

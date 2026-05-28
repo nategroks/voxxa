@@ -583,6 +583,15 @@ pub fn get_network_stats() -> NetworkStats {
     net_stats::snapshot()
 }
 
+/// Build a copy-pasteable diagnostic report (system info + recent log lines).
+/// Voxxa never uploads — the user owns where this text goes.
+#[tauri::command]
+pub async fn generate_diagnostic_report(
+    state: State<'_, AppState>,
+) -> Result<crate::diagnostics::DiagnosticReport, String> {
+    Ok(crate::diagnostics::generate_report(&state).await)
+}
+
 /// Test Planning Center credentials. Returns the authenticated user's name.
 #[tauri::command]
 pub async fn pco_verify(app_id: String, secret: String) -> Result<String, String> {

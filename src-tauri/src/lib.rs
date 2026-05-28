@@ -1,6 +1,7 @@
 mod aligner;
 mod audio;
 mod commands;
+mod diagnostics;
 mod discovery;
 mod importers;
 mod net_stats;
@@ -41,7 +42,9 @@ pub struct AppState {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    env_logger::init();
+    // The ring-buffer logger replaces env_logger so generate_diagnostic_report
+    // has actual log lines to embed.
+    diagnostics::init_logger();
 
     let audio = Arc::new(Mutex::new(AudioEngine::new()));
     let transcription = Arc::new(Mutex::new(TranscriptionEngine::new()));
@@ -111,6 +114,7 @@ pub fn run() {
             commands::pco_list_plans,
             commands::pco_import_plan,
             commands::get_network_stats,
+            commands::generate_diagnostic_report,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

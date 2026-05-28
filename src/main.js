@@ -978,6 +978,46 @@ if (welcomeSetlist) {
   });
 }
 
+// --- Diagnostics ---
+const diagBtn = document.getElementById("diag-btn");
+const diagOverlay = document.getElementById("diag-overlay");
+const diagClose = document.getElementById("diag-close");
+const diagText = document.getElementById("diag-text");
+const diagCopy = document.getElementById("diag-copy");
+
+if (diagBtn) {
+  diagBtn.addEventListener("click", async () => {
+    try {
+      const report = await invoke("generate_diagnostic_report");
+      diagText.value = JSON.stringify(report, null, 2);
+      diagOverlay.hidden = false;
+    } catch (err) {
+      console.error("diagnostic report:", err);
+      alert("Failed to generate report: " + err);
+    }
+  });
+}
+if (diagClose) diagClose.addEventListener("click", () => diagOverlay.hidden = true);
+if (diagOverlay) {
+  diagOverlay.addEventListener("click", (e) => {
+    // Click outside the card closes; click inside doesn't.
+    if (e.target === diagOverlay) diagOverlay.hidden = true;
+  });
+}
+if (diagCopy) {
+  diagCopy.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(diagText.value);
+      diagCopy.textContent = "Copied";
+      setTimeout(() => (diagCopy.textContent = "Copy to clipboard"), 1500);
+    } catch (err) {
+      // Fallback for environments without async clipboard.
+      diagText.select();
+      document.execCommand("copy");
+    }
+  });
+}
+
 // --- Init ---
 setupListeners();
 loadPresenterPanel();
