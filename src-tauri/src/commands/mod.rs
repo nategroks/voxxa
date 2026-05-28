@@ -846,7 +846,7 @@ pub fn parse_song_text(
     importers::parse_text(format, &content, &fallback).map_err(|e| e.to_string())
 }
 
-/// Parse a binary-source song (.pptx). `bytes_b64` is base64-encoded raw file bytes.
+/// Parse a binary-source song (.pptx, .pdf, .pro7). `bytes_b64` is base64-encoded raw file bytes.
 #[tauri::command]
 pub fn parse_song_bytes(
     bytes_b64: String,
@@ -859,6 +859,18 @@ pub fn parse_song_bytes(
         .map_err(|e| format!("invalid base64: {e}"))?;
     let fallback = fallback_title.unwrap_or_else(|| "Untitled".to_string());
     importers::parse_bytes(format, &bytes, &fallback).map_err(|e| e.to_string())
+}
+
+/// Import an EasyWorship 6 SQLite library file. Returns every song in the
+/// database — unlike the other importers, one .db file is a whole multi-song
+/// library, not a single song.
+#[tauri::command]
+pub fn import_easyworship_db(bytes_b64: String) -> Result<Vec<Song>, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(bytes_b64.as_bytes())
+        .map_err(|e| format!("invalid base64: {e}"))?;
+    importers::easyworship::parse_database(&bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

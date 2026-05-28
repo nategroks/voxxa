@@ -213,6 +213,24 @@ async function importFiles(files) {
       await loadSetlist(unwrapVoxxaSet(text));
       return;
     }
+    // EasyWorship 6 .db files are whole multi-song libraries; route to the
+    // dedicated import_easyworship_db command which returns Vec<Song>.
+    if (lower.endsWith(".db")) {
+      try {
+        const bytesB64 = await readFileAsBase64(files[0]);
+        const songs = await invoke("import_easyworship_db", { bytesB64 });
+        if (songs && songs.length) {
+          let id = 0;
+          for (const song of songs) for (const slide of song.slides) slide.id = id++;
+          await loadSetlist(JSON.stringify({ setlist: songs }));
+          return;
+        }
+        showImportError("EasyWorship database contained no usable songs.");
+      } catch (err) {
+        showImportError("EasyWorship import failed: " + err);
+      }
+      return;
+    }
   }
 
   const collected = [];

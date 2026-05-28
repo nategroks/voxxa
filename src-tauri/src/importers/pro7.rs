@@ -106,7 +106,10 @@ fn find_balanced_brace_end(bytes: &[u8]) -> Option<usize> {
 }
 
 /// Convert a single RTF blob to plain text. See module docs for details.
-fn rtf_to_text(rtf: &[u8]) -> String {
+///
+/// Shared with the EasyWorship importer, which encounters the same Microsoft
+/// RTF dialect in its SQLite `words` columns.
+pub(crate) fn rtf_to_text(rtf: &[u8]) -> String {
     let s = String::from_utf8_lossy(rtf);
     let chars: Vec<char> = s.chars().collect();
     let mut out = String::new();

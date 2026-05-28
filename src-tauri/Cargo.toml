@@ -63,10 +63,12 @@ axum = { version = "0.7", default-features = false, features = ["json", "tokio",
 # OpenLP optional Basic Auth header
 base64 = "0.22"
 
-# Setlist importers (OpenLyrics, OpenSong, ChordPro, .pptx, .pdf)
+# Setlist importers (OpenLyrics, OpenSong, ChordPro, .pptx, .pdf, EW6 SQLite)
 quick-xml = "0.36"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 pdf-extract = "0.8"
+rusqlite = { version = "0.32", features = ["bundled"] }
+tempfile = "3"
 
 # mDNS auto-discovery of ProPresenter on the LAN
 mdns-sd = "0.13"

@@ -120,6 +120,7 @@ pub fn run() {
             commands::get_presenter_state,
             commands::parse_song_text,
             commands::parse_song_bytes,
+            commands::import_easyworship_db,
             commands::discover_presenters,
             commands::pco_verify,
             commands::pco_list_service_types,

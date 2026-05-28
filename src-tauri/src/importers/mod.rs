@@ -9,6 +9,7 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 pub mod chordpro;
+pub mod easyworship;
 pub mod openlyrics;
 pub mod opensong;
 pub mod pdf;
