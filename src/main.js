@@ -660,6 +660,7 @@ tabs.forEach((tab) => {
       loadPresenterPanel();
       loadSmartConfig();
       refreshPrivacyCount();
+      refreshHttpApiStatus();
     }
   });
 });
@@ -1221,6 +1222,64 @@ function saveSmartConfigSoon() {
 
 const langSelectOnce = document.getElementById("select-language");
 if (langSelectOnce) langSelectOnce.addEventListener("change", saveLanguageChoice);
+
+// --- Local HTTP API toggle ---
+const httpApiToggle = document.getElementById("http-api-toggle");
+const httpApiDetail = document.getElementById("http-api-detail");
+const httpApiPort = document.getElementById("http-api-port");
+const httpApiToken = document.getElementById("http-api-token");
+const httpApiStatus = document.getElementById("http-api-status");
+const HTTP_API_STORAGE_KEY = "voxxa.httpApi";
+
+async function refreshHttpApiStatus() {
+  if (!httpApiStatus) return;
+  try {
+    const s = await invoke("get_http_api_status");
+    httpApiStatus.textContent = s.running
+      ? `Listening on http://127.0.0.1:${s.port}`
+      : "Off";
+    httpApiStatus.classList.toggle("ok", s.running);
+    httpApiToggle.checked = s.running;
+    httpApiDetail.hidden = !s.running && !httpApiToggle.checked;
+  } catch (err) {
+    console.error("get_http_api_status:", err);
+  }
+}
+
+if (httpApiToggle) {
+  httpApiToggle.addEventListener("change", async () => {
+    httpApiDetail.hidden = !httpApiToggle.checked;
+    if (httpApiToggle.checked) {
+      const port = parseInt(httpApiPort.value, 10) || 7575;
+      const token = httpApiToken.value || null;
+      try {
+        await invoke("start_http_api", { port, token });
+        writeJsonStorage(HTTP_API_STORAGE_KEY, { port, enabled: true });
+      } catch (err) {
+        console.error("start_http_api:", err);
+        httpApiStatus.textContent = "Failed: " + err;
+        httpApiStatus.classList.add("err");
+        httpApiToggle.checked = false;
+        httpApiDetail.hidden = true;
+      }
+    } else {
+      try {
+        await invoke("stop_http_api");
+        writeJsonStorage(HTTP_API_STORAGE_KEY, { port: parseInt(httpApiPort.value, 10) || 7575, enabled: false });
+      } catch (err) {
+        console.error("stop_http_api:", err);
+      }
+    }
+    await refreshHttpApiStatus();
+  });
+}
+
+// Restore non-secret HTTP API config — bearer token is intentionally not
+// persisted, same policy as presenter passwords.
+(function restoreHttpApi() {
+  const saved = readJsonStorage(HTTP_API_STORAGE_KEY);
+  if (saved && saved.port && httpApiPort) httpApiPort.value = saved.port;
+})();
 
 // --- Diagnostics ---
 const diagBtn = document.getElementById("diag-btn");

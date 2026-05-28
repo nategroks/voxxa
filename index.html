@@ -337,6 +337,22 @@
           </div>
         </div>
 
+        <!-- Local HTTP API (Stream Deck, foot pedals, automation). -->
+        <div class="setting-group connection-group">
+          <label class="toggle-label">
+            <input type="checkbox" id="http-api-toggle" />
+            Local HTTP API (Stream Deck, foot pedals, etc.)
+          </label>
+          <p class="helper-sub">127.0.0.1 only. Endpoints: GET /api/v1/state, POST /api/v1/next, /prev, /blank, /listen/start, /listen/stop.</p>
+          <div id="http-api-detail" class="presenter-config" hidden>
+            <label for="http-api-port">Port</label>
+            <input type="number" id="http-api-port" value="7575" min="1024" max="65535" />
+            <label for="http-api-token">Bearer token (optional)</label>
+            <input type="password" id="http-api-token" placeholder="Leave blank for no auth" />
+            <div id="http-api-status" class="presenter-status">Off</div>
+          </div>
+        </div>
+
         <!-- Diagnostics: generate a copy-pasteable report. -->
         <div class="setting-group">
           <button class="secondary-btn" id="diag-btn">Generate diagnostic report</button>

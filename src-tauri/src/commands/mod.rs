@@ -151,6 +151,16 @@ pub async fn start_listening(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
+    start_listening_with_state(&state, &app).await
+}
+
+/// Same as `start_listening` but callable from any code path that has a
+/// borrow of AppState — the HTTP API routes use this so they don't have to
+/// re-implement the audio loop.
+pub async fn start_listening_with_state(
+    state: &AppState,
+    app: &tauri::AppHandle,
+) -> Result<(), String> {
     if state.is_running.load(Ordering::SeqCst) {
         return Err("Already running".to_string());
     }
@@ -706,6 +716,42 @@ pub async fn get_presenter_info(state: State<'_, AppState>) -> Result<PresenterI
 #[tauri::command]
 pub fn get_network_stats() -> NetworkStats {
     net_stats::snapshot()
+}
+
+#[derive(Debug, Serialize)]
+pub struct HttpApiStatus {
+    pub running: bool,
+    pub port: u16,
+}
+
+#[tauri::command]
+pub async fn get_http_api_status(state: State<'_, AppState>) -> Result<HttpApiStatus, String> {
+    let api = state.http_api.lock().await;
+    Ok(HttpApiStatus {
+        running: api.is_running(),
+        port: api.port(),
+    })
+}
+
+/// Turn the local HTTP API on. `token` is optional — when set, writes
+/// require an `Authorization: Bearer <token>` header.
+#[tauri::command]
+pub async fn start_http_api(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    port: u16,
+    token: Option<String>,
+) -> Result<(), String> {
+    let mut api = state.http_api.lock().await;
+    let token = token.filter(|t| !t.is_empty());
+    api.start(app, port, token).await
+}
+
+#[tauri::command]
+pub async fn stop_http_api(state: State<'_, AppState>) -> Result<(), String> {
+    let mut api = state.http_api.lock().await;
+    api.stop();
+    Ok(())
 }
 
 /// Toggle the always-on-top Stage Display companion window. Used by worship

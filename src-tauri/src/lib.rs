@@ -3,6 +3,7 @@ mod audio;
 mod commands;
 mod diagnostics;
 mod discovery;
+mod http_api;
 mod importers;
 mod net_stats;
 mod planning_center;
@@ -42,6 +43,9 @@ pub struct AppState {
     /// `goto_slide` API call, depending on driver capabilities.
     pub last_dispatched_global: Arc<std::sync::atomic::AtomicI64>,
     pub is_running: Arc<std::sync::atomic::AtomicBool>,
+    /// Optional local HTTP API for hardware integrations. None until the user
+    /// turns it on in Settings.
+    pub http_api: http_api::SharedHttpApi,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -56,6 +60,7 @@ pub fn run() {
     let conductor = Arc::new(Mutex::new(None::<Conductor>));
     let smart_config = Arc::new(Mutex::new(SmartConfig::default()));
     let last_dispatched_global = Arc::new(std::sync::atomic::AtomicI64::new(-1));
+    let http_api = Arc::new(Mutex::new(http_api::HttpApiServer::new()));
     // Default driver: keystroke / universal — works the moment the user focuses any
     // presentation app, no configuration required.
     let mut keystroke = make_controller(PresenterKind::Keystroke);
@@ -86,6 +91,7 @@ pub fn run() {
         smart_config: smart_config.clone(),
         last_dispatched_global: last_dispatched_global.clone(),
         is_running: is_running.clone(),
+        http_api: http_api.clone(),
     };
 
     tauri::Builder::default()
@@ -127,6 +133,9 @@ pub fn run() {
             commands::set_language,
             commands::get_language,
             commands::toggle_stage_display,
+            commands::get_http_api_status,
+            commands::start_http_api,
+            commands::stop_http_api,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

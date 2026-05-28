@@ -55,6 +55,11 @@ async-trait = "0.1"
 # WebSocket client for ProPresenter 7.0–7.8 fallback driver
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
 
+# Local HTTP API for hardware integrations (Stream Deck, foot pedals, etc).
+# 127.0.0.1-only, opt-in. axum is built on the hyper/tower we already pull in
+# via reqwest, so the dep cost is tiny.
+axum = { version = "0.7", default-features = false, features = ["json", "tokio", "http1"] }
+
 # OpenLP optional Basic Auth header
 base64 = "0.22"
 
