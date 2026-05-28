@@ -376,6 +376,8 @@ pub struct ConnectPresenterArgs {
     #[serde(default)]
     pub port: Option<u16>,
     #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
     pub password: Option<String>,
     #[serde(default)]
     pub keystroke_profile: Option<KeystrokeProfile>,
@@ -391,6 +393,7 @@ pub async fn connect_presenter(
     let cfg = PresenterConfig {
         host: args.host,
         port: args.port,
+        username: args.username,
         password: args.password,
         keystroke_profile: args.keystroke_profile,
     };

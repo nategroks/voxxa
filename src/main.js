@@ -27,9 +27,15 @@ const blankBtn = document.getElementById("blank-btn");
 const selectPresenter = document.getElementById("select-presenter");
 const presenterKeystrokeConfig = document.getElementById("presenter-keystroke-config");
 const presenterRestConfig = document.getElementById("presenter-rest-config");
+const presenterOpenLpConfig = document.getElementById("presenter-openlp-config");
 const selectKeystrokeProfile = document.getElementById("select-keystroke-profile");
 const inputPresenterHost = document.getElementById("input-presenter-host");
 const inputPresenterPort = document.getElementById("input-presenter-port");
+const restHelper = document.getElementById("rest-helper");
+const inputOpenLpHost = document.getElementById("input-openlp-host");
+const inputOpenLpPort = document.getElementById("input-openlp-port");
+const inputOpenLpUsername = document.getElementById("input-openlp-username");
+const inputOpenLpPassword = document.getElementById("input-openlp-password");
 const connectPresenterBtn = document.getElementById("connect-presenter-btn");
 const presenterStatus = document.getElementById("presenter-status");
 
@@ -351,7 +357,18 @@ async function loadPresenterPanel() {
 
 function showPresenterConfigFor(kind) {
   presenterKeystrokeConfig.hidden = kind !== "keystroke";
-  presenterRestConfig.hidden = kind !== "pro_presenter7_rest";
+  // The host/port pair is reused for both ProPresenter REST and FreeShow; the helper
+  // copy and the default port are the only differences.
+  const usesHostPort = kind === "pro_presenter7_rest" || kind === "free_show";
+  presenterRestConfig.hidden = !usesHostPort;
+  if (kind === "pro_presenter7_rest") {
+    inputPresenterPort.value = "1025";
+    if (restHelper) restHelper.textContent = "Set in ProPresenter → Settings → Network. Default 1025.";
+  } else if (kind === "free_show") {
+    inputPresenterPort.value = "5506";
+    if (restHelper) restHelper.textContent = "Enable FreeShow → Settings → Connections. Default 5506 (HTTP).";
+  }
+  presenterOpenLpConfig.hidden = kind !== "open_lp_v2";
 }
 
 function updatePresenterStatus(info) {
@@ -378,9 +395,17 @@ if (connectPresenterBtn) {
     const args = { kind };
     if (kind === "keystroke") {
       args.keystroke_profile = selectKeystrokeProfile.value;
-    } else if (kind === "pro_presenter7_rest") {
+    } else if (kind === "pro_presenter7_rest" || kind === "free_show") {
       args.host = inputPresenterHost.value.trim() || "127.0.0.1";
-      args.port = parseInt(inputPresenterPort.value, 10) || 1025;
+      args.port = parseInt(inputPresenterPort.value, 10) ||
+        (kind === "pro_presenter7_rest" ? 1025 : 5506);
+    } else if (kind === "open_lp_v2") {
+      args.host = inputOpenLpHost.value.trim() || "127.0.0.1";
+      args.port = parseInt(inputOpenLpPort.value, 10) || 4316;
+      const user = inputOpenLpUsername.value.trim();
+      const pass = inputOpenLpPassword.value;
+      if (user) args.username = user;
+      if (pass) args.password = pass;
     }
     connectPresenterBtn.disabled = true;
     presenterStatus.textContent = "Connecting...";

@@ -120,7 +120,19 @@
             <input type="text" id="input-presenter-host" value="127.0.0.1" placeholder="127.0.0.1" />
             <label for="input-presenter-port">Port</label>
             <input type="number" id="input-presenter-port" value="1025" min="1" max="65535" />
-            <p class="helper-sub">Set in ProPresenter &rarr; Settings &rarr; Network. Default 1025.</p>
+            <p class="helper-sub" id="rest-helper">Set in ProPresenter &rarr; Settings &rarr; Network. Default 1025.</p>
+          </div>
+
+          <div id="presenter-openlp-config" class="presenter-config" hidden>
+            <label for="input-openlp-host">Host</label>
+            <input type="text" id="input-openlp-host" value="127.0.0.1" placeholder="127.0.0.1" />
+            <label for="input-openlp-port">Port</label>
+            <input type="number" id="input-openlp-port" value="4316" min="1" max="65535" />
+            <label for="input-openlp-username">Username (optional)</label>
+            <input type="text" id="input-openlp-username" value="" placeholder="openlp" />
+            <label for="input-openlp-password">Password (optional)</label>
+            <input type="password" id="input-openlp-password" value="" />
+            <p class="helper-sub">OpenLP &rarr; Settings &rarr; Remote. Leave blank if Remote auth is disabled.</p>
           </div>
 
           <button class="primary-btn" id="connect-presenter-btn">Connect</button>

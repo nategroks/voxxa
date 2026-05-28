@@ -9,10 +9,14 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+pub mod freeshow;
 pub mod keystroke;
+pub mod openlp_v2;
 pub mod propresenter7_rest;
 
+pub use freeshow::FreeShowDriver;
 pub use keystroke::{KeystrokeDriver, KeystrokeProfile};
+pub use openlp_v2::OpenLpV2Driver;
 pub use propresenter7_rest::ProPresenter7RestDriver;
 
 /// Identifier for a driver implementation. Stable across releases — settings persist this.
@@ -23,6 +27,10 @@ pub enum PresenterKind {
     Keystroke,
     /// ProPresenter 7.9+ official HTTP REST API.
     ProPresenter7Rest,
+    /// FreeShow JSON action protocol over HTTP (port 5506) or socket.io (port 5505).
+    FreeShow,
+    /// OpenLP v2 web API (REST on 4316, optional Basic Auth).
+    OpenLpV2,
 }
 
 impl PresenterKind {
@@ -30,11 +38,18 @@ impl PresenterKind {
         match self {
             Self::Keystroke => "Keystroke (any app)",
             Self::ProPresenter7Rest => "ProPresenter 7.9+ (REST API)",
+            Self::FreeShow => "FreeShow",
+            Self::OpenLpV2 => "OpenLP (Web Remote v2)",
         }
     }
 
     pub fn all() -> &'static [PresenterKind] {
-        &[Self::Keystroke, Self::ProPresenter7Rest]
+        &[
+            Self::Keystroke,
+            Self::ProPresenter7Rest,
+            Self::FreeShow,
+            Self::OpenLpV2,
+        ]
     }
 }
 
@@ -47,6 +62,8 @@ pub struct PresenterConfig {
     pub host: Option<String>,
     /// HTTP drivers: TCP port. ProPresenter default `1025`.
     pub port: Option<u16>,
+    /// Drivers that need a username (OpenLP Basic Auth).
+    pub username: Option<String>,
     /// Drivers that need a password/token.
     pub password: Option<String>,
 }
@@ -142,5 +159,7 @@ pub fn make_controller(kind: PresenterKind) -> Box<dyn PresentationController> {
     match kind {
         PresenterKind::Keystroke => Box::new(KeystrokeDriver::new()),
         PresenterKind::ProPresenter7Rest => Box::new(ProPresenter7RestDriver::new()),
+        PresenterKind::FreeShow => Box::new(FreeShowDriver::new()),
+        PresenterKind::OpenLpV2 => Box::new(OpenLpV2Driver::new()),
     }
 }

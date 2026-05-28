@@ -41,7 +41,7 @@ cpal = "0.15"
 whisper-rs = "0.13"
 
 # Model downloads
-reqwest = { version = "0.12", features = ["stream"] }
+reqwest = { version = "0.12", features = ["stream", "json"] }
 futures-util = "0.3"
 dirs = "6"
 
@@ -50,6 +50,9 @@ enigo = "0.2"
 
 # Async traits for the PresentationController abstraction
 async-trait = "0.1"
+
+# OpenLP optional Basic Auth header
+base64 = "0.22"
 
 # MCP integration
 rmcp = { version = "0.1", features = ["client", "transport-sse", "transport-child-process"], optional = true }
