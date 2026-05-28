@@ -504,6 +504,21 @@ pub async fn list_audio_devices() -> Result<Vec<String>, String> {
     crate::AudioEngine::list_devices().map_err(|e| e.to_string())
 }
 
+/// Pick the input device to capture from. `None` (or empty string) means use
+/// the OS default. Takes effect on the next `start_listening` call — we don't
+/// hot-swap mid-capture because that would drop the audio buffer and confuse
+/// the conductor.
+#[tauri::command]
+pub async fn select_audio_device(
+    state: State<'_, AppState>,
+    device: Option<String>,
+) -> Result<(), String> {
+    let normalised = device.filter(|s| !s.is_empty());
+    let mut audio = state.audio.lock().await;
+    audio.select_device(normalised);
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn get_model_status(state: State<'_, AppState>) -> Result<Vec<ModelInfo>, String> {
     let transcription = state.transcription.lock().await;

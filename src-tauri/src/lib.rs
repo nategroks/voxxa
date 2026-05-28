@@ -106,6 +106,7 @@ pub fn run() {
             commands::stop_listening,
             commands::get_status,
             commands::list_audio_devices,
+            commands::select_audio_device,
             commands::get_model_status,
             commands::download_model,
             commands::get_settings,

@@ -892,13 +892,21 @@ async function loadSettings() {
 
     const deviceSelect = document.getElementById("select-device");
     deviceSelect.innerHTML = '<option value="">Default</option>';
+    const savedDevice = readJsonStorage("voxxa.audioDevice") || "";
     devices.forEach((d) => {
       const opt = document.createElement("option");
       opt.value = d;
       opt.textContent = d;
-      if (settings.device === d) opt.selected = true;
+      if (savedDevice === d || (!savedDevice && settings.device === d)) {
+        opt.selected = true;
+      }
       deviceSelect.appendChild(opt);
     });
+    // Apply the saved choice on every Settings tab open so a freshly-attached
+    // mic (which only appears in the list after enumerating) gets picked up.
+    if (savedDevice && devices.includes(savedDevice)) {
+      try { await invoke("select_audio_device", { device: savedDevice }); } catch {}
+    }
 
     // Active model is display-only — the user picks one from the Models tab.
     const modelSelect = document.getElementById("select-model");
@@ -1299,6 +1307,19 @@ function saveSmartConfigSoon() {
 
 const langSelectOnce = document.getElementById("select-language");
 if (langSelectOnce) langSelectOnce.addEventListener("change", saveLanguageChoice);
+
+const deviceSelectOnce = document.getElementById("select-device");
+if (deviceSelectOnce) {
+  deviceSelectOnce.addEventListener("change", async () => {
+    const device = deviceSelectOnce.value || null;
+    try {
+      await invoke("select_audio_device", { device });
+      writeJsonStorage("voxxa.audioDevice", deviceSelectOnce.value);
+    } catch (err) {
+      console.error("select_audio_device:", err);
+    }
+  });
+}
 
 // --- Local HTTP API toggle ---
 const httpApiToggle = document.getElementById("http-api-toggle");
