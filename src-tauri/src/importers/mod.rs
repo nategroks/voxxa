@@ -13,6 +13,7 @@ pub mod openlyrics;
 pub mod opensong;
 pub mod pdf;
 pub mod pptx;
+pub mod pro7;
 pub mod txt;
 
 /// Source format. The frontend picks this from the file extension (or, for
@@ -26,6 +27,7 @@ pub enum ImportFormat {
     ChordPro,
     Pptx,
     Pdf,
+    Pro7,
 }
 
 /// Parse a text-source song. Returns an error for binary formats.
@@ -35,17 +37,18 @@ pub fn parse_text(format: ImportFormat, content: &str, fallback_title: &str) -> 
         ImportFormat::OpenLyrics => openlyrics::parse(content, fallback_title),
         ImportFormat::OpenSong => opensong::parse(content, fallback_title),
         ImportFormat::ChordPro => chordpro::parse(content, fallback_title),
-        ImportFormat::Pptx | ImportFormat::Pdf => {
+        ImportFormat::Pptx | ImportFormat::Pdf | ImportFormat::Pro7 => {
             Err(anyhow!("{:?} is binary — use parse_bytes", format))
         }
     }
 }
 
-/// Parse a binary-source song (.pptx, .pdf).
+/// Parse a binary-source song (.pptx, .pdf, .pro7).
 pub fn parse_bytes(format: ImportFormat, bytes: &[u8], fallback_title: &str) -> Result<Song> {
     match format {
         ImportFormat::Pptx => pptx::parse(bytes, fallback_title),
         ImportFormat::Pdf => pdf::parse(bytes, fallback_title),
+        ImportFormat::Pro7 => pro7::parse(bytes, fallback_title),
         _ => Err(anyhow!("{:?} expects text content", format)),
     }
 }

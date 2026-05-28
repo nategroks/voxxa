@@ -247,11 +247,15 @@ async function parseOneFile(file) {
   const lower = file.name.toLowerCase();
   const fallbackTitle = file.name.replace(/\.[^.]+$/, "");
 
-  if (lower.endsWith(".pptx") || lower.endsWith(".pdf")) {
+  if (lower.endsWith(".pptx") || lower.endsWith(".pdf") || lower.endsWith(".pro7")) {
     const bytesB64 = await readFileAsBase64(file);
+    let fmt;
+    if (lower.endsWith(".pdf")) fmt = "pdf";
+    else if (lower.endsWith(".pro7")) fmt = "pro7";
+    else fmt = "pptx";
     return invoke("parse_song_bytes", {
       bytesB64,
-      format: lower.endsWith(".pdf") ? "pdf" : "pptx",
+      format: fmt,
       fallbackTitle,
     });
   }
