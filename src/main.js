@@ -43,6 +43,10 @@ const inputOpenLpPassword = document.getElementById("input-openlp-password");
 const inputOpenSongHost = document.getElementById("input-opensong-host");
 const inputOpenSongPort = document.getElementById("input-opensong-port");
 const inputOpenSongKey = document.getElementById("input-opensong-key");
+const presenterPro7WsConfig = document.getElementById("presenter-pro7ws-config");
+const inputPro7WsHost = document.getElementById("input-pro7ws-host");
+const inputPro7WsPort = document.getElementById("input-pro7ws-port");
+const inputPro7WsPassword = document.getElementById("input-pro7ws-password");
 const connectPresenterBtn = document.getElementById("connect-presenter-btn");
 const discoverBtn = document.getElementById("discover-btn");
 const discoveredList = document.getElementById("discovered-list");
@@ -797,6 +801,7 @@ function showPresenterConfigFor(kind) {
   }
   presenterOpenLpConfig.hidden = kind !== "open_lp_v2";
   if (presenterOpenSongConfig) presenterOpenSongConfig.hidden = kind !== "open_song";
+  if (presenterPro7WsConfig) presenterPro7WsConfig.hidden = kind !== "pro_presenter7_ws";
 }
 
 function updatePresenterStatus(info) {
@@ -897,6 +902,10 @@ if (connectPresenterBtn) {
       args.port = parseInt(inputOpenSongPort.value, 10) || 8082;
       const key = inputOpenSongKey.value;
       if (key) args.password = key;
+    } else if (kind === "pro_presenter7_ws") {
+      args.host = inputPro7WsHost.value.trim() || "127.0.0.1";
+      args.port = parseInt(inputPro7WsPort.value, 10) || 50001;
+      args.password = inputPro7WsPassword.value || "";
     }
     connectPresenterBtn.disabled = true;
     presenterStatus.textContent = "Connecting...";

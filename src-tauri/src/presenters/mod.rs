@@ -14,12 +14,14 @@ pub mod keystroke;
 pub mod openlp_v2;
 pub mod opensong;
 pub mod propresenter7_rest;
+pub mod propresenter7_ws;
 
 pub use freeshow::FreeShowDriver;
 pub use keystroke::{KeystrokeDriver, KeystrokeProfile};
 pub use openlp_v2::OpenLpV2Driver;
 pub use opensong::OpenSongDriver;
 pub use propresenter7_rest::ProPresenter7RestDriver;
+pub use propresenter7_ws::ProPresenter7WsDriver;
 
 /// Identifier for a driver implementation. Stable across releases — settings persist this.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -29,6 +31,8 @@ pub enum PresenterKind {
     Keystroke,
     /// ProPresenter 7.9+ official HTTP REST API.
     ProPresenter7Rest,
+    /// ProPresenter 7.0–7.8 WebSocket fallback (reverse-engineered protocol).
+    ProPresenter7Ws,
     /// FreeShow JSON action protocol over HTTP (port 5506) or socket.io (port 5505).
     FreeShow,
     /// OpenLP v2 web API (REST on 4316, optional Basic Auth).
@@ -42,6 +46,7 @@ impl PresenterKind {
         match self {
             Self::Keystroke => "Keystroke (any app)",
             Self::ProPresenter7Rest => "ProPresenter 7.9+ (REST API)",
+            Self::ProPresenter7Ws => "ProPresenter 7.0–7.8 (WebSocket)",
             Self::FreeShow => "FreeShow",
             Self::OpenLpV2 => "OpenLP (Web Remote v2)",
             Self::OpenSong => "OpenSong (Automation API)",
@@ -52,6 +57,7 @@ impl PresenterKind {
         &[
             Self::Keystroke,
             Self::ProPresenter7Rest,
+            Self::ProPresenter7Ws,
             Self::FreeShow,
             Self::OpenLpV2,
             Self::OpenSong,
@@ -165,6 +171,7 @@ pub fn make_controller(kind: PresenterKind) -> Box<dyn PresentationController> {
     match kind {
         PresenterKind::Keystroke => Box::new(KeystrokeDriver::new()),
         PresenterKind::ProPresenter7Rest => Box::new(ProPresenter7RestDriver::new()),
+        PresenterKind::ProPresenter7Ws => Box::new(ProPresenter7WsDriver::new()),
         PresenterKind::FreeShow => Box::new(FreeShowDriver::new()),
         PresenterKind::OpenLpV2 => Box::new(OpenLpV2Driver::new()),
         PresenterKind::OpenSong => Box::new(OpenSongDriver::new()),

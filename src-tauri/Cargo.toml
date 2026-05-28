@@ -52,6 +52,9 @@ enigo = "0.2"
 # Async traits for the PresentationController abstraction
 async-trait = "0.1"
 
+# WebSocket client for ProPresenter 7.0–7.8 fallback driver
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
+
 # OpenLP optional Basic Auth header
 base64 = "0.22"
 
