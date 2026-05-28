@@ -808,3 +808,36 @@ body {
   font-weight: 700;
 }
 .ctrl-btn.small:hover { color: var(--text); border-color: var(--accent); }
+
+/* Song nav strip — one chip per song in the setlist. */
+.song-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0 8px;
+  scrollbar-width: thin;
+}
+.song-chip {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.song-chip:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.song-chip.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}

@@ -113,6 +113,7 @@ pub fn run() {
             commands::next_slide_manual,
             commands::prev_slide_manual,
             commands::blank_manual,
+            commands::jump_to_song,
             commands::list_presenters,
             commands::connect_presenter,
             commands::disconnect_presenter,

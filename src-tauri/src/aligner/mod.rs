@@ -175,6 +175,18 @@ impl Conductor {
         self.config = cfg;
     }
 
+    /// Operator-initiated jump to a specific song. Resets to the song's
+    /// first slide, clears the rolling transcript buffer (so a previous
+    /// song's lyrics don't pollute matching), and arms the dwell clock so
+    /// the conductor won't immediately re-detect a different song.
+    /// Returns the Goto action the audio loop should dispatch.
+    pub fn jump_to_song(&mut self, song_idx: usize, now: Instant) -> Action {
+        if song_idx >= self.songs.len() {
+            return Action::Noop;
+        }
+        self.start_song(song_idx, now)
+    }
+
     /// Notify the machine that VAD says the user is speaking.
     pub fn on_speech(&mut self, now: Instant) {
         self.last_speech = Some(now);

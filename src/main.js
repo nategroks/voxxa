@@ -350,9 +350,11 @@ async function loadSetlist(jsonText) {
     const songs = await invoke("load_setlist", { setlistJson: jsonText });
     currentSongs = songs;
     slides = [];
+    songOffsets = [];
     let title = "";
     for (const song of songs) {
       title = song.title;
+      songOffsets.push(slides.length);
       for (const slide of song.slides) {
         slides.push(slide);
       }
@@ -363,10 +365,59 @@ async function loadSetlist(jsonText) {
       : title;
     setlistLoader.hidden = true;
     slideView.hidden = false;
+    renderSongStrip();
     updateSlideDisplay();
   } catch (err) {
     console.error("Failed to load setlist:", err);
     showImportError("Failed to load setlist: " + err);
+  }
+}
+
+// Song-jump strip: one button per song in the loaded setlist. Hidden for
+// single-song setlists since there's nothing to navigate.
+const songStripEl = document.getElementById("song-strip");
+let songOffsets = [];
+
+function renderSongStrip() {
+  if (!songStripEl) return;
+  songStripEl.innerHTML = "";
+  if (currentSongs.length <= 1) {
+    songStripEl.hidden = true;
+    return;
+  }
+  songStripEl.hidden = false;
+  currentSongs.forEach((song, idx) => {
+    const btn = document.createElement("button");
+    btn.className = "song-chip";
+    btn.textContent = song.title || `Song ${idx + 1}`;
+    btn.title = `Jump to ${song.title}`;
+    btn.dataset.songIdx = String(idx);
+    btn.addEventListener("click", () => jumpToSong(idx));
+    songStripEl.appendChild(btn);
+  });
+  highlightActiveSong();
+}
+
+function highlightActiveSong() {
+  if (!songStripEl) return;
+  // Active song = the song whose offset range contains currentSlideIndex.
+  let active = 0;
+  for (let i = 0; i < songOffsets.length; i++) {
+    if (songOffsets[i] <= currentSlideIndex) active = i;
+    else break;
+  }
+  Array.from(songStripEl.children).forEach((el, i) => {
+    el.classList.toggle("active", i === active);
+  });
+}
+
+async function jumpToSong(songIndex) {
+  try {
+    await invoke("jump_to_song", { songIndex });
+    // Local state will sync via the slide-advanced event the dispatcher emits.
+  } catch (err) {
+    console.error("jump_to_song:", err);
+    alert("Failed to jump: " + err);
   }
 }
 
@@ -431,6 +482,7 @@ function updateSlideDisplay() {
     ? (currentSlideIndex / (slides.length - 1)) * 100
     : 100;
   slideProgressFill.style.width = `${pct}%`;
+  highlightActiveSong();
 }
 
 // --- Inline slide editor ---

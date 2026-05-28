@@ -644,6 +644,55 @@ pub async fn blank_manual(state: State<'_, AppState>) -> Result<(), String> {
     p.blank().await.map_err(|e| e.to_string())
 }
 
+/// Operator override: jump straight to a specific song's first slide. Used
+/// when the service order diverges from the loaded setlist.
+#[tauri::command]
+pub async fn jump_to_song(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+    song_index: usize,
+) -> Result<(), String> {
+    let (action, total) = {
+        let mut c = state.conductor.lock().await;
+        match c.as_mut() {
+            Some(cd) => (
+                cd.jump_to_song(song_index, Instant::now()),
+                Some(cd.total_slides()),
+            ),
+            None => return Err("No setlist loaded".into()),
+        }
+    };
+    let rt_handle = tokio::runtime::Handle::current();
+    // The dispatch helper expects synchronous-ish access; we're already in
+    // an async context, so call it inline against a one-shot blocking task.
+    tokio::task::spawn_blocking(move || {
+        dispatch_action_with_total(
+            &rt_handle,
+            action,
+            &state_clone_presenter(&app),
+            &state_clone_last_dispatched(&app),
+            &app,
+            total,
+        );
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+// Small accessors so jump_to_song can hand the dispatcher Arc clones without
+// borrowing through the State<'_> guard across the spawn_blocking boundary.
+fn state_clone_presenter(
+    app: &tauri::AppHandle,
+) -> Arc<Mutex<Box<dyn crate::PresentationController>>> {
+    use tauri::Manager;
+    app.state::<AppState>().presenter.clone()
+}
+
+fn state_clone_last_dispatched(app: &tauri::AppHandle) -> Arc<AtomicI64> {
+    use tauri::Manager;
+    app.state::<AppState>().last_dispatched_global.clone()
+}
+
 #[tauri::command]
 pub fn list_presenters() -> Vec<PresenterDescriptor> {
     PresenterKind::all()
