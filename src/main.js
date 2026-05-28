@@ -37,6 +37,8 @@ const inputOpenLpPort = document.getElementById("input-openlp-port");
 const inputOpenLpUsername = document.getElementById("input-openlp-username");
 const inputOpenLpPassword = document.getElementById("input-openlp-password");
 const connectPresenterBtn = document.getElementById("connect-presenter-btn");
+const discoverBtn = document.getElementById("discover-btn");
+const discoveredList = document.getElementById("discovered-list");
 const presenterStatus = document.getElementById("presenter-status");
 
 // --- Setlist Loading ---
@@ -518,6 +520,61 @@ if (selectPresenter) {
   selectPresenter.addEventListener("change", () => {
     showPresenterConfigFor(selectPresenter.value);
   });
+}
+
+if (discoverBtn) {
+  discoverBtn.addEventListener("click", async () => {
+    discoverBtn.disabled = true;
+    discoverBtn.textContent = "Scanning...";
+    discoveredList.hidden = true;
+    discoveredList.innerHTML = "";
+    try {
+      const found = await invoke("discover_presenters", { timeoutMs: 2500 });
+      renderDiscovered(found || []);
+    } catch (err) {
+      console.error("discover_presenters:", err);
+      discoveredList.hidden = false;
+      discoveredList.innerHTML =
+        '<div class="discovered-empty">Discovery failed: ' + escapeHtml(String(err)) + "</div>";
+    } finally {
+      discoverBtn.disabled = false;
+      discoverBtn.textContent = "Auto-detect";
+    }
+  });
+}
+
+function renderDiscovered(found) {
+  discoveredList.hidden = false;
+  discoveredList.innerHTML = "";
+  if (!found.length) {
+    discoveredList.innerHTML =
+      '<div class="discovered-empty">No presentation apps found. ' +
+      "Make sure the app is running and its remote API is enabled.</div>";
+    return;
+  }
+  for (const svc of found) {
+    const row = document.createElement("button");
+    row.className = "discovered-row";
+    row.innerHTML =
+      '<div class="discovered-name">' + escapeHtml(svc.name) + "</div>" +
+      '<div class="discovered-meta">' +
+      escapeHtml(svc.host) + ":" + svc.port + " · " + escapeHtml(svc.source) +
+      "</div>";
+    row.addEventListener("click", () => useDiscovered(svc));
+    discoveredList.appendChild(row);
+  }
+}
+
+function useDiscovered(svc) {
+  selectPresenter.value = svc.kind;
+  showPresenterConfigFor(svc.kind);
+  if (svc.kind === "pro_presenter7_rest" || svc.kind === "free_show") {
+    inputPresenterHost.value = svc.host;
+    inputPresenterPort.value = svc.port;
+  } else if (svc.kind === "open_lp_v2") {
+    inputOpenLpHost.value = svc.host;
+    inputOpenLpPort.value = svc.port;
+  }
 }
 
 if (connectPresenterBtn) {

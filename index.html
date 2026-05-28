@@ -144,8 +144,12 @@
             <p class="helper-sub">OpenLP &rarr; Settings &rarr; Remote. Leave blank if Remote auth is disabled.</p>
           </div>
 
-          <button class="primary-btn" id="connect-presenter-btn">Connect</button>
+          <div class="connect-row">
+            <button class="primary-btn" id="connect-presenter-btn">Connect</button>
+            <button class="secondary-btn" id="discover-btn" title="Scan localhost and the LAN for known presentation apps">Auto-detect</button>
+          </div>
           <div class="presenter-status" id="presenter-status">Not connected</div>
+          <div class="discovered-list" id="discovered-list" hidden></div>
         </div>
 
         <div class="setting-group">

@@ -1,4 +1,5 @@
 use crate::aligner::{Action, Conductor, MachineState, Setlist, SmartConfig, Song};
+use crate::discovery::{self, DiscoveredService};
 use crate::importers::{self, ImportFormat};
 use crate::presenters::{
     make_controller, Capabilities, KeystrokeProfile, PresenterConfig, PresenterKind,
@@ -572,6 +573,14 @@ pub async fn get_presenter_info(state: State<'_, AppState>) -> Result<PresenterI
         connected: p.is_connected(),
         capabilities: p.capabilities(),
     })
+}
+
+/// Probe localhost ports + browse mDNS for ProPresenter / FreeShow / OpenLP.
+/// `timeout_ms` bounds total wall-time; recommended 2000–3000.
+#[tauri::command]
+pub async fn discover_presenters(timeout_ms: Option<u64>) -> Result<Vec<DiscoveredService>, String> {
+    let timeout = Duration::from_millis(timeout_ms.unwrap_or(2500));
+    Ok(discovery::discover_all(timeout).await)
 }
 
 /// Parse a text-source song (.txt, OpenLyrics, OpenSong, ChordPro). Returned

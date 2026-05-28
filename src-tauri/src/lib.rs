@@ -1,6 +1,7 @@
 mod aligner;
 mod audio;
 mod commands;
+mod discovery;
 mod importers;
 mod presenters;
 mod transcription;
@@ -102,6 +103,7 @@ pub fn run() {
             commands::get_presenter_state,
             commands::parse_song_text,
             commands::parse_song_bytes,
+            commands::discover_presenters,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

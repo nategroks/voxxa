@@ -58,6 +58,9 @@ base64 = "0.22"
 quick-xml = "0.36"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
+# mDNS auto-discovery of ProPresenter on the LAN
+mdns-sd = "0.13"
+
 # MCP integration
 rmcp = { version = "0.1", features = ["client", "transport-sse", "transport-child-process"], optional = true }
 
