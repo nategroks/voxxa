@@ -33,9 +33,9 @@ env_logger = "0.11"
 # Audio capture
 cpal = "0.15"
 
-# Voice Activity Detection (energy-based, with future ONNX support)
-# ort = { version = "2.0.0-rc.12", features = ["load-dynamic"] }
-# ndarray = "0.16"
+# Voice Activity Detection — Silero VAD via ONNX Runtime.
+# `voice_activity_detector` bundles the Silero model and handles ORT loading.
+voice_activity_detector = "0.2"
 
 # Whisper transcription
 whisper-rs = "0.13"
