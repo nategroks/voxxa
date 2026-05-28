@@ -40,14 +40,14 @@ const connectPresenterBtn = document.getElementById("connect-presenter-btn");
 const presenterStatus = document.getElementById("presenter-status");
 
 // --- Setlist Loading ---
+const importError = document.getElementById("import-error");
+
 fileInput.addEventListener("change", async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const text = await file.text();
-  await loadSetlist(text);
+  await importFiles(Array.from(e.target.files || []));
+  // Clear the input so the same file can be re-selected.
+  fileInput.value = "";
 });
 
-// Drag and drop
 setlistLoader.addEventListener("dragover", (e) => {
   e.preventDefault();
   setlistLoader.style.borderColor = "var(--accent)";
@@ -58,18 +58,134 @@ setlistLoader.addEventListener("dragleave", () => {
 setlistLoader.addEventListener("drop", async (e) => {
   e.preventDefault();
   setlistLoader.style.borderColor = "";
-  const file = e.dataTransfer.files[0];
-  if (file && file.name.endsWith(".json")) {
-    const text = await file.text();
-    await loadSetlist(text);
-  }
+  await importFiles(Array.from(e.dataTransfer.files || []));
 });
+
+async function importFiles(files) {
+  if (!files.length) return;
+  if (importError) {
+    importError.hidden = true;
+    importError.textContent = "";
+  }
+
+  // Single .json file replaces the entire setlist via the legacy path.
+  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".json")) {
+    const text = await files[0].text();
+    await loadSetlist(text);
+    return;
+  }
+
+  const collected = [];
+  const failures = [];
+  for (const file of files) {
+    try {
+      const song = await parseOneFile(file);
+      if (song) collected.push(song);
+    } catch (err) {
+      console.error(`Failed to parse ${file.name}:`, err);
+      failures.push(`${file.name}: ${err}`);
+    }
+  }
+  if (!collected.length) {
+    showImportError(`No songs imported. ${failures.join("; ") || ""}`);
+    return;
+  }
+  // Re-id slides globally so the conductor's ids line up with the frontend's flat view.
+  let id = 0;
+  for (const song of collected) {
+    for (const slide of song.slides) {
+      slide.id = id++;
+    }
+  }
+  await loadSetlist(JSON.stringify({ setlist: collected }));
+  if (failures.length) {
+    showImportError(`Imported ${collected.length}, skipped: ${failures.join("; ")}`);
+  }
+}
+
+async function parseOneFile(file) {
+  const lower = file.name.toLowerCase();
+  const fallbackTitle = file.name.replace(/\.[^.]+$/, "");
+
+  if (lower.endsWith(".pptx")) {
+    const bytesB64 = await readFileAsBase64(file);
+    return invoke("parse_song_bytes", {
+      bytesB64,
+      format: "pptx",
+      fallbackTitle,
+    });
+  }
+
+  // Single .json file shouldn't get here, but multiple-with-json means treat
+  // each .json as a Song-shaped or Setlist-shaped object.
+  if (lower.endsWith(".json")) {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    if (parsed.setlist && Array.isArray(parsed.setlist)) {
+      // Flatten into one virtual song — usually .json shouldn't be combined
+      // with other files, but if the user does it, treat each contained song
+      // as its own entry.
+      return parsed.setlist;
+    }
+    if (parsed.title && Array.isArray(parsed.slides)) {
+      return parsed;
+    }
+    throw new Error("unrecognised JSON shape");
+  }
+
+  const text = await file.text();
+  let format;
+  if (lower.endsWith(".txt")) {
+    format = "txt";
+  } else if (lower.endsWith(".openlyrics")) {
+    format = "open_lyrics";
+  } else if (lower.endsWith(".cho") || lower.endsWith(".chordpro") || lower.endsWith(".pro")) {
+    format = "chord_pro";
+  } else if (lower.endsWith(".xml")) {
+    // Disambiguate by namespace / root element.
+    format = sniffXmlFormat(text);
+  } else {
+    throw new Error("unknown extension");
+  }
+  return invoke("parse_song_text", {
+    content: text,
+    format,
+    fallbackTitle,
+  });
+}
+
+function sniffXmlFormat(xml) {
+  const head = xml.slice(0, 1024).toLowerCase();
+  if (head.includes("openlyrics.info")) return "open_lyrics";
+  // OpenSong files have a bare `<song>` root with no namespace.
+  if (/\<song(\s|>)/.test(head)) return "open_song";
+  // Default to OpenLyrics — at least it has a stricter parser.
+  return "open_lyrics";
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // FileReader's data URL is "data:...;base64,XXXX"; strip the prefix.
+      const url = reader.result;
+      const comma = url.indexOf(",");
+      resolve(comma >= 0 ? url.slice(comma + 1) : url);
+    };
+    reader.onerror = () => reject(reader.error || new Error("read failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function showImportError(msg) {
+  if (!importError) return;
+  importError.textContent = msg;
+  importError.hidden = false;
+}
 
 async function loadSetlist(jsonText) {
   try {
     const songs = await invoke("load_setlist", { setlistJson: jsonText });
-
-    // Flatten slides for display
     slides = [];
     let title = "";
     for (const song of songs) {
@@ -78,7 +194,6 @@ async function loadSetlist(jsonText) {
         slides.push(slide);
       }
     }
-
     currentSlideIndex = 0;
     songTitle.textContent = title;
     setlistLoader.hidden = true;
@@ -86,7 +201,7 @@ async function loadSetlist(jsonText) {
     updateSlideDisplay();
   } catch (err) {
     console.error("Failed to load setlist:", err);
-    alert("Failed to load setlist: " + err);
+    showImportError("Failed to load setlist: " + err);
   }
 }
 

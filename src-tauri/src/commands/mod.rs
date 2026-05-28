@@ -1,4 +1,5 @@
 use crate::aligner::{Action, Conductor, MachineState, Setlist, SmartConfig, Song};
+use crate::importers::{self, ImportFormat};
 use crate::presenters::{
     make_controller, Capabilities, KeystrokeProfile, PresenterConfig, PresenterKind,
     PresenterState,
@@ -571,6 +572,33 @@ pub async fn get_presenter_info(state: State<'_, AppState>) -> Result<PresenterI
         connected: p.is_connected(),
         capabilities: p.capabilities(),
     })
+}
+
+/// Parse a text-source song (.txt, OpenLyrics, OpenSong, ChordPro). Returned
+/// `Song` is appended to the in-flight setlist by the frontend.
+#[tauri::command]
+pub fn parse_song_text(
+    content: String,
+    format: ImportFormat,
+    fallback_title: Option<String>,
+) -> Result<Song, String> {
+    let fallback = fallback_title.unwrap_or_else(|| "Untitled".to_string());
+    importers::parse_text(format, &content, &fallback).map_err(|e| e.to_string())
+}
+
+/// Parse a binary-source song (.pptx). `bytes_b64` is base64-encoded raw file bytes.
+#[tauri::command]
+pub fn parse_song_bytes(
+    bytes_b64: String,
+    format: ImportFormat,
+    fallback_title: Option<String>,
+) -> Result<Song, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(bytes_b64.as_bytes())
+        .map_err(|e| format!("invalid base64: {e}"))?;
+    let fallback = fallback_title.unwrap_or_else(|| "Untitled".to_string());
+    importers::parse_bytes(format, &bytes, &fallback).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

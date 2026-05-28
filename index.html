@@ -25,12 +25,21 @@
       <section class="slide-section" id="section-home">
         <!-- Setlist loader -->
         <div class="setlist-loader" id="setlist-loader">
-          <p class="helper-text">Load a setlist to get started</p>
+          <p class="helper-text">Load songs to get started</p>
           <label class="file-btn" for="file-input">
-            Choose setlist.json
-            <input type="file" id="file-input" accept=".json" hidden />
+            Choose files
+            <input
+              type="file"
+              id="file-input"
+              accept=".json,.txt,.openlyrics,.xml,.cho,.chordpro,.pro,.pptx"
+              multiple
+              hidden
+            />
           </label>
-          <p class="helper-sub">or drag &amp; drop a JSON file here</p>
+          <p class="helper-sub">
+            Setlist JSON, .txt, OpenLyrics / OpenSong XML, ChordPro, or .pptx — drop one or many.
+          </p>
+          <p class="import-error" id="import-error" hidden></p>
         </div>
 
         <!-- Active slide view (hidden until setlist loaded) -->

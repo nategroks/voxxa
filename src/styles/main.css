@@ -417,3 +417,12 @@ body {
   cursor: pointer;
 }
 .ctrl-btn.wide:hover { background: var(--border); }
+
+.import-error {
+  color: var(--danger);
+  font-size: 12px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 6px;
+}
