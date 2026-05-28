@@ -12,7 +12,7 @@ mod mcp;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-pub use aligner::{AlignConfig, LyricsAligner, Setlist, Slide, Song};
+pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::AudioEngine;
 pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
@@ -26,8 +26,12 @@ pub struct AppState {
     pub audio: Arc<Mutex<AudioEngine>>,
     pub transcription: Arc<Mutex<TranscriptionEngine>>,
     pub vad: Arc<Mutex<VadEngine>>,
-    pub aligner: Arc<Mutex<Option<LyricsAligner>>>,
+    pub conductor: Arc<Mutex<Option<Conductor>>>,
     pub presenter: Arc<Mutex<Box<dyn PresentationController>>>,
+    /// Last global slide index the dispatcher actually sent to the presenter.
+    /// Used to translate a `Goto` action into next/prev keypresses or a single
+    /// `goto_slide` API call, depending on driver capabilities.
+    pub last_dispatched_global: Arc<std::sync::atomic::AtomicI64>,
     pub is_running: Arc<std::sync::atomic::AtomicBool>,
 }
 
@@ -38,7 +42,8 @@ pub fn run() {
     let audio = Arc::new(Mutex::new(AudioEngine::new()));
     let transcription = Arc::new(Mutex::new(TranscriptionEngine::new()));
     let vad = Arc::new(Mutex::new(VadEngine::new()));
-    let aligner = Arc::new(Mutex::new(None::<LyricsAligner>));
+    let conductor = Arc::new(Mutex::new(None::<Conductor>));
+    let last_dispatched_global = Arc::new(std::sync::atomic::AtomicI64::new(-1));
     // Default driver: keystroke / universal — works the moment the user focuses any
     // presentation app, no configuration required.
     let mut keystroke = make_controller(PresenterKind::Keystroke);
@@ -64,8 +69,9 @@ pub fn run() {
         audio: audio.clone(),
         transcription: transcription.clone(),
         vad: vad.clone(),
-        aligner: aligner.clone(),
+        conductor: conductor.clone(),
         presenter: presenter.clone(),
+        last_dispatched_global: last_dispatched_global.clone(),
         is_running: is_running.clone(),
     };
 

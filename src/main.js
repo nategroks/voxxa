@@ -180,9 +180,25 @@ async function setupListeners() {
   });
 
   await listen("slide-advanced", (event) => {
-    const { slide_index } = event.payload;
+    const { slide_index, song_title } = event.payload;
     currentSlideIndex = slide_index;
+    if (song_title && songTitle) songTitle.textContent = song_title;
     updateSlideDisplay();
+  });
+
+  await listen("machine-state", (event) => {
+    const { state, is_blank } = event.payload;
+    if (!statusBadge) return;
+    // Show LISTENING / SINGING / BLANK_HOLD / INTER_VERSE_SILENCE in the header.
+    const label =
+      state === "singing"
+        ? "Singing"
+        : state === "blank_hold"
+        ? "Blank (no match)"
+        : state === "inter_verse_silence"
+        ? "Holding"
+        : "Listening";
+    statusBadge.textContent = is_blank ? `${label} · BLANK` : label;
   });
 
   await listen("download-progress", (event) => {

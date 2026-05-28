@@ -101,6 +101,13 @@ impl VadEngine {
         result
     }
 
+    /// Whether the VAD currently believes the user is speaking.
+    /// Used by the smart-blanking state machine to gate transitions between
+    /// SINGING / INTER_VERSE_SILENCE / BLANK_HOLD without waiting for a full utterance.
+    pub fn is_in_speech(&self) -> bool {
+        self.is_speech
+    }
+
     /// Reset VAD state for a new recording session.
     pub fn reset(&mut self) {
         self.is_speech = false;
