@@ -87,23 +87,86 @@ jobs:
             rm certificate.p12
           fi
 
+      # Stage the App Store Connect API key on disk so notarytool can read it.
+      # Using the API key path (recommended in §5.2 of the plan) is materially more
+      # reliable than the legacy APPLE_ID + app-specific-password flow.
+      - name: Stage Apple API key
+        if: runner.os == 'macOS'
+        env:
+          APPLE_API_KEY_B64: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          if [ -z "$APPLE_API_KEY_B64" ] || [ -z "$APPLE_API_KEY_ID" ]; then
+            echo "Apple API key secrets not set — release builds will not be notarized."
+            exit 0
+          fi
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          echo "$APPLE_API_KEY_B64" | base64 --decode \
+            > "$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+          echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8" \
+            >> "$GITHUB_ENV"
+
+      # Microsoft Artifact Signing (formerly Azure Trusted Signing) for Windows.
+      # Only installs the CLI if the Azure credentials are present, so the workflow
+      # still produces an unsigned but working .msi for forks that haven't subscribed.
+      - name: Install trusted-signing-cli
+        if: runner.os == 'Windows'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        shell: bash
+        run: |
+          if [ -z "$AZURE_CLIENT_ID" ]; then
+            echo "AZURE_CLIENT_ID not set — Windows .msi will be unsigned."
+            exit 0
+          fi
+          cargo install trusted-signing-cli --locked
+
+      # Build a Tauri --config override that injects signCommand on Windows when
+      # the Azure secrets are present. Empty string when not set so the action
+      # runs as a no-op override.
+      - name: Compute Tauri config override
+        id: tauri_override
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ] && [ -n "$AZURE_CLIENT_ID" ]; then
+            echo 'override={"bundle":{"windows":{"signCommand":"trusted-signing-cli -e %AZURE_CODE_SIGNING_ENDPOINT% -a %AZURE_CODE_SIGNING_ACCOUNT% -c %AZURE_CODE_SIGNING_CERTIFICATE_PROFILE% %1"}}}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'override=' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing & notarization
+
+          # macOS signing & notarization (App Store Connect API key path).
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Tauri updater key pair
+
+          # Microsoft Artifact Signing for Windows — picked up by the
+          # `signCommand` in tauri.conf.json when these are set.
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CODE_SIGNING_ENDPOINT: ${{ secrets.AZURE_CODE_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
+          AZURE_CODE_SIGNING_CERTIFICATE_PROFILE: ${{ secrets.AZURE_CODE_SIGNING_CERTIFICATE_PROFILE }}
+
+          # Tauri updater key pair (Ed25519 — generated with `tauri signer generate`).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name || inputs.version || 'v0.0.0-dev' }}
           releaseName: 'Voxxa ${{ github.ref_name || inputs.version || 'dev' }}'
           releaseBody: |
-            ## Voxxa — Local Voice Dictation
+            ## Voxxa — voice-driven slide control for worship
+
+            Voxxa listens to the room and advances slides automatically as the
+            band sings. All audio stays on this computer — nothing is uploaded.
 
             Download the installer for your platform below.
 
@@ -116,15 +179,20 @@ jobs:
 
             ### First launch
             1. Install and open Voxxa
-            2. Go to **Models** tab and download a Whisper model (Base recommended to start)
-            3. Press **Ctrl+Shift+Space** (or click the mic) to start dictating
+            2. Pick your presentation app under **Settings → Presentation App**
+               (or click **Auto-detect** to scan localhost + the LAN)
+            3. Download a Whisper model from the **Models** tab
+               (Base — 142 MB — is the recommended starting point)
+            4. Load a setlist — JSON, plain text, OpenLyrics, ChordPro,
+               OpenSong, `.pptx`, or pull one straight from Planning Center
 
-            > Voxxa runs 100% locally — your voice never leaves your machine.
+            > Voxxa runs 100% on-device. See **Settings → Privacy** for a live
+            > counter of every outbound request — by default, it stays at zero.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
           updaterJsonKeepUniversal: true
-          args: --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} ${{ steps.tauri_override.outputs.override && format('--config ''{0}''', steps.tauri_override.outputs.override) || '' }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
