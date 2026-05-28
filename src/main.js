@@ -580,6 +580,9 @@ if (blankBtn) {
   });
 }
 
+const helpBtn = document.getElementById("help-btn");
+if (helpBtn) helpBtn.addEventListener("click", showShortcutHelp);
+
 const stageBtn = document.getElementById("stage-btn");
 if (stageBtn) {
   stageBtn.addEventListener("click", async () => {
@@ -1341,6 +1344,66 @@ if (diagCopy) {
       document.execCommand("copy");
     }
   });
+}
+
+// --- Keyboard shortcuts ---
+// These fire only when the main window has focus and no text input is active.
+// Mid-service operators tend to keep their hands on the keyboard; the plan §6.3
+// calls out the need for a panic-friendly control surface.
+document.addEventListener("keydown", (e) => {
+  // Don't intercept when typing in a text field, contenteditable, or modal.
+  const target = e.target;
+  const tag = target && target.tagName ? target.tagName.toLowerCase() : "";
+  if (tag === "input" || tag === "textarea" || tag === "select") return;
+  if (target && target.isContentEditable) return;
+  // Modifier-key combos belong to the OS / Tauri menus.
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  switch (e.key) {
+    case " ": // Space toggles listening
+      e.preventDefault();
+      toggleListening();
+      break;
+    case "ArrowRight":
+    case "n":
+    case "N":
+      e.preventDefault();
+      nextBtn?.click();
+      break;
+    case "ArrowLeft":
+    case "p":
+    case "P":
+      e.preventDefault();
+      prevBtn?.click();
+      break;
+    case "b":
+    case "B":
+    case ".":
+      e.preventDefault();
+      blankBtn?.click();
+      break;
+    case "s":
+    case "S":
+      e.preventDefault();
+      stageBtn?.click();
+      break;
+    case "?":
+      e.preventDefault();
+      showShortcutHelp();
+      break;
+  }
+});
+
+function showShortcutHelp() {
+  const lines = [
+    "Space — Start / stop listening",
+    "← / P — Previous slide",
+    "→ / N — Next slide",
+    ".  / B — Blank output",
+    "S — Toggle Stage Display",
+    "?  — Show this help",
+  ];
+  alert("Voxxa keyboard shortcuts\n\n" + lines.join("\n"));
 }
 
 // --- Init ---

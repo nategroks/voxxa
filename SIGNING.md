@@ -131,12 +131,46 @@ needs a password and goes into repository secrets:
 Without these, the workflow won't be able to sign the updater manifest and
 auto-updates will fail signature verification on clients.
 
-## Linux
+## Linux — GPG-signed AppImage / .deb
 
-No code-signing convention. Voxxa's `.AppImage` and `.deb` are emitted
-unsigned. If you want detached signatures for distribution authenticity,
-GPG-sign the artifacts after the workflow finishes and publish the
-public key on your release page.
+Linux has no system-level code-signing convention, but detached GPG
+signatures give downstream users a way to verify a downloaded
+`.AppImage` or `.deb` came from you, not from someone in the middle.
+
+### One-time setup
+
+```bash
+# Generate a signing key (or reuse an existing one)
+gpg --full-generate-key             # pick RSA 4096, no expiry
+gpg --list-secret-keys              # note the long-form key ID
+gpg --export-secret-keys --armor <KEYID> > voxxa-signing.key
+```
+
+Publish the corresponding **public** key on your release page so
+downloaders can verify:
+
+```bash
+gpg --export --armor <KEYID> > voxxa-signing.pub
+```
+
+### Repository secrets to set
+
+| Secret | Value |
+|---|---|
+| `GPG_PRIVATE_KEY` | Full contents of `voxxa-signing.key` (ASCII-armored, includes BEGIN/END lines) |
+| `GPG_PASSPHRASE` | The passphrase you set when generating the key |
+
+The workflow imports the key, signs every `.AppImage` and `.deb` with
+detached ASCII-armored signatures, and ships the `.asc` files alongside
+the binaries. Verification on the user side:
+
+```bash
+gpg --import voxxa-signing.pub
+gpg --verify voxxa_0.1.0_amd64.AppImage.asc voxxa_0.1.0_amd64.AppImage
+```
+
+Without these secrets the workflow still produces the artifacts — they
+just go out unsigned.
 
 ## Total realistic cost
 
