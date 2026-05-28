@@ -50,6 +50,12 @@ pub struct SmartConfig {
     pub unrecognized_speech_to_blank_secs: f64,
     pub song_confidence_floor: f64,
     pub song_second_max: f64,
+    /// Absolute minimum partial-ratio score (0–100) the top candidate must
+    /// reach before we'll commit to a song. Guards against the case where
+    /// softmax-relative confidence is high but every candidate is a poor
+    /// absolute match (random speech, instrumental intro, etc.). Plan §4.6:
+    /// "bad blank is better than wrong slide."
+    pub min_song_match: f64,
     pub min_song_dwell_secs: f64,
     pub slide_advance_debounce_ms: u64,
     pub min_advance_match: f64,
@@ -65,6 +71,7 @@ impl Default for SmartConfig {
             unrecognized_speech_to_blank_secs: 5.0,
             song_confidence_floor: 0.60,
             song_second_max: 0.40,
+            min_song_match: 40.0,
             min_song_dwell_secs: 8.0,
             slide_advance_debounce_ms: 1500,
             min_advance_match: 70.0,
@@ -268,13 +275,18 @@ impl Conductor {
 
         let top = &scores[0];
         let second_p = scores.get(1).map(|s| s.probability).unwrap_or(0.0);
+        // Two-gate confidence: relative (softmax distribution) AND absolute
+        // (raw partial-ratio score). The absolute gate stops a near-tie of
+        // poor matches from masquerading as a confident detection.
         let confident = top.probability >= self.config.song_confidence_floor
-            && second_p <= self.config.song_second_max;
+            && second_p <= self.config.song_second_max
+            && top.raw_score >= self.config.min_song_match;
 
         log::info!(
-            "[CONDUCTOR] top={} p={:.2} second_p={:.2} confident={} state={:?}",
+            "[CONDUCTOR] top={} p={:.2} raw={:.1} second_p={:.2} confident={} state={:?}",
             top.song_index,
             top.probability,
+            top.raw_score,
             second_p,
             confident,
             self.state
@@ -496,4 +508,211 @@ fn lcs_length(a: &[char], b: &[char]) -> usize {
         curr.fill(0);
     }
     prev[n]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mk_setlist() -> Vec<Song> {
+        vec![
+            Song {
+                title: "Amazing Grace".into(),
+                slides: vec![
+                    Slide { id: 0, text: "Amazing grace how sweet the sound that saved a wretch like me".into() },
+                    Slide { id: 1, text: "I once was lost but now am found was blind but now I see".into() },
+                    Slide { id: 2, text: "Twas grace that taught my heart to fear and grace my fears relieved".into() },
+                ],
+            },
+            Song {
+                title: "How Great Is Our God".into(),
+                slides: vec![
+                    Slide { id: 3, text: "The splendor of the King clothed in majesty".into() },
+                    Slide { id: 4, text: "How great is our God sing with me how great is our God".into() },
+                ],
+            },
+            Song {
+                title: "Way Maker".into(),
+                slides: vec![
+                    Slide { id: 5, text: "You are here moving in our midst I worship You I worship You".into() },
+                    Slide { id: 6, text: "Way maker miracle worker promise keeper light in the darkness".into() },
+                ],
+            },
+        ]
+    }
+
+    fn cfg_with_dwell(min_dwell_secs: f64) -> SmartConfig {
+        SmartConfig {
+            min_song_dwell_secs: min_dwell_secs,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn starts_in_listening_and_blank() {
+        let c = Conductor::new(mk_setlist(), SmartConfig::default());
+        assert_eq!(c.state(), MachineState::Listening);
+        assert!(c.is_blank());
+        assert_eq!(c.current_index(), 0);
+        assert!(c.current_song_title().is_none());
+    }
+
+    #[test]
+    fn confident_match_commits_to_song() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let now = Instant::now();
+        // A long lyric line from song 0 should be a clear winner.
+        let action = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            now,
+        );
+        match action {
+            Action::Goto { song_index, slide_in_song, .. } => {
+                assert_eq!(song_index, 0);
+                assert_eq!(slide_in_song, 0);
+            }
+            other => panic!("expected Goto, got {other:?}"),
+        }
+        assert_eq!(c.state(), MachineState::Singing);
+        assert!(!c.is_blank());
+        assert_eq!(c.current_song_title(), Some("Amazing Grace"));
+    }
+
+    #[test]
+    fn unmatched_speech_stays_listening() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        // Words that don't appear in any setlist song. The absolute-min
+        // partial_ratio gate (min_song_match) must reject this even if the
+        // softmax favours one candidate.
+        let action = c.on_transcript(
+            "the rain in Spain falls mainly on the plain",
+            Instant::now(),
+        );
+        assert!(matches!(action, Action::Noop));
+        assert_eq!(c.state(), MachineState::Listening);
+        assert!(c.is_blank());
+    }
+
+    #[test]
+    fn silence_to_blank_then_to_blank_hold() {
+        let mut c = Conductor::new(mk_setlist(), cfg_with_dwell(8.0));
+        let t0 = Instant::now();
+        // Get into SINGING.
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        assert_eq!(c.state(), MachineState::Singing);
+        // 4 s later, no speech → InterVerseSilence (slide held, not yet blanked).
+        let action = c.tick(t0 + Duration::from_secs(4));
+        assert!(matches!(action, Action::Noop));
+        assert_eq!(c.state(), MachineState::InterVerseSilence);
+        assert!(!c.is_blank());
+        // Another tick past unrecognized_speech_to_blank → BlankHold + Blank action.
+        let action = c.tick(t0 + Duration::from_secs(10));
+        assert!(matches!(action, Action::Blank));
+        assert_eq!(c.state(), MachineState::BlankHold);
+        assert!(c.is_blank());
+    }
+
+    #[test]
+    fn dwell_blocks_immediate_resong_switch() {
+        // Tight dwell test: enter song 0, then *immediately* fire a song-1
+        // matching transcript; the conductor must NOT switch yet because
+        // min_song_dwell hasn't elapsed.
+        let mut c = Conductor::new(mk_setlist(), cfg_with_dwell(8.0));
+        let t0 = Instant::now();
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        assert_eq!(c.current_song_title(), Some("Amazing Grace"));
+        // Right after, sing the chorus of song 1.
+        let _ = c.on_transcript(
+            "how great is our God sing with me how great is our God",
+            t0 + Duration::from_millis(500),
+        );
+        assert_eq!(
+            c.current_song_title(),
+            Some("Amazing Grace"),
+            "dwell window should hold us in the original song"
+        );
+    }
+
+    #[test]
+    fn dwell_satisfied_allows_song_switch() {
+        let mut c = Conductor::new(mk_setlist(), cfg_with_dwell(2.0));
+        let t0 = Instant::now();
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        // After dwell expires, a song-1 match SHOULD switch.
+        let _ = c.on_transcript(
+            "how great is our God sing with me how great is our God",
+            t0 + Duration::from_secs(5),
+        );
+        assert_eq!(c.current_song_title(), Some("How Great Is Our God"));
+    }
+
+    #[test]
+    fn jump_to_song_overrides_state() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        // Establish that we're nowhere.
+        assert!(c.current_song_title().is_none());
+        let action = c.jump_to_song(2, t0);
+        match action {
+            Action::Goto { song_index, slide_in_song, .. } => {
+                assert_eq!(song_index, 2);
+                assert_eq!(slide_in_song, 0);
+            }
+            other => panic!("expected Goto from jump_to_song, got {other:?}"),
+        }
+        assert_eq!(c.current_song_title(), Some("Way Maker"));
+        assert_eq!(c.state(), MachineState::Singing);
+        assert!(!c.is_blank());
+    }
+
+    #[test]
+    fn jump_out_of_range_is_noop() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let action = c.jump_to_song(99, Instant::now());
+        assert!(matches!(action, Action::Noop));
+        assert!(c.current_song_title().is_none());
+    }
+
+    #[test]
+    fn config_hot_swap_keeps_position() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            Instant::now(),
+        );
+        let before_song = c.current_song_title().map(String::from);
+        let before_index = c.current_index();
+        c.set_config(SmartConfig {
+            silence_to_blank_secs: 10.0,
+            ..Default::default()
+        });
+        assert_eq!(c.current_song_title().map(String::from), before_song);
+        assert_eq!(c.current_index(), before_index);
+    }
+
+    #[test]
+    fn last_scores_populated_after_transcript() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        assert!(c.last_scores().is_empty());
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            Instant::now(),
+        );
+        let scores = c.last_scores();
+        assert_eq!(scores.len(), 3, "one entry per song in the setlist");
+        // The top entry must be song 0 (Amazing Grace).
+        assert_eq!(scores[0].song_index, 0);
+        // Probabilities sum to ~1 (softmax).
+        let total: f64 = scores.iter().map(|s| s.probability).sum();
+        assert!((total - 1.0).abs() < 1e-6);
+    }
 }
