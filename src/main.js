@@ -5,6 +5,9 @@ const { listen } = window.__TAURI__.event;
 let isListening = false;
 let slides = [];
 let currentSlideIndex = 0;
+// Full setlist (array of {title, slides: [...]}) — kept so we can re-export
+// what was loaded.
+let currentSongs = [];
 
 // --- DOM ---
 const statusBadge = document.getElementById("status-badge");
@@ -197,11 +200,15 @@ async function importFiles(files) {
     importError.textContent = "";
   }
 
-  // Single .json file replaces the entire setlist via the legacy path.
-  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".json")) {
-    const text = await files[0].text();
-    await loadSetlist(text);
-    return;
+  // Single .json or .voxxa-set replaces the entire setlist via the existing
+  // path. Both formats are JSON; .voxxa-set just adds a wrapping envelope.
+  if (files.length === 1) {
+    const lower = files[0].name.toLowerCase();
+    if (lower.endsWith(".json") || lower.endsWith(".voxxa-set")) {
+      const text = await files[0].text();
+      await loadSetlist(unwrapVoxxaSet(text));
+      return;
+    }
   }
 
   const collected = [];
@@ -315,6 +322,7 @@ function showImportError(msg) {
 async function loadSetlist(jsonText) {
   try {
     const songs = await invoke("load_setlist", { setlistJson: jsonText });
+    currentSongs = songs;
     slides = [];
     let title = "";
     for (const song of songs) {
@@ -324,7 +332,9 @@ async function loadSetlist(jsonText) {
       }
     }
     currentSlideIndex = 0;
-    songTitle.textContent = title;
+    songTitle.textContent = songs.length > 1
+      ? `${songs.length} songs · starting ${title}`
+      : title;
     setlistLoader.hidden = true;
     slideView.hidden = false;
     updateSlideDisplay();
@@ -332,6 +342,55 @@ async function loadSetlist(jsonText) {
     console.error("Failed to load setlist:", err);
     showImportError("Failed to load setlist: " + err);
   }
+}
+
+// --- Setlist export (.voxxa-set) ---
+const exportSetlistBtn = document.getElementById("export-setlist-btn");
+if (exportSetlistBtn) {
+  exportSetlistBtn.addEventListener("click", exportCurrentSetlist);
+}
+
+function exportCurrentSetlist() {
+  if (!currentSongs.length) return;
+  const payload = {
+    voxxa_set_version: 1,
+    exported_at: new Date().toISOString(),
+    setlist: currentSongs,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  const stem = currentSongs.length === 1
+    ? sanitizeFileName(currentSongs[0].title)
+    : `setlist-${stamp}`;
+  a.href = URL.createObjectURL(blob);
+  a.download = `${stem}.voxxa-set`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // Releasing the object URL frees the in-memory blob once the download
+  // dialog has consumed it.
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function sanitizeFileName(name) {
+  return (name || "setlist").replace(/[^a-z0-9_\- ]/gi, "").trim() || "setlist";
+}
+
+// Strip the .voxxa-set envelope and return the inner setlist JSON unchanged.
+// A bare {setlist:[...]} (the original format) passes through.
+function unwrapVoxxaSet(text) {
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && parsed.voxxa_set_version && parsed.setlist) {
+      return JSON.stringify({ setlist: parsed.setlist });
+    }
+  } catch {
+    // Not JSON or malformed — let the backend error.
+  }
+  return text;
 }
 
 function updateSlideDisplay() {
@@ -346,6 +405,87 @@ function updateSlideDisplay() {
     ? (currentSlideIndex / (slides.length - 1)) * 100
     : 100;
   slideProgressFill.style.width = `${pct}%`;
+}
+
+// --- Inline slide editor ---
+function attachSlideEditor(el) {
+  if (!el) return;
+  el.addEventListener("dblclick", () => beginEditSlide(el));
+}
+attachSlideEditor(currentSlideText);
+attachSlideEditor(nextSlideText);
+
+function beginEditSlide(el) {
+  const offset = parseInt(el.dataset.slideOffset || "0", 10);
+  const slideIdx = currentSlideIndex + offset;
+  const slide = slides[slideIdx];
+  if (!slide) return;
+
+  el.contentEditable = "true";
+  el.classList.add("editing");
+  // Place the caret at the end of the existing text.
+  el.focus();
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  const finish = async (commit) => {
+    el.removeEventListener("blur", onBlur);
+    el.removeEventListener("keydown", onKey);
+    el.contentEditable = "false";
+    el.classList.remove("editing");
+    if (!commit) {
+      el.textContent = slide.text;
+      return;
+    }
+    const newText = el.innerText.replace(/ /g, " ").trim();
+    if (newText === slide.text || !newText) {
+      el.textContent = slide.text;
+      return;
+    }
+    // Mutating the slide also updates currentSongs because slides[] holds
+    // references to the same Slide objects.
+    slide.text = newText;
+    await reloadConductorPreservingPosition();
+  };
+
+  const onBlur = () => finish(true);
+  const onKey = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      finish(false);
+    } else if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      finish(true);
+    }
+  };
+  el.addEventListener("blur", onBlur);
+  el.addEventListener("keydown", onKey);
+}
+
+// Push the in-memory currentSongs back into the conductor. The conductor
+// resets to slide 0 on load, so we manually re-advance to where we were.
+async function reloadConductorPreservingPosition() {
+  if (!currentSongs.length) return;
+  const targetIdx = currentSlideIndex;
+  try {
+    await invoke("load_setlist", {
+      setlistJson: JSON.stringify({ setlist: currentSongs }),
+    });
+    // Rebuild the flat slides[] from the (possibly edited) currentSongs.
+    slides = [];
+    for (const song of currentSongs) {
+      for (const slide of song.slides) slides.push(slide);
+    }
+    currentSlideIndex = Math.min(targetIdx, slides.length - 1);
+    updateSlideDisplay();
+  } catch (err) {
+    console.error("Failed to apply slide edit:", err);
+    alert("Failed to save edit: " + err);
+  }
 }
 
 // --- Listening Toggle ---

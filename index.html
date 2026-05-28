@@ -68,7 +68,7 @@
             <input
               type="file"
               id="file-input"
-              accept=".json,.txt,.openlyrics,.xml,.cho,.chordpro,.pro,.pptx,.pdf"
+              accept=".json,.voxxa-set,.txt,.openlyrics,.xml,.cho,.chordpro,.pro,.pptx,.pdf"
               multiple
               hidden
             />
@@ -110,18 +110,21 @@
 
         <!-- Active slide view (hidden until setlist loaded) -->
         <div class="slide-view" id="slide-view" hidden>
-          <div class="song-title" id="song-title"></div>
+          <div class="song-title-row">
+            <div class="song-title" id="song-title"></div>
+            <button class="link-btn" id="export-setlist-btn" title="Save the current setlist as a .voxxa-set file you can share">Export</button>
+          </div>
 
           <!-- Current slide display -->
           <div class="slide-card current" id="current-slide">
-            <div class="slide-label">Current Slide</div>
-            <div class="slide-text" id="current-slide-text">—</div>
+            <div class="slide-label">Current Slide<span class="edit-hint">double-click to edit</span></div>
+            <div class="slide-text" id="current-slide-text" data-slide-offset="0">—</div>
           </div>
 
           <!-- Next slide preview -->
           <div class="slide-card next" id="next-slide">
-            <div class="slide-label">Next Slide</div>
-            <div class="slide-text" id="next-slide-text">—</div>
+            <div class="slide-label">Next Slide<span class="edit-hint">double-click to edit</span></div>
+            <div class="slide-text" id="next-slide-text" data-slide-offset="1">—</div>
           </div>
 
           <!-- Progress -->

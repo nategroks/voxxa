@@ -639,3 +639,42 @@ body {
   text-decoration: underline;
 }
 .welcome-dismiss:hover { color: var(--text); }
+
+.song-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.link-btn:hover { color: var(--accent); }
+
+/* Inline slide editing — double-click to edit, blur or Enter to save. */
+.slide-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.edit-hint {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-dim);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.slide-card:hover .edit-hint { opacity: 1; }
+.slide-text.editing {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  padding: 6px 8px;
+}
