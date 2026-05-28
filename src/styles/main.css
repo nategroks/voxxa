@@ -512,3 +512,37 @@ body {
   padding-top: 6px;
   border-top: 1px dashed var(--border);
 }
+
+/* Privacy counter card — Voxxa's "0 outbound requests" promise made visible. */
+.privacy-card {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.privacy-card.zero {
+  border-color: var(--success);
+}
+.privacy-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.privacy-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.privacy-card.zero .privacy-count {
+  color: var(--success);
+}
+.privacy-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  line-height: 1.4;
+}

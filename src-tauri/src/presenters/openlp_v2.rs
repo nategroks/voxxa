@@ -57,6 +57,7 @@ impl OpenLpV2Driver {
 
     async fn post(&self, path: &str) -> Result<reqwest::Response, CtlError> {
         let url = format!("{}{}", self.base()?, path);
+        crate::net_stats::record_request();
         let res = self
             .auth(self.client.post(&url))
             .send()
@@ -74,6 +75,7 @@ impl OpenLpV2Driver {
 
     async fn get(&self, path: &str) -> Result<reqwest::Response, CtlError> {
         let url = format!("{}{}", self.base()?, path);
+        crate::net_stats::record_request();
         let res = self
             .auth(self.client.get(&url))
             .send()
@@ -152,6 +154,7 @@ impl PresentationController for OpenLpV2Driver {
         if let Some(h) = &auth_header {
             req = req.header("Authorization", h);
         }
+        crate::net_stats::record_request();
         let res = req
             .send()
             .await

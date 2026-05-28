@@ -469,9 +469,36 @@ tabs.forEach((tab) => {
     if (name === "settings") {
       loadSettings();
       loadPresenterPanel();
+      refreshPrivacyCount();
     }
   });
 });
+
+// Poll the outbound-request counter while the Settings tab is visible. 5 s is
+// generous — the counter only moves when the user triggers an action, so
+// faster polling would be wasted IPC.
+const privacyCount = document.getElementById("privacy-count");
+const privacyCard = document.getElementById("privacy-card");
+async function refreshPrivacyCount() {
+  if (!privacyCount) return;
+  try {
+    const stats = await invoke("get_network_stats");
+    const n = stats.outbound_requests;
+    privacyCount.textContent =
+      n === 0
+        ? "0 outbound network requests this session"
+        : `${n} outbound request${n === 1 ? "" : "s"} this session (all to apps you connected to)`;
+    if (privacyCard) {
+      privacyCard.classList.toggle("zero", n === 0);
+    }
+  } catch (err) {
+    console.error("get_network_stats:", err);
+  }
+}
+setInterval(() => {
+  // Only refresh if Settings panel is the visible tab — cheap DOM check.
+  if (!settingsSection.hidden) refreshPrivacyCount();
+}, 5000);
 
 // --- Models ---
 async function loadModels() {

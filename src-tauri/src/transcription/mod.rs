@@ -210,6 +210,7 @@ impl TranscriptionEngine {
         log::info!("Downloading {} to {:?}", model.display_name(), dest);
 
         let client = reqwest::Client::new();
+        crate::net_stats::record_request();
         let response = client
             .get(&url)
             .send()

@@ -43,6 +43,7 @@ impl PcoClient {
 
     async fn get(&self, path: &str) -> Result<serde_json::Value> {
         let url = format!("{BASE}{path}");
+        crate::net_stats::record_request();
         let res = self
             .client
             .get(&url)

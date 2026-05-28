@@ -3,6 +3,7 @@ mod audio;
 mod commands;
 mod discovery;
 mod importers;
+mod net_stats;
 mod planning_center;
 mod presenters;
 mod transcription;
@@ -109,6 +110,7 @@ pub fn run() {
             commands::pco_list_service_types,
             commands::pco_list_plans,
             commands::pco_import_plan,
+            commands::get_network_stats,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

@@ -48,6 +48,7 @@ impl FreeShowDriver {
             None => json!({ "action": action }),
         };
         let url = self.base()?.to_string();
+        crate::net_stats::record_request();
         let res = self
             .client
             .post(&url)
@@ -107,6 +108,7 @@ impl PresentationController for FreeShowDriver {
             .timeout(Duration::from_secs(2))
             .build()
             .map_err(|e| CtlError::Other(e.to_string()))?;
+        crate::net_stats::record_request();
         let res = probe
             .post(&base)
             .json(&json!({ "action": "get_shows" }))

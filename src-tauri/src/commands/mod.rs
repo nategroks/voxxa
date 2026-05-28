@@ -1,6 +1,7 @@
 use crate::aligner::{Action, Conductor, MachineState, Setlist, SmartConfig, Song};
 use crate::discovery::{self, DiscoveredService};
 use crate::importers::{self, ImportFormat};
+use crate::net_stats::{self, NetworkStats};
 use crate::planning_center::{PcoClient, PcoPlan, PcoServiceType};
 use crate::presenters::{
     make_controller, Capabilities, KeystrokeProfile, PresenterConfig, PresenterKind,
@@ -574,6 +575,12 @@ pub async fn get_presenter_info(state: State<'_, AppState>) -> Result<PresenterI
         connected: p.is_connected(),
         capabilities: p.capabilities(),
     })
+}
+
+/// Snapshot of outbound HTTP request count for the privacy UI.
+#[tauri::command]
+pub fn get_network_stats() -> NetworkStats {
+    net_stats::snapshot()
 }
 
 /// Test Planning Center credentials. Returns the authenticated user's name.

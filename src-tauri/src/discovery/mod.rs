@@ -62,6 +62,7 @@ async fn probe_pro7_rest(host: &str, port: u16) -> Option<DiscoveredService> {
         .build()
         .ok()?;
     let url = format!("http://{host}:{port}/v1/version");
+    crate::net_stats::record_request();
     let res = client.get(&url).send().await.ok()?;
     if !res.status().is_success() {
         return None;
@@ -86,6 +87,7 @@ async fn probe_freeshow(host: &str, port: u16) -> Option<DiscoveredService> {
         .build()
         .ok()?;
     let url = format!("http://{host}:{port}");
+    crate::net_stats::record_request();
     let res = client
         .post(&url)
         .json(&serde_json::json!({ "action": "get_shows" }))
@@ -110,6 +112,7 @@ async fn probe_openlp(host: &str, port: u16) -> Option<DiscoveredService> {
         .build()
         .ok()?;
     let url = format!("http://{host}:{port}/api/v2/core/poll");
+    crate::net_stats::record_request();
     let res = client.get(&url).send().await.ok()?;
     // 401 still means OpenLP is there — just protected by Basic Auth.
     if !res.status().is_success() && res.status() != reqwest::StatusCode::UNAUTHORIZED {

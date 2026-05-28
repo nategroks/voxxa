@@ -48,6 +48,7 @@ impl ProPresenter7RestDriver {
 
     async fn get(&self, path: &str) -> Result<reqwest::Response, CtlError> {
         let url = format!("{}{}", self.base()?, path);
+        crate::net_stats::record_request();
         let res = self
             .client
             .get(&url)
@@ -126,6 +127,7 @@ impl PresentationController for ProPresenter7RestDriver {
             .map_err(|e| CtlError::Other(e.to_string()))?;
 
         let url = format!("{base}/v1/version");
+        crate::net_stats::record_request();
         let res = probe
             .get(&url)
             .send()
