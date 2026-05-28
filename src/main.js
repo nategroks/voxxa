@@ -23,6 +23,15 @@ const nextBtn = document.getElementById("next-btn");
 const fileInput = document.getElementById("file-input");
 const tabs = document.querySelectorAll(".tab");
 const modelList = document.getElementById("model-list");
+const blankBtn = document.getElementById("blank-btn");
+const selectPresenter = document.getElementById("select-presenter");
+const presenterKeystrokeConfig = document.getElementById("presenter-keystroke-config");
+const presenterRestConfig = document.getElementById("presenter-rest-config");
+const selectKeystrokeProfile = document.getElementById("select-keystroke-profile");
+const inputPresenterHost = document.getElementById("input-presenter-host");
+const inputPresenterPort = document.getElementById("input-presenter-port");
+const connectPresenterBtn = document.getElementById("connect-presenter-btn");
+const presenterStatus = document.getElementById("presenter-status");
 
 // --- Setlist Loading ---
 fileInput.addEventListener("change", async (e) => {
@@ -140,8 +149,20 @@ nextBtn.addEventListener("click", async () => {
     }
   } catch (err) {
     console.error(err);
+    alert("Next slide failed: " + err);
   }
 });
+
+if (blankBtn) {
+  blankBtn.addEventListener("click", async () => {
+    try {
+      await invoke("blank_manual");
+    } catch (err) {
+      console.error(err);
+      alert("Blank failed: " + err);
+    }
+  });
+}
 
 // --- Events ---
 async function setupListeners() {
@@ -183,7 +204,10 @@ tabs.forEach((tab) => {
     settingsSection.hidden = name !== "settings";
 
     if (name === "models") loadModels();
-    if (name === "settings") loadSettings();
+    if (name === "settings") {
+      loadSettings();
+      loadPresenterPanel();
+    }
   });
 });
 
@@ -299,6 +323,82 @@ async function loadSettings() {
   }
 }
 
+// --- Presenter (Connection panel) ---
+async function loadPresenterPanel() {
+  if (!selectPresenter) return;
+  try {
+    const [kinds, info] = await Promise.all([
+      invoke("list_presenters"),
+      invoke("get_presenter_info"),
+    ]);
+
+    if (selectPresenter.options.length === 0) {
+      kinds.forEach((k) => {
+        const opt = document.createElement("option");
+        opt.value = k.kind;
+        opt.textContent = k.display_name;
+        selectPresenter.appendChild(opt);
+      });
+    }
+
+    selectPresenter.value = info.kind;
+    showPresenterConfigFor(info.kind);
+    updatePresenterStatus(info);
+  } catch (err) {
+    console.error("loadPresenterPanel:", err);
+  }
+}
+
+function showPresenterConfigFor(kind) {
+  presenterKeystrokeConfig.hidden = kind !== "keystroke";
+  presenterRestConfig.hidden = kind !== "pro_presenter7_rest";
+}
+
+function updatePresenterStatus(info) {
+  if (!presenterStatus) return;
+  if (info && info.connected) {
+    presenterStatus.textContent = "Connected: " + info.display_name;
+    presenterStatus.classList.add("ok");
+    presenterStatus.classList.remove("err");
+  } else {
+    presenterStatus.textContent = "Not connected";
+    presenterStatus.classList.remove("ok", "err");
+  }
+}
+
+if (selectPresenter) {
+  selectPresenter.addEventListener("change", () => {
+    showPresenterConfigFor(selectPresenter.value);
+  });
+}
+
+if (connectPresenterBtn) {
+  connectPresenterBtn.addEventListener("click", async () => {
+    const kind = selectPresenter.value;
+    const args = { kind };
+    if (kind === "keystroke") {
+      args.keystroke_profile = selectKeystrokeProfile.value;
+    } else if (kind === "pro_presenter7_rest") {
+      args.host = inputPresenterHost.value.trim() || "127.0.0.1";
+      args.port = parseInt(inputPresenterPort.value, 10) || 1025;
+    }
+    connectPresenterBtn.disabled = true;
+    presenterStatus.textContent = "Connecting...";
+    presenterStatus.classList.remove("ok", "err");
+    try {
+      const info = await invoke("connect_presenter", { args });
+      updatePresenterStatus(info);
+    } catch (err) {
+      console.error("connect_presenter:", err);
+      presenterStatus.textContent = "Failed: " + err;
+      presenterStatus.classList.add("err");
+      presenterStatus.classList.remove("ok");
+    } finally {
+      connectPresenterBtn.disabled = false;
+    }
+  });
+}
+
 // --- Helpers ---
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -308,3 +408,4 @@ function escapeHtml(str) {
 
 // --- Init ---
 setupListeners();
+loadPresenterPanel();

@@ -16,9 +16,25 @@ Local-first voice dictation desktop app powered by Whisper. Runs entirely on-dev
 
 Built with **Tauri 2.0** (Rust backend + web frontend):
 
-- `src-tauri/` — Rust backend: audio capture (cpal), VAD, Whisper (whisper-rs), text insertion (enigo)
+- `src-tauri/` — Rust backend: audio capture (cpal), VAD, Whisper (whisper-rs), presenter drivers
 - `src/` — Frontend: vanilla HTML/CSS/JS with Tauri IPC
 - Models download on first launch, stored in `~/.local/share/voxxa/models/`
+
+### Presenter drivers
+
+Slide control is abstracted behind the `PresentationController` trait in
+`src-tauri/src/presenters/`. Each concrete driver implements the same
+async surface (`next_slide`, `prev_slide`, `blank`, `goto_slide`,
+`current_state`). Phase 1 ships:
+
+- `keystroke` — universal arrow-key sender, with per-app key profiles
+  (ProPresenter, EasyWorship, OpenLP, MediaShout, SongShow Plus,
+  PowerPoint, Keynote, VideoPsalm, WorshipTools Presenter, Proclaim,
+  FreeShow). Works against any app that has focus.
+- `propresenter7_rest` — official HTTP REST API for ProPresenter 7.9+
+  (default port 1025, configurable in ProPresenter → Settings → Network).
+
+Pick and configure the active driver in **Settings → Presentation App**.
 
 ## Prerequisites
 

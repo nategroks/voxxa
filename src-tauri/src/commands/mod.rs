@@ -1,4 +1,8 @@
 use crate::aligner::{AlignConfig, LyricsAligner, Setlist, Slide, Song};
+use crate::presenters::{
+    make_controller, Capabilities, KeystrokeProfile, PresenterConfig, PresenterKind,
+    PresenterState,
+};
 use crate::transcription::WhisperModel;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
@@ -69,6 +73,22 @@ pub struct DownloadProgress {
     pub percent: f32,
 }
 
+/// Front-end-facing descriptor for a presenter driver.
+#[derive(Debug, Serialize)]
+pub struct PresenterDescriptor {
+    pub kind: PresenterKind,
+    pub display_name: &'static str,
+}
+
+/// Snapshot of the active presenter for the Connection panel.
+#[derive(Debug, Serialize)]
+pub struct PresenterInfo {
+    pub kind: PresenterKind,
+    pub display_name: &'static str,
+    pub connected: bool,
+    pub capabilities: Capabilities,
+}
+
 /// Load a setlist JSON file and prepare the aligner.
 #[tauri::command]
 pub async fn load_setlist(
@@ -77,7 +97,6 @@ pub async fn load_setlist(
 ) -> Result<Vec<Song>, String> {
     let setlist: Setlist = serde_json::from_str(&setlist_json).map_err(|e| e.to_string())?;
 
-    // Flatten all slides across all songs
     let mut all_slides: Vec<Slide> = Vec::new();
     for song in &setlist.setlist {
         for slide in &song.slides {
@@ -90,10 +109,7 @@ pub async fn load_setlist(
 
     *state.aligner.lock().await = Some(aligner);
 
-    log::info!(
-        "Loaded setlist with {} songs",
-        setlist.setlist.len()
-    );
+    log::info!("Loaded setlist with {} songs", setlist.setlist.len());
 
     Ok(setlist.setlist)
 }
@@ -125,6 +141,7 @@ pub async fn start_listening(
     let vad = state.vad.clone();
     let transcription = state.transcription.clone();
     let aligner = state.aligner.clone();
+    let presenter = state.presenter.clone();
     let is_running = state.is_running.clone();
     let app_handle = app.clone();
 
@@ -142,7 +159,6 @@ pub async fn start_listening(
                     if let Some(segment) = speech_segment {
                         accumulated.extend_from_slice(&segment);
 
-                        // Transcribe when we have enough audio (~5 seconds)
                         if accumulated.len() >= 16000 * 5 {
                             let transcription = transcription.blocking_lock();
                             match transcription.transcribe(&accumulated) {
@@ -153,15 +169,32 @@ pub async fn start_listening(
                                     if let Some(ref mut aligner) = *aligner_lock {
                                         let advanced = aligner.update(&result.text);
 
-                                        let _ = app_handle.emit("transcription", TranscriptionEvent {
-                                            text: result.text.clone(),
-                                            curr_score: 0.0,
-                                            next_score: 0.0,
-                                        });
+                                        let _ = app_handle.emit(
+                                            "transcription",
+                                            TranscriptionEvent {
+                                                text: result.text.clone(),
+                                                curr_score: 0.0,
+                                                next_score: 0.0,
+                                            },
+                                        );
 
                                         if advanced {
-                                            if let Err(e) = crate::text_insert::send_next_slide() {
-                                                log::error!("Failed to advance slide: {}", e);
+                                            // Delegate to whichever presenter is active. The
+                                            // tokio runtime created by spawn_blocking's host
+                                            // isn't a runtime — Handle::current() panics here —
+                                            // so we use a private current-thread runtime.
+                                            let presenter = presenter.clone();
+                                            let rt = tokio::runtime::Builder::new_current_thread()
+                                                .enable_all()
+                                                .build();
+                                            if let Ok(rt) = rt {
+                                                let res = rt.block_on(async {
+                                                    let p = presenter.lock().await;
+                                                    p.next_slide().await
+                                                });
+                                                if let Err(e) = res {
+                                                    log::error!("next_slide failed: {e}");
+                                                }
                                             }
 
                                             let slide_text = aligner
@@ -169,11 +202,14 @@ pub async fn start_listening(
                                                 .map(|s| s.text.clone())
                                                 .unwrap_or_default();
 
-                                            let _ = app_handle.emit("slide-advanced", SlideAdvanced {
-                                                slide_index: aligner.current_index(),
-                                                total_slides: aligner.total_slides(),
-                                                slide_text,
-                                            });
+                                            let _ = app_handle.emit(
+                                                "slide-advanced",
+                                                SlideAdvanced {
+                                                    slide_index: aligner.current_index(),
+                                                    total_slides: aligner.total_slides(),
+                                                    slide_text,
+                                                },
+                                            );
                                         }
                                     }
                                 }
@@ -222,13 +258,11 @@ pub async fn get_status(state: State<'_, AppState>) -> Result<StatusInfo, String
     })
 }
 
-/// List available audio input devices.
 #[tauri::command]
 pub async fn list_audio_devices() -> Result<Vec<String>, String> {
     crate::AudioEngine::list_devices().map_err(|e| e.to_string())
 }
 
-/// Get download status for all models.
 #[tauri::command]
 pub async fn get_model_status(state: State<'_, AppState>) -> Result<Vec<ModelInfo>, String> {
     let transcription = state.transcription.lock().await;
@@ -243,7 +277,6 @@ pub async fn get_model_status(state: State<'_, AppState>) -> Result<Vec<ModelInf
         .collect())
 }
 
-/// Download a Whisper model.
 #[tauri::command]
 pub async fn download_model(
     state: State<'_, AppState>,
@@ -285,13 +318,11 @@ pub async fn download_model(
     Ok(())
 }
 
-/// Get current settings.
 #[tauri::command]
 pub async fn get_settings() -> Result<Settings, String> {
     Ok(Settings::default())
 }
 
-/// Save settings.
 #[tauri::command]
 pub async fn save_settings(_settings: Settings) -> Result<(), String> {
     Ok(())
@@ -300,10 +331,12 @@ pub async fn save_settings(_settings: Settings) -> Result<(), String> {
 /// Manually advance to next slide.
 #[tauri::command]
 pub async fn next_slide_manual(state: State<'_, AppState>) -> Result<(), String> {
-    crate::text_insert::send_next_slide().map_err(|e| e.to_string())?;
+    {
+        let p = state.presenter.lock().await;
+        p.next_slide().await.map_err(|e| e.to_string())?;
+    }
     let mut aligner = state.aligner.lock().await;
     if let Some(ref mut a) = *aligner {
-        // Manually bump the index to keep in sync
         let _ = a.update("__manual_advance__");
     }
     Ok(())
@@ -311,6 +344,100 @@ pub async fn next_slide_manual(state: State<'_, AppState>) -> Result<(), String>
 
 /// Manually go back a slide.
 #[tauri::command]
-pub async fn prev_slide_manual() -> Result<(), String> {
-    crate::text_insert::send_prev_slide().map_err(|e| e.to_string())
+pub async fn prev_slide_manual(state: State<'_, AppState>) -> Result<(), String> {
+    let p = state.presenter.lock().await;
+    p.prev_slide().await.map_err(|e| e.to_string())
+}
+
+/// Manually blank the output. Falls back to the keystroke "blank" key on the keystroke
+/// driver; ProPresenter REST clears the slide layer.
+#[tauri::command]
+pub async fn blank_manual(state: State<'_, AppState>) -> Result<(), String> {
+    let p = state.presenter.lock().await;
+    p.blank().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_presenters() -> Vec<PresenterDescriptor> {
+    PresenterKind::all()
+        .iter()
+        .map(|&k| PresenterDescriptor {
+            kind: k,
+            display_name: k.display_name(),
+        })
+        .collect()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConnectPresenterArgs {
+    pub kind: PresenterKind,
+    #[serde(default)]
+    pub host: Option<String>,
+    #[serde(default)]
+    pub port: Option<u16>,
+    #[serde(default)]
+    pub password: Option<String>,
+    #[serde(default)]
+    pub keystroke_profile: Option<KeystrokeProfile>,
+}
+
+/// Swap to a different presenter driver. Disconnects the previous one first.
+#[tauri::command]
+pub async fn connect_presenter(
+    state: State<'_, AppState>,
+    args: ConnectPresenterArgs,
+) -> Result<PresenterInfo, String> {
+    let mut new_driver = make_controller(args.kind);
+    let cfg = PresenterConfig {
+        host: args.host,
+        port: args.port,
+        password: args.password,
+        keystroke_profile: args.keystroke_profile,
+    };
+    new_driver
+        .connect(cfg)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut active = state.presenter.lock().await;
+    let _ = active.disconnect().await;
+    *active = new_driver;
+
+    Ok(PresenterInfo {
+        kind: active.kind(),
+        display_name: active.kind().display_name(),
+        connected: active.is_connected(),
+        capabilities: active.capabilities(),
+    })
+}
+
+#[tauri::command]
+pub async fn disconnect_presenter(state: State<'_, AppState>) -> Result<(), String> {
+    let mut p = state.presenter.lock().await;
+    p.disconnect().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_presenter_info(state: State<'_, AppState>) -> Result<PresenterInfo, String> {
+    let p = state.presenter.lock().await;
+    Ok(PresenterInfo {
+        kind: p.kind(),
+        display_name: p.kind().display_name(),
+        connected: p.is_connected(),
+        capabilities: p.capabilities(),
+    })
+}
+
+/// Read the active presenter's current state (slide index, presentation name).
+/// Returns `None` when the driver doesn't support state queries.
+#[tauri::command]
+pub async fn get_presenter_state(
+    state: State<'_, AppState>,
+) -> Result<Option<PresenterState>, String> {
+    let p = state.presenter.lock().await;
+    match p.current_state().await {
+        Ok(s) => Ok(Some(s)),
+        Err(crate::CtlError::Unsupported(_)) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
 }

@@ -1,7 +1,7 @@
 mod aligner;
 mod audio;
 mod commands;
-mod text_insert;
+mod presenters;
 mod transcription;
 mod tray;
 mod vad;
@@ -14,6 +14,10 @@ use tokio::sync::Mutex;
 
 pub use aligner::{AlignConfig, LyricsAligner, Setlist, Slide, Song};
 pub use audio::AudioEngine;
+pub use presenters::{
+    make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
+    PresenterConfig, PresenterKind, PresenterState,
+};
 pub use transcription::TranscriptionEngine;
 pub use vad::VadEngine;
 
@@ -23,6 +27,7 @@ pub struct AppState {
     pub transcription: Arc<Mutex<TranscriptionEngine>>,
     pub vad: Arc<Mutex<VadEngine>>,
     pub aligner: Arc<Mutex<Option<LyricsAligner>>>,
+    pub presenter: Arc<Mutex<Box<dyn PresentationController>>>,
     pub is_running: Arc<std::sync::atomic::AtomicBool>,
 }
 
@@ -34,6 +39,25 @@ pub fn run() {
     let transcription = Arc::new(Mutex::new(TranscriptionEngine::new()));
     let vad = Arc::new(Mutex::new(VadEngine::new()));
     let aligner = Arc::new(Mutex::new(None::<LyricsAligner>));
+    // Default driver: keystroke / universal — works the moment the user focuses any
+    // presentation app, no configuration required.
+    let mut keystroke = make_controller(PresenterKind::Keystroke);
+    {
+        // Pre-connect with default profile so manual prev/next work before the user
+        // touches Settings.
+        let cfg = PresenterConfig {
+            keystroke_profile: Some(KeystrokeProfile::Universal),
+            ..Default::default()
+        };
+        // Connect is async; we're in sync `run()`. The keystroke connect doesn't
+        // actually do I/O, so block_on a tiny runtime.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("tokio rt");
+        let _ = rt.block_on(keystroke.connect(cfg));
+    }
+    let presenter = Arc::new(Mutex::new(keystroke));
     let is_running = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let state = AppState {
@@ -41,6 +65,7 @@ pub fn run() {
         transcription: transcription.clone(),
         vad: vad.clone(),
         aligner: aligner.clone(),
+        presenter: presenter.clone(),
         is_running: is_running.clone(),
     };
 
@@ -62,6 +87,12 @@ pub fn run() {
             commands::save_settings,
             commands::next_slide_manual,
             commands::prev_slide_manual,
+            commands::blank_manual,
+            commands::list_presenters,
+            commands::connect_presenter,
+            commands::disconnect_presenter,
+            commands::get_presenter_info,
+            commands::get_presenter_state,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

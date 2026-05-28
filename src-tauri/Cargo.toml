@@ -18,7 +18,7 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-shell = "2"
 tauri-plugin-store = "2"
 tauri-plugin-global-shortcut = "2"
@@ -45,8 +45,11 @@ reqwest = { version = "0.12", features = ["stream"] }
 futures-util = "0.3"
 dirs = "6"
 
-# Text insertion
+# Presenter control (keystroke fallback)
 enigo = "0.2"
+
+# Async traits for the PresentationController abstraction
+async-trait = "0.1"
 
 # MCP integration
 rmcp = { version = "0.1", features = ["client", "transport-sse", "transport-child-process"], optional = true }
