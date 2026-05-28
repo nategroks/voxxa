@@ -126,6 +126,7 @@ pub fn run() {
             commands::load_model,
             commands::set_language,
             commands::get_language,
+            commands::toggle_stage_display,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

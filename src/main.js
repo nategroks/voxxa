@@ -558,6 +558,19 @@ if (blankBtn) {
   });
 }
 
+const stageBtn = document.getElementById("stage-btn");
+if (stageBtn) {
+  stageBtn.addEventListener("click", async () => {
+    try {
+      const visible = await invoke("toggle_stage_display");
+      stageBtn.classList.toggle("active", visible);
+    } catch (err) {
+      console.error("toggle_stage_display:", err);
+      alert("Stage Display failed: " + err);
+    }
+  });
+}
+
 // --- Events ---
 const micMeterFill = document.getElementById("mic-meter-fill");
 const micMeterPeak = document.getElementById("mic-meter-peak");

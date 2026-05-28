@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voxxa — Stage Display</title>
+    <link rel="stylesheet" href="/src/styles/stage.css" />
+  </head>
+  <body class="stage">
+    <header class="stage-header">
+      <div class="stage-state" id="stage-state">Listening</div>
+      <div class="stage-blank-pill" id="stage-blank-pill" hidden>BLANK</div>
+      <div class="stage-song" id="stage-song">—</div>
+    </header>
+
+    <main class="stage-main">
+      <section class="stage-slide stage-current" id="stage-current">
+        <div class="stage-label">Now</div>
+        <div class="stage-text" id="stage-current-text">Waiting…</div>
+      </section>
+      <section class="stage-slide stage-next" id="stage-next">
+        <div class="stage-label">Next</div>
+        <div class="stage-text" id="stage-next-text">—</div>
+      </section>
+    </main>
+
+    <footer class="stage-footer">
+      <div class="stage-progress">
+        <div class="stage-progress-fill" id="stage-progress-fill"></div>
+      </div>
+      <div class="stage-meta">
+        <span id="stage-counter">0 / 0</span>
+        <span class="stage-heard" id="stage-heard">—</span>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/stage.js"></script>
+  </body>
+</html>

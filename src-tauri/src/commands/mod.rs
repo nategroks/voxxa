@@ -708,6 +708,26 @@ pub fn get_network_stats() -> NetworkStats {
     net_stats::snapshot()
 }
 
+/// Toggle the always-on-top Stage Display companion window. Used by worship
+/// leaders on a confidence monitor — second screen showing what Voxxa
+/// thinks is happening.
+#[tauri::command]
+pub fn toggle_stage_display(app: tauri::AppHandle) -> Result<bool, String> {
+    use tauri::Manager;
+    let win = app
+        .get_webview_window("stage")
+        .ok_or("Stage Display window not configured")?;
+    let visible = win.is_visible().map_err(|e| e.to_string())?;
+    if visible {
+        win.hide().map_err(|e| e.to_string())?;
+        Ok(false)
+    } else {
+        win.show().map_err(|e| e.to_string())?;
+        win.set_focus().map_err(|e| e.to_string())?;
+        Ok(true)
+    }
+}
+
 /// Build a copy-pasteable diagnostic report (system info + recent log lines).
 /// Voxxa never uploads — the user owns where this text goes.
 #[tauri::command]
