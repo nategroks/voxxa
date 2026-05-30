@@ -117,7 +117,7 @@ async function loadHymnaryHymn(result) {
     await loadSetlist(JSON.stringify({ setlist: [song] }));
   } catch (err) {
     console.error("hymnary_fetch:", err);
-    alert("Couldn't load this hymn: " + err);
+    toast("Couldn't load this hymn: " + err, "error");
   }
 }
 
@@ -549,7 +549,7 @@ async function jumpToSong(songIndex) {
     // Local state will sync via the slide-advanced event the dispatcher emits.
   } catch (err) {
     console.error("jump_to_song:", err);
-    alert("Failed to jump: " + err);
+    toast("Failed to jump: " + err, "error");
   }
 }
 
@@ -694,7 +694,7 @@ async function reloadConductorPreservingPosition() {
     updateSlideDisplay();
   } catch (err) {
     console.error("Failed to apply slide edit:", err);
-    alert("Failed to save edit: " + err);
+    toast("Failed to save edit: " + err, "error");
   }
 }
 
@@ -712,7 +712,7 @@ async function toggleListening() {
     }
   } catch (err) {
     console.error("Listen toggle error:", err);
-    alert(String(err));
+    toast(String(err), "error", 6000);
     setListeningState(false);
   }
 }
@@ -749,7 +749,7 @@ nextBtn.addEventListener("click", async () => {
     }
   } catch (err) {
     console.error(err);
-    alert("Next slide failed: " + err);
+    toast("Next slide failed: " + err, "error");
   }
 });
 
@@ -759,7 +759,7 @@ if (blankBtn) {
       await invoke("blank_manual");
     } catch (err) {
       console.error(err);
-      alert("Blank failed: " + err);
+      toast("Blank failed: " + err, "error");
     }
   });
 }
@@ -775,7 +775,7 @@ if (stageBtn) {
       stageBtn.classList.toggle("active", visible);
     } catch (err) {
       console.error("toggle_stage_display:", err);
-      alert("Stage Display failed: " + err);
+      toast("Stage Display failed: " + err, "error");
     }
   });
 }
@@ -983,7 +983,7 @@ async function loadModelByName(modelName) {
     writeJsonStorage("voxxa.lastModel", modelName);
   } catch (err) {
     console.error("load_model:", err);
-    alert("Failed to load model: " + err);
+    toast("Failed to load model: " + err, "error");
   }
 }
 
@@ -1030,7 +1030,7 @@ async function downloadModel(modelName) {
     loadModels();
   } catch (err) {
     console.error("Download failed:", err);
-    alert("Download failed: " + err);
+    toast("Download failed: " + err, "error");
   }
   currentDownloadModel = null;
 }
@@ -1322,6 +1322,39 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// --- Toast notifications ---
+// Mid-service `alert()` blocks the UI thread and pulls focus; for operator
+// workflows that's unacceptable. Toast notifications stack non-blocking.
+function ensureToastContainer() {
+  let c = document.getElementById("toast-container");
+  if (!c) {
+    c = document.createElement("div");
+    c.id = "toast-container";
+    document.body.appendChild(c);
+  }
+  return c;
+}
+
+function toast(message, kind = "info", timeoutMs = 4000) {
+  const container = ensureToastContainer();
+  const el = document.createElement("div");
+  el.className = `toast toast-${kind}`;
+  el.textContent = String(message);
+  // Click to dismiss early.
+  el.addEventListener("click", () => dismissToast(el));
+  container.appendChild(el);
+  if (timeoutMs > 0) {
+    setTimeout(() => dismissToast(el), timeoutMs);
+  }
+  return el;
+}
+
+function dismissToast(el) {
+  if (!el || el.classList.contains("fading")) return;
+  el.classList.add("fading");
+  setTimeout(() => el.remove(), 300);
+}
+
 // --- First-launch welcome ---
 const FIRST_LAUNCH_KEY = "voxxa.firstLaunchDone";
 const welcomeOverlay = document.getElementById("welcome-overlay");
@@ -1555,7 +1588,7 @@ if (diagBtn) {
       diagOverlay.hidden = false;
     } catch (err) {
       console.error("diagnostic report:", err);
-      alert("Failed to generate report: " + err);
+      toast("Failed to generate report: " + err, "error");
     }
   });
 }
@@ -1637,7 +1670,9 @@ function showShortcutHelp() {
     "S — Toggle Stage Display",
     "?  — Show this help",
   ];
-  alert("Voxxa keyboard shortcuts\n\n" + lines.join("\n"));
+  // Long-timeout info toast — stays visible long enough to read but doesn't
+  // pull focus the way alert() would.
+  toast("Shortcuts: " + lines.join("  ·  "), "info", 10000);
 }
 
 // --- Init ---

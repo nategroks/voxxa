@@ -938,3 +938,50 @@ body {
   color: var(--text-dim);
   text-align: right;
 }
+
+/* Toast notifications — non-blocking error / info messages. */
+#toast-container {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 1100;
+  pointer-events: none;
+  max-width: calc(100vw - 32px);
+}
+.toast {
+  pointer-events: auto;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  max-width: 480px;
+  word-wrap: break-word;
+  animation: toast-in 0.2s ease-out;
+}
+.toast-error {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+}
+.toast-info {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.12);
+}
+.toast.fading {
+  animation: toast-out 0.3s ease-in forwards;
+}
+@keyframes toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+@keyframes toast-out {
+  to { transform: translateY(8px); opacity: 0; }
+}
