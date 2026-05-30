@@ -99,3 +99,32 @@ The release workflow produces both `.AppImage` and `.deb` artifacts.
 AppImages are GPG-signed when the release was tagged; the public key is
 published on the release page. The `.deb` is unsigned at the apt-repo
 level — install with `sudo dpkg -i voxxa_*.deb` and accept the warning.
+
+### Flatpak (manual build)
+
+A Flatpak manifest lives at `packaging/flatpak/com.voxxa.app.yml`. It's
+not yet shipping pre-built on Flathub; you build locally:
+
+```bash
+./packaging/flatpak/build-local.sh --install
+flatpak run com.voxxa.app
+```
+
+The script pulls the freedesktop runtime + rust-stable + node20
+extensions from Flathub (one-time), builds inside the sandbox, and
+optionally installs to your user-scope Flatpak repository.
+
+Sandbox permissions Voxxa requests via the manifest's `finish-args`:
+
+- `pulseaudio` socket for microphone capture
+- `network` for presenter API calls + Whisper model downloads + the
+  local 127.0.0.1 HTTP API (Flatpak's network share covers loopback)
+- `wayland` and fallback `x11` sockets for the UI
+- `xdg-data/voxxa:create` for the Whisper model cache
+- `xdg-documents:ro` / `xdg-download:ro` for setlist file picking
+
+Keystroke fallback under Flatpak follows the same rules as the
+out-of-sandbox install: X11 works through the host's XTest extension;
+Wayland needs `ydotool` on the host. The Flatpak doesn't bundle
+`ydotool` itself — synthetic input from inside a Flatpak sandbox is
+sandboxed away from the real input stack by design.

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.voxxa.app</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Voxxa</name>
+  <summary>Voice-driven slide control for worship services</summary>
+  <description>
+    <p>
+      Voxxa listens to the band, recognises which song is being sung against
+      a loaded setlist, and automatically advances the worship slides on
+      ProPresenter, FreeShow, OpenLP, OpenSong, Proclaim, PowerPoint, or
+      anything else that takes keyboard input. All audio stays on the local
+      machine — no cloud, no telemetry.
+    </p>
+    <p>Phase-1 highlights:</p>
+    <ul>
+      <li>Smart-blanking conductor with Silero VAD</li>
+      <li>Eight presenter drivers (API + keystroke)</li>
+      <li>Ten import formats including Planning Center pull and Hymnary.org search</li>
+      <li>Stage Display companion window for confidence monitors</li>
+      <li>Local HTTP API for Stream Deck / foot pedals / Companion / QLab</li>
+      <li>Zero outbound network calls by default — proven by a live counter</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">com.voxxa.app.desktop</launchable>
+  <url type="homepage">https://github.com/nategroks/voxxa</url>
+  <url type="bugtracker">https://github.com/nategroks/voxxa/issues</url>
+  <developer_name>Nate Groks</developer_name>
+  <content_rating type="oars-1.1" />
+  <categories>
+    <category>Audio</category>
+    <category>Music</category>
+    <category>Office</category>
+    <category>Presentation</category>
+  </categories>
+  <releases>
+    <release version="0.1.0" date="2026-05-30">
+      <description>
+        <p>First public release.</p>
+      </description>
+    </release>
+  </releases>
+</component>

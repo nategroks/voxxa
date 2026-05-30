@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Voxxa
+GenericName=Worship slide auto-advancer
+Comment=Voice-driven slide control for houses of worship. Runs 100% on-device.
+Exec=voxxa %u
+Icon=com.voxxa.app
+Terminal=false
+Type=Application
+Categories=Audio;AudioVideo;Music;Office;Presentation;
+StartupWMClass=Voxxa
+Keywords=worship;church;slides;lyrics;presentation;whisper;
