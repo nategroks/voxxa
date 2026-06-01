@@ -41,14 +41,35 @@ papercuts) and a fair amount of dead code. This is the running record.
    capabilities, chose the goto path, got Unsupported back, logged it,
    and the slide didn't advance.
 
-   Fix: OpenLP capabilities now declares `can_goto_slide=false` (with
-   a comment pointing at the verify-before-shipping caveat from the
-   plan). The dispatcher correctly falls through to next/prev keystrokes
-   on jumps. Added a `contract_tests::capabilities_match_implementations`
-   test that iterates every driver, probes each method matching an
-   advertised capability, and asserts none of them return Unsupported.
-   The test catches this class of bug at compile time for the next
-   driver someone adds.
+   Fix in `0d7da6a`: OpenLP capabilities now declares
+   `can_goto_slide=false` (with a comment pointing at the verify-before-
+   shipping caveat from the plan). The dispatcher correctly falls
+   through to next/prev keystrokes on jumps. Added a
+   `contract_tests::capabilities_match_implementations` test that
+   iterates every driver, probes each method matching an advertised
+   capability, and asserts none of them return Unsupported. Catches the
+   same class of bug for the next driver someone adds.
+
+5. **External blanks didn't sync the Conductor's `is_blank` flag.**
+   Operator hits Blank via tray, Blank button, or HTTP `/blank` →
+   presenter blanks → conductor's `is_blank` stays false. The
+   on_transcript path's "if blanked → unblank" branch then never fires,
+   so the audience stays blank through the rest of the verse until the
+   next within-song advance coincidentally fires a Goto.
+
+   Fix in `b9d4d11`: `Conductor::notify_external_blank()` sets
+   `is_blank=true` without changing the state. All three external
+   blank sites (blank_manual Tauri command, post_blank HTTP route,
+   tray_blank menu item) now call it. Regression test in
+   `aligner::tests::external_blank_recovers_on_next_match`.
+
+6. **Setlists with empty `setlist` array or songs with zero slides
+   loaded silently.** Empty setlist sat in Listening forever; zero-slide
+   song committed internally but couldn't fire a Goto, so the operator
+   saw song-detection events with no slide motion.
+
+   Fix in `c201c02`: both rejected at load with operator-friendly error
+   messages that surface through the import-error toast path.
 
 ### Stale state / dead code
 
