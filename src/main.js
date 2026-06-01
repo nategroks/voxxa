@@ -820,6 +820,15 @@ async function setupListeners() {
     renderDetection(event.payload.rows || []);
   });
 
+  // Audio loop exited — either the operator stopped (clean) or the device
+  // dropped out (disconnected: true). Either way, re-arm the UI.
+  await listen("listening-stopped", (event) => {
+    setListeningState(false);
+    if (event.payload && event.payload.disconnected) {
+      toast("Audio capture lost — check your microphone.", "error", 6000);
+    }
+  });
+
   await listen("mic-level", (event) => {
     const { peak, rms } = event.payload;
     if (micMeterFill) {

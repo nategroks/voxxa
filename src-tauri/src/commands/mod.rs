@@ -193,6 +193,8 @@ pub async fn start_listening_with_state(
     // without building a fresh runtime each iteration.
     let rt_handle = tokio::runtime::Handle::current();
 
+    let is_running_for_task = is_running.clone();
+    let app_handle_for_cleanup = app.clone();
     tokio::task::spawn_blocking(move || {
         let mut accumulated: Vec<f32> = Vec::new();
         let mut last_state = MachineState::Listening;
@@ -205,6 +207,10 @@ pub async fn start_listening_with_state(
         const TICK_EVERY: Duration = Duration::from_millis(200);
         // ~33 Hz UI updates — fast enough to look live, cheap enough to ignore.
         const MIC_EMIT_EVERY: Duration = Duration::from_millis(33);
+        // `disconnected` distinguishes a clean stop (operator hit stop) from
+        // the audio device dropping out underneath us. The frontend listens
+        // for `listening-stopped` so it can re-arm the start button either way.
+        let mut disconnected = false;
 
         while is_running.load(Ordering::SeqCst) {
             let now = Instant::now();
@@ -360,9 +366,20 @@ pub async fn start_listening_with_state(
                     }
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    log::warn!("[AUDIO] capture channel disconnected");
+                    disconnected = true;
+                    break;
+                }
             }
         }
+        // Always reset is_running on loop exit so the UI doesn't think we're
+        // still listening after a device dropout.
+        is_running_for_task.store(false, Ordering::SeqCst);
+        let _ = app_handle_for_cleanup.emit(
+            "listening-stopped",
+            serde_json::json!({ "disconnected": disconnected }),
+        );
     });
 
     Ok(())
