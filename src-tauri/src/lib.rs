@@ -25,6 +25,14 @@ pub use presenters::{
 pub use transcription::TranscriptionEngine;
 pub use vad::VadEngine;
 
+// Test-friendly importer re-exports. The integration tests in tests/
+// exercise these against the example files in examples/; production code
+// should keep going through commands::parse_song_text / parse_song_bytes.
+pub use importers::chordpro::parse as chordpro_parse;
+pub use importers::openlyrics::parse as openlyrics_parse;
+pub use importers::opensong::parse as opensong_parse;
+pub use importers::txt::parse as txt_parse;
+
 /// Shared application state.
 pub struct AppState {
     pub audio: Arc<Mutex<AudioEngine>>,

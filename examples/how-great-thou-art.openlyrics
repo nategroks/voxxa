@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<song xmlns="http://openlyrics.info/namespace/2009/song" version="0.8">
+  <properties>
+    <titles>
+      <title>How Great Thou Art</title>
+    </titles>
+    <authors>
+      <author>Carl Boberg</author>
+      <author>Stuart K. Hine</author>
+    </authors>
+    <copyright>Public Domain</copyright>
+  </properties>
+  <lyrics>
+    <verse name="v1">
+      <lines>O Lord my God! When I in awesome wonder<br/>Consider all the worlds Thy hands have made<br/>I see the stars, I hear the rolling thunder<br/>Thy power throughout the universe displayed</lines>
+    </verse>
+    <verse name="c1">
+      <lines>Then sings my soul, my Saviour God, to Thee<br/>How great Thou art, how great Thou art<br/>Then sings my soul, my Saviour God, to Thee<br/>How great Thou art, how great Thou art</lines>
+    </verse>
+    <verse name="v2">
+      <lines>When through the woods and forest glades I wander<br/>And hear the birds sing sweetly in the trees<br/>When I look down from lofty mountain grandeur<br/>And hear the brook and feel the gentle breeze</lines>
+    </verse>
+    <verse name="v3">
+      <lines>And when I think that God, His Son not sparing<br/>Sent Him to die, I scarce can take it in<br/>That on the cross, my burden gladly bearing<br/>He bled and died to take away my sin</lines>
+    </verse>
+    <verse name="v4">
+      <lines>When Christ shall come with shout of acclamation<br/>And take me home, what joy shall fill my heart<br/>Then I shall bow in humble adoration<br/>And there proclaim, my God, how great Thou art</lines>
+    </verse>
+  </lyrics>
+</song>
