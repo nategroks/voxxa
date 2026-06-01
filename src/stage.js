@@ -32,16 +32,15 @@ function applyState(state, isBlank) {
 
 async function setupListeners() {
   await listen("slide-advanced", (event) => {
-    const { slide_index, total_slides, slide_text, song_title } = event.payload;
+    const { slide_index, total_slides, slide_text, next_slide_text, song_title } =
+      event.payload;
     currentText.textContent = slide_text || "—";
+    nextText.textContent = next_slide_text || "(End of song)";
     songEl.textContent = song_title || "—";
     totalSlides = total_slides;
     counterEl.textContent = `${slide_index + 1} / ${total_slides}`;
     const pct = total_slides > 1 ? (slide_index / (total_slides - 1)) * 100 : 100;
     progressFill.style.width = `${pct}%`;
-    // We can't see the next slide's text via this event (only the current);
-    // refresh from the conductor for that.
-    refreshNextSlide();
   });
 
   await listen("machine-state", (event) => {
@@ -54,23 +53,12 @@ async function setupListeners() {
   });
 }
 
-// `get_status` returns the current global index, but not the slide-by-index
-// text. The main window has that data; the stage window doesn't. For the
-// "Next" preview we fall back to a separate command that fetches the
-// upcoming slide text directly from the conductor. If the command isn't
-// available, we leave the next preview blank — degrades gracefully.
-async function refreshNextSlide() {
-  // Currently no backend command exposes individual slide text by index.
-  // Until one is added, this is a no-op stub; the main window's "Next"
-  // preview is the source of truth for now.
-}
-
 async function initFromStatus() {
   try {
     const status = await invoke("get_status");
     if (status.machine_state) applyState(status.machine_state, status.is_blank ?? true);
     if (status.song_title) songEl.textContent = status.song_title;
-    if (status.total_slides > 0) {
+    if (status.total_slides > 0 && status.current_slide != null) {
       totalSlides = status.total_slides;
       counterEl.textContent = `${status.current_slide + 1} / ${status.total_slides}`;
     }

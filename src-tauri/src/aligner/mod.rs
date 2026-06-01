@@ -95,6 +95,10 @@ pub enum Action {
         slide_in_song: usize,
         global_index: usize,
         slide_text: String,
+        /// Next slide's text (or `None` at the end of the song). Threaded
+        /// through to the slide-advanced UI event so the Stage Display can
+        /// show the Next panel without a follow-up backend query.
+        next_slide_text: Option<String>,
         song_title: String,
     },
     Blank,
@@ -435,13 +439,49 @@ impl Conductor {
         let song = self.songs.get(song_index)?;
         let slide = song.slides.get(self.current_slide_in_song)?;
         let global = self.song_offsets[song_index] + self.current_slide_in_song;
+        let next_slide_text = song
+            .slides
+            .get(self.current_slide_in_song + 1)
+            .map(|s| s.text.clone());
         Some(Action::Goto {
             song_index,
             slide_in_song: self.current_slide_in_song,
             global_index: global,
             slide_text: slide.text.clone(),
+            next_slide_text,
             song_title: song.title.clone(),
         })
+    }
+
+    /// Operator-initiated manual step within the current song. Bounded by the
+    /// song's slide count. Returns the Goto action for the new position, or
+    /// `Noop` if we're not in a song (so the caller can fall back to a raw
+    /// presenter keystroke) or if the step would land out of bounds and we're
+    /// already at the boundary.
+    pub fn manual_step(&mut self, delta: i32, now: Instant) -> Action {
+        let Some(song_idx) = self.current_song else {
+            return Action::Noop;
+        };
+        let song_len = self
+            .songs
+            .get(song_idx)
+            .map(|s| s.slides.len() as i32)
+            .unwrap_or(0);
+        if song_len == 0 {
+            return Action::Noop;
+        }
+        let target = (self.current_slide_in_song as i32 + delta).clamp(0, song_len - 1);
+        if (target as usize) == self.current_slide_in_song {
+            return Action::Noop;
+        }
+        self.current_slide_in_song = target as usize;
+        self.last_advance = Some(now);
+        self.is_blank = false;
+        self.transition(MachineState::Singing, now);
+        // Operator overrode the conductor — drop the rolling buffer so a
+        // stale half-verse doesn't trigger a competing auto-advance.
+        self.buffer_words.clear();
+        self.goto_action_for_current().unwrap_or(Action::Noop)
     }
 
     fn transition(&mut self, to: MachineState, now: Instant) {
@@ -702,6 +742,86 @@ mod tests {
         });
         assert_eq!(c.current_song_title().map(String::from), before_song);
         assert_eq!(c.current_index(), before_index);
+    }
+
+    #[test]
+    fn manual_step_within_song_advances() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        // Get into song 0, slide 0.
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        assert_eq!(c.current_index(), 0);
+        let action = c.manual_step(1, t0 + Duration::from_millis(100));
+        match action {
+            Action::Goto { song_index, slide_in_song, global_index, .. } => {
+                assert_eq!(song_index, 0);
+                assert_eq!(slide_in_song, 1);
+                assert_eq!(global_index, 1);
+            }
+            other => panic!("expected Goto, got {other:?}"),
+        }
+        assert_eq!(c.current_index(), 1);
+    }
+
+    #[test]
+    fn manual_step_clamped_at_song_end() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        // Song 0 has 3 slides; step forward 5 times — last 3 must be clamped.
+        for _ in 0..5 {
+            c.manual_step(1, t0);
+        }
+        assert_eq!(c.current_index(), 2, "clamped to last slide of song");
+    }
+
+    #[test]
+    fn manual_step_outside_song_is_noop() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let action = c.manual_step(1, Instant::now());
+        assert!(matches!(action, Action::Noop));
+    }
+
+    #[test]
+    fn goto_action_carries_next_slide_text() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        // Land on song 0 slide 0 — next slide is song 0 slide 1.
+        let action = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            Instant::now(),
+        );
+        match action {
+            Action::Goto { next_slide_text, .. } => {
+                let next = next_slide_text.expect("song 0 slide 1 exists");
+                assert!(next.contains("I once was lost"));
+            }
+            other => panic!("expected Goto, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn goto_action_next_text_none_at_song_end() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        // Step to the last slide (index 2 of 3).
+        c.manual_step(1, t0);
+        let action = c.manual_step(1, t0);
+        match action {
+            Action::Goto { next_slide_text, .. } => {
+                assert!(next_slide_text.is_none(), "no next slide at song end");
+            }
+            other => panic!("expected Goto, got {other:?}"),
+        }
     }
 
     #[test]

@@ -36,6 +36,10 @@ pub struct SlideAdvanced {
     pub slide_index: usize,
     pub total_slides: usize,
     pub slide_text: String,
+    /// Text of the slide that comes after `slide_index`. `None` at the end
+    /// of the current song. The Stage Display uses this for its Next panel
+    /// so it doesn't need to ping the backend.
+    pub next_slide_text: Option<String>,
     pub song_title: String,
 }
 
@@ -403,6 +407,7 @@ fn dispatch_action_with_total(
             slide_in_song: _,
             global_index,
             slide_text,
+            next_slide_text,
             song_title,
         } => {
             let target = global_index as i64;
@@ -471,6 +476,7 @@ fn dispatch_action_with_total(
                     // command paths that don't have conductor access on hand.
                     total_slides: total_slides_hint.unwrap_or(global_index + 1),
                     slide_text,
+                    next_slide_text,
                     song_title,
                 },
             );
@@ -639,26 +645,72 @@ pub async fn download_model(
     Ok(())
 }
 
-/// Manually advance to next slide. Updates `last_dispatched_global` so the
-/// conductor's next Goto computes the right delta.
+/// Manually advance one slide. Routes through the conductor when a song is
+/// active so its internal slide counter stays in sync (otherwise the next
+/// lyric-triggered Goto would compute the wrong delta). When no song has been
+/// detected yet, falls back to a raw presenter keystroke.
 #[tauri::command]
-pub async fn next_slide_manual(state: State<'_, AppState>) -> Result<(), String> {
-    {
-        let p = state.presenter.lock().await;
-        p.next_slide().await.map_err(|e| e.to_string())?;
-    }
-    state.last_dispatched_global.fetch_add(1, Ordering::SeqCst);
-    Ok(())
+pub async fn next_slide_manual(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    manual_step(&state, &app, 1).await
 }
 
 #[tauri::command]
-pub async fn prev_slide_manual(state: State<'_, AppState>) -> Result<(), String> {
-    {
+pub async fn prev_slide_manual(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    manual_step(&state, &app, -1).await
+}
+
+async fn manual_step(
+    state: &AppState,
+    app: &tauri::AppHandle,
+    delta: i32,
+) -> Result<(), String> {
+    let (action, total) = {
+        let mut c = state.conductor.lock().await;
+        match c.as_mut() {
+            Some(cd) => (
+                cd.manual_step(delta, Instant::now()),
+                Some(cd.total_slides()),
+            ),
+            None => (Action::Noop, None),
+        }
+    };
+    if matches!(action, Action::Noop) {
+        // No active song — direct presenter call. Still update last_dispatched
+        // so a subsequent lyric Goto computes a sane delta.
         let p = state.presenter.lock().await;
-        p.prev_slide().await.map_err(|e| e.to_string())?;
+        let r = if delta > 0 {
+            p.next_slide().await
+        } else {
+            p.prev_slide().await
+        };
+        r.map_err(|e| e.to_string())?;
+        state
+            .last_dispatched_global
+            .fetch_add(delta as i64, Ordering::SeqCst);
+        return Ok(());
     }
-    state.last_dispatched_global.fetch_sub(1, Ordering::SeqCst);
-    Ok(())
+    let rt = tokio::runtime::Handle::current();
+    let presenter = state.presenter.clone();
+    let last_dispatched = state.last_dispatched_global.clone();
+    let app_handle = app.clone();
+    tokio::task::spawn_blocking(move || {
+        dispatch_action_with_total(
+            &rt,
+            action,
+            &presenter,
+            &last_dispatched,
+            &app_handle,
+            total,
+        );
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -685,35 +737,22 @@ pub async fn jump_to_song(
             None => return Err("No setlist loaded".into()),
         }
     };
-    let rt_handle = tokio::runtime::Handle::current();
-    // The dispatch helper expects synchronous-ish access; we're already in
-    // an async context, so call it inline against a one-shot blocking task.
+    let rt = tokio::runtime::Handle::current();
+    let presenter = state.presenter.clone();
+    let last_dispatched = state.last_dispatched_global.clone();
+    let app_handle = app.clone();
     tokio::task::spawn_blocking(move || {
         dispatch_action_with_total(
-            &rt_handle,
+            &rt,
             action,
-            &state_clone_presenter(&app),
-            &state_clone_last_dispatched(&app),
-            &app,
+            &presenter,
+            &last_dispatched,
+            &app_handle,
             total,
         );
     })
     .await
     .map_err(|e| e.to_string())
-}
-
-// Small accessors so jump_to_song can hand the dispatcher Arc clones without
-// borrowing through the State<'_> guard across the spawn_blocking boundary.
-fn state_clone_presenter(
-    app: &tauri::AppHandle,
-) -> Arc<Mutex<Box<dyn crate::PresentationController>>> {
-    use tauri::Manager;
-    app.state::<AppState>().presenter.clone()
-}
-
-fn state_clone_last_dispatched(app: &tauri::AppHandle) -> Arc<AtomicI64> {
-    use tauri::Manager;
-    app.state::<AppState>().last_dispatched_global.clone()
 }
 
 #[tauri::command]
