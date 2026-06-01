@@ -120,7 +120,16 @@ impl PresentationController for OpenLpV2Driver {
     }
 
     fn capabilities(&self) -> Capabilities {
-        Capabilities::FULL
+        // can_goto_slide is intentionally false: OpenLP's exact jump-to-slide
+        // endpoint path varies across point releases and the plan calls for
+        // verifying it against the live openlp/core/api/versions/v2/controller.py
+        // before wiring it. Until then the dispatcher must translate jumps into
+        // next/prev keypresses so the operator's setlist sequencing still works.
+        Capabilities {
+            can_blank: true,
+            can_goto_slide: false,
+            can_query_state: true,
+        }
     }
 
     fn is_connected(&self) -> bool {

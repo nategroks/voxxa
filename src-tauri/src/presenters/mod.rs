@@ -183,3 +183,47 @@ pub fn make_controller(kind: PresenterKind) -> Box<dyn PresentationController> {
         PresenterKind::OpenSong => Box::new(OpenSongDriver::new()),
     }
 }
+
+#[cfg(test)]
+mod contract_tests {
+    use super::*;
+
+    /// Drivers that advertise a capability must not return
+    /// `CtlError::Unsupported` from the corresponding method. A mismatch is a
+    /// real bug — the dispatcher uses capabilities to choose execution paths
+    /// and a silent Unsupported means the slide never moves. Caught the OpenLP
+    /// can_goto_slide=true / goto_slide-unimplemented mismatch the punchlist
+    /// review surfaced.
+    #[tokio::test]
+    async fn capabilities_match_implementations() {
+        for &kind in PresenterKind::all() {
+            let driver = make_controller(kind);
+            let caps = driver.capabilities();
+
+            // Probe each method. Drivers fail with NotConnected (they haven't
+            // had `connect` called) — that's expected and OK. The bug we're
+            // catching is an *unconditional* Unsupported.
+            if caps.can_goto_slide {
+                let r = driver.goto_slide(0).await;
+                assert!(
+                    !matches!(r, Err(CtlError::Unsupported(_))),
+                    "{kind:?} advertises can_goto_slide but goto_slide is Unsupported"
+                );
+            }
+            if caps.can_blank {
+                let r = driver.blank().await;
+                assert!(
+                    !matches!(r, Err(CtlError::Unsupported(_))),
+                    "{kind:?} advertises can_blank but blank is Unsupported"
+                );
+            }
+            if caps.can_query_state {
+                let r = driver.current_state().await;
+                assert!(
+                    !matches!(r, Err(CtlError::Unsupported(_))),
+                    "{kind:?} advertises can_query_state but current_state is Unsupported"
+                );
+            }
+        }
+    }
+}

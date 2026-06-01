@@ -729,12 +729,17 @@ function setListeningState(listening) {
 
 // --- Manual Slide Controls ---
 // The slide-advanced event from the backend is the source of truth for
-// currentSlideIndex now that next/prev route through the conductor. We don't
-// pre-emptively mutate local state — that would race the event and could
-// show a stale slide if the backend rejected the move.
+// currentSlideIndex when the conductor is in a song. When it isn't (the
+// fallback raw-keystroke path in manual_step), the backend doesn't emit
+// slide-advanced — so we optimistically bump the counter locally and let
+// a subsequent event correct us if the conductor disagrees.
 prevBtn.addEventListener("click", async () => {
   try {
     await invoke("prev_slide_manual");
+    if (currentSlideIndex > 0) {
+      currentSlideIndex--;
+      updateSlideDisplay();
+    }
   } catch (err) {
     console.error(err);
     toast("Previous slide failed: " + err, "error");
@@ -744,6 +749,10 @@ prevBtn.addEventListener("click", async () => {
 nextBtn.addEventListener("click", async () => {
   try {
     await invoke("next_slide_manual");
+    if (currentSlideIndex < slides.length - 1) {
+      currentSlideIndex++;
+      updateSlideDisplay();
+    }
   } catch (err) {
     console.error(err);
     toast("Next slide failed: " + err, "error");

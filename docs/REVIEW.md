@@ -32,9 +32,23 @@ papercuts) and a fair amount of dead code. This is the running record.
 3. **Stage Display "Next" panel never populated.** `refreshNextSlide`
    was a stub.
 
-   Fix in `c202fbc`: `Action::Goto` now carries
-   `next_slide_text: Option<String>`, threaded through `SlideAdvanced`.
-   Stage Display reads it directly. No backend round-trip.
+   Fix in `c202fbc`: `Action::Goto` now carries `next_slide_text:
+   Option<String>`, threaded through `SlideAdvanced`. Stage Display
+   reads it directly. No backend round-trip.
+
+4. **OpenLP driver advertised `can_goto_slide=true` but didn't implement
+   it.** Trait default returned `Unsupported`. The dispatcher consulted
+   capabilities, chose the goto path, got Unsupported back, logged it,
+   and the slide didn't advance.
+
+   Fix: OpenLP capabilities now declares `can_goto_slide=false` (with
+   a comment pointing at the verify-before-shipping caveat from the
+   plan). The dispatcher correctly falls through to next/prev keystrokes
+   on jumps. Added a `contract_tests::capabilities_match_implementations`
+   test that iterates every driver, probes each method matching an
+   advertised capability, and asserts none of them return Unsupported.
+   The test catches this class of bug at compile time for the next
+   driver someone adds.
 
 ### Stale state / dead code
 
