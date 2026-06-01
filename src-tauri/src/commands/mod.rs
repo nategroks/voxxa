@@ -682,7 +682,7 @@ pub async fn prev_slide_manual(
     manual_step(&state, &app, -1).await
 }
 
-async fn manual_step(
+pub async fn manual_step(
     state: &AppState,
     app: &tauri::AppHandle,
     delta: i32,

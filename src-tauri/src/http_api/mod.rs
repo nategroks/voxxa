@@ -172,11 +172,14 @@ async fn post_next(
     check_token(&ctx, &headers)?;
     use tauri::Manager;
     let app_state = ctx.app.state::<crate::AppState>();
-    let p = app_state.presenter.lock().await;
-    p.next_slide().await.map_err(api_err)?;
-    app_state
-        .last_dispatched_global
-        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    // Route through the conductor so its slide counter stays in sync with the
+    // presenter — same path the Tauri next_slide_manual command takes. A
+    // direct presenter.next_slide() here would desync the conductor (Stream
+    // Deck advances → conductor still thinks we're on the old slide → next
+    // lyric Goto sends the wrong delta).
+    crate::commands::manual_step(&app_state, &ctx.app, 1)
+        .await
+        .map_err(api_err)?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -187,11 +190,9 @@ async fn post_prev(
     check_token(&ctx, &headers)?;
     use tauri::Manager;
     let app_state = ctx.app.state::<crate::AppState>();
-    let p = app_state.presenter.lock().await;
-    p.prev_slide().await.map_err(api_err)?;
-    app_state
-        .last_dispatched_global
-        .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    crate::commands::manual_step(&app_state, &ctx.app, -1)
+        .await
+        .map_err(api_err)?;
     Ok(StatusCode::NO_CONTENT)
 }
 
