@@ -63,10 +63,25 @@ pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
 fn tray_blank(app: &AppHandle) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
-        let state = app.state::<AppState>();
-        let p = state.presenter.lock().await;
-        if let Err(e) = p.blank().await {
-            log::warn!("[TRAY] blank failed: {e}");
+        // Pre-clone the Arcs we need before any await so the tauri::State
+        // guard (which is !Send) doesn't try to cross an await point.
+        let (presenter, conductor) = {
+            let state = app.state::<AppState>();
+            (state.presenter.clone(), state.conductor.clone())
+        };
+        {
+            let p = presenter.lock().await;
+            if let Err(e) = p.blank().await {
+                log::warn!("[TRAY] blank failed: {e}");
+                return;
+            }
+        }
+        // Keep the conductor's is_blank in sync — without this, the next lyric
+        // match wouldn't fire an unblank because the conductor thinks output
+        // is still showing.
+        let mut cl = conductor.lock().await;
+        if let Some(c) = cl.as_mut() {
+            c.notify_external_blank();
         }
     });
 }

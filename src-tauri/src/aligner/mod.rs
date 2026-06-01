@@ -453,6 +453,16 @@ impl Conductor {
         })
     }
 
+    /// Notify the conductor that audience output was blanked outside its
+    /// control (operator hit the tray Blank, the manual Blank button, or the
+    /// HTTP API /blank route). Without this the conductor's `is_blank` stays
+    /// false, the on_transcript "currently blanked → unblank" branch never
+    /// fires, and the audience output stays blank through the next verse
+    /// until something else triggers a Goto.
+    pub fn notify_external_blank(&mut self) {
+        self.is_blank = true;
+    }
+
     /// Operator-initiated manual step within the current song. Bounded by the
     /// song's slide count. Returns the Goto action for the new position, or
     /// `Noop` if we're not in a song (so the caller can fall back to a raw
@@ -822,6 +832,36 @@ mod tests {
             }
             other => panic!("expected Goto, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn external_blank_recovers_on_next_match() {
+        // Operator (or tray, or HTTP API) blanks externally mid-song. The
+        // conductor's next on_transcript with a matching lyric must emit an
+        // unblank — otherwise the audience stays blank through the rest of
+        // the verse.
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        assert!(!c.is_blank());
+        // Simulate the operator hitting Blank externally.
+        c.notify_external_blank();
+        assert!(c.is_blank());
+        // Now feed another transcript that still matches the same song. The
+        // conductor must respond with either a Goto (to re-show the slide)
+        // or Unblank. Either way, output should be visible after.
+        let action = c.on_transcript(
+            "I once was lost but now am found was blind but now I see",
+            t0 + Duration::from_secs(2),
+        );
+        assert!(
+            matches!(action, Action::Goto { .. } | Action::Unblank),
+            "expected Goto or Unblank, got {action:?}"
+        );
+        assert!(!c.is_blank(), "conductor should have cleared its blank flag");
     }
 
     #[test]

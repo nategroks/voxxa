@@ -745,8 +745,17 @@ pub async fn manual_step(
 
 #[tauri::command]
 pub async fn blank_manual(state: State<'_, AppState>) -> Result<(), String> {
-    let p = state.presenter.lock().await;
-    p.blank().await.map_err(|e| e.to_string())
+    {
+        let p = state.presenter.lock().await;
+        p.blank().await.map_err(|e| e.to_string())?;
+    }
+    // Tell the conductor we blanked, so the next lyric match fires an
+    // unblank instead of seeing is_blank=false and assuming we're already
+    // showing.
+    if let Some(c) = state.conductor.lock().await.as_mut() {
+        c.notify_external_blank();
+    }
+    Ok(())
 }
 
 /// Operator override: jump straight to a specific song's first slide. Used
