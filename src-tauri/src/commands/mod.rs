@@ -114,6 +114,19 @@ pub async fn load_setlist(
 ) -> Result<Vec<Song>, String> {
     let setlist: Setlist = serde_json::from_str(&setlist_json).map_err(|e| e.to_string())?;
     let songs = setlist.setlist.clone();
+    // Reject degenerate setlists at the door rather than half-load them. An
+    // empty setlist leaves the conductor in Listening forever; a song with
+    // zero slides commits internally but can't fire a Goto, so the operator
+    // sees song-detection events with no slide motion.
+    if songs.is_empty() {
+        return Err("Setlist is empty — no songs to load.".into());
+    }
+    if let Some(bad) = songs.iter().find(|s| s.slides.is_empty()) {
+        return Err(format!(
+            "Song \"{}\" has no slides — every song needs at least one.",
+            bad.title
+        ));
+    }
     let cfg = state.smart_config.lock().await.clone();
     let conductor = Conductor::new(songs.clone(), cfg);
     *state.conductor.lock().await = Some(conductor);
