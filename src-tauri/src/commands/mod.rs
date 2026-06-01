@@ -21,7 +21,10 @@ use tokio::sync::Mutex;
 pub struct StatusInfo {
     pub is_running: bool,
     pub model_loaded: bool,
-    pub current_slide: usize,
+    /// `None` when no song has been detected yet — distinguishes "not started"
+    /// from "started at slide 0". Frontend uses this to decide whether to show
+    /// the slide counter at all.
+    pub current_slide: Option<usize>,
     pub total_slides: usize,
     pub song_title: Option<String>,
     pub machine_state: Option<MachineState>,
@@ -68,33 +71,6 @@ pub struct DetectionRow {
 #[derive(Debug, Serialize, Clone)]
 pub struct DetectionEvent {
     pub rows: Vec<DetectionRow>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Settings {
-    pub model: String,
-    pub language: Option<String>,
-    pub device: Option<String>,
-    pub vad_enabled: bool,
-    pub similarity_threshold: f64,
-    pub margin: f64,
-    pub max_buffer_words: usize,
-    pub block_duration: f64,
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            model: "Base".to_string(),
-            language: None,
-            device: None,
-            vad_enabled: true,
-            similarity_threshold: 70.0,
-            margin: 10.0,
-            max_buffer_words: 40,
-            block_duration: 5.0,
-        }
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -519,17 +495,20 @@ pub async fn get_status(state: State<'_, AppState>) -> Result<StatusInfo, String
     let conductor = state.conductor.lock().await;
     let (current_slide, total_slides, machine_state, is_blank, song_title) = match &*conductor {
         Some(c) => (
-            c.current_index(),
+            // None when no song is yet detected — `current_index()` returns 0
+            // in that case which would be misleading on a status badge.
+            c.current_song().map(|_| c.current_index()),
             c.total_slides(),
             Some(c.state()),
             Some(c.is_blank()),
             c.current_song_title().map(|s| s.to_string()),
         ),
-        None => (0, 0, None, None, None),
+        None => (None, 0, None, None, None),
     };
+    let model_loaded = state.transcription.lock().await.current_model().is_some();
     Ok(StatusInfo {
         is_running: state.is_running.load(Ordering::SeqCst),
-        model_loaded: true,
+        model_loaded,
         current_slide,
         total_slides,
         song_title,
@@ -657,16 +636,6 @@ pub async fn download_model(
             log::warn!("auto-load after download failed: {e}");
         }
     }
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn get_settings() -> Result<Settings, String> {
-    Ok(Settings::default())
-}
-
-#[tauri::command]
-pub async fn save_settings(_settings: Settings) -> Result<(), String> {
     Ok(())
 }
 

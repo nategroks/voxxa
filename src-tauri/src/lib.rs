@@ -13,9 +13,6 @@ mod transcription;
 mod tray;
 mod vad;
 
-#[cfg(feature = "mcp")]
-mod mcp;
-
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -110,8 +107,6 @@ pub fn run() {
             commands::select_audio_device,
             commands::get_model_status,
             commands::download_model,
-            commands::get_settings,
-            commands::save_settings,
             commands::next_slide_manual,
             commands::prev_slide_manual,
             commands::blank_manual,

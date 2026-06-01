@@ -73,12 +73,8 @@ tempfile = "3"
 # mDNS auto-discovery of ProPresenter on the LAN
 mdns-sd = "0.13"
 
-# MCP integration
-rmcp = { version = "0.1", features = ["client", "transport-sse", "transport-child-process"], optional = true }
-
 [features]
 default = []
-mcp = ["rmcp"]
 
 [profile.release]
 strip = true

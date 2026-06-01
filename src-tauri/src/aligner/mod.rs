@@ -187,6 +187,11 @@ impl Conductor {
             None => 0,
         }
     }
+    /// Index of the song the conductor is currently committed to, or `None`
+    /// if it hasn't detected one yet (state == Listening at startup).
+    pub fn current_song(&self) -> Option<usize> {
+        self.current_song
+    }
     pub fn current_song_title(&self) -> Option<&str> {
         self.current_song
             .and_then(|i| self.songs.get(i).map(|s| s.title.as_str()))

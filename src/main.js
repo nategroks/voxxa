@@ -1044,10 +1044,9 @@ function updateDownloadProgress(percent) {
 // --- Settings ---
 async function loadSettings() {
   try {
-    const [devices, models, settings, currentLang] = await Promise.all([
+    const [devices, models, currentLang] = await Promise.all([
       invoke("list_audio_devices"),
       invoke("get_model_status"),
-      invoke("get_settings"),
       invoke("get_language"),
     ]);
 
@@ -1058,7 +1057,7 @@ async function loadSettings() {
       const opt = document.createElement("option");
       opt.value = d;
       opt.textContent = d;
-      if (savedDevice === d || (!savedDevice && settings.device === d)) {
+      if (savedDevice === d) {
         opt.selected = true;
       }
       deviceSelect.appendChild(opt);
