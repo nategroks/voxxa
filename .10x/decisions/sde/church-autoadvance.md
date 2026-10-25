@@ -18,6 +18,9 @@
 - `cargo deny` surfaced 17 advisories in transitive dependencies. Fixed by compatible updates to `anyhow`, `h2`, `rustls`, `rustls-webpki`, `tokio`, `webpki-root-certs` and `plist` (which carries `quick-xml`). Three `zip` advisories cannot be fixed yet (every `tauri-plugin-updater` release through 2.14.0 requires `zip` 4.x); they are ignored in `deny.toml` with the reasoning and a removal trigger. `unmaintained` is set to `workspace` scope because the `unic-*`, `fxhash` and `proc-macro-error` findings are transitive through tauri with no upgrade.
 - Reverted a speculative `tauri-plugin-updater` 2.10.1 → 2.12.0 bump that did not change `zip`; kept the diff to what the gate needed.
 
+### CI finding fixed after the first run
+- The Windows job failed in the tauri build script: `RC2175: icons/icon.ico is not in 3.00 format`. Both `icon.ico` and `icon.icns` were PNG files with the wrong extension (pre-existing; the tag-triggered release build would have failed the same way on Windows and macOS). Regenerated both with `npx tauri icon` from `icons/icon.png` and copied only those two files in. shortcut: the master `icon.png` is 128×128, so the 256 px and retina entries are upscaled; replace with a 1024 px master before the first public release.
+
 ### Tech debt created or carried
 - `overlay.html` and `macOSPrivateApi` remain until P2.1 deletes them.
 - `deny.toml` advisory ignores for `zip` must be removed when the updater plugin moves to `zip` 9.
