@@ -1,6 +1,6 @@
 # ADR-005: License the application GPL-3.0-or-later; publish the protocol and schemas under MIT
 
-**Status:** Proposed · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** One-way in practice (relicensing needs every contributor's consent) · **Owner:** nategroks
+**Status:** Accepted · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** One-way in practice (relicensing needs every contributor's consent) · **Owner:** nategroks
 
 ## Context
 Revenue comes from support and a Store convenience listing, not from the code. Free Windows signing via SignPath Foundation requires an OSI-approved licence with no commercial dual-licensing (research D4). The Microsoft Store accepts GPL apps (Krita, D2). All current dependencies are permissive (whisper.cpp MIT, whisper-rs Unlicense, Tauri MIT/Apache, cpal Apache, enigo MIT, sherpa-onnx Apache). FreeShow and OpenLP, the open-source peers, are GPL.

@@ -1,6 +1,6 @@
 # ADR-003: One `voxxa.toml`, one JSON-lines protocol, no database
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-10-24
 **Feature:** church-autoadvance
 **Reversibility:** Easy

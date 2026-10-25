@@ -1,6 +1,6 @@
 # ADR-004: Put the recognizer behind a trait, ship whisper.cpp first, choose the default by a corpus bake-off
 
-**Status:** Proposed · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** Easy (that is the point) · **Owner:** nategroks
+**Status:** Accepted · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** Easy (that is the point) · **Owner:** nategroks
 
 ## Context
 Whisper posts 21–56% word error on sung vocals versus 14% spoken (research E2) and runs at 0.4–1.5 s per 30 s window on laptop CPUs (E4); true-streaming engines with Rust bindings exist at a fraction of the cost (sherpa-onnx streaming Zipformer, RTF ≈ 0.06; Moonshine streaming-tiny; E5). No published benchmark covers church rooms or band mixes. Choosing an engine today would be choosing on the wrong data.

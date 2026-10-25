@@ -90,10 +90,7 @@ pub async fn load_setlist(
 
     *state.aligner.lock().await = Some(aligner);
 
-    log::info!(
-        "Loaded setlist with {} songs",
-        setlist.setlist.len()
-    );
+    log::info!("Loaded setlist with {} songs", setlist.setlist.len());
 
     Ok(setlist.setlist)
 }
@@ -153,11 +150,14 @@ pub async fn start_listening(
                                     if let Some(ref mut aligner) = *aligner_lock {
                                         let advanced = aligner.update(&result.text);
 
-                                        let _ = app_handle.emit("transcription", TranscriptionEvent {
-                                            text: result.text.clone(),
-                                            curr_score: 0.0,
-                                            next_score: 0.0,
-                                        });
+                                        let _ = app_handle.emit(
+                                            "transcription",
+                                            TranscriptionEvent {
+                                                text: result.text.clone(),
+                                                curr_score: 0.0,
+                                                next_score: 0.0,
+                                            },
+                                        );
 
                                         if advanced {
                                             if let Err(e) = crate::text_insert::send_next_slide() {
@@ -169,11 +169,14 @@ pub async fn start_listening(
                                                 .map(|s| s.text.clone())
                                                 .unwrap_or_default();
 
-                                            let _ = app_handle.emit("slide-advanced", SlideAdvanced {
-                                                slide_index: aligner.current_index(),
-                                                total_slides: aligner.total_slides(),
-                                                slide_text,
-                                            });
+                                            let _ = app_handle.emit(
+                                                "slide-advanced",
+                                                SlideAdvanced {
+                                                    slide_index: aligner.current_index(),
+                                                    total_slides: aligner.total_slides(),
+                                                    slide_text,
+                                                },
+                                            );
                                         }
                                     }
                                 }

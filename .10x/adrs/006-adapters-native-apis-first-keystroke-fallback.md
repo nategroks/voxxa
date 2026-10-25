@@ -1,6 +1,6 @@
 # ADR-006: Integrate through native local APIs (ProPresenter, FreeShow, OpenLP first) with a keystroke fallback; no SongSelect
 
-**Status:** Proposed · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** Easy per adapter · **Owner:** nategroks
+**Status:** Accepted · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** Easy per adapter · **Owner:** nategroks
 
 ## Context
 Keystroke injection is focus-dependent and blind. Three widely used apps expose local APIs that both drive slides and read the current slide text (research A1–A3), which lets Voxxa re-sync to what is actually on screen and import the setlist without any lyric licensing of its own. EasyWorship, MediaShout and WorshipTools Presenter do not (A4). ProPresenter has the largest user base (A7); FreeShow and OpenLP are open source and Windows/Linux-heavy.

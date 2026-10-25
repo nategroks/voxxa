@@ -1,8 +1,8 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Phases 1–3 drafted (Strategy, Design, Planning) — awaiting user review of the specs before Phase 4 (Implementation)
-**Last Updated:** 2026-10-24 by 10x-team orchestrator
+**Current Phase:** Phase 4 Implementation — Increment 0 complete; Increment 1 next (P1.1)
+**Last Updated:** 2026-10-25 by 10x-team orchestrator (SDE)
 **Health:** On Track
 
 ## Progress
@@ -15,11 +15,14 @@
 - [x] Phase 2 Design: `specs/2026-10-24-software-strategy.md`; ADR-001…009; `decisions/architect/`, `decisions/staff-engineer/`
 - [x] Phase 3 Planning: `specs/2026-10-24-delivery-plan-and-prompts.md`; `decisions/engineering-manager/`, `decisions/senior-engineer/`
 
+- [x] User approved specs and ADR-001…009 (Accepted); GPL confirmed; US LLC confirmed; pilot church #1: The Lighthouse, Midlothian
+- [x] Increment 0: P0.1 positioning, P0.2 dead weight + licence + deny, P0.3 CI (`decisions/sde/church-autoadvance.md`)
+
 ### In Progress
-- [ ] User review of the four specs and nine ADRs (all Status: Proposed)
+- [ ] Confirm CI green on the three-OS matrix for the Increment 0 commit
 
 ### Pending
-- [ ] Increment 0 (P0.1–P0.3) once approved
+- [ ] Increment 1: P1.1 wire the loop → P1.2 recognizer trait → P1.3 SongGraph → P1.4 tracker → P1.5 voxxad → P1.6 eval
 - [ ] Founder: record two PD-hymn fixtures; apply to SignPath; open Partner Center; e-mail CCLI; form LLC; start research screener
 - [ ] Phases 4–6 per increment
 

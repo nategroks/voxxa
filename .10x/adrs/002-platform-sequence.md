@@ -1,6 +1,6 @@
 # ADR-002: Ship Windows first, then macOS, then Linux AppImage, from one codebase and one CI matrix
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-10-24
 **Feature:** church-autoadvance
 **Reversibility:** Easy (sequence only; the code is already cross-platform)

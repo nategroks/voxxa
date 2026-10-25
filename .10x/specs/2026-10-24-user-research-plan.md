@@ -40,6 +40,8 @@ Screener (5 questions, 2 min):
 
 Incentive: $40 gift card for interviews; pilot churches receive one year of the Standard support tier free and a named credit.
 
+Pilot church #1 (confirmed 2026-10-25): **The Lighthouse, Midlothian**. Remaining two pilots to be recruited so that ProPresenter, FreeShow and OpenLP each have one real install.
+
 ## 4. Interview guide (45 min)
 
 **Warm-up (5 min).** Who you are, how long you've served, what Sunday morning looks like from your seat. Explain: no sales pitch, we are deciding what to build and how to support it.

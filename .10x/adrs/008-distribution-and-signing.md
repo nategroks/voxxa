@@ -1,6 +1,6 @@
 # ADR-008: Distribute signed GitHub releases plus a paid Microsoft Store listing; notarize on macOS; AppImage with embedded update info
 
-**Status:** Proposed · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** Costly (publisher identity and reputation accrue to one identity; D3) · **Owner:** nategroks
+**Status:** Accepted · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** Costly (publisher identity and reputation accrue to one identity; D3) · **Owner:** nategroks
 
 ## Context
 Volunteers abandon installs at SmartScreen; EV certificates no longer bypass it; Store apps never trigger it; individual developer registration is free (research D3). SignPath Foundation signs OSI-licensed projects for free; Azure Trusted Signing costs ~$10/month with eligibility caveats (D4). Krita's free-site plus paid-Store model out-earned donations eightfold (D2). Apple requires notarization and Homebrew will disable unsigned casks in September 2026 (D5). Tauri's updater needs a signature and the key is unrecoverable (D6).

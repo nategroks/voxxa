@@ -1,6 +1,6 @@
 # ADR-001: Split Voxxa into a headless core (`voxxad`) and a thin optional GUI
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-10-24
 **Feature:** church-autoadvance
 **Reversibility:** Costly (process boundary and stdio protocol become public surface)

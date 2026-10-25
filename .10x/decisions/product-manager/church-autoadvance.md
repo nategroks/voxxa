@@ -29,3 +29,7 @@ Out: lyric display, media, remote/phone control, cloud sync, SongSelect, MIDI, m
 
 ## Non-goals stated to users
 Voxxa never shows lyrics, never uploads audio, never replaces the presentation software, never reports to CCLI for you.
+
+## Pilot church (confirmed by the user, 2026-10-25)
+- **The Lighthouse, Midlothian** is pilot church #1. To confirm with them before Increment 3: presentation software and version, booth computer OS, how audio reaches the booth, weekly attendance band, who operates slides, and consent for the recorded-service corpus (research plan §6).
+- Two further pilots still to recruit, ideally covering the other two Tier 1 apps so all three native adapters get a real install.

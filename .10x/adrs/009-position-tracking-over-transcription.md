@@ -1,6 +1,6 @@
 # ADR-009: Track position in a song-structure graph with an evidence accumulator instead of matching transcripts to the next slide
 
-**Status:** Proposed · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** Easy (contained in `aligner`) · **Owner:** nategroks
+**Status:** Accepted · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** Easy (contained in `aligner`) · **Owner:** nategroks
 
 ## Context
 The current aligner compares a 40-word transcript buffer to the current and next slide only, by character LCS, and advances on a threshold. Worship songs repeat choruses and jump to bridges; recognizers drop and hallucinate words on singing (research E2); a 5 s batch adds latency; and there is no measurement. Published real-time lyric alignment treats the problem as tracking a position against known text with past-only context (E3).

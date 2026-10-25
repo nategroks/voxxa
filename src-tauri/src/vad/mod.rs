@@ -27,12 +27,18 @@ pub struct VadEngine {
     sample_rate: u32,
 }
 
+impl Default for VadEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VadEngine {
     pub fn new() -> Self {
         Self {
             initialized: false,
-            state_h: vec![0.0; 2 * 1 * 64],
-            state_c: vec![0.0; 2 * 1 * 64],
+            state_h: vec![0.0; 2 * 64],
+            state_c: vec![0.0; 2 * 64],
             is_speech: false,
             speech_buffer: Vec::new(),
             silence_samples: 0,

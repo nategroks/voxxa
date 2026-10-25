@@ -103,23 +103,23 @@ jobs:
           tagName: ${{ github.ref_name || inputs.version || 'v0.0.0-dev' }}
           releaseName: 'Voxxa ${{ github.ref_name || inputs.version || 'dev' }}'
           releaseBody: |
-            ## Voxxa — Local Voice Dictation
+            ## Voxxa — voice-following slide advancer for churches
 
-            Download the installer for your platform below.
+            Voxxa listens to the room and tells your presentation software when to change the lyric slide. It never shows lyrics itself and never uploads audio.
 
             | Platform | File |
             |----------|------|
+            | Windows | `.msi` / `-setup.exe` |
             | macOS (Apple Silicon) | `.dmg` |
             | macOS (Intel) | `.dmg` |
-            | Windows | `.msi` |
             | Linux | `.AppImage` / `.deb` |
 
-            ### First launch
-            1. Install and open Voxxa
-            2. Go to **Models** tab and download a Whisper model (Base recommended to start)
-            3. Press **Ctrl+Shift+Space** (or click the mic) to start dictating
+            ### First service
+            1. Install and open Voxxa; follow the first-run steps (audio device, presentation software, speech model).
+            2. Load today's setlist and switch the mode to **Songs**.
+            3. Watch the status light turn green as the first song starts. Your hands stay free; the operator can always take over.
 
-            > Voxxa runs 100% locally — your voice never leaves your machine.
+            > Voxxa runs 100% locally. Audio never leaves the booth computer.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true

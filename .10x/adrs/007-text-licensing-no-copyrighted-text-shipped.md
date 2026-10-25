@@ -1,6 +1,6 @@
 # ADR-007: Ship no copyrighted lyrics or Bibles; read lyrics from the church's licensed software; match scripture against public-domain texts
 
-**Status:** Proposed · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** Easy · **Owner:** nategroks
+**Status:** Accepted · **Date:** 2026-10-24 · **Feature:** church-autoadvance · **Reversibility:** Easy · **Owner:** nategroks
 
 ## Context
 The CCLI Church Copyright License lets a church store song files on its own computers for projection; all other rights are reserved (research B1). No authority covers using lyrics as a non-displayed matching index (B2). SongSelect's API is closed (B3). ESV and API.Bible free tiers are non-commercial (B7); public-domain Bibles with machine-readable downloads exist (B6).
