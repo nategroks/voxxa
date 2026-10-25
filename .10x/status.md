@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Phase 4 Implementation — Increment 0 complete; Increment 1 next (P1.1)
+**Current Phase:** Phase 4 Implementation — Increment 0 complete and CI-verified; Increment 1 next (P1.1)
 **Last Updated:** 2026-10-25 by 10x-team orchestrator (SDE)
 **Health:** On Track
 
@@ -18,8 +18,10 @@
 - [x] User approved specs and ADR-001…009 (Accepted); GPL confirmed; US LLC confirmed; pilot church #1: The Lighthouse, Midlothian
 - [x] Increment 0: P0.1 positioning, P0.2 dead weight + licence + deny, P0.3 CI (`decisions/sde/church-autoadvance.md`)
 
+- [x] CI green on all five jobs (ubuntu/windows/macos fmt+clippy+test, cargo deny, line budgets) at d976698 on PR nategroks/voxxa#1; one real defect found and fixed on the way (icon.ico/icon.icns were PNGs)
+
 ### In Progress
-- [ ] Confirm CI green on the three-OS matrix for the Increment 0 commit
+- [ ] User to merge PR #1 (draft) into main when ready; then Increment 1 starts with P1.1
 
 ### Pending
 - [ ] Increment 1: P1.1 wire the loop → P1.2 recognizer trait → P1.3 SongGraph → P1.4 tracker → P1.5 voxxad → P1.6 eval
