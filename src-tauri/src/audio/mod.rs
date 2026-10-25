@@ -13,6 +13,7 @@ unsafe impl Send for SendStream {}
 unsafe impl Sync for SendStream {}
 
 /// Manages audio capture from the system microphone.
+#[derive(Default)]
 pub struct AudioEngine {
     device_name: Option<String>,
     stream: Option<SendStream>,
@@ -20,10 +21,7 @@ pub struct AudioEngine {
 
 impl AudioEngine {
     pub fn new() -> Self {
-        Self {
-            device_name: None,
-            stream: None,
-        }
+        Self::default()
     }
 
     /// List available audio input devices.

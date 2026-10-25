@@ -1,47 +1,57 @@
 # Voxxa
 
-Local-first voice dictation desktop app powered by Whisper. Runs entirely on-device with no cloud APIs.
+Voxxa listens to the room and advances the lyric slides for you. It runs beside the presentation software your church already uses, follows the worship leader through repeats and bridges, and never shows a word on screen itself.
 
-## Features
+**Free, open source, and local.** Audio never leaves the computer. There is no account, no cloud, and no telemetry.
 
-- **Local Whisper transcription** via whisper.cpp — your audio never leaves your machine
-- **Voice Activity Detection** — energy-based VAD gates audio so only speech hits the model
-- **System tray app** — lives in your tray, activate with a global hotkey
-- **Floating overlay** — see live transcription in a minimal always-on-top widget
-- **Auto text insertion** — transcribed text is typed directly into the focused app
-- **Multiple Whisper models** — from Tiny (75MB) to Distil-Large-v3 (756MB)
-- **MCP integration** (planned) — voice-to-action via Model Context Protocol servers
+## What it does
 
-## Architecture
+- Listens to the sound desk feed or a room mic and matches what is sung against the lyrics already loaded in your presentation software.
+- Tells the presentation software when to move: next slide, back a slide, or jump to the chorus.
+- In *Songs + Scripture* mode, hears a spoken reference ("Romans 8, verse 28"), confirms it from the first words read, and asks the presentation software to show the verse.
+- Shows one screen to the operator: a three-position switch (Off / Songs / Songs + Scripture), a status light, and a Call for help button.
 
-Built with **Tauri 2.0** (Rust backend + web frontend):
+## What it does not do
 
-- `src-tauri/` — Rust backend: audio capture (cpal), VAD, Whisper (whisper-rs), text insertion (enigo)
-- `src/` — Frontend: vanilla HTML/CSS/JS with Tauri IPC
-- Models download on first launch, stored in `~/.local/share/voxxa/models/`
+- It never displays lyrics or Bible text. Your presentation software does that, under your church's licences.
+- It never uploads audio or transcripts. Speech recognition runs on the computer in the booth.
+- It never replaces your presentation software or reports to CCLI for you.
 
-## Prerequisites
+## Works with
 
-- Rust 1.77+
-- Node.js 18+
-- System dependencies (Ubuntu/Debian):
-  ```bash
-  sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev
-  ```
+| Presentation software | Integration |
+|---|---|
+| ProPresenter 7.9 and later | Native (network API): drives slides and reads the current slide |
+| FreeShow | Native (REST/WebSocket API): drives slides, reads the current slide, shows scripture |
+| OpenLP | Native (HTTP API): drives slides, reads the current slide, shows scripture |
+| EasyWorship, MediaShout, WorshipTools Presenter, others | Keystrokes (Voxxa sends the next/previous key while the app has focus) |
+
+Native adapters arrive in the order above; see the roadmap in `.10x/specs/`.
+
+## Platforms
+
+Windows first, then macOS, then Linux (AppImage). Download from the [releases page](https://github.com/nategroks/voxxa/releases).
+
+## Support
+
+The software is free. Churches that want a person to call on Sunday morning can buy **Sunday Support** or a one-time **Setup & Calibration**. Details will be published with the first Windows release.
 
 ## Development
 
+Built with Rust and Tauri 2. See `.10x/` for the architecture decisions, delivery plan and research behind the project.
+
 ```bash
-# Install frontend deps
 npm install
-
-# Run in dev mode (hot-reload frontend + Rust backend)
-npx tauri dev
-
-# Build for production
-npx tauri build
+npx tauri dev       # run with hot reload
+npx tauri build     # build installers
 ```
 
-## Legacy
+Linux build dependencies (Ubuntu/Debian):
 
-The original Python slide-advancer code is preserved in `voxxa/` and `main.py`.
+```bash
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev libxdo-dev
+```
+
+## Licence
+
+GPL-3.0-or-later. See `LICENSE`. Contributions are accepted with a Developer Certificate of Origin sign-off; see `CONTRIBUTING.md`.

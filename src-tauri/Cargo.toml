@@ -1,8 +1,9 @@
 [package]
 name = "voxxa"
 version = "0.1.0"
-description = "Local-first voice dictation powered by Whisper"
+description = "Voice-following slide advancer for church worship, running entirely on-device"
 authors = ["nategroks"]
+license = "GPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.77"
 
@@ -18,9 +19,8 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-shell = "2"
-tauri-plugin-store = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
@@ -48,12 +48,8 @@ dirs = "6"
 # Text insertion
 enigo = "0.2"
 
-# MCP integration
-rmcp = { version = "0.1", features = ["client", "transport-sse", "transport-child-process"], optional = true }
-
 [features]
 default = []
-mcp = ["rmcp"]
 
 [profile.release]
 strip = true

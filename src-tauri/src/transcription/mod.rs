@@ -3,11 +3,12 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Available Whisper model variants.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum WhisperModel {
     /// Tiny model (~75MB) - fastest, least accurate
     Tiny,
     /// Base model (~142MB) - good balance for quick tasks
+    #[default]
     Base,
     /// Small model (~466MB) - solid accuracy
     Small,
@@ -48,12 +49,6 @@ impl WhisperModel {
     }
 }
 
-impl Default for WhisperModel {
-    fn default() -> Self {
-        Self::Base
-    }
-}
-
 /// Transcription result from Whisper.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranscriptionResult {
@@ -69,6 +64,12 @@ pub struct TranscriptionEngine {
     current_model: Option<WhisperModel>,
     ctx: Option<whisper_rs::WhisperContext>,
     language: Option<String>,
+}
+
+impl Default for TranscriptionEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TranscriptionEngine {
@@ -150,9 +151,12 @@ impl TranscriptionEngine {
 
         let start = std::time::Instant::now();
 
-        let mut state = ctx.create_state().context("Failed to create Whisper state")?;
+        let mut state = ctx
+            .create_state()
+            .context("Failed to create Whisper state")?;
 
-        let mut params = whisper_rs::FullParams::new(whisper_rs::SamplingStrategy::Greedy { best_of: 1 });
+        let mut params =
+            whisper_rs::FullParams::new(whisper_rs::SamplingStrategy::Greedy { best_of: 1 });
         params.set_print_special(false);
         params.set_print_progress(false);
         params.set_print_realtime(false);
@@ -191,18 +195,13 @@ impl TranscriptionEngine {
     }
 
     /// Download a model file with progress reporting.
-    pub async fn download_model<F>(
-        &self,
-        model: &WhisperModel,
-        progress_callback: F,
-    ) -> Result<()>
+    pub async fn download_model<F>(&self, model: &WhisperModel, progress_callback: F) -> Result<()>
     where
         F: Fn(u64, u64) + Send + 'static,
     {
         use futures_util::StreamExt;
 
-        std::fs::create_dir_all(&self.model_dir)
-            .context("Failed to create model directory")?;
+        std::fs::create_dir_all(&self.model_dir).context("Failed to create model directory")?;
 
         let url = model.download_url();
         let dest = self.model_dir.join(model.filename());
