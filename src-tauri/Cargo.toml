@@ -19,16 +19,15 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
-tauri-plugin-shell = "2"
-tauri-plugin-global-shortcut = "2"
-tauri-plugin-updater = "2"
+tauri = { version = "2.12", features = ["tray-icon", "macos-private-api"] }
+tauri-plugin-shell = "2.6"
+tauri-plugin-global-shortcut = "2.4"
+tauri-plugin-updater = "2.14"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 log = "0.4"
-env_logger = "0.11"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 
 # Audio capture
@@ -42,7 +41,8 @@ voice_activity_detector = "0.2"
 whisper-rs = "0.13"
 
 # Model downloads
-reqwest = { version = "0.12", features = ["stream", "json"] }
+# rustls instead of the default native-tls drops OpenSSL and its advisories.
+reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "rustls-tls", "charset", "http2", "macos-system-configuration"] }
 futures-util = "0.3"
 dirs = "6"
 
@@ -64,10 +64,10 @@ axum = { version = "0.7", default-features = false, features = ["json", "tokio",
 base64 = "0.22"
 
 # Setlist importers (OpenLyrics, OpenSong, ChordPro, .pptx, .pdf, EW6 SQLite)
-quick-xml = "0.36"
-zip = { version = "2", default-features = false, features = ["deflate"] }
-pdf-extract = "0.8"
-rusqlite = { version = "0.32", features = ["bundled"] }
+quick-xml = "0.41"
+zip = { version = "9", default-features = false, features = ["deflate"] }
+pdf-extract = "0.12"
+rusqlite = { version = "0.41", features = ["bundled"] }
 tempfile = "3"
 
 # mDNS auto-discovery of ProPresenter on the LAN

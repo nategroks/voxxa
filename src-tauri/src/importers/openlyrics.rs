@@ -71,8 +71,8 @@ pub fn parse(text: &str, fallback_title: &str) -> Result<Song> {
                     current_text.push('\n');
                 }
             }
-            Ok(Event::Text(t)) => {
-                let s = t.unescape().unwrap_or_default().into_owned();
+            Ok(ev @ (Event::Text(_) | Event::GeneralRef(_))) => {
+                let s = super::xml_text(&ev);
                 if in_title {
                     title.push_str(&s);
                 }
@@ -119,5 +119,13 @@ mod tests {
         assert_eq!(song.slides.len(), 2);
         assert!(song.slides[0].text.contains("Amazing grace"));
         assert!(song.slides[0].text.contains("How sweet"));
+    }
+
+    #[test]
+    fn keeps_entity_references() {
+        let xml = r#"<song><properties><titles><title>Faith &amp; Hope</title></titles></properties><lyrics><verse name="v1"><lines>Thou&#39;rt mine</lines></verse></lyrics></song>"#;
+        let song = parse(xml, "fallback").unwrap();
+        assert_eq!(song.title, "Faith & Hope");
+        assert_eq!(song.slides[0].text, "Thou'rt mine");
     }
 }

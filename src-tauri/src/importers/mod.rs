@@ -17,6 +17,25 @@ pub mod pptx;
 pub mod pro7;
 pub mod txt;
 
+/// Text of an XML text event. quick-xml >= 0.38 reports `&amp;`/`&#39;` as separate
+/// GeneralRef events, so those are resolved here or the character would be lost.
+pub(crate) fn xml_text(ev: &quick_xml::events::Event) -> String {
+    use quick_xml::events::Event;
+    match ev {
+        Event::Text(t) => t.decode().unwrap_or_default().into_owned(),
+        Event::GeneralRef(r) => match r.resolve_char_ref() {
+            Ok(Some(c)) => c.to_string(),
+            _ => r
+                .decode()
+                .ok()
+                .and_then(|n| quick_xml::escape::resolve_predefined_entity(&n))
+                .unwrap_or_default()
+                .to_string(),
+        },
+        _ => String::new(),
+    }
+}
+
 /// Source format. The frontend picks this from the file extension (or, for
 /// `.xml`, by sniffing the root namespace).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

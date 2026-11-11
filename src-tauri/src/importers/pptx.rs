@@ -18,8 +18,8 @@ pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
     // Collect slide entries by their numeric suffix so slide10 comes after slide9.
     let mut entries: Vec<(u32, String)> = Vec::new();
     for i in 0..zip.len() {
-        let name = match zip.by_index(i) {
-            Ok(f) => f.name().to_string(),
+        let name = match zip.by_index(i).and_then(|f| f.name().map(|n| n.into_owned())) {
+            Ok(n) => n,
             Err(_) => continue,
         };
         if let Some(num) = slide_number(&name) {
@@ -90,9 +90,8 @@ fn extract_slide_text(xml: &str) -> Result<String> {
                     in_t = false;
                 }
             }
-            Ok(Event::Text(t)) if in_t => {
-                let s = t.unescape().unwrap_or_default().into_owned();
-                out.push_str(&s);
+            Ok(ev @ (Event::Text(_) | Event::GeneralRef(_))) if in_t => {
+                out.push_str(&super::xml_text(&ev));
             }
             Ok(Event::Eof) => break,
             Err(e) => return Err(anyhow!("pptx slide XML parse error: {e}")),
