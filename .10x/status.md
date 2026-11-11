@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Re-planning after discovery of the May implementation branch — ADR-010 Proposed; next session runs prompt Q0 from `specs/2026-11-11-prompts-10x-team.md`
+**Current Phase:** Discovery of the May branch complete (Q0). Waiting at the user-review gate: ADR-010 is Proposed with amendments A1–A15.
 **Last Updated:** 2026-11-11 by 10x-team orchestrator
 **Health:** On Track
 
@@ -24,8 +24,15 @@
 
 - [x] 2026-11-11 PR #1 cargo deny went red on nine newly published advisories; fixed by openssl 0.10.82 and moving the tauri family to 2.12.5 (updater 2.14.1 → zip 9, rust-version 1.90, zip ignores deleted). CI green on f177fbe.
 
+- [x] 2026-11-11 **Q0** (Phase 0–2: CTO, Architect, Staff Engineer), with an independent ponytail lane:
+  - every [DISCOVERED] claim verified against the code: `reviews/2026-11-11-q0-claim-verification.md`
+  - ADR-010 now carries the 110-path table (Appendix A) and amendments A1–A15
+  - ponytail review and audit (12 must-fix items, all confirmed by a skeptic): `reviews/2026-11-11-ponytail-q0.md`
+  - role indexes updated
+  - no merge, no code
+
 ### In Progress
-- [ ] User: approve ADR-010 (via prompt Q0 or directly); PR #1 still open as a draft, CI green, unmerged
+- [ ] User: accept or amend ADR-010 + A1–A15 and answer the gate questions (ADR-010 § Q0 review). PR #1 is still an open draft, CI green, unmerged.
 
 ### Pending
 - [ ] Q0 discovery/approval → Q1 merge + CI bar → Q2 verification → Increment 1′ (Q3–Q7) … per the 2026-11-11 prompt pack
@@ -36,7 +43,10 @@
 (none)
 
 ## Risks
-- R8 Unreviewed May-branch code (its own REVIEW.md found six critical bugs in one pass) — Q2 runs QA + security before any new feature
+- R8 Unreviewed May-branch code. REVIEW.md's six critical bugs are fixed, but Q0 confirmed 12 more must-fix defects, including 4 wrong-slide defects. Q2 runs QA + security before any new feature; its scope is a gate question.
+- R10 (new, Q0) Wrong slide on screen: unmatched speech re-shows lyrics, keystroke unblank is a toggle, and Goto uses a setlist-global index. Mitigation: fix in Q2 before any pilot leaves shadow mode.
+- R11 (new, Q0) ADR-007/005 content in the May branch: copyrighted lyrics in `setlist.example.json`, a mislabelled "Public Domain" example, an MIT tag in the Flatpak metainfo. Mitigation: amendments A9/A10 in the Q1 merge.
+- R12 (new, Q0) Toolchain-dependent clippy: 8 `double_must_use` errors from `async_trait` on rustc 1.99, and CI uses unpinned stable. Mitigation: fix in Q1. Consider pinning the toolchain.
 - R9 Dependency advisories in pdf-extract/lopdf and rusqlite may force crate replacement — Q1 gates on cargo deny; PDF importer may go behind an off-by-default feature
 - R1 Recognition on sung vocals (Whisper WER 21–56% on singing) — mitigated by ADR-009 + eval harness in Inc 1; kill criterion week 14
 - R2 Support conversion ≈ 1% — Setup & Calibration + Store listing as independent lines; decision gate month 12
