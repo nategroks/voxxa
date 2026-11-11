@@ -1,0 +1,31 @@
+{
+  "_source": "Planning Center Services via Claude connector, pulled 2026-10-24. People, notes and IDs stripped.",
+  "organization": { "name": "The Lighthouse Church", "time_zone": "America/Chicago", "country_code": "US" },
+  "service_types": ["Sunday Worship 10am", "Sunday Worship 6pm", "Seek Services", "Celebrate Recovery", "Worship Leaders Meeting", "VBS", "Lighthouse Family Christmas", "Lighthouse Worship Practice"],
+  "plan": {
+    "service_type": "Sunday Worship 10am",
+    "date": "2026-10-25",
+    "title": null,
+    "series_title": null,
+    "times": [
+      { "name": "Worship Practice", "type": "rehearsal", "starts_at": "2026-10-25T13:30:00Z", "ends_at": "2026-10-25T14:45:00Z" },
+      { "name": "Sunday Worship", "type": "service", "starts_at": "2026-10-25T15:00:00Z", "ends_at": "2026-10-25T17:00:00Z" }
+    ],
+    "total_length_s": 0,
+    "items": [
+      { "sequence": 1, "type": "song", "title": "The Joy", "key": "C", "arrangement": "Worship Together", "bpm": 132, "ccli_number": 7209419, "author": "Andrew Holt and Mitch Wong", "custom_sequence": null, "lyrics_via_connector": "not exposed" },
+      { "sequence": 2, "type": "song", "title": "Marvelous Light", "key": "C", "arrangement": "Default Arrangement", "bpm": null, "ccli_number": 4491002, "author": "Charlie Hall", "custom_sequence": null, "lyrics_via_connector": "not exposed" },
+      { "sequence": 3, "type": "song", "title": "From The Inside Out", "key": "C", "arrangement": "Default Arrangement", "bpm": null, "ccli_number": 4705176, "author": "Joel Houston", "custom_sequence": null, "lyrics_via_connector": "not exposed" },
+      { "sequence": 4, "type": "song", "title": "What A God", "key": "Eb", "arrangement": "Default Arrangement", "bpm": null, "ccli_number": 7236901, "author": "Bobby Walker, Brunes Charles, Chelsea Plank, Kenzie Walker, and Roosevelt Stewart", "custom_sequence": null, "lyrics_via_connector": "not exposed" },
+      { "sequence": 5, "type": "song", "title": "From The Inside Out", "key": "Eb", "arrangement": "Worship Together", "bpm": 140, "ccli_number": 4705176, "author": "Joel Houston", "custom_sequence": null, "lyrics_via_connector": "not exposed" }
+    ]
+  },
+  "findings": {
+    "ccli_numbers": "5/5 song items carry CCLI numbers",
+    "lyrics": "Unknown. The connector returns arrangement name/bpm/key only; arrangement lyrics and sequence need the PCO API (GET /services/v2/songs/{id}/arrangements/{id}, attribute 'lyrics') with an app token.",
+    "arrangement_sequence": "No custom arrangement sequences set on any item",
+    "plan_shape": "Songs only, no headers/sermon/announcement items; same song appears twice in different keys/arrangements (items 3 and 5)",
+    "lengths": "All item lengths are 0, so timing cannot come from PCO",
+    "evening_service": "Sunday Worship 6pm has no future plans"
+  }
+}

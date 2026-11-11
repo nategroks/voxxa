@@ -1,0 +1,4 @@
+# Audio lives in Google Drive Voxxa/fixtures/ (see SOURCES.md); commit JSON only.
+*.wav
+*.flac
+*.mp3

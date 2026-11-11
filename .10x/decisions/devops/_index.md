@@ -5,3 +5,6 @@
 - No Windows Authenticode signing step (certificateThumbprint null) → SmartScreen warnings on every download.
 - `.github/workflows/pages.yml`: deploys `docs/` to GitHub Pages; the page still markets "Local Voice Dictation".
 - No PR/branch CI: nothing runs cargo test/clippy/fmt on push.
+
+## church-autoadvance
+- 2026-10-25 `church-autoadvance.md`: signing-policy draft and SignPath readiness gaps; Store account = Company after LLC (founder decision).
