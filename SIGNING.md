@@ -68,6 +68,9 @@ and any `.local` connection silently fail on macOS 14+.
 
 ## Windows — Microsoft Artifact Signing
 
+> **Primary path is SignPath Foundation** (free for OSS, see `docs/signing-policy.md`).
+> Microsoft Artifact Signing below is the ADR-008 fallback.
+
 **Budget:** ~$120/yr (Artifact Signing Basic — $9.99/month, 5,000 sigs/month).
 
 > **Eligibility:** Microsoft Artifact Signing (renamed from Azure Trusted
