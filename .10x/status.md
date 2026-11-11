@@ -37,6 +37,8 @@
   - ADR-011: never *project* lyrics, operator previews allowed (amends ADR-007)
   - Q2 widened (M → L) to fix the four wrong-slide defects; the prompt pack is updated
 
+- [x] 2026-11-11 `local/windows-fixtures` merged into this branch (54183c8, clean). It brings the recording kit, PD-hymn setlists, PCO sample, SignPath policy and Windows QA of Increment 0. It went in ahead of Q1 because it touches none of the 110 merge paths: A15, executed early. The May-branch conflict set is unchanged at 6 files. The Drive folder linked in `fixtures/SOURCES.md` was checked: private, owner only.
+
 ### In Progress
 - [ ] Q1: merge `origin/claude/affectionate-lamport-8al8B` per ADR-010 Appendix A + A1–A15; green CI on PR #1 (still an open draft, unmerged).
 

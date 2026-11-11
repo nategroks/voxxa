@@ -20,8 +20,12 @@
 4. **Q2 widened:** it also fixes the wrong-slide defects (audit 1–4). The Q2 prompt in the pack is updated.
 
 ### Still open
-- PR target: the same branch, so PR #1 updates. Default; nobody objected.
-- Push `local/windows-fixtures` (3 commits, only in `C:\dev\voxxa`) so it can be merged right after the reconcile merge (A15).
+- PR target: the same branch, so PR #1 updates. Confirmed by the user, and the Q0 state is pushed.
+- A15 is done early: `local/windows-fixtures` was merged as 54183c8 before Q1, cleanly. For Q1/Q5 this leaves:
+  - convert `fixtures/setlists/pd-hymns.json` to the May `Setlist` shape; it can also be the PD source for the A9 rewrite of `setlist.example.json`
+  - `fixtures/pco/plan-sample.json` is a digest, not PCO JSON:API
+  - reconcile `docs/signing-policy.md` with `SIGNING.md` (A6)
+  - re-run the a003992 Windows verification on the merged head (`handoff-local-windows.md`)
 - ADR numbering: the next free number is **ADR-012**. Prompts that say "write ADR-011" use the next free number.
 
 ### For the next session (Q1, after acceptance)
