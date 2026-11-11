@@ -83,7 +83,7 @@ papercuts) and a fair amount of dead code. This is the running record.
    like `similarity_threshold`, `margin`, `max_buffer_words`,
    `block_duration` flowed nowhere. Dropped in `8e67112`.
 
-6. **`src-tauri/src/mcp/`** — leftover from the original voice-dictation
+6. **`src-tauri/src/mcp/`** — leftover from the original voice-input
    app before the worship pivot. No callers. Module + `rmcp` dep + the
    `mcp` feature flag all dropped in `8e67112`.
 
