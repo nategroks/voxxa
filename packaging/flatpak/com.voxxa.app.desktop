@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Voxxa
 GenericName=Worship slide auto-advancer
-Comment=Voice-driven slide control for houses of worship. Runs 100% on-device.
+Comment=Voice-driven slide control for houses of worship. Audio stays on this computer.
 Exec=voxxa %u
 Icon=com.voxxa.app
 Terminal=false

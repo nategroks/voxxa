@@ -11,14 +11,16 @@
       a loaded setlist, and automatically advances the worship slides on
       ProPresenter, FreeShow, OpenLP, OpenSong, Proclaim, PowerPoint, or
       anything else that takes keyboard input. All audio stays on the local
-      machine — no cloud, no telemetry.
+      machine. There is no telemetry, and no network traffic unless the
+      operator starts it: a speech model download, a Planning Center import
+      or a Hymnary.org lookup.
     </p>
     <p>Phase-1 highlights:</p>
     <ul>
       <li>Smart-blanking conductor with Silero VAD</li>
-      <li>Eight presenter drivers (API + keystroke)</li>
+      <li>Seven presenter drivers (API + keystroke)</li>
       <li>Ten import formats including Planning Center pull and Hymnary.org search</li>
-      <li>Stage Display companion window for confidence monitors</li>
+      <li>Stage Display preview window for the operator</li>
       <li>Local HTTP API for Stream Deck / foot pedals / Companion / QLab</li>
       <li>Zero outbound network calls by default — proven by a live counter</li>
     </ul>

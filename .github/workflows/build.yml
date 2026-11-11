@@ -179,10 +179,10 @@ jobs:
 
             ### First service
             1. Install and open Voxxa; follow the first-run steps (audio device, presentation software, speech model).
-            2. Load today's setlist and switch the mode to **Songs**.
-            3. Watch the status light turn green as the first song starts. Your hands stay free; the operator can always take over.
+            2. Load today's setlist and press **Start Listening**.
+            3. Your hands stay free; the operator can always take over.
 
-            > Voxxa runs 100% locally. Audio never leaves the booth computer.
+            > Audio never leaves the computer. No telemetry; network only when the operator starts a model download, a Planning Center import or a Hymnary.org lookup.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
