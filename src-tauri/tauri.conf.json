@@ -28,16 +28,19 @@
         "transparent": false
       },
       {
-        "title": "Voxxa Overlay",
-        "label": "overlay",
-        "width": 360,
-        "height": 80,
-        "resizable": false,
+        "title": "Voxxa — Stage Display",
+        "label": "stage",
+        "url": "stage.html",
+        "width": 520,
+        "height": 480,
+        "minWidth": 360,
+        "minHeight": 320,
+        "resizable": true,
         "visible": false,
-        "decorations": false,
-        "transparent": true,
+        "decorations": true,
+        "transparent": false,
         "alwaysOnTop": true,
-        "skipTaskbar": true
+        "skipTaskbar": false
       }
     ],
     "security": {

@@ -29,24 +29,49 @@ tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 log = "0.4"
 env_logger = "0.11"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 
 # Audio capture
 cpal = "0.15"
 
-# Voice Activity Detection (energy-based, with future ONNX support)
-# ort = { version = "2.0.0-rc.12", features = ["load-dynamic"] }
-# ndarray = "0.16"
+# Voice Activity Detection — Silero VAD via ONNX Runtime.
+# `voice_activity_detector` bundles the Silero model and handles ORT loading.
+voice_activity_detector = "0.2"
 
 # Whisper transcription
 whisper-rs = "0.13"
 
 # Model downloads
-reqwest = { version = "0.12", features = ["stream"] }
+reqwest = { version = "0.12", features = ["stream", "json"] }
 futures-util = "0.3"
 dirs = "6"
 
-# Text insertion
+# Presenter control (keystroke fallback)
 enigo = "0.2"
+
+# Async traits for the PresentationController abstraction
+async-trait = "0.1"
+
+# WebSocket client for ProPresenter 7.0–7.8 fallback driver
+tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
+
+# Local HTTP API for hardware integrations (Stream Deck, foot pedals, etc).
+# 127.0.0.1-only, opt-in. axum is built on the hyper/tower we already pull in
+# via reqwest, so the dep cost is tiny.
+axum = { version = "0.7", default-features = false, features = ["json", "tokio", "http1"] }
+
+# OpenLP optional Basic Auth header
+base64 = "0.22"
+
+# Setlist importers (OpenLyrics, OpenSong, ChordPro, .pptx, .pdf, EW6 SQLite)
+quick-xml = "0.36"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+pdf-extract = "0.8"
+rusqlite = { version = "0.32", features = ["bundled"] }
+tempfile = "3"
+
+# mDNS auto-discovery of ProPresenter on the LAN
+mdns-sd = "0.13"
 
 [features]
 default = []

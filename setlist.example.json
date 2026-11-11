@@ -3,9 +3,29 @@
     {
       "title": "How Great Is Our God",
       "slides": [
-        { "id": 0, "text": "The splendor of the King clothed in majesty" },
-        { "id": 1, "text": "Age to age He stands and time is in His hands" },
-        { "id": 2, "text": "Name above all names worthy of all praise" }
+        { "id": 0, "text": "The splendor of the King\nclothed in majesty\nLet all the earth rejoice\nall the earth rejoice" },
+        { "id": 1, "text": "He wraps Himself in light\nand darkness tries to hide\nand trembles at His voice\nand trembles at His voice" },
+        { "id": 2, "text": "How great is our God\nsing with me\nHow great is our God\nand all will see\nhow great, how great is our God" },
+        { "id": 3, "text": "Age to age He stands\nand time is in His hands\nbeginning and the End\nbeginning and the End" },
+        { "id": 4, "text": "The Godhead Three in One\nFather Spirit Son\nthe Lion and the Lamb\nthe Lion and the Lamb" }
+      ]
+    },
+    {
+      "title": "Amazing Grace (My Chains Are Gone)",
+      "slides": [
+        { "id": 5, "text": "Amazing grace, how sweet the sound\nThat saved a wretch like me\nI once was lost, but now am found\nWas blind, but now I see" },
+        { "id": 6, "text": "'Twas grace that taught my heart to fear\nAnd grace my fears relieved\nHow precious did that grace appear\nThe hour I first believed" },
+        { "id": 7, "text": "My chains are gone, I've been set free\nMy God, my Savior has ransomed me\nAnd like a flood His mercy reigns\nUnending love, amazing grace" },
+        { "id": 8, "text": "The Lord has promised good to me\nHis Word my hope secures\nHe will my shield and portion be\nAs long as life endures" }
+      ]
+    },
+    {
+      "title": "Way Maker",
+      "slides": [
+        { "id": 9, "text": "You are here, moving in our midst\nI worship You, I worship You\nYou are here, working in this place\nI worship You, I worship You" },
+        { "id": 10, "text": "Way maker, miracle worker\nPromise keeper, light in the darkness\nMy God, that is who You are" },
+        { "id": 11, "text": "You are here, touching every heart\nI worship You, I worship You\nYou are here, healing every heart\nI worship You, I worship You" },
+        { "id": 12, "text": "Even when I don't see it, You're working\nEven when I don't feel it, You're working\nYou never stop, You never stop working\nYou never stop, You never stop working" }
       ]
     }
   ]
