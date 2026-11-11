@@ -18,7 +18,10 @@ pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
     // Collect slide entries by their numeric suffix so slide10 comes after slide9.
     let mut entries: Vec<(u32, String)> = Vec::new();
     for i in 0..zip.len() {
-        let name = match zip.by_index(i).and_then(|f| f.name().map(|n| n.into_owned())) {
+        let name = match zip
+            .by_index(i)
+            .and_then(|f| f.name().map(|n| n.into_owned()))
+        {
             Ok(n) => n,
             Err(_) => continue,
         };

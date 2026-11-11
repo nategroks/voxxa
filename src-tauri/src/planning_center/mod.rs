@@ -29,12 +29,10 @@ impl PcoClient {
         if application_id.is_empty() || secret.is_empty() {
             return Err(anyhow!("application_id and secret are required"));
         }
-        let token = base64::engine::general_purpose::STANDARD
-            .encode(format!("{application_id}:{secret}"));
+        let token =
+            base64::engine::general_purpose::STANDARD.encode(format!("{application_id}:{secret}"));
         let auth_header = format!("Basic {token}");
-        let client = Client::builder()
-            .timeout(Duration::from_secs(15))
-            .build()?;
+        let client = Client::builder().timeout(Duration::from_secs(15)).build()?;
         Ok(Self {
             client,
             auth_header,
@@ -116,11 +114,7 @@ impl PcoClient {
 
     /// Walk plan items in order; for each song-type item, pull the arrangement
     /// lyrics out of the sideloaded `included` block and parse them into slides.
-    pub async fn import_plan(
-        &self,
-        service_type_id: &str,
-        plan_id: &str,
-    ) -> Result<Vec<Song>> {
+    pub async fn import_plan(&self, service_type_id: &str, plan_id: &str) -> Result<Vec<Song>> {
         let path = format!(
             "/service_types/{service_type_id}/plans/{plan_id}/items?include=arrangement&per_page=100&order=sequence"
         );
@@ -144,9 +138,7 @@ impl PcoClient {
                 .and_then(|id| find_arrangement_lyrics(&included, id))
                 .unwrap_or_default();
             if lyrics.trim().is_empty() {
-                log::info!(
-                    "[PCO] skipping {title}: no arrangement lyrics on the plan item"
-                );
+                log::info!("[PCO] skipping {title}: no arrangement lyrics on the plan item");
                 continue;
             }
             match parse_pco_lyrics(&lyrics, &title, next_id) {

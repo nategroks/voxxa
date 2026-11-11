@@ -17,8 +17,8 @@ use anyhow::{anyhow, Result};
 pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
     // pdf-extract returns a single string with `\u{c}` (form feed) between
     // pages. Splitting on form-feed gives us one block per PDF page.
-    let text = pdf_extract::extract_text_from_mem(bytes)
-        .map_err(|e| anyhow!("pdf parse failed: {e}"))?;
+    let text =
+        pdf_extract::extract_text_from_mem(bytes).map_err(|e| anyhow!("pdf parse failed: {e}"))?;
 
     let mut slides: Vec<Slide> = Vec::new();
     for page in text.split('\u{c}') {

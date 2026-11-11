@@ -15,9 +15,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::time::Duration;
 
-use super::{
-    Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind,
-};
+use super::{Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind};
 
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 5506;
@@ -42,7 +40,11 @@ impl FreeShowDriver {
         self.base_url.as_deref().ok_or(CtlError::NotConnected)
     }
 
-    async fn send_action<T: Serialize>(&self, action: &str, data: Option<T>) -> Result<Value, CtlError> {
+    async fn send_action<T: Serialize>(
+        &self,
+        action: &str,
+        data: Option<T>,
+    ) -> Result<Value, CtlError> {
         let body = match data {
             Some(d) => json!({ "action": action, "data": d }),
             None => json!({ "action": action }),

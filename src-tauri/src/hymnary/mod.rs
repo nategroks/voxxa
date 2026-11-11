@@ -38,10 +38,7 @@ impl HymnaryClient {
     /// Search by text query. Returns the top matches with their hymnary slug
     /// for follow-up fetches.
     pub async fn search(&self, query: &str) -> Result<Vec<HymnaryResult>> {
-        let url = format!(
-            "{BASE}/search?qu={}&export=json",
-            urlencoding(query)
-        );
+        let url = format!("{BASE}/search?qu={}&export=json", urlencoding(query));
         crate::net_stats::record_request();
         let res = self.client.get(&url).send().await?;
         if !res.status().is_success() {
@@ -75,10 +72,7 @@ impl HymnaryClient {
         if res.status().is_success() {
             if let Ok(body) = res.json::<TextResponse>().await {
                 if let Some(text) = body.text.filter(|t| !t.trim().is_empty()) {
-                    return song_from_text(
-                        &body.title.unwrap_or_else(|| slug.to_string()),
-                        &text,
-                    );
+                    return song_from_text(&body.title.unwrap_or_else(|| slug.to_string()), &text);
                 }
             }
         }
@@ -87,10 +81,7 @@ impl HymnaryClient {
         crate::net_stats::record_request();
         let res = self.client.get(&txt_url).send().await?;
         if !res.status().is_success() {
-            return Err(anyhow!(
-                "hymnary returned {} for {slug}",
-                res.status()
-            ));
+            return Err(anyhow!("hymnary returned {} for {slug}", res.status()));
         }
         let text = res.text().await?;
         if text.trim().is_empty() {
@@ -222,7 +213,10 @@ mod tests {
         assert_eq!(strip_stanza_prefix("1. Amazing grace"), "Amazing grace");
         assert_eq!(strip_stanza_prefix("12) verse twelve"), "verse twelve");
         assert_eq!(strip_stanza_prefix("Verse 1"), "Verse 1");
-        assert_eq!(strip_stanza_prefix("Amazing grace, how"), "Amazing grace, how");
+        assert_eq!(
+            strip_stanza_prefix("Amazing grace, how"),
+            "Amazing grace, how"
+        );
     }
 
     #[test]

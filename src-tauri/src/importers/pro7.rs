@@ -198,7 +198,7 @@ pub(crate) fn rtf_to_text(rtf: &[u8]) -> String {
                             }
                         }
                         '~' => out.push('\u{00A0}'), // non-breaking space
-                        '-' => {} // optional hyphen — drop
+                        '-' => {}                    // optional hyphen — drop
                         _ => {}
                     }
                     continue;
@@ -303,7 +303,8 @@ mod tests {
 
     #[test]
     fn strips_basic_rtf() {
-        let rtf = br"{\rtf1\ansi{\fonttbl\f0 Helvetica;}\f0\fs24 Amazing grace\par how sweet the sound}";
+        let rtf =
+            br"{\rtf1\ansi{\fonttbl\f0 Helvetica;}\f0\fs24 Amazing grace\par how sweet the sound}";
         let text = rtf_to_text(rtf);
         assert_eq!(text.trim(), "Amazing grace\nhow sweet the sound");
     }

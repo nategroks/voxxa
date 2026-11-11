@@ -234,9 +234,7 @@ impl Conductor {
 
         match self.state {
             MachineState::Singing => {
-                if since_speech
-                    >= Duration::from_secs_f64(self.config.silence_to_blank_secs)
-                {
+                if since_speech >= Duration::from_secs_f64(self.config.silence_to_blank_secs) {
                     self.transition(MachineState::InterVerseSilence, now);
                 }
             }
@@ -574,23 +572,47 @@ mod tests {
             Song {
                 title: "Amazing Grace".into(),
                 slides: vec![
-                    Slide { id: 0, text: "Amazing grace how sweet the sound that saved a wretch like me".into() },
-                    Slide { id: 1, text: "I once was lost but now am found was blind but now I see".into() },
-                    Slide { id: 2, text: "Twas grace that taught my heart to fear and grace my fears relieved".into() },
+                    Slide {
+                        id: 0,
+                        text: "Amazing grace how sweet the sound that saved a wretch like me"
+                            .into(),
+                    },
+                    Slide {
+                        id: 1,
+                        text: "I once was lost but now am found was blind but now I see".into(),
+                    },
+                    Slide {
+                        id: 2,
+                        text: "Twas grace that taught my heart to fear and grace my fears relieved"
+                            .into(),
+                    },
                 ],
             },
             Song {
                 title: "How Great Is Our God".into(),
                 slides: vec![
-                    Slide { id: 3, text: "The splendor of the King clothed in majesty".into() },
-                    Slide { id: 4, text: "How great is our God sing with me how great is our God".into() },
+                    Slide {
+                        id: 3,
+                        text: "The splendor of the King clothed in majesty".into(),
+                    },
+                    Slide {
+                        id: 4,
+                        text: "How great is our God sing with me how great is our God".into(),
+                    },
                 ],
             },
             Song {
                 title: "Way Maker".into(),
                 slides: vec![
-                    Slide { id: 5, text: "You are here moving in our midst I worship You I worship You".into() },
-                    Slide { id: 6, text: "Way maker miracle worker promise keeper light in the darkness".into() },
+                    Slide {
+                        id: 5,
+                        text: "You are here moving in our midst I worship You I worship You".into(),
+                    },
+                    Slide {
+                        id: 6,
+                        text: "Way maker miracle worker promise keeper light in the darkness"
+                            .into(),
+                    },
                 ],
             },
         ]
@@ -622,7 +644,11 @@ mod tests {
             now,
         );
         match action {
-            Action::Goto { song_index, slide_in_song, .. } => {
+            Action::Goto {
+                song_index,
+                slide_in_song,
+                ..
+            } => {
                 assert_eq!(song_index, 0);
                 assert_eq!(slide_in_song, 0);
             }
@@ -718,7 +744,11 @@ mod tests {
         assert!(c.current_song_title().is_none());
         let action = c.jump_to_song(2, t0);
         match action {
-            Action::Goto { song_index, slide_in_song, .. } => {
+            Action::Goto {
+                song_index,
+                slide_in_song,
+                ..
+            } => {
                 assert_eq!(song_index, 2);
                 assert_eq!(slide_in_song, 0);
             }
@@ -766,7 +796,12 @@ mod tests {
         assert_eq!(c.current_index(), 0);
         let action = c.manual_step(1, t0 + Duration::from_millis(100));
         match action {
-            Action::Goto { song_index, slide_in_song, global_index, .. } => {
+            Action::Goto {
+                song_index,
+                slide_in_song,
+                global_index,
+                ..
+            } => {
                 assert_eq!(song_index, 0);
                 assert_eq!(slide_in_song, 1);
                 assert_eq!(global_index, 1);
@@ -807,7 +842,9 @@ mod tests {
             Instant::now(),
         );
         match action {
-            Action::Goto { next_slide_text, .. } => {
+            Action::Goto {
+                next_slide_text, ..
+            } => {
                 let next = next_slide_text.expect("song 0 slide 1 exists");
                 assert!(next.contains("I once was lost"));
             }
@@ -827,7 +864,9 @@ mod tests {
         c.manual_step(1, t0);
         let action = c.manual_step(1, t0);
         match action {
-            Action::Goto { next_slide_text, .. } => {
+            Action::Goto {
+                next_slide_text, ..
+            } => {
                 assert!(next_slide_text.is_none(), "no next slide at song end");
             }
             other => panic!("expected Goto, got {other:?}"),
@@ -861,7 +900,10 @@ mod tests {
             matches!(action, Action::Goto { .. } | Action::Unblank),
             "expected Goto or Unblank, got {action:?}"
         );
-        assert!(!c.is_blank(), "conductor should have cleared its blank flag");
+        assert!(
+            !c.is_blank(),
+            "conductor should have cleared its blank flag"
+        );
     }
 
     #[test]

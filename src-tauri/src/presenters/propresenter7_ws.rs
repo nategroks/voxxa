@@ -26,9 +26,7 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_tungstenite::{tungstenite::Message, MaybeTlsStream, WebSocketStream};
 
-use super::{
-    Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind,
-};
+use super::{Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind};
 
 /// Default WebSocket port. ProPresenter has historically used 50001 for the
 /// stage display / remote channel; the actual value is whatever the operator
@@ -54,11 +52,17 @@ pub struct ProPresenter7WsDriver {
 
 impl ProPresenter7WsDriver {
     pub fn new() -> Self {
-        Self { family: Family::Pro7, tx: None }
+        Self {
+            family: Family::Pro7,
+            tx: None,
+        }
     }
 
     pub fn new_pro6() -> Self {
-        Self { family: Family::Pro6, tx: None }
+        Self {
+            family: Family::Pro6,
+            tx: None,
+        }
     }
 
     async fn send_action(&self, action_json: serde_json::Value) -> Result<(), CtlError> {
@@ -80,10 +84,7 @@ struct AuthResponse {
 
 /// Bridge task that owns the WebSocket and forwards outbound messages from
 /// `rx`. Returns when the channel closes or the socket errors.
-async fn bridge(
-    ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
-    mut rx: mpsc::Receiver<Message>,
-) {
+async fn bridge(ws: WebSocketStream<MaybeTlsStream<TcpStream>>, mut rx: mpsc::Receiver<Message>) {
     let (mut sink, mut stream) = ws.split();
     loop {
         tokio::select! {
