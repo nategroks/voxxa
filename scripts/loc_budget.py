@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Fail if code exceeds the per-module line budgets of ADR-010 Decision 3, as amended by A8.
 
-Unit: tokei "code" lines (no blanks, no comments). CSS/JS embedded in an HTML file is
-counted once, as part of that HTML file. Budgets can only go down.
+Unit: tokei "code" lines (no blanks, no comments). CSS/JS embedded in an HTML file
+(tokei "blobs") is added to that HTML file's count, so moving GUI code inline does not
+hide it. Budgets can only go down.
 Usage: tokei must be on PATH. Run from the repo root.
 """
 import json
@@ -24,7 +25,9 @@ def per_file(paths, langs):
         for report in data.get(lang, {}).get("reports", []):
             name = report["name"].replace("\\", "/")
             name = name[2:] if name.startswith("./") else name
-            files[name] = files.get(name, 0) + report["stats"]["code"]
+            stats = report["stats"]
+            code = stats["code"] + sum(b["code"] for b in stats.get("blobs", {}).values())
+            files[name] = files.get(name, 0) + code
     return files
 
 
