@@ -5,7 +5,7 @@ description = "Voice-following slide advancer for church worship, running entire
 authors = ["nategroks"]
 license = "GPL-3.0-or-later"
 edition = "2021"
-rust-version = "1.77"
+rust-version = "1.90"
 
 [lib]
 name = "voxxa_lib"
