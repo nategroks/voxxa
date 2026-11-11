@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<song xmlns="http://openlyrics.info/namespace/2009/song" version="0.8">
+  <properties>
+    <titles>
+      <title>Holy, Holy, Holy</title>
+    </titles>
+    <authors>
+      <author>Reginald Heber (1826)</author>
+    </authors>
+    <copyright>Public Domain</copyright>
+  </properties>
+  <lyrics>
+    <verse name="v1">
+      <lines>Holy, holy, holy! Lord God Almighty!<br/>Early in the morning our song shall rise to Thee<br/>Holy, holy, holy, merciful and mighty<br/>God in three Persons, blessed Trinity</lines>
+    </verse>
+    <verse name="v2">
+      <lines>Holy, holy, holy! All the saints adore Thee<br/>Casting down their golden crowns around the glassy sea<br/>Cherubim and seraphim falling down before Thee<br/>Which wert, and art, and evermore shalt be</lines>
+    </verse>
+    <verse name="v3">
+      <lines>Holy, holy, holy! Though the darkness hide Thee<br/>Though the eye of sinful man Thy glory may not see<br/>Only Thou art holy; there is none beside Thee<br/>Perfect in power, in love, and purity</lines>
+    </verse>
+    <verse name="v4">
+      <lines>Holy, holy, holy! Lord God Almighty!<br/>All Thy works shall praise Thy name, in earth, and sky, and sea<br/>Holy, holy, holy, merciful and mighty<br/>God in three Persons, blessed Trinity</lines>
+    </verse>
+  </lyrics>
+</song>

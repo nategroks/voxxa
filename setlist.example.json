@@ -1,31 +1,30 @@
 {
   "setlist": [
     {
-      "title": "How Great Is Our God",
+      "title": "Amazing Grace",
       "slides": [
-        { "id": 0, "text": "The splendor of the King\nclothed in majesty\nLet all the earth rejoice\nall the earth rejoice" },
-        { "id": 1, "text": "He wraps Himself in light\nand darkness tries to hide\nand trembles at His voice\nand trembles at His voice" },
-        { "id": 2, "text": "How great is our God\nsing with me\nHow great is our God\nand all will see\nhow great, how great is our God" },
-        { "id": 3, "text": "Age to age He stands\nand time is in His hands\nbeginning and the End\nbeginning and the End" },
-        { "id": 4, "text": "The Godhead Three in One\nFather Spirit Son\nthe Lion and the Lamb\nthe Lion and the Lamb" }
+        { "id": 0, "text": "Amazing grace, how sweet the sound\nThat saved a wretch like me\nI once was lost, but now am found\nWas blind, but now I see" },
+        { "id": 1, "text": "'Twas grace that taught my heart to fear\nAnd grace my fears relieved\nHow precious did that grace appear\nThe hour I first believed" },
+        { "id": 2, "text": "Through many dangers, toils and snares\nI have already come\n'Tis grace hath brought me safe thus far\nAnd grace will lead me home" },
+        { "id": 3, "text": "The Lord has promised good to me\nHis Word my hope secures\nHe will my shield and portion be\nAs long as life endures" }
       ]
     },
     {
-      "title": "Amazing Grace (My Chains Are Gone)",
+      "title": "Be Thou My Vision",
       "slides": [
-        { "id": 5, "text": "Amazing grace, how sweet the sound\nThat saved a wretch like me\nI once was lost, but now am found\nWas blind, but now I see" },
-        { "id": 6, "text": "'Twas grace that taught my heart to fear\nAnd grace my fears relieved\nHow precious did that grace appear\nThe hour I first believed" },
-        { "id": 7, "text": "My chains are gone, I've been set free\nMy God, my Savior has ransomed me\nAnd like a flood His mercy reigns\nUnending love, amazing grace" },
-        { "id": 8, "text": "The Lord has promised good to me\nHis Word my hope secures\nHe will my shield and portion be\nAs long as life endures" }
+        { "id": 4, "text": "Be Thou my Vision, O Lord of my heart\nNaught be all else to me, save that Thou art\nThou my best thought, by day or by night\nWaking or sleeping, Thy presence my light" },
+        { "id": 5, "text": "Be Thou my Wisdom, and Thou my true Word\nI ever with Thee and Thou with me, Lord\nThou my great Father, I Thy true son\nThou in me dwelling, and I with Thee one" },
+        { "id": 6, "text": "Riches I heed not, nor man's empty praise\nThou mine inheritance, now and always\nThou and Thou only, first in my heart\nHigh King of Heaven, my Treasure Thou art" },
+        { "id": 7, "text": "High King of Heaven, my victory won\nMay I reach Heaven's joys, O bright Heaven's Sun\nHeart of my own heart, whatever befall\nStill be my Vision, O Ruler of all" }
       ]
     },
     {
-      "title": "Way Maker",
+      "title": "Holy, Holy, Holy",
       "slides": [
-        { "id": 9, "text": "You are here, moving in our midst\nI worship You, I worship You\nYou are here, working in this place\nI worship You, I worship You" },
-        { "id": 10, "text": "Way maker, miracle worker\nPromise keeper, light in the darkness\nMy God, that is who You are" },
-        { "id": 11, "text": "You are here, touching every heart\nI worship You, I worship You\nYou are here, healing every heart\nI worship You, I worship You" },
-        { "id": 12, "text": "Even when I don't see it, You're working\nEven when I don't feel it, You're working\nYou never stop, You never stop working\nYou never stop, You never stop working" }
+        { "id": 8, "text": "Holy, holy, holy! Lord God Almighty!\nEarly in the morning our song shall rise to Thee\nHoly, holy, holy, merciful and mighty\nGod in three Persons, blessed Trinity" },
+        { "id": 9, "text": "Holy, holy, holy! All the saints adore Thee\nCasting down their golden crowns around the glassy sea\nCherubim and seraphim falling down before Thee\nWhich wert, and art, and evermore shalt be" },
+        { "id": 10, "text": "Holy, holy, holy! Though the darkness hide Thee\nThough the eye of sinful man Thy glory may not see\nOnly Thou art holy; there is none beside Thee\nPerfect in power, in love, and purity" },
+        { "id": 11, "text": "Holy, holy, holy! Lord God Almighty!\nAll Thy works shall praise Thy name, in earth, and sky, and sea\nHoly, holy, holy, merciful and mighty\nGod in three Persons, blessed Trinity" }
       ]
     }
   ]

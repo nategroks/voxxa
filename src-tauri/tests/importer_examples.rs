@@ -31,16 +31,14 @@ fn parses_amazing_grace_txt() {
 }
 
 #[test]
-fn parses_how_great_thou_art_openlyrics() {
-    let xml = fs::read_to_string(example("how-great-thou-art.openlyrics")).unwrap();
+fn parses_holy_holy_holy_openlyrics() {
+    let xml = fs::read_to_string(example("holy-holy-holy.openlyrics")).unwrap();
     let song = voxxa_lib::openlyrics_parse(&xml, "Untitled").unwrap();
-    assert_eq!(song.title, "How Great Thou Art");
-    // 4 verses + chorus = 5 slides.
-    assert_eq!(song.slides.len(), 5);
-    // Chorus should appear with `<br/>` rendered as newline.
-    assert!(song.slides[1].text.contains("Then sings my soul"));
+    assert_eq!(song.title, "Holy, Holy, Holy");
+    assert_eq!(song.slides.len(), 4, "four verses, one per slide");
+    assert!(song.slides[2].text.contains("Only Thou art holy"));
     assert!(
-        song.slides[1].text.matches('\n').count() >= 3,
+        song.slides[0].text.matches('\n').count() >= 3,
         "<br/> tags become newlines"
     );
 }
