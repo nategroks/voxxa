@@ -471,16 +471,14 @@ fn dispatch_action_with_total(
                 }
                 // Translate larger jumps to repeated next/prev keystrokes. Sleep a
                 // tick between sends so the receiver isn't overwhelmed.
-                let steps = delta.abs() as usize;
+                let steps = delta.unsigned_abs() as usize;
                 for _ in 0..steps {
                     let r = if delta > 0 {
                         p.next_slide().await
                     } else {
                         p.prev_slide().await
                     };
-                    if let Err(e) = r {
-                        return Err(e);
-                    }
+                    r?;
                     tokio::time::sleep(Duration::from_millis(60)).await;
                 }
                 Ok(())

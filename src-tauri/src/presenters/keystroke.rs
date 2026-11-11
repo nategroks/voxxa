@@ -16,10 +16,11 @@ use super::{
 };
 
 /// Per-app key profile from the §2 table of the project plan.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum KeystrokeProfile {
     /// Right / Left / Period — works for ProPresenter, FreeShow, OpenLP, Proclaim, and most apps.
+    #[default]
     Universal,
     ProPresenter,
     EasyWorship,
@@ -32,12 +33,6 @@ pub enum KeystrokeProfile {
     WorshipToolsPresenter,
     Proclaim,
     FreeShow,
-}
-
-impl Default for KeystrokeProfile {
-    fn default() -> Self {
-        Self::Universal
-    }
 }
 
 struct KeyMap {
