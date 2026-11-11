@@ -1,44 +1,36 @@
 # Current Handoff
 
-## From: Q0 (CTO + Architect + Staff Engineer, 2026-11-11) → To: the SDE for Q1
+## From: Q1 (SDE + Staff Engineer + DBA, 2026-11-11) → To: QA Engineer + Security Engineer for Q2
 **Date:** 2026-11-11
-**Phase:** Discovery of the May branch complete → user gate **passed** → Reconcile (Q1 merge, Q2 verification)
+**Phase:** Reconcile: Q1 merge done → Q2 verification (widened at the Q0 gate)
 
-### What Q0 did
-- Verified every [DISCOVERED 2026-11-11] statement against the code of `origin/claude/affectionate-lamport-8al8B` @ f7b56e6. Corrections are inline in the role indexes; the full log is `reviews/2026-11-11-q0-claim-verification.md`.
-- Reviewed ADR-010 Decision 1 against the real merge (`git merge-tree`).
-  - Only 6 files conflict textually.
-  - The rule as written would revert f177fbe (tauri 2.12.5 / openssl 0.10.82) through `Cargo.lock`, and would drop our clippy fixes through "theirs for all of src-tauri/src".
-  - ADR-010 now has amendments A1–A15 and Appendix A: every one of the 110 differing paths, with a side.
-- Ran the same prompt independently through ponytail (full) and ponytail-audit, as the user asked: `reviews/2026-11-11-ponytail-q0.md`. Its 12 must-fix defects were all confirmed by a refuting skeptic. They are Q2 input.
-- Nothing merged, no code changed. The worktrees `C:\dev\voxxa-newton` (this branch) and `C:\dev\lamport` (May, detached) exist locally. Build artefacts are in `C:\dev\lamport-target`.
+### What Q1 built
+- `origin/claude/affectionate-lamport-8al8B` was merged (9987b62) per ADR-010 Appendix A and A1–A15, followed by logical fix-forward commits. The merge record, every dependency change and the debt are in `decisions/sde/church-autoadvance.md`; the SQLite decision is in `decisions/dba/church-autoadvance.md`.
+- Two independent lanes, the 10x-team and ponytail (`full`), did the whole task. Each was reviewed by the other discipline, then compared, finished and adversarially verified: `reviews/2026-11-11-ponytail-q1.md`. The ponytail lane's branch `q1/ponytail` stays local for reference.
+- **Gates on Windows:** all green. **Linux/macOS:** CI on PR #1 is the first real build there. Watch for:
+  - `ort-sys` downloading ONNX Runtime at build time
+  - the bundled SQLite compile
+  - LF line endings in the integration tests (there is no `.gitattributes`)
 
-### User decisions at the Q0 gate (2026-11-11)
-1. **ADR-010 Accepted as amended (A1–A15).**
-2. **Cut list:** merge everything now. Cuts are decided after Q2, in a separate ADR.
-3. **ADR-011 Accepted:** Voxxa never *projects* lyrics; operator-only previews are allowed (amends ADR-007).
-4. **Q2 widened:** it also fixes the wrong-slide defects (audit 1–4). The Q2 prompt in the pack is updated.
+### What Q2 must test and review (in addition to the Q2 prompt)
+1. **The 12 confirmed audit defects** in `reviews/2026-11-11-ponytail-q0.md` §4–5. Fix 1–4 (wrong slide) plus crash and data-loss defects now; ticket the rest.
+2. **Copyrighted lyric fixtures** still in `src-tauri/src/aligner/mod.rs` tests ("How Great Is Our God", "Way Maker"). Q1 could not touch the conductor. Replace them with PD hymn text (ADR-007).
+3. **ADR-011:** check that the stage window cannot default to an audience-facing display. The Q1 reviews note that it is built for a second screen.
+4. **Security inputs** (DBA note): EasyWorship SQLite hardening (`trusted_schema=OFF`, defensive mode, `immutable=1`, size cap); the HTTP API token is optional; CSP is null and `withGlobalTauri` is true; there are no capability files (verify `listen()` with one app launch); transcripts are logged into the diagnostics ring buffer.
+5. **Known May bugs found in Q1 reviews:** the PDF importer never splits pages; GPG `.asc` signatures never reach the release.
+6. **Evidence for the post-Q2 cut-list ADR:** HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds.
 
-### Still open
-- PR target: the same branch, so PR #1 updates. Confirmed by the user, and the Q0 state is pushed.
-- A15 is done early: `local/windows-fixtures` was merged as 54183c8 before Q1, cleanly. For Q1/Q5 this leaves:
-  - convert `fixtures/setlists/pd-hymns.json` to the May `Setlist` shape; it can also be the PD source for the A9 rewrite of `setlist.example.json`
-  - `fixtures/pco/plan-sample.json` is a digest, not PCO JSON:API
-  - reconcile `docs/signing-policy.md` with `SIGNING.md` (A6)
-  - re-run the a003992 Windows verification on the merged head (`handoff-local-windows.md`)
-- ADR numbering: the next free number is **ADR-012**. Prompts that say "write ADR-011" use the next free number.
+### Open for the user
+- **Pin the CI toolchain and tokei** (R13)? Recommended; it changes the CI bar, so it needs the user's sign-off.
+- **A15 follow-ups:** `fixtures/setlists/pd-hymns.json` and `fixtures/pco/plan-sample.json` don't fit the May parsers; re-run the Windows verification (a003992) on the merged head (`handoff-local-windows.md`); finish reconciling `docs/signing-policy.md` with `SIGNING.md`.
+- **ADR numbering:** the next free number is ADR-012.
 
-### For the next session (Q1, after acceptance)
-Execute Decision 1 **as amended**, path by path from Appendix A, in the A14 order: resolve → fmt → clippy → test → deny → budgets, green in `ci.yml` on all three OSes. The SDE notes are in `decisions/sde/_index.md` § Q0 verification. Do not fix the audit defects in Q1.
-
-**Process rule (user, 2026-11-11):** every prompt in the pack (Q1…Q27) also runs **independently through ponytail** (github.com/dietrichgebert/ponytail) in addition to the 10x-team step.
-- Use `ponytail` (full) for the step itself.
-- Add `ponytail-review` for code steps and `ponytail-audit` for discovery and close steps.
-- Record the result in `reviews/YYYY-MM-DD-ponytail-<Q>.md` and adjudicate disagreements.
+**Process rule (user, 2026-11-11):** every prompt (Q2…Q27) also runs independently through ponytail. Run it as two lanes plus cross-review for code steps (the Q1 pattern), or `ponytail` + `ponytail-audit` for verification and close steps. Record the result in `reviews/YYYY-MM-DD-ponytail-<Q>.md`.
 
 ---
 
 ## Handoff History
+- 2026-11-11 Q1: May branch merged per ADR-010 + A1–A15; two lanes (10x, ponytail) → 10x base with ponytail grafts; all local gates green; build.yml YAML fixed.
 - 2026-11-11 Q0 gate: the user accepted ADR-010 as amended; ADR-011; cuts deferred until after Q2; Q2 widened to cover wrong-slide defects.
 - 2026-11-11 Q0: claims verified, ADR-010 path table + amendments A1–A15, ponytail lane; stopped at the user gate.
 - 2026-11-11 re-planning: May branch discovered; ADR-010 Proposed; prompt pack regenerated for /10x-Team:10x-team.
