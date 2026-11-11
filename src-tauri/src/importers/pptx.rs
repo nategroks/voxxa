@@ -19,7 +19,10 @@ pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
     let mut entries: Vec<(u32, String)> = Vec::new();
     for i in 0..zip.len() {
         let name = match zip.by_index(i) {
-            Ok(f) => f.name().to_string(),
+            Ok(f) => match f.name() {
+                Ok(name) => name.into_owned(),
+                Err(_) => continue,
+            },
             Err(_) => continue,
         };
         if let Some(num) = slide_number(&name) {
@@ -88,8 +91,8 @@ fn extract_slide_text(xml: &str) -> Result<String> {
                     in_t = false;
                 }
             }
-            Ok(Event::Text(t)) if in_t => {
-                let s = t.unescape().unwrap_or_default().into_owned();
+            Ok(ev @ (Event::Text(_) | Event::GeneralRef(_))) if in_t => {
+                let s = super::xml_text(&ev);
                 out.push_str(&s);
             }
             Ok(Event::Eof) => break,

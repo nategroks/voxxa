@@ -17,6 +17,26 @@ pub mod pptx;
 pub mod pro7;
 pub mod txt;
 
+/// Unescaped text of a quick-xml `Text` or `GeneralRef` event; empty for any
+/// other event. quick-xml 0.38+ reports `&amp;`, `&#39;`, ... as separate
+/// `GeneralRef` events instead of unescaping them inside `Text`.
+fn xml_text(event: &quick_xml::events::Event) -> String {
+    use quick_xml::events::Event;
+    match event {
+        Event::Text(t) => t.decode().map(|s| s.into_owned()).unwrap_or_default(),
+        Event::GeneralRef(r) => match r.resolve_char_ref() {
+            Ok(Some(c)) => c.to_string(),
+            _ => r
+                .decode()
+                .ok()
+                .and_then(|name| quick_xml::escape::resolve_predefined_entity(&name))
+                .unwrap_or_default()
+                .to_string(),
+        },
+        _ => String::new(),
+    }
+}
+
 /// Source format. The frontend picks this from the file extension (or, for
 /// `.xml`, by sniffing the root namespace).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

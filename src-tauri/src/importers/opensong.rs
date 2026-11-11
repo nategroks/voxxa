@@ -99,8 +99,8 @@ fn extract_title_and_lyrics(text: &str) -> Result<(String, String)> {
                 b"lyrics" => in_lyrics = false,
                 _ => {}
             },
-            Ok(Event::Text(t)) => {
-                let s = t.unescape().unwrap_or_default().into_owned();
+            Ok(ev @ (Event::Text(_) | Event::GeneralRef(_))) => {
+                let s = super::xml_text(&ev);
                 if in_title {
                     title.push_str(&s);
                 }
