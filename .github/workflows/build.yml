@@ -164,7 +164,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name || inputs.version || 'v0.0.0-dev' }}
-          releaseName: 'Voxxa ${{ github.ref_name || inputs.version || 'dev' }}'
+          releaseName: "Voxxa ${{ github.ref_name || inputs.version || 'dev' }}"
           releaseBody: |
             ## Voxxa — voice-following slide advancer for churches
 
