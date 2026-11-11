@@ -6,11 +6,11 @@ Voxxa listens to the room and advances the lyric slides for you. It runs beside 
 
 ## What it does
 
-- Listens to the sound desk feed or a room mic and matches what is sung against the lyrics already loaded in your presentation software.
+- Listens to the sound desk feed or a room mic and matches what is sung against today's setlist, which you load into Voxxa from a file, Planning Center or your presentation software's export.
 - Tells the presentation software when to move: next slide, back a slide, or jump to the chorus.
 - Blanks the projected output when the music stops and brings the slide back when the singing resumes.
 - Loads the setlist from a Voxxa JSON file, from files exported by common worship software (see `docs/SETLIST_FORMATS.md`), or from a Planning Center Services plan.
-- Shows the operator, on the booth computer only, which song it hears and a preview of the current and next slide.
+- Shows the operator which song it hears and a preview of the current and next slide. Previews are for the operator; the projected display stays with your presentation software.
 
 On the roadmap, not in the code yet:
 
@@ -19,7 +19,7 @@ On the roadmap, not in the code yet:
 
 ## What it does not do
 
-- It never projects lyrics or Bible text. Your presentation software does that, under your church's licences. The operator previews on the booth computer are not sent to any output.
+- It never projects lyrics or Bible text. Your presentation software does that, under your church's licences.
 - It never uploads audio or transcripts. Speech recognition runs on the computer in the booth.
 - It never replaces your presentation software or reports to CCLI for you.
 
