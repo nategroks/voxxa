@@ -106,9 +106,11 @@ jobs:
           echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8" \
             >> "$GITHUB_ENV"
 
-      # Microsoft Artifact Signing (formerly Azure Trusted Signing) for Windows.
-      # Only installs the CLI if the Azure credentials are present, so the workflow
-      # still produces an unsigned but working .msi for forks that haven't subscribed.
+      # Microsoft Artifact Signing (formerly Azure Trusted Signing) for Windows:
+      # the ADR-008 fallback; SignPath Foundation is the primary path (see
+      # SIGNING.md and docs/signing-policy.md). Only installs the CLI if the Azure
+      # credentials are present, so the workflow still produces an unsigned but
+      # working .msi for forks that haven't subscribed. Pinned for reproducibility.
       - name: Install trusted-signing-cli
         if: runner.os == 'Windows'
         env:
@@ -119,7 +121,7 @@ jobs:
             echo "AZURE_CLIENT_ID not set — Windows .msi will be unsigned."
             exit 0
           fi
-          cargo install trusted-signing-cli --locked
+          cargo install trusted-signing-cli --locked --version 0.11.0
 
       # Build a Tauri --config override that injects signCommand on Windows when
       # the Azure secrets are present. Empty string when not set so the action
@@ -147,8 +149,9 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-          # Microsoft Artifact Signing for Windows — picked up by the
-          # `signCommand` in tauri.conf.json when these are set.
+          # Microsoft Artifact Signing for Windows: read by the `signCommand`
+          # that the "Compute Tauri config override" step injects via --config
+          # (tauri.conf.json itself has no signCommand).
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -165,7 +168,7 @@ jobs:
           releaseBody: |
             ## Voxxa — voice-following slide advancer for churches
 
-            Voxxa listens to the room and tells your presentation software when to change the lyric slide. It never shows lyrics itself and never uploads audio.
+            Voxxa listens to the room and tells your presentation software when to change the lyric slide. It never projects lyrics and never uploads audio.
 
             | Platform | File |
             |----------|------|

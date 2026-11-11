@@ -66,7 +66,16 @@ The `NSLocalNetworkUsageDescription` plus `NSBonjourServices` pair is what
 unlocks the macOS Local Network permission prompt — without it, mDNS browse
 and any `.local` connection silently fail on macOS 14+.
 
-## Windows — Microsoft Artifact Signing
+## Windows — SignPath Foundation (primary) and Microsoft Artifact Signing (fallback)
+
+Per ADR-008, Windows releases are signed through **SignPath Foundation**
+(free for OSI-licensed projects; see `docs/signing-policy.md`, which
+SignPath requires to be public). The SignPath step is not wired into
+`build.yml` yet. **Microsoft Artifact Signing** below is the fallback if
+SignPath declines; its scaffold is already in `build.yml` and is skipped
+when the Azure secrets are absent.
+
+### Fallback: Microsoft Artifact Signing
 
 **Budget:** ~$120/yr (Artifact Signing Basic — $9.99/month, 5,000 sigs/month).
 
@@ -176,9 +185,9 @@ just go out unsigned.
 
 Per the project plan §5.4:
 - Apple Developer Program: **$99/yr**
-- Microsoft Artifact Signing: **~$120/yr**
+- Windows: **$0** with SignPath Foundation; **~$120/yr** if the Microsoft Artifact Signing fallback is needed
 - Domain/HTTPS update server: **$15/yr**
-- **Total: ~$235/yr**
+- **Total: ~$115/yr** with SignPath, **~$235/yr** with the fallback
 
 Swap Artifact Signing for an EV cert (immediate SmartScreen trust) and
 the total climbs to ~$520–720/yr.
