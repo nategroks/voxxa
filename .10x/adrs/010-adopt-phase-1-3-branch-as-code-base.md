@@ -1,6 +1,6 @@
 # ADR-010: Adopt the May implementation branch as the code base, keep Increment 0's governance, re-scope the plan to the gaps
 
-**Status:** Proposed; reviewed by Q0 on 2026-11-11, with amendments A1–A15 awaiting the user's approval · **Date:** 2026-11-11 · **Feature:** church-autoadvance · **Reversibility:** Costly (a merge, then every later commit builds on it) · **Owner:** nategroks
+**Status:** Accepted 2026-11-11 by the user at the Q0 gate, **as amended by A1–A15** (§ Q0 review). A13 was resolved as ADR-011. · **Date:** 2026-11-11 · **Feature:** church-autoadvance · **Reversibility:** Costly (a merge, then every later commit builds on it) · **Owner:** nategroks
 
 ## Context
 Discovery in October ran on `main` only. `origin/claude/affectionate-lamport-8al8B` (44 commits, 2026-05-28 → 06-01, same base as `main`) already implements presenter drivers for ProPresenter 7.9+ REST and 7.0–7.8 WS, FreeShow, OpenLP v2, OpenSong and keystroke profiles (plus a ProPresenter 6 WS variant); eight file-format setlist importers (nine formats counting native JSON; corrected by Q0); Planning Center import; a smart-blanking conductor with parallel song detection and unit tests; Silero VAD; discovery; a local HTTP API; diagnostics; a stage display; Flatpak packaging; and signing scaffolds. It was never merged, its README still says "voice dictation", and it fails the Increment 0 quality bar (51 fmt diffs, 15+ `cargo deny` advisories, line budgets exceeded; Q0 adds: it does not build on Windows because `icons/icon.ico` is a PNG, and clippy 1.99 reports 16 errors). Our branch holds the strategy, ADR-001…009, positioning, GPL licence, `cargo deny`, CI and the icon fix, on a codebase that cannot yet transcribe. Rebuilding what the May branch has would cost ~15 prompts and weeks; its conductor is designed around the product's core rule ("a bad blank beats a wrong slide"), though Q0 found it does not yet enforce it (see § Q0 review).
@@ -149,11 +149,11 @@ Ponytail would also **delete** these in the merge:
 
 It would also cut the unused shell, store and global-shortcut plugins (31 commands instead of 38) and set the budgets as a ratchet on post-cut counts. The adjudicator kept Decision 4 ("no existing feature is deleted") as the rule in force: cutting features is a product decision with its own ADR, not a merge resolution. Ponytail also argues to defer the `voxxad` CLI (ADR-001 as adjusted) until `voxxa-eval` needs it; that is a Q3 question.
 
-### Open questions at the Q0 gate
-1. Accept ADR-010 with amendments A1–A15?
-2. Ponytail's cut list: keep everything (Decision 4 as written), or cut in a separate commit/ADR?
-3. ADR-007 and on-screen text (A13).
-4. Q2 scope: fix the wrong-slide defects (audit 1–4) now, or only crash and data-loss defects as Q2 says?
+### User decisions at the Q0 gate (2026-11-11)
+1. **ADR-010 accepted with amendments A1–A15.** Q1 executes Decision 1 as amended, path by path from Appendix A.
+2. **Ponytail's cut list: merge everything now.** Cuts are decided after Q2's security review, in a separate ADR. Decision 4 stands for the merge.
+3. **A13 → ADR-011:** Voxxa never *projects* lyrics; operator-only previews on the booth machine are allowed.
+4. **Q2 scope widened:** besides crash and data-loss defects, Q2 also fixes the four wrong-slide defects (audit 1–4). Q2 is re-sized from M to L.
 
 ## Appendix A: every differing path (`git diff --name-status origin/claude/trusting-newton-v71ebu origin/claude/affectionate-lamport-8al8B`)
 

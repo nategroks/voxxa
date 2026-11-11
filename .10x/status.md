@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Discovery of the May branch complete (Q0). Waiting at the user-review gate: ADR-010 is Proposed with amendments A1–A15.
+**Current Phase:** Q0 gate passed (2026-11-11): ADR-010 Accepted as amended (A1–A15), ADR-011 Accepted. Next: Q1 (merge + CI bar).
 **Last Updated:** 2026-11-11 by 10x-team orchestrator
 **Health:** On Track
 
@@ -31,8 +31,14 @@
   - role indexes updated
   - no merge, no code
 
+- [x] 2026-11-11 **Q0 user gate.** All four recommendations were taken:
+  - ADR-010 Accepted as amended
+  - feature cuts decided after Q2 in a separate ADR
+  - ADR-011: never *project* lyrics, operator previews allowed (amends ADR-007)
+  - Q2 widened (M → L) to fix the four wrong-slide defects; the prompt pack is updated
+
 ### In Progress
-- [ ] User: accept or amend ADR-010 + A1–A15 and answer the gate questions (ADR-010 § Q0 review). PR #1 is still an open draft, CI green, unmerged.
+- [ ] Q1: merge `origin/claude/affectionate-lamport-8al8B` per ADR-010 Appendix A + A1–A15; green CI on PR #1 (still an open draft, unmerged).
 
 ### Pending
 - [ ] Q0 discovery/approval → Q1 merge + CI bar → Q2 verification → Increment 1′ (Q3–Q7) … per the 2026-11-11 prompt pack
