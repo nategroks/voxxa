@@ -79,13 +79,9 @@ fn extract_slide_text(xml: &str) -> Result<String> {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => match e.name().as_ref() {
                 b"a:t" => in_t = true,
-                b"a:p" => {
-                    // Paragraph break — separate runs with a newline so multi-line
-                    // slides stay multi-line.
-                    if !out.is_empty() && !out.ends_with('\n') {
-                        out.push('\n');
-                    }
-                }
+                // Paragraph break — separate runs with a newline so multi-line
+                // slides stay multi-line.
+                b"a:p" if !out.is_empty() && !out.ends_with('\n') => out.push('\n'),
                 _ => {}
             },
             Ok(Event::End(e)) => {
