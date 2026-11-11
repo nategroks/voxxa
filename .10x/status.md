@@ -1,8 +1,8 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Phase 4 Implementation — Increment 0 complete and CI-verified; Increment 1 next (P1.1)
-**Last Updated:** 2026-10-25 by 10x-team orchestrator (SDE)
+**Current Phase:** Re-planning after discovery of the May implementation branch — ADR-010 Proposed; next session runs prompt Q0 from `specs/2026-11-11-prompts-10x-team.md`
+**Last Updated:** 2026-11-11 by 10x-team orchestrator
 **Health:** On Track
 
 ## Progress
@@ -20,11 +20,13 @@
 
 - [x] CI green on all five jobs (ubuntu/windows/macos fmt+clippy+test, cargo deny, line budgets) at d976698 on PR nategroks/voxxa#1; one real defect found and fixed on the way (icon.ico/icon.icns were PNGs)
 
+- [x] 2026-11-11 Discovery of `origin/claude/affectionate-lamport-8al8B` (44 commits, May 2026, never merged): presenter drivers, importers, Planning Center, conductor, VAD, HTTP API, Flatpak. Notes in role indexes; ADR-010 Proposed; prompt pack regenerated for `/10x-Team:10x-team`.
+
 ### In Progress
-- [ ] User to merge PR #1 (draft) into main when ready; then Increment 1 starts with P1.1
+- [ ] User: approve ADR-010 (via prompt Q0 or directly); PR #1 still open as a draft, CI green, unmerged
 
 ### Pending
-- [ ] Increment 1: P1.1 wire the loop → P1.2 recognizer trait → P1.3 SongGraph → P1.4 tracker → P1.5 voxxad → P1.6 eval
+- [ ] Q0 discovery/approval → Q1 merge + CI bar → Q2 verification → Increment 1′ (Q3–Q7) … per the 2026-11-11 prompt pack
 - [ ] Founder: record two PD-hymn fixtures; apply to SignPath; open Partner Center; e-mail CCLI; form LLC; start research screener
 - [ ] Phases 4–6 per increment
 
@@ -32,6 +34,8 @@
 (none)
 
 ## Risks
+- R8 Unreviewed May-branch code (its own REVIEW.md found six critical bugs in one pass) — Q2 runs QA + security before any new feature
+- R9 Dependency advisories in pdf-extract/lopdf and rusqlite may force crate replacement — Q1 gates on cargo deny; PDF importer may go behind an off-by-default feature
 - R1 Recognition on sung vocals (Whisper WER 21–56% on singing) — mitigated by ADR-009 + eval harness in Inc 1; kill criterion week 14
 - R2 Support conversion ≈ 1% — Setup & Calibration + Store listing as independent lines; decision gate month 12
 - R3 CCLI/publisher objection to lyric indexing — no lyrics shipped; written question before launch
