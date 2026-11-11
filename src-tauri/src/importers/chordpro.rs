@@ -117,10 +117,10 @@ mod tests {
 
     #[test]
     fn parses_title_and_sections() {
-        let s = "{title: Amazing Grace}\n\nAmazing [G]grace\nHow [D]sweet\n\n{start_of_chorus}\nHow [C]great Thou [G]art\n{end_of_chorus}\n";
+        let s = "{title: Amazing Grace}\n\nAmazing [G]grace\nHow [D]sweet\n\n{start_of_chorus}\nIt is [C]well with my [G]soul\n{end_of_chorus}\n";
         let song = parse(s, "fallback").unwrap();
         assert_eq!(song.title, "Amazing Grace");
         assert_eq!(song.slides.len(), 2);
-        assert!(song.slides[1].text.contains("How great Thou art"));
+        assert!(song.slides[1].text.contains("It is well with my soul"));
     }
 }

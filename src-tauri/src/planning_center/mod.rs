@@ -271,12 +271,12 @@ mod tests {
 
     #[test]
     fn parses_pco_lyrics() {
-        let lyrics = "V1\nAmazing grace, how sweet the sound\nThat saved a wretch like me\n\nC\nHow great Thou art\nHow great Thou art\n\nV2\nI once was lost, but now am found";
+        let lyrics = "V1\nAmazing grace, how sweet the sound\nThat saved a wretch like me\n\nC\nIt is well with my soul\nIt is well, it is well with my soul\n\nV2\nI once was lost, but now am found";
         let song = parse_pco_lyrics(lyrics, "Amazing Grace", 0).unwrap();
         assert_eq!(song.title, "Amazing Grace");
         assert_eq!(song.slides.len(), 3);
         assert!(song.slides[0].text.starts_with("Amazing grace"));
-        assert!(song.slides[1].text.starts_with("How great"));
+        assert!(song.slides[1].text.starts_with("It is well"));
         assert!(song.slides[2].text.starts_with("I once was lost"));
     }
 }

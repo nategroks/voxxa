@@ -111,7 +111,7 @@ mod tests {
   </properties>
   <lyrics>
     <verse name="v1"><lines>Amazing grace<br/>How sweet the sound</lines></verse>
-    <verse name="c1"><lines>How great Thou art</lines></verse>
+    <verse name="c1"><lines>It is well with my soul</lines></verse>
   </lyrics>
 </song>"#;
         let song = parse(xml, "fallback").unwrap();

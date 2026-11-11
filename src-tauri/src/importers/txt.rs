@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn strips_section_labels() {
-        let s = "How Great\n\nVerse 1\nThe splendor of the King\n\nChorus:\nHow great is our God";
+        let s = "It Is Well\n\nVerse 1\nWhen peace like a river attendeth my way\n\nChorus:\nIt is well with my soul";
         let song = parse(s, "fallback").unwrap();
         assert_eq!(song.slides.len(), 2);
         assert!(!song.slides[0].text.contains("Verse"));

@@ -200,7 +200,7 @@ mod tests {
             "CREATE TABLE song(rowid INTEGER PRIMARY KEY, title TEXT, words TEXT);
              INSERT INTO song(title, words) VALUES
                ('Amazing Grace', 'Amazing grace, how sweet the sound\nThat saved a wretch like me\n\nI once was lost, but now am found'),
-               ('How Great', 'V1\nThe splendor of the King\n\nC\nHow great is our God');",
+               ('It Is Well', 'V1\nWhen peace like a river attendeth my way\n\nC\nIt is well with my soul');",
         )
         .unwrap();
         drop(conn);

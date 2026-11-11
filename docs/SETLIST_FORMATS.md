@@ -31,11 +31,11 @@ The simplest format. Drop a `.json` file shaped like this:
 {
   "setlist": [
     {
-      "title": "How Great Is Our God",
+      "title": "It Is Well with My Soul",
       "slides": [
-        { "id": 0, "text": "The splendor of the King clothed in majesty" },
-        { "id": 1, "text": "Age to age He stands and time is in His hands" },
-        { "id": 2, "text": "Name above all names worthy of all praise" }
+        { "id": 0, "text": "When peace like a river attendeth my way" },
+        { "id": 1, "text": "When sorrows like sea billows roll" },
+        { "id": 2, "text": "Whatever my lot, Thou hast taught me to say" }
       ]
     }
   ]
@@ -123,7 +123,7 @@ Amazing grace, how sweet the sound
 That saved a wretch like me
 
 [C]
-How great Thou art</lyrics>
+It is well with my soul</lyrics>
 </song>
 ```
 
@@ -148,7 +148,7 @@ Amazing [G]grace, how [D]sweet the [G]sound
 That [G7]saved a [C]wretch like [G]me
 
 {start_of_chorus}
-How [C]great Thou [G]art
+It is [C]well with my [G]soul
 {end_of_chorus}
 ```
 

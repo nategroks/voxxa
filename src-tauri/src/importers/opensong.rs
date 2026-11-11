@@ -135,13 +135,13 @@ Amazing grace, how sweet the sound
 That saved a wretch like me
 
 [C]
-How great Thou art</lyrics>
+It is well with my soul</lyrics>
 </song>"#;
         let song = parse(xml, "fallback").unwrap();
         assert_eq!(song.title, "Amazing Grace");
         assert_eq!(song.slides.len(), 2);
         assert!(song.slides[0].text.contains("Amazing grace"));
-        assert!(song.slides[1].text.contains("How great Thou art"));
+        assert!(song.slides[1].text.contains("It is well with my soul"));
     }
 
     #[test]
