@@ -40,9 +40,7 @@ pub async fn discover_all(timeout: Duration) -> Vec<DiscoveredService> {
 
     // Dedupe on (kind, host, port) — a host might surface via both localhost
     // probing and mDNS if the user is running everything on one machine.
-    all.sort_by(|a, b| {
-        (a.kind as u8, &a.host, a.port).cmp(&(b.kind as u8, &b.host, b.port))
-    });
+    all.sort_by(|a, b| (a.kind as u8, &a.host, a.port).cmp(&(b.kind as u8, &b.host, b.port)));
     all.dedup_by(|a, b| a.kind == b.kind && a.host == b.host && a.port == b.port);
     all
 }

@@ -106,8 +106,10 @@ pub struct DiagnosticReport {
 pub async fn generate_report(state: &AppState) -> DiagnosticReport {
     let audio_devices = crate::AudioEngine::list_devices().unwrap_or_default();
     let presenter = state.presenter.lock().await;
-    let (presenter_kind, presenter_connected) =
-        (presenter.kind().display_name().to_string(), presenter.is_connected());
+    let (presenter_kind, presenter_connected) = (
+        presenter.kind().display_name().to_string(),
+        presenter.is_connected(),
+    );
     drop(presenter);
 
     let conductor = state.conductor.lock().await;
@@ -139,9 +141,6 @@ pub async fn generate_report(state: &AppState) -> DiagnosticReport {
         is_blank,
         is_running: state.is_running.load(Ordering::SeqCst),
         outbound_requests: crate::net_stats::snapshot().outbound_requests,
-        recent_log: LOGGER
-            .get()
-            .map(|l| l.snapshot())
-            .unwrap_or_default(),
+        recent_log: LOGGER.get().map(|l| l.snapshot()).unwrap_or_default(),
     }
 }

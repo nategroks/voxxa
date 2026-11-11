@@ -38,7 +38,10 @@ pub struct HttpApiServer {
 
 impl HttpApiServer {
     pub fn new() -> Self {
-        Self { handle: None, port: 0 }
+        Self {
+            handle: None,
+            port: 0,
+        }
     }
 
     pub fn is_running(&self) -> bool {

@@ -13,9 +13,7 @@ use async_trait::async_trait;
 use reqwest::{Client, RequestBuilder};
 use std::time::Duration;
 
-use super::{
-    Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind,
-};
+use super::{Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind};
 
 const DEFAULT_HOST: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 8082;

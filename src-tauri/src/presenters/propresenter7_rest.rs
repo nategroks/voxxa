@@ -14,8 +14,7 @@ use serde::Deserialize;
 use std::time::Duration;
 
 use super::{
-    Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind,
-    PresenterState,
+    Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind, PresenterState,
 };
 
 const DEFAULT_HOST: &str = "127.0.0.1";

@@ -66,9 +66,7 @@ impl VadEngine {
                 Backend::Silero(Box::new(v))
             }
             Err(e) => {
-                log::warn!(
-                    "[VAD] Silero init failed ({e}); falling back to RMS energy"
-                );
+                log::warn!("[VAD] Silero init failed ({e}); falling back to RMS energy");
                 Backend::Energy
             }
         };
@@ -118,8 +116,7 @@ impl VadEngine {
                     // a natural pause after the last word.
                     self.speech_buffer.extend_from_slice(&window);
 
-                    let min_silence =
-                        (MIN_SILENCE_MS as usize * SAMPLE_RATE as usize) / 1000;
+                    let min_silence = (MIN_SILENCE_MS as usize * SAMPLE_RATE as usize) / 1000;
                     if self.silence_samples >= min_silence {
                         completed = Some(std::mem::take(&mut self.speech_buffer));
                         self.is_speech = false;
@@ -159,8 +156,7 @@ impl VadEngine {
         // minimum-speech duration. Prevents single-frame noise blips from
         // tripping the conductor.
         if raw_above {
-            let min_speech =
-                (MIN_SPEECH_MS as usize * SAMPLE_RATE as usize) / 1000;
+            let min_speech = (MIN_SPEECH_MS as usize * SAMPLE_RATE as usize) / 1000;
             if !self.is_speech && self.speech_samples + WINDOW_SIZE >= min_speech {
                 self.is_speech = true;
             }

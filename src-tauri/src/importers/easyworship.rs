@@ -60,9 +60,7 @@ pub fn parse_database(bytes: &[u8]) -> Result<Vec<Song>> {
     let title_col = first_present(&cols, &["title", "song_title", "name"])
         .ok_or_else(|| anyhow!("no title column on table {table}"))?;
 
-    let sql = format!(
-        "SELECT {title_col}, {lyric_col} FROM {table} WHERE {lyric_col} IS NOT NULL"
-    );
+    let sql = format!("SELECT {title_col}, {lyric_col} FROM {table} WHERE {lyric_col} IS NOT NULL");
     let mut stmt = conn.prepare(&sql).context("preparing SELECT")?;
     let mut rows = stmt.query([]).context("executing SELECT")?;
 

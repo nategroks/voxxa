@@ -12,8 +12,7 @@ use enigo::{Enigo, Key, Keyboard, Settings};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind,
-    PresenterState,
+    Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind, PresenterState,
 };
 
 /// Per-app key profile from the §2 table of the project plan.
@@ -133,10 +132,7 @@ impl PresentationController for KeystrokeDriver {
     async fn connect(&mut self, cfg: PresenterConfig) -> Result<(), CtlError> {
         self.profile = cfg.keystroke_profile.unwrap_or_default();
         self.connected = true;
-        log::info!(
-            "[KEYSTROKE] active, profile={:?}",
-            self.profile
-        );
+        log::info!("[KEYSTROKE] active, profile={:?}", self.profile);
         Ok(())
     }
 

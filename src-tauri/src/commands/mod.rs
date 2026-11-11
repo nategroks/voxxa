@@ -5,8 +5,7 @@ use crate::importers::{self, ImportFormat};
 use crate::net_stats::{self, NetworkStats};
 use crate::planning_center::{PcoClient, PcoPlan, PcoServiceType};
 use crate::presenters::{
-    make_controller, Capabilities, KeystrokeProfile, PresenterConfig, PresenterKind,
-    PresenterState,
+    make_controller, Capabilities, KeystrokeProfile, PresenterConfig, PresenterKind, PresenterState,
 };
 use crate::transcription::WhisperModel;
 use crate::AppState;
@@ -143,10 +142,7 @@ pub async fn get_smart_config(state: State<'_, AppState>) -> Result<SmartConfig,
 /// Update smart-blanking thresholds. Hot-swaps into the active conductor so
 /// the change takes effect immediately without losing position.
 #[tauri::command]
-pub async fn set_smart_config(
-    state: State<'_, AppState>,
-    cfg: SmartConfig,
-) -> Result<(), String> {
+pub async fn set_smart_config(state: State<'_, AppState>, cfg: SmartConfig) -> Result<(), String> {
     *state.smart_config.lock().await = cfg.clone();
     if let Some(c) = state.conductor.lock().await.as_mut() {
         c.set_config(cfg);
@@ -183,8 +179,7 @@ pub async fn start_listening_with_state(
         let t = state.transcription.lock().await;
         if t.current_model().is_none() {
             return Err(
-                "No Whisper model loaded. Download one from the Models tab first."
-                    .to_string(),
+                "No Whisper model loaded. Download one from the Models tab first.".to_string(),
             );
         }
     }
@@ -592,10 +587,7 @@ pub async fn get_model_status(state: State<'_, AppState>) -> Result<Vec<ModelInf
 /// Must be called before start_listening — otherwise the audio loop errors
 /// on every Whisper call.
 #[tauri::command]
-pub async fn load_model(
-    state: State<'_, AppState>,
-    model_name: String,
-) -> Result<(), String> {
+pub async fn load_model(state: State<'_, AppState>, model_name: String) -> Result<(), String> {
     let model = parse_model(&model_name)?;
     let mut transcription = state.transcription.lock().await;
     transcription.load_model(&model).map_err(|e| e.to_string())
@@ -979,7 +971,9 @@ pub async fn pco_import_plan(
 /// Probe localhost ports + browse mDNS for ProPresenter / FreeShow / OpenLP.
 /// `timeout_ms` bounds total wall-time; recommended 2000–3000.
 #[tauri::command]
-pub async fn discover_presenters(timeout_ms: Option<u64>) -> Result<Vec<DiscoveredService>, String> {
+pub async fn discover_presenters(
+    timeout_ms: Option<u64>,
+) -> Result<Vec<DiscoveredService>, String> {
     let timeout = Duration::from_millis(timeout_ms.unwrap_or(2500));
     Ok(discovery::discover_all(timeout).await)
 }

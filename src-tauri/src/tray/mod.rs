@@ -15,7 +15,13 @@ use crate::AppState;
 pub fn create_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     let toggle = MenuItem::with_id(app, "toggle", "Start / Stop listening", true, None::<&str>)?;
     let blank = MenuItem::with_id(app, "blank", "Blank output", true, None::<&str>)?;
-    let stage = MenuItem::with_id(app, "stage", "Show / hide Stage Display", true, None::<&str>)?;
+    let stage = MenuItem::with_id(
+        app,
+        "stage",
+        "Show / hide Stage Display",
+        true,
+        None::<&str>,
+    )?;
     let sep1 = PredefinedMenuItem::separator(app)?;
     let show_main = MenuItem::with_id(app, "show", "Show Voxxa window", true, None::<&str>)?;
     let sep2 = PredefinedMenuItem::separator(app)?;

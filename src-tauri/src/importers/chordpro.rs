@@ -49,13 +49,13 @@ pub fn parse(text: &str, fallback_title: &str) -> Result<Song> {
                         title = value.to_string();
                     }
                 }
-                "start_of_chorus" | "soc" | "start_of_verse" | "sov"
-                | "start_of_bridge" | "sob" | "start_of_tab" | "sot" => {
+                "start_of_chorus" | "soc" | "start_of_verse" | "sov" | "start_of_bridge"
+                | "sob" | "start_of_tab" | "sot" => {
                     // Section start ends whatever we were building.
                     finalize(&mut current, &mut slides);
                 }
-                "end_of_chorus" | "eoc" | "end_of_verse" | "eov"
-                | "end_of_bridge" | "eob" | "end_of_tab" | "eot" => {
+                "end_of_chorus" | "eoc" | "end_of_verse" | "eov" | "end_of_bridge" | "eob"
+                | "end_of_tab" | "eot" => {
                     finalize(&mut current, &mut slides);
                 }
                 // Comment / subtitle / artist / album / key / tempo / time / etc — ignore.
@@ -109,7 +109,10 @@ mod tests {
 
     #[test]
     fn strips_chord_markers() {
-        assert_eq!(strip_chords("Amazing [G]grace, how [D]sweet"), "Amazing grace, how sweet");
+        assert_eq!(
+            strip_chords("Amazing [G]grace, how [D]sweet"),
+            "Amazing grace, how sweet"
+        );
     }
 
     #[test]
