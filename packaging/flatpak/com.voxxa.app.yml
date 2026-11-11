@@ -1,0 +1,66 @@
+# Flatpak manifest for Voxxa.
+#
+# Two build modes:
+#
+# 1. CI (recommended): the workflow already produces an `.AppImage` via Tauri.
+#    Run `flatpak-builder` against the `from-appimage.yml` overlay (it extracts
+#    the AppImage payload and re-wraps it as a Flatpak), which sidesteps the
+#    full Rust + GTK + ONNX Runtime compile inside the freedesktop SDK
+#    sandbox.
+#
+# 2. From source: this manifest. Requires the `org.freedesktop.Sdk`
+#    24.08 extension `org.freedesktop.Sdk.Extension.rust-stable`, plus
+#    `org.freedesktop.Sdk.Extension.node20` for the Vite frontend build.
+#    Local build: `flatpak-builder build com.voxxa.app.yml --force-clean`.
+app-id: com.voxxa.app
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node20
+command: voxxa
+finish-args:
+  # Display server access.
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  # Microphone capture.
+  - --socket=pulseaudio
+  # Outbound network for the presenter drivers + Planning Center + Hymnary
+  # + Whisper model downloads. Inbound is needed for the local HTTP API
+  # (axum binds 127.0.0.1 only — Flatpak's --share=network covers that).
+  - --share=network
+  # Synthetic keystrokes for the keystroke-fallback presenter driver. On X11
+  # this requires --device=all to reach the X server's XTest extension; on
+  # Wayland the user needs ydotool installed in the host (see docs/LINUX.md).
+  - --device=dri
+  - --socket=session-bus
+  # Whisper / Silero ONNX models are written to ~/.local/share/voxxa.
+  - --filesystem=xdg-data/voxxa:create
+  # Setlist drag-drop opens files via the file dialog; xdg-documents portal
+  # handles permission grants at file-pick time.
+  - --filesystem=xdg-documents:ro
+  - --filesystem=xdg-download:ro
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
+  env:
+    CARGO_HOME: /run/build/voxxa/cargo
+modules:
+  - name: voxxa
+    buildsystem: simple
+    build-commands:
+      # Frontend
+      - npm ci --offline || npm install
+      - npm run build
+      # Backend
+      - cd src-tauri && cargo build --release --locked --offline || cargo build --release --locked
+      # Install the binary, .desktop file, and icon.
+      - install -Dm755 src-tauri/target/release/voxxa /app/bin/voxxa
+      - install -Dm644 packaging/flatpak/com.voxxa.app.desktop /app/share/applications/com.voxxa.app.desktop
+      - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.voxxa.app.png
+      - install -Dm644 src-tauri/icons/icon.png /app/share/icons/hicolor/256x256/apps/com.voxxa.app.png
+      - install -Dm644 packaging/flatpak/com.voxxa.app.metainfo.xml /app/share/metainfo/com.voxxa.app.metainfo.xml
+    sources:
+      - type: dir
+        path: ../..

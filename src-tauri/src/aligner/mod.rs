@@ -1,4 +1,16 @@
+//! Smart-blanking state machine — the differentiator described in §4 of the plan.
+//!
+//! Drives slide control via three inputs:
+//!   - VAD speech / silence events (per audio frame)
+//!   - Whisper transcript chunks (every ~5 s when speech is present)
+//!   - Periodic tick (every ~100 ms) for time-based transitions
+//!
+//! Emits `Action` values that the audio loop dispatches through the active
+//! [`crate::presenters::PresentationController`]: `Goto` (move to a specific
+//! global slide), `Blank`, `Unblank`, or `Noop`.
+
 use serde::{Deserialize, Serialize};
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Slide {
@@ -17,151 +29,501 @@ pub struct Setlist {
     pub setlist: Vec<Song>,
 }
 
-pub struct AlignConfig {
-    pub similarity_threshold: f64,
-    pub margin: f64,
-    pub max_buffer_words: usize,
+/// States from §4.3.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MachineState {
+    /// No song detected; audience output blanked, scanning every setlist song.
+    Listening,
+    /// Inside a song, output is showing the active slide.
+    Singing,
+    /// Mid-song silence between verses — slide held, output still showing.
+    InterVerseSilence,
+    /// Mid-song speech that doesn't match any setlist song — output blanked.
+    BlankHold,
 }
 
-impl Default for AlignConfig {
+/// Tunable parameters. Defaults come from §4.4.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartConfig {
+    pub silence_to_blank_secs: f64,
+    pub unrecognized_speech_to_blank_secs: f64,
+    pub song_confidence_floor: f64,
+    pub song_second_max: f64,
+    /// Absolute minimum partial-ratio score (0–100) the top candidate must
+    /// reach before we'll commit to a song. Guards against the case where
+    /// softmax-relative confidence is high but every candidate is a poor
+    /// absolute match (random speech, instrumental intro, etc.). Plan §4.6:
+    /// "bad blank is better than wrong slide."
+    pub min_song_match: f64,
+    pub min_song_dwell_secs: f64,
+    pub slide_advance_debounce_ms: u64,
+    pub min_advance_match: f64,
+    pub advance_margin: f64,
+    pub max_buffer_words: usize,
+    pub softmax_temperature: f64,
+}
+
+impl Default for SmartConfig {
     fn default() -> Self {
         Self {
-            similarity_threshold: 70.0,
-            margin: 10.0,
+            silence_to_blank_secs: 3.0,
+            unrecognized_speech_to_blank_secs: 5.0,
+            song_confidence_floor: 0.60,
+            song_second_max: 0.40,
+            min_song_match: 40.0,
+            min_song_dwell_secs: 8.0,
+            slide_advance_debounce_ms: 1500,
+            min_advance_match: 70.0,
+            advance_margin: 10.0,
             max_buffer_words: 40,
+            softmax_temperature: 12.0,
         }
     }
 }
 
-/// Matches transcribed speech against slide lyrics using fuzzy string matching.
-/// When the next slide's lyrics match better than the current slide, advances.
-pub struct LyricsAligner {
-    slides: Vec<Slide>,
-    config: AlignConfig,
-    current_index: usize,
+/// Imperative action the state machine asks the audio loop to perform on the
+/// active presenter driver.
+#[derive(Debug, Clone)]
+pub enum Action {
+    Noop,
+    /// Move audience output to a specific slide. `global_index` is the index in
+    /// the flat setlist; drivers that lack `goto_slide` get translated to a run
+    /// of next/prev keys by the dispatcher.
+    Goto {
+        song_index: usize,
+        slide_in_song: usize,
+        global_index: usize,
+        slide_text: String,
+        /// Next slide's text (or `None` at the end of the song). Threaded
+        /// through to the slide-advanced UI event so the Stage Display can
+        /// show the Next panel without a follow-up backend query.
+        next_slide_text: Option<String>,
+        song_title: String,
+    },
+    Blank,
+    Unblank,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SongScore {
+    pub song_index: usize,
+    pub raw_score: f64,
+    pub probability: f64,
+}
+
+pub struct Conductor {
+    songs: Vec<Song>,
+    /// `song_offsets[i]` = global index of the first slide of song i.
+    song_offsets: Vec<usize>,
+    total_slides: usize,
+    config: SmartConfig,
+
+    state: MachineState,
+    is_blank: bool,
+    state_since: Instant,
+
+    current_song: Option<usize>,
+    current_slide_in_song: usize,
+    song_started_at: Option<Instant>,
+
     buffer_words: Vec<String>,
+
+    last_speech: Option<Instant>,
+    last_advance: Option<Instant>,
+
+    /// Most recent per-song softmax scores. Refreshed on every on_transcript
+    /// call so the UI can render confidence bars in real time. Empty before
+    /// the first transcript arrives.
+    last_scores: Vec<SongScore>,
 }
 
-impl LyricsAligner {
-    pub fn new(slides: Vec<Slide>, config: AlignConfig) -> Self {
+impl Conductor {
+    pub fn new(songs: Vec<Song>, config: SmartConfig) -> Self {
+        let mut song_offsets = Vec::with_capacity(songs.len());
+        let mut total = 0usize;
+        for s in &songs {
+            song_offsets.push(total);
+            total += s.slides.len();
+        }
+        let now = Instant::now();
         Self {
-            slides,
+            songs,
+            song_offsets,
+            total_slides: total,
             config,
-            current_index: 0,
+            state: MachineState::Listening,
+            is_blank: true,
+            state_since: now,
+            current_song: None,
+            current_slide_in_song: 0,
+            song_started_at: None,
             buffer_words: Vec::new(),
+            last_speech: None,
+            last_advance: None,
+            last_scores: Vec::new(),
         }
     }
 
-    pub fn current_slide(&self) -> Option<&Slide> {
-        self.slides.get(self.current_index)
+    /// Most recent per-song confidences. Cheap clone — at most one entry per
+    /// song in the setlist.
+    pub fn last_scores(&self) -> &[SongScore] {
+        &self.last_scores
     }
 
-    pub fn next_slide(&self) -> Option<&Slide> {
-        self.slides.get(self.current_index + 1)
+    /// Map song index → title for the UI's confidence display.
+    pub fn song_titles(&self) -> Vec<String> {
+        self.songs.iter().map(|s| s.title.clone()).collect()
     }
 
-    pub fn current_index(&self) -> usize {
-        self.current_index
+    pub fn state(&self) -> MachineState {
+        self.state
     }
-
+    pub fn is_blank(&self) -> bool {
+        self.is_blank
+    }
     pub fn total_slides(&self) -> usize {
-        self.slides.len()
+        self.total_slides
+    }
+    pub fn current_index(&self) -> usize {
+        match self.current_song {
+            Some(s) => self.song_offsets[s] + self.current_slide_in_song,
+            None => 0,
+        }
+    }
+    /// Index of the song the conductor is currently committed to, or `None`
+    /// if it hasn't detected one yet (state == Listening at startup).
+    pub fn current_song(&self) -> Option<usize> {
+        self.current_song
+    }
+    pub fn current_song_title(&self) -> Option<&str> {
+        self.current_song
+            .and_then(|i| self.songs.get(i).map(|s| s.title.as_str()))
     }
 
-    /// Feed new transcription text. Returns true if slide should advance.
-    pub fn update(&mut self, text: &str) -> bool {
+    /// Hot-swap tuning thresholds without losing position. Useful when the
+    /// operator is dialing in smart-blanking mid-rehearsal.
+    pub fn set_config(&mut self, cfg: SmartConfig) {
+        log::info!("[CONDUCTOR] config updated");
+        self.config = cfg;
+    }
+
+    /// Operator-initiated jump to a specific song. Resets to the song's
+    /// first slide, clears the rolling transcript buffer (so a previous
+    /// song's lyrics don't pollute matching), and arms the dwell clock so
+    /// the conductor won't immediately re-detect a different song.
+    /// Returns the Goto action the audio loop should dispatch.
+    pub fn jump_to_song(&mut self, song_idx: usize, now: Instant) -> Action {
+        if song_idx >= self.songs.len() {
+            return Action::Noop;
+        }
+        self.start_song(song_idx, now)
+    }
+
+    /// Notify the machine that VAD says the user is speaking.
+    pub fn on_speech(&mut self, now: Instant) {
+        self.last_speech = Some(now);
+    }
+
+    /// Time-based transitions. Call regularly (~100 ms is fine).
+    pub fn tick(&mut self, now: Instant) -> Action {
+        let since_speech = match self.last_speech {
+            Some(t) => now.saturating_duration_since(t),
+            None => Duration::from_secs(86_400),
+        };
+
+        match self.state {
+            MachineState::Singing => {
+                if since_speech
+                    >= Duration::from_secs_f64(self.config.silence_to_blank_secs)
+                {
+                    self.transition(MachineState::InterVerseSilence, now);
+                }
+            }
+            MachineState::InterVerseSilence => {
+                if since_speech
+                    >= Duration::from_secs_f64(self.config.unrecognized_speech_to_blank_secs)
+                    && !self.is_blank
+                {
+                    self.transition(MachineState::BlankHold, now);
+                    self.is_blank = true;
+                    return Action::Blank;
+                }
+            }
+            MachineState::Listening | MachineState::BlankHold => {
+                if !self.is_blank {
+                    self.is_blank = true;
+                    return Action::Blank;
+                }
+            }
+        }
+        Action::Noop
+    }
+
+    /// Process a fresh Whisper transcript.
+    pub fn on_transcript(&mut self, text: &str, now: Instant) -> Action {
         if text.trim().is_empty() {
-            return false;
+            return Action::Noop;
         }
+        self.on_speech(now);
 
-        let new_words: Vec<String> = text.split_whitespace().map(|s| s.to_string()).collect();
-        self.buffer_words.extend(new_words);
-
+        for w in text.split_whitespace() {
+            self.buffer_words.push(w.to_lowercase());
+        }
         if self.buffer_words.len() > self.config.max_buffer_words {
-            let start = self.buffer_words.len() - self.config.max_buffer_words;
-            self.buffer_words = self.buffer_words[start..].to_vec();
+            let drop = self.buffer_words.len() - self.config.max_buffer_words;
+            self.buffer_words.drain(..drop);
+        }
+        let buffer_text = self.buffer_words.join(" ");
+
+        let scores = self.score_all_songs(&buffer_text);
+        self.last_scores = scores.clone();
+        if scores.is_empty() {
+            return Action::Noop;
         }
 
-        let buffer_text = self.buffer_words.join(" ").to_lowercase();
-
-        let curr_slide = match self.current_slide() {
-            Some(s) => s.clone(),
-            None => return false,
-        };
-
-        let score_curr = partial_ratio(&buffer_text, &curr_slide.text.to_lowercase());
-
-        let score_next = if let Some(next) = self.next_slide() {
-            partial_ratio(&buffer_text, &next.text.to_lowercase())
-        } else {
-            0.0
-        };
+        let top = &scores[0];
+        let second_p = scores.get(1).map(|s| s.probability).unwrap_or(0.0);
+        // Two-gate confidence: relative (softmax distribution) AND absolute
+        // (raw partial-ratio score). The absolute gate stops a near-tie of
+        // poor matches from masquerading as a confident detection.
+        let confident = top.probability >= self.config.song_confidence_floor
+            && second_p <= self.config.song_second_max
+            && top.raw_score >= self.config.min_song_match;
 
         log::info!(
-            "[ALIGN] curr={:.1} next={:.1} | ...{}",
-            score_curr,
-            score_next,
-            self.buffer_words
-                .iter()
-                .rev()
-                .take(10)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .cloned()
-                .collect::<Vec<_>>()
-                .join(" ")
+            "[CONDUCTOR] top={} p={:.2} raw={:.1} second_p={:.2} confident={} state={:?}",
+            top.song_index,
+            top.probability,
+            top.raw_score,
+            second_p,
+            confident,
+            self.state
         );
 
-        if self.next_slide().is_some()
-            && score_next >= self.config.similarity_threshold
-            && score_next > (score_curr + self.config.margin)
-        {
-            log::info!(
-                "[ALIGN] >>> MATCH! Advancing to slide {}",
-                self.current_index + 1
-            );
-            self.current_index += 1;
-            self.buffer_words.clear();
-            return true;
+        // No song committed yet — wait for high confidence before showing anything.
+        let Some(current) = self.current_song else {
+            if confident {
+                return self.start_song(top.song_index, now);
+            }
+            return Action::Noop;
+        };
+
+        // Already in a song. Check whether the service moved on to a different song
+        // (top winner differs AND min dwell satisfied).
+        let dwelled = self
+            .song_started_at
+            .map(|t| {
+                now.saturating_duration_since(t)
+                    >= Duration::from_secs_f64(self.config.min_song_dwell_secs)
+            })
+            .unwrap_or(false);
+        if confident && top.song_index != current && dwelled {
+            return self.start_song(top.song_index, now);
         }
 
-        false
+        // Try to advance within the current song.
+        let advance = self.maybe_advance_within_current(&buffer_text, now);
+        if !matches!(advance, Action::Noop) {
+            return advance;
+        }
+
+        // We matched the current song but didn't advance — ensure output is unblanked
+        // and showing the current slide (recovers from BlankHold/InterVerseSilence).
+        if self.is_blank || self.state != MachineState::Singing {
+            self.is_blank = false;
+            self.transition(MachineState::Singing, now);
+            if let Some(g) = self.goto_action_for_current() {
+                return g;
+            }
+            return Action::Unblank;
+        }
+
+        Action::Noop
     }
 
-    pub fn reset(&mut self) {
-        self.current_index = 0;
+    fn score_all_songs(&self, buffer_text: &str) -> Vec<SongScore> {
+        let mut raw: Vec<(usize, f64)> = self
+            .songs
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                let combined = s
+                    .slides
+                    .iter()
+                    .map(|sl| sl.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                    .to_lowercase();
+                (i, partial_ratio(buffer_text, &combined))
+            })
+            .collect();
+        raw.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        let t = self.config.softmax_temperature.max(0.001);
+        let max = raw.first().map(|x| x.1).unwrap_or(0.0);
+        let exps: Vec<f64> = raw.iter().map(|x| ((x.1 - max) / t).exp()).collect();
+        let sum: f64 = exps.iter().sum();
+        let sum = if sum > 0.0 { sum } else { 1.0 };
+
+        raw.into_iter()
+            .zip(exps)
+            .map(|((i, s), e)| SongScore {
+                song_index: i,
+                raw_score: s,
+                probability: e / sum,
+            })
+            .collect()
+    }
+
+    fn maybe_advance_within_current(&mut self, buffer_text: &str, now: Instant) -> Action {
+        let Some(current) = self.current_song else {
+            return Action::Noop;
+        };
+        if let Some(last) = self.last_advance {
+            if now.saturating_duration_since(last)
+                < Duration::from_millis(self.config.slide_advance_debounce_ms)
+            {
+                return Action::Noop;
+            }
+        }
+
+        let song = &self.songs[current];
+        let curr_idx = self.current_slide_in_song;
+        let curr = song.slides.get(curr_idx);
+        let next = song.slides.get(curr_idx + 1);
+
+        let score_curr = curr
+            .map(|s| partial_ratio(buffer_text, &s.text.to_lowercase()))
+            .unwrap_or(0.0);
+        let score_next = next
+            .map(|s| partial_ratio(buffer_text, &s.text.to_lowercase()))
+            .unwrap_or(0.0);
+
+        if next.is_some()
+            && score_next >= self.config.min_advance_match
+            && score_next > (score_curr + self.config.advance_margin)
+        {
+            self.current_slide_in_song = curr_idx + 1;
+            self.buffer_words.clear();
+            self.last_advance = Some(now);
+            self.is_blank = false;
+            self.transition(MachineState::Singing, now);
+            log::info!(
+                "[CONDUCTOR] advance within song {current} to slide {}",
+                self.current_slide_in_song
+            );
+            return self.goto_action_for_current().unwrap_or(Action::Noop);
+        }
+        Action::Noop
+    }
+
+    fn start_song(&mut self, song_idx: usize, now: Instant) -> Action {
+        log::info!(
+            "[CONDUCTOR] start song {} ({})",
+            song_idx,
+            self.songs[song_idx].title
+        );
+        self.current_song = Some(song_idx);
+        self.current_slide_in_song = 0;
+        self.song_started_at = Some(now);
         self.buffer_words.clear();
+        self.last_advance = Some(now);
+        self.is_blank = false;
+        self.transition(MachineState::Singing, now);
+        self.goto_action_for_current().unwrap_or(Action::Noop)
+    }
+
+    fn goto_action_for_current(&self) -> Option<Action> {
+        let song_index = self.current_song?;
+        let song = self.songs.get(song_index)?;
+        let slide = song.slides.get(self.current_slide_in_song)?;
+        let global = self.song_offsets[song_index] + self.current_slide_in_song;
+        let next_slide_text = song
+            .slides
+            .get(self.current_slide_in_song + 1)
+            .map(|s| s.text.clone());
+        Some(Action::Goto {
+            song_index,
+            slide_in_song: self.current_slide_in_song,
+            global_index: global,
+            slide_text: slide.text.clone(),
+            next_slide_text,
+            song_title: song.title.clone(),
+        })
+    }
+
+    /// Notify the conductor that audience output was blanked outside its
+    /// control (operator hit the tray Blank, the manual Blank button, or the
+    /// HTTP API /blank route). Without this the conductor's `is_blank` stays
+    /// false, the on_transcript "currently blanked → unblank" branch never
+    /// fires, and the audience output stays blank through the next verse
+    /// until something else triggers a Goto.
+    pub fn notify_external_blank(&mut self) {
+        self.is_blank = true;
+    }
+
+    /// Operator-initiated manual step within the current song. Bounded by the
+    /// song's slide count. Returns the Goto action for the new position, or
+    /// `Noop` if we're not in a song (so the caller can fall back to a raw
+    /// presenter keystroke) or if the step would land out of bounds and we're
+    /// already at the boundary.
+    pub fn manual_step(&mut self, delta: i32, now: Instant) -> Action {
+        let Some(song_idx) = self.current_song else {
+            return Action::Noop;
+        };
+        let song_len = self
+            .songs
+            .get(song_idx)
+            .map(|s| s.slides.len() as i32)
+            .unwrap_or(0);
+        if song_len == 0 {
+            return Action::Noop;
+        }
+        let target = (self.current_slide_in_song as i32 + delta).clamp(0, song_len - 1);
+        if (target as usize) == self.current_slide_in_song {
+            return Action::Noop;
+        }
+        self.current_slide_in_song = target as usize;
+        self.last_advance = Some(now);
+        self.is_blank = false;
+        self.transition(MachineState::Singing, now);
+        // Operator overrode the conductor — drop the rolling buffer so a
+        // stale half-verse doesn't trigger a competing auto-advance.
+        self.buffer_words.clear();
+        self.goto_action_for_current().unwrap_or(Action::Noop)
+    }
+
+    fn transition(&mut self, to: MachineState, now: Instant) {
+        if to != self.state {
+            log::info!("[CONDUCTOR] {:?} → {:?}", self.state, to);
+            self.state = to;
+            self.state_since = now;
+        }
     }
 }
 
-/// Simple partial ratio implementation (similar to rapidfuzz.fuzz.partial_ratio).
-/// Slides a window of the shorter string across the longer and returns the best match %.
+/// Sliding-window character similarity (rapidfuzz-style partial ratio).
 fn partial_ratio(s1: &str, s2: &str) -> f64 {
     if s1.is_empty() || s2.is_empty() {
         return 0.0;
     }
-
     let (shorter, longer) = if s1.len() <= s2.len() {
         (s1, s2)
     } else {
         (s2, s1)
     };
-
     let shorter_chars: Vec<char> = shorter.chars().collect();
     let longer_chars: Vec<char> = longer.chars().collect();
-
     if shorter_chars.is_empty() || longer_chars.is_empty() {
         return 0.0;
     }
 
     let mut best_score: f64 = 0.0;
     let window_len = shorter_chars.len();
-
     if window_len > longer_chars.len() {
         return simple_ratio(&shorter_chars, &longer_chars);
     }
-
     for i in 0..=(longer_chars.len() - window_len) {
         let window = &longer_chars[i..i + window_len];
         let score = simple_ratio(&shorter_chars, window);
@@ -172,11 +534,9 @@ fn partial_ratio(s1: &str, s2: &str) -> f64 {
             return 100.0;
         }
     }
-
     best_score
 }
 
-/// Character-level similarity ratio (0-100).
 fn simple_ratio(a: &[char], b: &[char]) -> f64 {
     let matches = lcs_length(a, b);
     let total = a.len() + b.len();
@@ -186,13 +546,11 @@ fn simple_ratio(a: &[char], b: &[char]) -> f64 {
     (2.0 * matches as f64 / total as f64) * 100.0
 }
 
-/// Longest common subsequence length.
 fn lcs_length(a: &[char], b: &[char]) -> usize {
     let m = a.len();
     let n = b.len();
     let mut prev = vec![0usize; n + 1];
     let mut curr = vec![0usize; n + 1];
-
     for i in 1..=m {
         for j in 1..=n {
             if a[i - 1] == b[j - 1] {
@@ -204,6 +562,322 @@ fn lcs_length(a: &[char], b: &[char]) -> usize {
         std::mem::swap(&mut prev, &mut curr);
         curr.fill(0);
     }
-
     prev[n]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mk_setlist() -> Vec<Song> {
+        vec![
+            Song {
+                title: "Amazing Grace".into(),
+                slides: vec![
+                    Slide { id: 0, text: "Amazing grace how sweet the sound that saved a wretch like me".into() },
+                    Slide { id: 1, text: "I once was lost but now am found was blind but now I see".into() },
+                    Slide { id: 2, text: "Twas grace that taught my heart to fear and grace my fears relieved".into() },
+                ],
+            },
+            Song {
+                title: "How Great Is Our God".into(),
+                slides: vec![
+                    Slide { id: 3, text: "The splendor of the King clothed in majesty".into() },
+                    Slide { id: 4, text: "How great is our God sing with me how great is our God".into() },
+                ],
+            },
+            Song {
+                title: "Way Maker".into(),
+                slides: vec![
+                    Slide { id: 5, text: "You are here moving in our midst I worship You I worship You".into() },
+                    Slide { id: 6, text: "Way maker miracle worker promise keeper light in the darkness".into() },
+                ],
+            },
+        ]
+    }
+
+    fn cfg_with_dwell(min_dwell_secs: f64) -> SmartConfig {
+        SmartConfig {
+            min_song_dwell_secs: min_dwell_secs,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn starts_in_listening_and_blank() {
+        let c = Conductor::new(mk_setlist(), SmartConfig::default());
+        assert_eq!(c.state(), MachineState::Listening);
+        assert!(c.is_blank());
+        assert_eq!(c.current_index(), 0);
+        assert!(c.current_song_title().is_none());
+    }
+
+    #[test]
+    fn confident_match_commits_to_song() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let now = Instant::now();
+        // A long lyric line from song 0 should be a clear winner.
+        let action = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            now,
+        );
+        match action {
+            Action::Goto { song_index, slide_in_song, .. } => {
+                assert_eq!(song_index, 0);
+                assert_eq!(slide_in_song, 0);
+            }
+            other => panic!("expected Goto, got {other:?}"),
+        }
+        assert_eq!(c.state(), MachineState::Singing);
+        assert!(!c.is_blank());
+        assert_eq!(c.current_song_title(), Some("Amazing Grace"));
+    }
+
+    #[test]
+    fn unmatched_speech_stays_listening() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        // Words that don't appear in any setlist song. The absolute-min
+        // partial_ratio gate (min_song_match) must reject this even if the
+        // softmax favours one candidate.
+        let action = c.on_transcript(
+            "the rain in Spain falls mainly on the plain",
+            Instant::now(),
+        );
+        assert!(matches!(action, Action::Noop));
+        assert_eq!(c.state(), MachineState::Listening);
+        assert!(c.is_blank());
+    }
+
+    #[test]
+    fn silence_to_blank_then_to_blank_hold() {
+        let mut c = Conductor::new(mk_setlist(), cfg_with_dwell(8.0));
+        let t0 = Instant::now();
+        // Get into SINGING.
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        assert_eq!(c.state(), MachineState::Singing);
+        // 4 s later, no speech → InterVerseSilence (slide held, not yet blanked).
+        let action = c.tick(t0 + Duration::from_secs(4));
+        assert!(matches!(action, Action::Noop));
+        assert_eq!(c.state(), MachineState::InterVerseSilence);
+        assert!(!c.is_blank());
+        // Another tick past unrecognized_speech_to_blank → BlankHold + Blank action.
+        let action = c.tick(t0 + Duration::from_secs(10));
+        assert!(matches!(action, Action::Blank));
+        assert_eq!(c.state(), MachineState::BlankHold);
+        assert!(c.is_blank());
+    }
+
+    #[test]
+    fn dwell_blocks_immediate_resong_switch() {
+        // Tight dwell test: enter song 0, then *immediately* fire a song-1
+        // matching transcript; the conductor must NOT switch yet because
+        // min_song_dwell hasn't elapsed.
+        let mut c = Conductor::new(mk_setlist(), cfg_with_dwell(8.0));
+        let t0 = Instant::now();
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        assert_eq!(c.current_song_title(), Some("Amazing Grace"));
+        // Right after, sing the chorus of song 1.
+        let _ = c.on_transcript(
+            "how great is our God sing with me how great is our God",
+            t0 + Duration::from_millis(500),
+        );
+        assert_eq!(
+            c.current_song_title(),
+            Some("Amazing Grace"),
+            "dwell window should hold us in the original song"
+        );
+    }
+
+    #[test]
+    fn dwell_satisfied_allows_song_switch() {
+        let mut c = Conductor::new(mk_setlist(), cfg_with_dwell(2.0));
+        let t0 = Instant::now();
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        // After dwell expires, a song-1 match SHOULD switch.
+        let _ = c.on_transcript(
+            "how great is our God sing with me how great is our God",
+            t0 + Duration::from_secs(5),
+        );
+        assert_eq!(c.current_song_title(), Some("How Great Is Our God"));
+    }
+
+    #[test]
+    fn jump_to_song_overrides_state() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        // Establish that we're nowhere.
+        assert!(c.current_song_title().is_none());
+        let action = c.jump_to_song(2, t0);
+        match action {
+            Action::Goto { song_index, slide_in_song, .. } => {
+                assert_eq!(song_index, 2);
+                assert_eq!(slide_in_song, 0);
+            }
+            other => panic!("expected Goto from jump_to_song, got {other:?}"),
+        }
+        assert_eq!(c.current_song_title(), Some("Way Maker"));
+        assert_eq!(c.state(), MachineState::Singing);
+        assert!(!c.is_blank());
+    }
+
+    #[test]
+    fn jump_out_of_range_is_noop() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let action = c.jump_to_song(99, Instant::now());
+        assert!(matches!(action, Action::Noop));
+        assert!(c.current_song_title().is_none());
+    }
+
+    #[test]
+    fn config_hot_swap_keeps_position() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            Instant::now(),
+        );
+        let before_song = c.current_song_title().map(String::from);
+        let before_index = c.current_index();
+        c.set_config(SmartConfig {
+            silence_to_blank_secs: 10.0,
+            ..Default::default()
+        });
+        assert_eq!(c.current_song_title().map(String::from), before_song);
+        assert_eq!(c.current_index(), before_index);
+    }
+
+    #[test]
+    fn manual_step_within_song_advances() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        // Get into song 0, slide 0.
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        assert_eq!(c.current_index(), 0);
+        let action = c.manual_step(1, t0 + Duration::from_millis(100));
+        match action {
+            Action::Goto { song_index, slide_in_song, global_index, .. } => {
+                assert_eq!(song_index, 0);
+                assert_eq!(slide_in_song, 1);
+                assert_eq!(global_index, 1);
+            }
+            other => panic!("expected Goto, got {other:?}"),
+        }
+        assert_eq!(c.current_index(), 1);
+    }
+
+    #[test]
+    fn manual_step_clamped_at_song_end() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        // Song 0 has 3 slides; step forward 5 times — last 3 must be clamped.
+        for _ in 0..5 {
+            c.manual_step(1, t0);
+        }
+        assert_eq!(c.current_index(), 2, "clamped to last slide of song");
+    }
+
+    #[test]
+    fn manual_step_outside_song_is_noop() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let action = c.manual_step(1, Instant::now());
+        assert!(matches!(action, Action::Noop));
+    }
+
+    #[test]
+    fn goto_action_carries_next_slide_text() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        // Land on song 0 slide 0 — next slide is song 0 slide 1.
+        let action = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            Instant::now(),
+        );
+        match action {
+            Action::Goto { next_slide_text, .. } => {
+                let next = next_slide_text.expect("song 0 slide 1 exists");
+                assert!(next.contains("I once was lost"));
+            }
+            other => panic!("expected Goto, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn goto_action_next_text_none_at_song_end() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        // Step to the last slide (index 2 of 3).
+        c.manual_step(1, t0);
+        let action = c.manual_step(1, t0);
+        match action {
+            Action::Goto { next_slide_text, .. } => {
+                assert!(next_slide_text.is_none(), "no next slide at song end");
+            }
+            other => panic!("expected Goto, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn external_blank_recovers_on_next_match() {
+        // Operator (or tray, or HTTP API) blanks externally mid-song. The
+        // conductor's next on_transcript with a matching lyric must emit an
+        // unblank — otherwise the audience stays blank through the rest of
+        // the verse.
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        assert!(!c.is_blank());
+        // Simulate the operator hitting Blank externally.
+        c.notify_external_blank();
+        assert!(c.is_blank());
+        // Now feed another transcript that still matches the same song. The
+        // conductor must respond with either a Goto (to re-show the slide)
+        // or Unblank. Either way, output should be visible after.
+        let action = c.on_transcript(
+            "I once was lost but now am found was blind but now I see",
+            t0 + Duration::from_secs(2),
+        );
+        assert!(
+            matches!(action, Action::Goto { .. } | Action::Unblank),
+            "expected Goto or Unblank, got {action:?}"
+        );
+        assert!(!c.is_blank(), "conductor should have cleared its blank flag");
+    }
+
+    #[test]
+    fn last_scores_populated_after_transcript() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        assert!(c.last_scores().is_empty());
+        let _ = c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            Instant::now(),
+        );
+        let scores = c.last_scores();
+        assert_eq!(scores.len(), 3, "one entry per song in the setlist");
+        // The top entry must be song 0 (Amazing Grace).
+        assert_eq!(scores[0].song_index, 0);
+        // Probabilities sum to ~1 (softmax).
+        let total: f64 = scores.iter().map(|s| s.probability).sum();
+        assert!((total - 1.0).abs() < 1e-6);
+    }
 }
