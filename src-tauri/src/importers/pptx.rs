@@ -103,3 +103,68 @@ fn extract_slide_text(xml: &str) -> Result<String> {
     }
     Ok(out)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+    use zip::{CompressionMethod, ZipWriter};
+
+    fn slide_xml(paragraphs: &[&str]) -> String {
+        let body: String = paragraphs
+            .iter()
+            .map(|p| format!("<a:p><a:r><a:t>{p}</a:t></a:r></a:p>"))
+            .collect();
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?><p:sld xmlns:a="a" xmlns:p="p"><p:cSld><p:spTree><p:sp><p:txBody>{body}</p:txBody></p:sp></p:spTree></p:cSld></p:sld>"#
+        )
+    }
+
+    fn pptx(files: &[(&str, String)]) -> Vec<u8> {
+        let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+        for (name, xml) in files {
+            zip.start_file(*name, options).unwrap();
+            zip.write_all(xml.as_bytes()).unwrap();
+        }
+        zip.finish().unwrap().into_inner()
+    }
+
+    #[test]
+    fn reads_slides_in_order_and_unescapes_entities() {
+        // Archive order is deliberately reversed: order must come from the names.
+        let bytes = pptx(&[
+            (
+                "ppt/slides/slide2.xml",
+                slide_xml(&["Through many dangers, toils &amp; snares"]),
+            ),
+            (
+                "ppt/slides/slide1.xml",
+                slide_xml(&[
+                    "Amazing grace, how sweet the sound",
+                    "That saved a wretch like me",
+                ]),
+            ),
+            ("ppt/presentation.xml", "<p:presentation/>".to_string()),
+        ]);
+        let song = parse(&bytes, "Amazing Grace").unwrap();
+        assert_eq!(song.title, "Amazing Grace");
+        assert_eq!(song.slides.len(), 2);
+        assert_eq!(
+            song.slides[0].text,
+            "Amazing grace, how sweet the sound\nThat saved a wretch like me"
+        );
+        assert_eq!(song.slides[1].text, "Through many dangers, toils & snares");
+        assert_eq!((song.slides[0].id, song.slides[1].id), (0, 1));
+
+        // slide10 sorts after slide9 (numeric, not lexical).
+        let bytes = pptx(&[
+            ("ppt/slides/slide10.xml", slide_xml(&["ten"])),
+            ("ppt/slides/slide9.xml", slide_xml(&["nine"])),
+        ]);
+        let song = parse(&bytes, "t").unwrap();
+        let texts: Vec<&str> = song.slides.iter().map(|s| s.text.as_str()).collect();
+        assert_eq!(texts, ["nine", "ten"]);
+    }
+}
