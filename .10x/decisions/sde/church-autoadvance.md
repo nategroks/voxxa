@@ -33,3 +33,22 @@ Local (Ubuntu, rust 1.97): `cargo fmt --check` ok; `cargo clippy --all-targets -
 - Nine advisories published after 2026-10-25 turned `cargo deny` red: eight in `openssl` (fixed by the compatible 0.10.82) and RUSTSEC-2026-0429 in `zip` 4.x via `tauri-plugin-updater`.
 - `tauri-plugin-updater` 2.14.1 depends on `zip` 9 but needs `tauri` 2.12, which needs Rust 1.90; the resolver held `tauri` at 2.10.3 because of `rust-version = "1.77"`. Raised `rust-version` to 1.90 (CI builds on stable 1.97) and updated the tauri family together (`tauri`, `tauri-build`, `tauri-codegen`, `tauri-macros`, `tauri-plugin`, `tauri-runtime`, `tauri-runtime-wry`, `tauri-utils`, `wry`, `tao`, the three plugins). `zip` is now 9.0.0; the three earlier `zip` advisory ignores are deleted from `deny.toml`.
 - Verified locally: fmt, clippy -D warnings, test, budgets; CI green on all five jobs at f177fbe. Note for prompt Q1: the merge must keep this baseline (the May branch declares `rust-version = "1.77"` and older tauri plugins).
+
+## 2026-11-11 — Q1: merge of `claude/affectionate-lamport-8al8B` (ADR-010 as amended by A1–A15)
+**Merge record.** `git merge --no-ff origin/claude/affectionate-lamport-8al8B` (f7b56e6) onto 97aa915. Six textual conflicts, each resolved hunk by hunk per Appendix A: `build.yml` ours ×2; `README.md` ours; `Cargo.toml` May's dependency block (our `[package]` auto-merged); `Cargo.lock` started from ours, cargo added May's 66 crates, no bare `cargo update`; `commands/mod.rs` May ×2; `vad/mod.rs` May's `backend,` plus the auto-merged `impl Default`. Auto-merges in `audio`, `lib` (no store plugin), `transcription` kept; `text_insert` deleted by git. Follow-up commits: A9/A10 content, A11 README, A12 build.yml + SIGNING.md, fmt, clippy (4 lints), budgets (A8), GUI trim, deps (A2/A5), regenerated schemas.
+
+**Dependency changes (from → to, why).**
+| Crate | From | To | Why |
+|---|---|---|---|
+| zip | 2 (2.6.1) | 9 (9.0.0) | RUSTSEC-2026-0367/0368/0369/0429; same version the updater already uses |
+| quick-xml | 0.36.2 | 0.41.0 | RUSTSEC-2026-0194/0195; `unescape()` gone, entities now `GeneralRef` → `importers::xml_text` |
+| pdf-extract (lopdf) | 0.8.2 (0.34) | 0.12.1 (0.42) | RUSTSEC-2026-0187; fixed release exists, so no feature gate |
+| rusqlite (libsqlite3-sys) | 0.32.1 (0.30.1) | 0.41.1 (0.39.1) | RUSTSEC-2026-0459; bundled kept (see `decisions/dba/`) |
+| reqwest 0.12 | default (native-tls) | rustls-tls | Q1 prompt: no OpenSSL at runtime; openssl remains a build-dep of `ort-sys` |
+| env_logger | 0.11 | removed | unused (A5) |
+| tauri / tauri-build / updater / shell / global-shortcut | "2" | "2.12" / "2.7" / "2.14" / "2.6" / "2.4" | A2 floors at the locked post-f177fbe versions |
+| @tauri-apps/api (npm) | ^2 | removed | unused runtime dependency (A8) |
+
+**Gates (Windows 11, rustc 1.99.1):** frontend build ok; fmt ok; clippy `--all-targets -D warnings` ok; test 36 unit + 4 integration ok; `cargo deny check licenses advisories bans` ok (one warning: `voice_activity_detector` has no licence field, MIT by file); `loc_budget.py` ok (GUI 2,992/3,000). Linux and macOS are CI-only.
+
+**Debt.** GUI is 8 lines under budget; reqwest now trusts webpki roots, not the OS store (TLS-inspecting proxies will fail model download); short copyrighted lyric snippets remain in unit tests (`aligner`, `txt`, `easyworship`) and in the `docs/SETLIST_FORMATS.md` JSON example (ADR-007, outside A9's two files); the 12 Q0 audit defects are untouched (Q2); `fixtures/setlists/pd-hymns.json` and `fixtures/pco/plan-sample.json` still do not fit May's parsers (A15 follow-up); `docs/signing-policy.md` and `SIGNING.md` both describe Windows signing (A6 reconcile, partly done).
