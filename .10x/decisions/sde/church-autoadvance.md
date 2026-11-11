@@ -28,3 +28,8 @@
 
 ### Verification
 Local (Ubuntu, rust 1.97): `cargo fmt --check` ok; `cargo clippy --all-targets -- -D warnings` ok; `cargo deny check licenses advisories bans` ok; `cargo test` ok; `scripts/loc_budget.py` ok. CI on the three-OS matrix: see the workflow run linked in the commit.
+
+## 2026-11-11 — dependency baseline moved to tauri 2.12 (CI fix on PR #1)
+- Nine advisories published after 2026-10-25 turned `cargo deny` red: eight in `openssl` (fixed by the compatible 0.10.82) and RUSTSEC-2026-0429 in `zip` 4.x via `tauri-plugin-updater`.
+- `tauri-plugin-updater` 2.14.1 depends on `zip` 9 but needs `tauri` 2.12, which needs Rust 1.90; the resolver held `tauri` at 2.10.3 because of `rust-version = "1.77"`. Raised `rust-version` to 1.90 (CI builds on stable 1.97) and updated the tauri family together (`tauri`, `tauri-build`, `tauri-codegen`, `tauri-macros`, `tauri-plugin`, `tauri-runtime`, `tauri-runtime-wry`, `tauri-utils`, `wry`, `tao`, the three plugins). `zip` is now 9.0.0; the three earlier `zip` advisory ignores are deleted from `deny.toml`.
+- Verified locally: fmt, clippy -D warnings, test, budgets; CI green on all five jobs at f177fbe. Note for prompt Q1: the merge must keep this baseline (the May branch declares `rust-version = "1.77"` and older tauri plugins).
