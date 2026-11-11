@@ -44,11 +44,11 @@ Local (Ubuntu, rust 1.97): `cargo fmt --check` ok; `cargo clippy --all-targets -
 | quick-xml | 0.36.2 | 0.41.0 | RUSTSEC-2026-0194/0195; `unescape()` gone, entities now `GeneralRef` → `importers::xml_text` |
 | pdf-extract (lopdf) | 0.8.2 (0.34) | 0.12.1 (0.42) | RUSTSEC-2026-0187; fixed release exists, so no feature gate |
 | rusqlite (libsqlite3-sys) | 0.32.1 (0.30.1) | 0.41.1 (0.39.1) | RUSTSEC-2026-0459; bundled kept (see `decisions/dba/`) |
-| reqwest 0.12 | default (native-tls) | rustls-tls | Q1 prompt: no OpenSSL at runtime; openssl remains a build-dep of `ort-sys` |
+| reqwest 0.12 | default (native-tls) | rustls-tls-native-roots | Q1 prompt: no OpenSSL at runtime; openssl remains a build-dep of `ort-sys`. Native roots (OS trust store via `rustls-native-certs` 0.8.3, already locked) instead of bundled webpki roots, so church networks with a TLS-inspecting proxy keep working; lock change: +`rustls-native-certs` edges, −`webpki-roots` 1.0.12 |
 | env_logger | 0.11 | removed | unused (A5) |
 | tauri / tauri-build / updater / shell / global-shortcut | "2" | "2.12" / "2.7" / "2.14" / "2.6" / "2.4" | A2 floors at the locked post-f177fbe versions |
 | @tauri-apps/api (npm) | ^2 | removed | unused runtime dependency (A8) |
 
 **Gates (Windows 11, rustc 1.99.1):** frontend build ok; fmt ok; clippy `--all-targets -D warnings` ok; test 36 unit + 4 integration ok; `cargo deny check licenses advisories bans` ok (one warning: `voice_activity_detector` has no licence field, MIT by file); `loc_budget.py` ok (GUI 2,966/3,000). Linux and macOS are CI-only.
 
-**Debt.** GUI is 34 lines under budget; reqwest now trusts webpki roots, not the OS store (TLS-inspecting proxies will fail model download); short copyrighted lyric snippets remain in unit tests (`aligner`, `txt`, `easyworship`) and in the `docs/SETLIST_FORMATS.md` JSON example (ADR-007, outside A9's two files); the 12 Q0 audit defects are untouched (Q2); `fixtures/setlists/pd-hymns.json` and `fixtures/pco/plan-sample.json` still do not fit May's parsers (A15 follow-up); `docs/signing-policy.md` and `SIGNING.md` both describe Windows signing (A6 reconcile, partly done).
+**Debt.** GUI is 34 lines under budget; short copyrighted lyric snippets remain in unit tests (`aligner`, `txt`, `easyworship`) and in the `docs/SETLIST_FORMATS.md` JSON example (ADR-007, outside A9's two files); the 12 Q0 audit defects are untouched (Q2); `fixtures/setlists/pd-hymns.json` and `fixtures/pco/plan-sample.json` still do not fit May's parsers (A15 follow-up); `docs/signing-policy.md` and `SIGNING.md` both describe Windows signing (A6 reconcile, partly done).

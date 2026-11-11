@@ -43,8 +43,8 @@ voice_activity_detector = "0.2"
 whisper-rs = "0.13"
 
 # Model downloads, Planning Center, Hymnary, presenter REST drivers.
-# rustls instead of the default native-tls, so OpenSSL is not in the tree.
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "charset", "http2", "system-proxy", "stream", "json"] }
+# rustls instead of the default native-tls, so OpenSSL is not linked into the app (it remains only as a build-dependency of ort-sys).
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "charset", "http2", "system-proxy", "stream", "json"] }
 futures-util = "0.3"
 dirs = "6"
 
