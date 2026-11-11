@@ -1,19 +1,19 @@
 # Voxxa
 
-Voxxa listens to the room and advances the lyric slides for you. It runs beside the presentation software your church already uses, follows the worship leader through repeats and bridges, and never shows a word on screen itself.
+Voxxa listens to the room and advances the lyric slides for you. It runs beside the presentation software your church already uses, follows the worship leader through repeats and bridges, and never projects lyrics itself: the projected display stays with your presentation software.
 
-**Free, open source, and local.** Audio never leaves the computer. There is no account, no cloud, and no telemetry.
+**Free, open source, and local.** Audio never leaves the computer. There is no account and no telemetry, and Voxxa makes no network traffic unless the operator starts it: a speech-model download, a Planning Center import or a Hymnary.org lookup.
 
 ## What it does
 
 - Listens to the sound desk feed or a room mic and matches what is sung against the lyrics already loaded in your presentation software.
 - Tells the presentation software when to move: next slide, back a slide, or jump to the chorus.
-- In *Songs + Scripture* mode, hears a spoken reference ("Romans 8, verse 28"), confirms it from the first words read, and asks the presentation software to show the verse.
-- Shows one screen to the operator: a three-position switch (Off / Songs / Songs + Scripture), a status light, and a Call for help button.
+- *Roadmap:* in *Songs + Scripture* mode, hear a spoken reference ("Romans 8, verse 28"), confirm it from the first words read, and ask the presentation software to show the verse.
+- *Roadmap:* one simple screen for the operator: a three-position switch (Off / Songs / Songs + Scripture), a status light, and a Call for help button. Today the operator window shows the full set of panels, including a preview of the current and next slide.
 
 ## What it does not do
 
-- It never displays lyrics or Bible text. Your presentation software does that, under your church's licences.
+- It never projects lyrics or Bible text. Your presentation software does that, under your church's licences. Previews appear only on the operator's own screen.
 - It never uploads audio or transcripts. Speech recognition runs on the computer in the booth.
 - It never replaces your presentation software or reports to CCLI for you.
 
@@ -21,12 +21,14 @@ Voxxa listens to the room and advances the lyric slides for you. It runs beside 
 
 | Presentation software | Integration |
 |---|---|
-| ProPresenter 7.9 and later | Native (network API): drives slides and reads the current slide |
-| FreeShow | Native (REST/WebSocket API): drives slides, reads the current slide, shows scripture |
-| OpenLP | Native (HTTP API): drives slides, reads the current slide, shows scripture |
+| ProPresenter 7.9 and later | Native (REST API): drives slides and reads the current slide |
+| ProPresenter 6 and 7.0–7.8 | Native (WebSocket API): drives slides |
+| FreeShow | Native (API): drives and blanks slides |
+| OpenLP | Native (HTTP API): blanks and reads the current slide |
+| OpenSong | Native (API): drives and blanks slides |
 | EasyWorship, MediaShout, WorshipTools Presenter, others | Keystrokes (Voxxa sends the next/previous key while the app has focus) |
 
-Native adapters arrive in the order above; see the roadmap in `.10x/specs/`.
+Scripture display is on the roadmap in `.10x/specs/`. Developer notes on the drivers are in `CONTRIBUTING.md`.
 
 ## Platforms
 
