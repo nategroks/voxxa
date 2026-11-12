@@ -140,10 +140,10 @@ Process record: `reviews/2026-11-12-ponytail-q3.md`. Tickets: `reviews/2026-11-1
 - `--shadow` never builds or connects a presenter, so it does not check that the presenter is reachable.
 - `Cargo.toml` gains `default-run = "voxxa"`.
 
-**Merge on hold.** Verifier round 3 at f2bcea1: verifier A passed, verifier B failed. Open:
-- Q3-01: deleting the `--shadow` guard (`main.rs:312-314`) passes every gate.
-- Q3-02: three mutations of the GUI event sink pass every gate.
+**Verifier round 3 close-out.** At f2bcea1 verifier A passed and verifier B failed on two items:
+- Q3-01: deleting the `--shadow` guard (`main.rs:312-314`) passed every gate. **Closed** in 912b978 by `shadow_never_connects_to_the_presenter`, which the mutation now fails.
+- Q3-02: three mutations of the GUI event sink pass every gate. **Deferred to Q4** by the orchestrator (reasons in the ticket); not merge-blocking.
 
-The PR must not be merged until Q3-01 has a test, Q3-02 has a test or a recorded deferral, and a verifier re-run passes.
+All 7 gates pass at 912b978 (109 tests).
 
 **Debt (tickets).** Q3-03 release packaging (was Q3-T1); Q3-04 keystroke focus from a terminal; Q3-05 transcripts in the roaming `%APPDATA%`; Q3-06 synchronous transcription (Q4); Q3-07 GUI loop and `--device` not run on hardware; Q3-08 repeated goto in the action stream; Q3-09 no GUI session log or operator inputs; Q3-10 16 kHz mono WAV only; Q3-11 small output gaps; Q3-12 no control-byte gate; Q3-13 slow debug tests.

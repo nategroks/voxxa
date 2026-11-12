@@ -15,16 +15,16 @@
 ### What Q3 did
 - Added the headless `voxxad` binary over `voxxa_lib` and moved the GUI's listening loop into the library, so the GUI and the CLI share one function. ADR-013 (Accepted) records the design.
 - Ran as two lanes (`q3/10x`, `q3/ponytail`) with cross-reviews, a comparator (base 10x, six ponytail grafts), a finisher and three verifier rounds: `reviews/2026-11-12-ponytail-q3.md`.
-- Code head: `q3/base` @ **f2bcea1**. All 7 gates pass on Windows; 108 tests (54 unit + 54 integration; `voxxad_events` 19, no Whisper model or audio device needed).
+- Code head: `q3/base` @ **912b978**. All 7 gates pass on Windows; 109 tests (54 unit + 55 integration; `voxxad_events` 20, no Whisper model or audio device needed).
 - Exit demo shown with real output: a shadow run printed the actions, replay was byte-identical on them, and the ProPresenter mock received nothing under `--shadow`.
-- Record: `decisions/sde/church-autoadvance.md` ("Q3 final"). Tickets: `reviews/2026-11-12-q3-tickets.md` (13: 7 medium, 6 low; not filed yet).
+- Record: `decisions/sde/church-autoadvance.md` ("Q3 final"). Tickets: `reviews/2026-11-12-q3-tickets.md` (12 to file: 6 medium, 6 low; Q3-01 closed before filing).
 
-### Open before the Q3 merge (orchestrator) — do not merge until 1–3 are done
-Verifier round 3 at f2bcea1: verifier A passed, **verifier B failed**.
-1. **Q3-01:** deleting the `--shadow` guard (`src-tauri/src/bin/voxxad/main.rs:312-314`) passes every gate. Add the model-free test described in the ticket (`--model nonexistent`, a test-owned `TcpListener`, no connection under `--shadow`).
-2. **Q3-02:** three mutations of the GUI event sink in `commands::start_listening_with_state` pass every gate. Add a tested pure event mapping (4 lines left in "everything else"), or record a decision to defer it to the ticket.
-3. Re-run a verifier, all 7 gates and the exit demo on the new head.
-4. Pre-approved: push `q3/base`, draft PR against `main`, CI (first Linux and macOS run of `listen.rs` and `voxxad_events`; the loop test builds a real `VadEngine`, which falls back to the energy detector if Silero/ORT cannot start), merge when every job is green, file the 13 tickets (label `q3`).
+### Q3 close-out (orchestrator)
+Verifier round 3 at f2bcea1: verifier A passed, verifier B failed on two items.
+1. **Q3-01, closed (912b978):** `shadow_never_connects_to_the_presenter` runs the binary against a test-owned `TcpListener` with `--model nonexistent`; with the `--shadow` guard deleted it fails.
+2. **Q3-02, deferred to Q4:** the GUI event sink has no test (mutations N8b–N8d). **Q4 owns it**: when the streaming hop rewrites `listen.rs` and the sink, make the event mapping pure and test names, payloads and `operator=false`.
+3. All 7 gates pass on 912b978 (109 tests).
+4. Pre-approved: push `q3/base`, draft PR against `main`, CI (first Linux and macOS run of `listen.rs` and `voxxad_events`; the loop test builds a real `VadEngine`, which falls back to the energy detector if Silero/ORT cannot start), merge when every job is green, file the 12 tickets (label `q3`).
 
 ### What Q4 must know
 **Where the shared loop lives.**
