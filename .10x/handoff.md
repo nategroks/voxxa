@@ -8,7 +8,7 @@
 - Verified the merged base (1568810) in simulate mode and fixed every crash, data-loss, freeze, listening-impossible and wrong-slide defect found, each with a test that fails without the fix: `reviews/2026-11-11-qa-report.md`.
 - Security review with STRIDE-lite over 10 boundaries; S1 (HTTP API, High) and S3 (PDF abort, Critical) fixed; no Critical or High open: `reviews/2026-11-11-security-review.md`.
 - Ran as the user's ponytail process: a QA lane and a Security lane, a skeptic, two independent fix lanes (`q2/10x`, `q2/ponytail`), cross-reviews, comparator (base 10x + ponytail grafts), finisher and adversarial verifier. The verifier's one finding (Q2-44) was fixed by the orchestrator: `reviews/2026-11-11-ponytail-q2.md`.
-- 34 tickets (14 medium, 20 low), ready to file: `reviews/2026-11-11-q2-tickets.md`.
+- 43 open tickets (18 medium, 25 low), filed 2026-11-12 as GitHub issues #2–#44 (label `q2`): `reviews/2026-11-11-q2-tickets.md`.
 - Code head: `q2/10x` @ b09373d (24 commits on 1568810), plus the Q2 state commit. `q2/ponytail` (0d3162f) stays local for reference.
 - **Gates on Windows:** all seven pass; 45 unit + 33 integration tests; no budget raised.
 - **Ponytail-audit re-run (2026-11-12, on 3446e09):** fixed with tests PT2-01, PT2-02, PT2-05 and the older Prev-below-the-first-song defect (f2519ba..b677d69, code head **b677d69**, all 7 gates pass); 10 new tickets Q2-55 … Q2-64 (44 in all); the last fix-now item is closed: a worship phrase during a prayer blank could show the next slide through the in-song advance path; fixed with a test in 4129dcd, and the PT2-02 focus check got a pure-helper test in 713f40f. A second verifier passed at 713f40f (all 7 gates; every mutation caught by a test or a gate; `reviews/2026-11-11-ponytail-q2.md` §8.6). Code head is now **713f40f**. The hold is lifted: the PR #1 push and the ticket filing below can go ahead.
@@ -32,7 +32,7 @@ Q2 gathered facts only (QA report §9). The features and what Q2 found:
 ### Open for the orchestrator (pre-approved by the user)
 1. Push `q2/10x` to PR #1's branch and watch CI (first Linux/macOS run of the Q2 code: zbus from the single-instance plugin; timing-based download tests; PDF fixtures need `.gitattributes`). Fix forward.
 2. Merge PR #1 into `main` once every CI job is green.
-3. File the 34 tickets from `reviews/2026-11-11-q2-tickets.md` as GitHub issues.
+3. ~~File the tickets as GitHub issues~~ done 2026-11-12: #2–#44.
 
 ### What Q3 must know
 - **Dispatch has one path:** `commands::dispatch` → `dispatch::drive` / `dispatch::step` (pure, tested with fake presenters in `tests/dispatch.rs`). A `voxxad` non-shadow mode must reuse it, not call presenters directly. `Sent` replaced `last_dispatched_global`; `Sessions` replaced `is_running`.

@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q2 complete locally (2026-11-11): QA + security reviews written; every crash, data-loss, freeze, listening-impossible and wrong-slide defect found is fixed with tests; 34 tickets; all gates green on Windows. Next: CI on PR #1 for the Q2 head, merge PR #1 into `main`, then the user's cut-list decision (ADR-012) before Q3.
+**Current Phase:** Q2 complete locally (2026-11-11): QA + security reviews written; every crash, data-loss, freeze, listening-impossible and wrong-slide defect found is fixed with tests (including the ponytail-audit re-run, 2026-11-12); 43 tickets filed as GitHub issues #2–#44; all gates green on Windows. Next: CI on PR #1 for the Q2 head, merge PR #1 into `main`, then the user's cut-list decision (ADR-012) before Q3.
 **Last Updated:** 2026-11-11 by 10x-team orchestrator
 **Health:** On Track
 
@@ -64,7 +64,7 @@
 
 ### In Progress
 - [ ] CI on PR #1 for the Q2 head (the orchestrator pushes `q2/10x` to PR #1's branch), then merge PR #1 into `main` (pre-approved by the user once Q2's exit criteria are met and every CI job is green).
-- [ ] File the 34 Q2 tickets as GitHub issues (pre-approved).
+- [x] 2026-11-12 Filed the 43 open Q2 tickets as GitHub issues #2–#44 (label `q2`); Q2-60 was closed by 713f40f before filing.
 
 ### Pending
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
@@ -77,7 +77,7 @@
 (none)
 
 ## Risks
-- R8 **Closed (Q2).** Unreviewed May-branch code: Q2 ran QA and security over the merged base; all 12 Q0 must-fix defects and every new crash, data-loss and wrong-slide defect are fixed with tests; the rest are 34 tracked tickets.
+- R8 **Closed (Q2).** Unreviewed May-branch code: Q2 ran QA and security over the merged base; all 12 Q0 must-fix defects and every new crash, data-loss and wrong-slide defect are fixed with tests; the rest are 43 tracked tickets (GitHub issues #2–#44).
 - R10 **Closed in code (Q2).** Wrong slide on screen (audit 1–4, plus audit 5, PDF page split, single instance, Q2-44): fixed with dispatcher and conductor tests. Confirmation on real presentation apps moves to R14.
 - R14 (new, Q2) Fixes proven only against mocks and synthetic audio. No real mic, keystroke driver, PowerPoint, ProPresenter, FreeShow, OpenLP or OpenSong was used. Mitigation: founder checklist M1–M14 before any pilot leaves shadow mode; promote Q2-20/Q2-22/Q2-47 if M3/M8 fail.
 - R15 (new, Q2) Tight line budget: "everything else in src-tauri/src" is at 2489/2500 (11 lines). Mitigation: keep new tests in `src-tauri/tests/`; the next Rust change outside the conductor, presenters and importers needs an explicit budget decision, never a silent raise.
