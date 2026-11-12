@@ -1,8 +1,8 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q2 complete locally (2026-11-11): QA + security reviews written; every crash, data-loss, freeze, listening-impossible and wrong-slide defect found is fixed with tests (including the ponytail-audit re-run, 2026-11-12); 43 tickets filed as GitHub issues #2–#44; all gates green on Windows. Next: CI on PR #1 for the Q2 head, merge PR #1 into `main`, then the user's cut-list decision (ADR-012) before Q3.
-**Last Updated:** 2026-11-11 by 10x-team orchestrator
+**Current Phase:** Q3 implemented on `q3/base` (code head 912b978, 2026-11-12). Verifier round 3 left two items: Q3-01 is closed with a test (912b978) and Q3-02 is deferred to Q4 by a recorded decision. Next: push `q3/base`, draft PR against `main`, CI, merge, file the Q3 tickets; then Q4 (Recognizer trait and streaming hop).
+**Last Updated:** 2026-11-12 by 10x-team orchestrator
 **Health:** On Track
 
 ## Progress
@@ -56,6 +56,17 @@
   - **Tickets:** 34 (14 medium, 20 low), ready to file as GitHub issues.
 - [x] 2026-11-12 **Q2 ponytail-audit re-run** on 3446e09 (the first run's output was blocked): 16 findings; 3 new fix-now items (PT2-01 short or unrelated transcripts start a song or re-show lyrics, PT2-02 tray Blank inverts the Keystroke toggle, PT2-05 ProPresenter WS/OpenSong goto hits the wrong presentation) and one older wrong-slide defect found while checking b09373d (Prev below the first song) fixed with tests in f2519ba, 8846f36, a50ee6a, bde776b, b677d69; all 7 gates pass at b677d69 (53 unit tests; budget 2482/2500); tickets now 44 (Q2-55 … Q2-64 added); the last wrong-slide path (a worship phrase during a prayer blank could show the next slide through the in-song advance) is fixed with a test in 4129dcd, and the PT2-02 focus check is now guarded by a pure-helper test (713f40f, part of Q2-60); a second verifier passed at 713f40f: all 7 gates pass (54 unit tests; budget 2483/2500, no budget raised), every mutation caught by a test or a gate (`reviews/2026-11-11-ponytail-q2.md` §8.6). Q2's "no open wrong-slide defect" is met again; the hold on the PR #1 push and on filing the tickets is lifted.
 
+- [x] 2026-11-12 **Q3** `voxxad` CLI (Phase 2 check + Phase 4: ADR-013), with the ponytail lane: `reviews/2026-11-12-ponytail-q3.md`, `reviews/2026-11-12-q3-tickets.md`, `adrs/013-voxxad-cli-shared-loop-and-replay.md`, record in `decisions/sde/church-autoadvance.md`.
+  - **Head:** `q3/base` @ **f2bcea1** (24 commits on 74f6bd2): `q3/10x` merged (f6d18b3), the comparator's 10x fix and six ponytail grafts (7cc75b2..1f5e31b), and test-only fixes from verifier rounds 1 and 2 (c54f16e..37dd632). `q3/ponytail` (3550b05) stays local for reference.
+  - **Built:** one listening loop, `voxxa_lib::listen::run`, shared by the GUI and the new `voxxad` binary. Every conductor input goes through `Conductor::apply`. JSON-lines schema v1. A 14-day session log. `--replay` is byte-identical on action lines without the model. `--shadow` builds no presenter.
+  - **Gates on Windows** (rustc 1.99.1): all 7 pass at f2bcea1.
+  - **Tests:** 108 (54 unit + 54 integration; `voxxad_events` 19). None needs the Whisper model or an audio device.
+  - **Budgets:** everything else 2,496/2,500 (+13); conductor 1,153/1,200; new row voxxad 531/600 (user decision, recorded deviation); GUI 2,951/3,000; no other row changed.
+  - **Exit demo** (Whisper Tiny, public-domain speech): goto Amazing Grace/0 at 8.1 s, goto Amazing Grace/1 at 22.8 s, blank at 27.8 s, prayer shows nothing. Replay byte-identical (`cmp`). The ProPresenter mock's `/_log` stayed empty under `--shadow`.
+  - **Verifiers:** round 1 (M2–M6) and round 2 (L1–L5, R2) closed with tests. **Round 3 at f2bcea1: verifier A passed; verifier B failed.** Open: Q3-01 (deleting the `--shadow` guard at `bin/voxxad/main.rs:312-314` passes every gate) and Q3-02 (three mutations of the GUI event sink in `commands/mod.rs` pass every gate).
+  - **Close-out by the orchestrator (912b978):** Q3-01 closed with `shadow_never_connects_to_the_presenter` (model-free; the N9 mutation now fails it). Q3-02 deferred to Q4 (recorded in the ticket: no GUI behaviour change, no protection lost against 74f6bd2, not an exit criterion, does not fit the 4 lines left). All 7 gates pass again at 912b978: 109 tests. The change is test-only, so verifier A's exit demo at f2bcea1 still applies.
+  - **Tickets:** 12 filed as GitHub issues #46–#57 (label `q3`; 6 medium, 6 low); Q3-01 closed before filing.
+
 ### Release readiness (2026-11-11, after Q2)
 - **Code:** Q2's exit criteria are met. No open crash, data-loss, freeze or wrong-slide defect from the audit or Q2; no open Critical or High security finding.
 - **Not yet ready for a live service.** The fixes are proven against mocks and synthetic audio only. Before a pilot leaves shadow mode, the founder must pass checklist M1–M14 in the QA report (real mic, unplug, Keystroke driver with PowerPoint/ProPresenter, FreeShow/OpenLP/OpenSong, displays, Stream Deck) and the security checklist.
@@ -63,13 +74,21 @@
 - **Before a public release:** Q2-28 (release pipeline pinning, `.asc`, updater) and the cut-list ADR.
 
 ### In Progress
-- [ ] CI on PR #1 for the Q2 head (the orchestrator pushes `q2/10x` to PR #1's branch), then merge PR #1 into `main` (pre-approved by the user once Q2's exit criteria are met and every CI job is green).
+- [x] 2026-11-12 CI green on PR #1 (head 69b18ce, 5/5 jobs); PR #1 merged into `main` as 7bd84a1; CI green on `main` (5/5). The "Deploy Website" workflow fails because GitHub Pages is not enabled (pre-existing since April; user decision).
+- [ ] Q3 close-out (orchestrator).
+  1. [x] Q3-01: model-free `--shadow` test added (912b978); the N9 mutation fails it.
+  2. [x] Q3-02: deferred to Q4 by a recorded decision (tickets file).
+  3. [x] All 7 gates on 912b978 (109 tests); test-only change, so the f2bcea1 exit demo stands.
+  4. [ ] `q3/base` pushed; draft PR #45 against `main` opened; merge when every CI job is green.
+  5. [x] Filed the 12 Q3 tickets as GitHub issues #46–#57 (label `q3`).
+
+  The user pre-approved the push, PR, merge and filing in steps 4 and 5.
 - [x] 2026-11-12 Filed the 43 open Q2 tickets as GitHub issues #2–#44 (label `q2`); Q2-60 was closed by 713f40f before filing.
 
 ### Pending
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
 - [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
-- [ ] Increment 1′ (Q3–Q7) … per the 2026-11-11 prompt pack
+- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; next is Q4 (Recognizer trait and streaming hop)
 - [ ] Founder: record two PD-hymn fixtures; apply to SignPath; open Partner Center; e-mail CCLI; form LLC; start research screener
 - [ ] Phases 4–6 per increment
 
@@ -80,7 +99,13 @@
 - R8 **Closed (Q2).** Unreviewed May-branch code: Q2 ran QA and security over the merged base; all 12 Q0 must-fix defects and every new crash, data-loss and wrong-slide defect are fixed with tests; the rest are 43 tracked tickets (GitHub issues #2–#44).
 - R10 **Closed in code (Q2).** Wrong slide on screen (audit 1–4, plus audit 5, PDF page split, single instance, Q2-44): fixed with dispatcher and conductor tests. Confirmation on real presentation apps moves to R14.
 - R14 (new, Q2) Fixes proven only against mocks and synthetic audio. No real mic, keystroke driver, PowerPoint, ProPresenter, FreeShow, OpenLP or OpenSong was used. Mitigation: founder checklist M1–M14 before any pilot leaves shadow mode; promote Q2-20/Q2-22/Q2-47 if M3/M8 fail.
-- R15 (new, Q2) Tight line budget: "everything else in src-tauri/src" is at 2489/2500 (11 lines). Mitigation: keep new tests in `src-tauri/tests/`; the next Rust change outside the conductor, presenters and importers needs an explicit budget decision, never a silent raise.
+- R15 (new, Q2; updated Q3) Tight line budget. After Q3:
+  - "everything else in src-tauri/src" is at 2,496/2,500 (4 lines left; it holds `listen.rs`, the shared loop);
+  - conductor 1,153/1,200 (47 left);
+  - the new `voxxad` row 531/600 (69 left; user decision, a recorded deviation from ADR-010 Decision 3);
+  - GUI 2,951/3,000; presenters 1,149/2,000; importers 1,362/1,600.
+
+  Mitigation: keep new tests in `src-tauri/tests/`. Q3-02 (deferred to Q4) must fit by simplifying code in the same bucket. Q4's streaming hop lives in `listen.rs`, so it needs an explicit budget decision before code (move code into a budgeted module or a recorded new row), never a silent raise.
 - R13 (new, Q1) Fragile CI gates.
   - The GUI fits its budget with 49 lines to spare (2951/3000 after Q2), partly by avoiding a tokei 15 HTML apostrophe miscount.
   - CI installs the latest tokei, the latest stable Rust (new clippy lints under `-D warnings`) and a fresh advisory DB.

@@ -109,6 +109,19 @@ pub enum Action {
     Unblank,
 }
 
+/// One input to the conductor. The listening loop and `voxxad --replay` both
+/// apply inputs through [`Conductor::apply`], so a session log that records
+/// every input, with its time, reproduces every action (ADR-013).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Input {
+    /// The periodic tick that drives time-based transitions.
+    Tick,
+    /// VAD says someone is speaking.
+    Speech,
+    /// A recogniser transcript.
+    Heard(String),
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SongScore {
     pub song_index: usize,
@@ -275,7 +288,24 @@ impl Conductor {
         }
     }
 
+    /// Apply one [`Input`] at `now`: the only way the loop and replay drive
+    /// the conductor.
+    pub fn apply(&mut self, input: &Input, now: Instant) -> Action {
+        match input {
+            Input::Tick => self.tick(now),
+            Input::Speech => {
+                self.on_speech(now);
+                Action::Noop
+            }
+            Input::Heard(text) => self.on_transcript(text, now),
+        }
+    }
+
     /// Notify the machine that VAD says the user is speaking.
+    ///
+    /// Only records the time. `voxxad` relies on this: its session log keeps
+    /// the last `speech` before each tick or transcript and drops the rest
+    /// (ADR-013). If this ever does more, log every speech input.
     pub fn on_speech(&mut self, now: Instant) {
         self.last_speech = Some(now);
     }

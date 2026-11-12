@@ -42,13 +42,19 @@ def total(prefixes):
 conductor = total(["aligner/"])
 presenters = total(["presenters/"])
 importers = total(["importers/", "planning_center/"])
-rest = sum(rust.values()) - conductor - presenters - importers
+# Recorded deviation from ADR-010 Decision 3 (ADR-013, user decision 2026-11-12):
+# the voxxad CLI binary gets its own row instead of raising "everything else".
+# The listening loop it shares with the GUI lives in the library and counts in
+# "everything else", which stays at 2500.
+voxxad = total(["bin/voxxad.rs", "bin/voxxad/"])
+rest = sum(rust.values()) - conductor - presenters - importers - voxxad
 
 checks = [
     ("conductor (aligner/)", conductor, 1200),
     ("presenters/ total", presenters, 2000),
     ("importers/ + planning_center/", importers, 1600),
     ("everything else in src-tauri/src", rest, 2500),
+    ("voxxad binary (src/bin/voxxad*)", voxxad, 600),
     ("GUI (src/, index.html, stage.html)", sum(gui.values()), 3000),
 ]
 for f, n in sorted(rust.items()):

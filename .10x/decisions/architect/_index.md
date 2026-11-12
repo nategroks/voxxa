@@ -40,3 +40,14 @@ The statements above were checked against the code at `f7b56e6`; the full log is
 - [DISCOVERED] **The shell, store, global-shortcut and updater plugins are registered but unused.** Nothing calls the updater.
 - [DISCOVERED] **The ring-buffer logger records every transcript** ("Heard: …"), and the diagnostics report embeds it.
 - The 12 confirmed must-fix defects are listed in `reviews/2026-11-11-ponytail-q0.md` §4–5. They go to Q2.
+
+## Q3 Phase 2 check (2026-11-12): `voxxad` → ADR-013
+- **Covered by ADR-001/003 (as adjusted by ADR-010):** a `voxxad` CLI over `voxxa_lib`, GUI in-process, JSON lines with `"v":1`, no sockets, a rotated 14-day session log, `--replay` for support.
+- **Not covered, decided in ADR-013 (Accepted on the user's pre-approved Q3 decisions):**
+  - the listening loop moves from `commands::start_listening_with_state` to `voxxa_lib::listen::run`, parameterised by a clock (`samples → Instant`), a recogniser closure (the ADR-004 seam, smallest form) and an event sink; the GUI's sink emits exactly the old Tauri events;
+  - every conductor input is a `voxxa_lib::Input` (`Tick`, `Speech`, `Heard`) applied through `Conductor::apply`, by the loop and by replay; `voxxad` at file speed uses a sample clock, so `t` is audio time;
+  - event schema v1: `status`, `hypothesis`, `action`, `error` on stdout, plus `tick` and `speech` in the session log (6 of ADR-001's 8);
+  - budget: a new 600-line `voxxad` row, a recorded deviation from ADR-010 Decision 3; the loop extraction fits the existing rows.
+- **Boundaries unchanged:** one dispatch path (`dispatch::drive`); `--shadow` and `--presenter none` never build a presenter; replay never loads a model or opens audio.
+- **Built (Q3, 0669328 + 2f588df):** as decided; budgets everything else 2,496/2,500, voxxad 504/600. Replay of the exit-demo session is byte-identical on actions and is a CI test. Open risk: keystroke from a terminal has no focus guard (ADR-013 Risks).
+- **Final (q3/base @ f2bcea1):** the 10x lane with ponytail grafts. ADR-013 was amended for privacy (the roaming `%APPDATA%`) and release packaging (Q3-03, was Q3-T1). Budgets: everything else 2,496/2,500, voxxad 531/600. Merge on hold: verifier round 3 found no test for the `--shadow` guard (Q3-01) or for the GUI event sink (Q3-02). Q4 puts the ADR-004 recogniser trait and the streaming hop into `listen::run`, which triggers ADR-013's review clause ("a second recogniser lands").
