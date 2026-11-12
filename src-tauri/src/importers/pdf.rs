@@ -1,7 +1,7 @@
 //! PDF importer.
 //!
-//! Each PDF page becomes one slide. Text is extracted via `pdf-extract` which
-//! handles PDF text encodings (Identity-H, ToUnicode mappings) that the naive
+//! Each PDF page becomes one slide; empty pages become empty slides. Text is
+//! extracted via `pdf-extract` which handles PDF text encodings (Identity-H, ToUnicode mappings) that the naive
 //! "concatenate /T strings" approach gets wrong on real-world worship PDFs.
 //!
 //! Limitations:
@@ -15,23 +15,22 @@ use crate::aligner::{Slide, Song};
 use anyhow::{anyhow, Result};
 
 pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
-    // pdf-extract returns a single string with `\u{c}` (form feed) between
-    // pages. Splitting on form-feed gives us one block per PDF page.
-    let text =
-        pdf_extract::extract_text_from_mem(bytes).map_err(|e| anyhow!("pdf parse failed: {e}"))?;
+    // pdf-extract panics on some malformed files; an untrusted import must not
+    // take the app down with it.
+    let pages = std::panic::catch_unwind(|| pdf_extract::extract_text_from_mem_by_pages(bytes))
+        .map_err(|_| anyhow!("this PDF could not be read"))?
+        .map_err(|e| anyhow!("pdf parse failed: {e}"))?;
 
-    let mut slides: Vec<Slide> = Vec::new();
-    for page in text.split('\u{c}') {
-        let body = page.trim().to_string();
-        if body.is_empty() {
-            continue;
-        }
-        slides.push(Slide {
-            id: slides.len(),
-            text: body,
-        });
-    }
-    if slides.is_empty() {
+    // Empty pages stay as empty slides so slide numbers match the deck.
+    let slides: Vec<Slide> = pages
+        .iter()
+        .enumerate()
+        .map(|(id, page)| Slide {
+            id,
+            text: page.trim().to_string(),
+        })
+        .collect();
+    if slides.iter().all(|s| s.text.is_empty()) {
         return Err(anyhow!(
             "PDF contained no extractable text (scanned image? OCR needed)"
         ));
