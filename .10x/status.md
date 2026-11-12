@@ -65,7 +65,7 @@
   - **Exit demo** (Whisper Tiny, public-domain speech): goto Amazing Grace/0 at 8.1 s, goto Amazing Grace/1 at 22.8 s, blank at 27.8 s, prayer shows nothing. Replay byte-identical (`cmp`). The ProPresenter mock's `/_log` stayed empty under `--shadow`.
   - **Verifiers:** round 1 (M2–M6) and round 2 (L1–L5, R2) closed with tests. **Round 3 at f2bcea1: verifier A passed; verifier B failed.** Open: Q3-01 (deleting the `--shadow` guard at `bin/voxxad/main.rs:312-314` passes every gate) and Q3-02 (three mutations of the GUI event sink in `commands/mod.rs` pass every gate).
   - **Close-out by the orchestrator (912b978):** Q3-01 closed with `shadow_never_connects_to_the_presenter` (model-free; the N9 mutation now fails it). Q3-02 deferred to Q4 (recorded in the ticket: no GUI behaviour change, no protection lost against 74f6bd2, not an exit criterion, does not fit the 4 lines left). All 7 gates pass again at 912b978: 109 tests. The change is test-only, so verifier A's exit demo at f2bcea1 still applies.
-  - **Tickets:** 12 to file (6 medium, 6 low); Q3-01 closed before filing.
+  - **Tickets:** 12 filed as GitHub issues #46–#57 (label `q3`; 6 medium, 6 low); Q3-01 closed before filing.
 
 ### Release readiness (2026-11-11, after Q2)
 - **Code:** Q2's exit criteria are met. No open crash, data-loss, freeze or wrong-slide defect from the audit or Q2; no open Critical or High security finding.
@@ -79,8 +79,8 @@
   1. [x] Q3-01: model-free `--shadow` test added (912b978); the N9 mutation fails it.
   2. [x] Q3-02: deferred to Q4 by a recorded decision (tickets file).
   3. [x] All 7 gates on 912b978 (109 tests); test-only change, so the f2bcea1 exit demo stands.
-  4. [ ] Push `q3/base`, open the draft PR against `main`, fix CI forward, merge when every job is green.
-  5. [ ] File the 12 Q3 tickets as GitHub issues (label `q3`).
+  4. [ ] `q3/base` pushed; draft PR #45 against `main` opened; merge when every CI job is green.
+  5. [x] Filed the 12 Q3 tickets as GitHub issues #46–#57 (label `q3`).
 
   The user pre-approved the push, PR, merge and filing in steps 4 and 5.
 - [x] 2026-11-12 Filed the 43 open Q2 tickets as GitHub issues #2–#44 (label `q2`); Q2-60 was closed by 713f40f before filing.
