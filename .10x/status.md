@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q2 complete locally (2026-11-11): QA + security reviews written; every crash, data-loss, freeze, listening-impossible and wrong-slide defect found is fixed with tests (including the ponytail-audit re-run, 2026-11-12); 43 tickets filed as GitHub issues #2–#44; all gates green on Windows. Next: CI on PR #1 for the Q2 head, merge PR #1 into `main`, then the user's cut-list decision (ADR-012) before Q3.
+**Current Phase:** Q3 in progress (2026-11-12). Q2 complete and merged into `main` (7bd84a1, 2026-11-12): QA + security reviews written; every crash, data-loss, freeze, listening-impossible and wrong-slide defect found is fixed with tests (including the ponytail-audit re-run, 2026-11-12); 43 tickets filed as GitHub issues #2–#44; all gates green on Windows. Next: CI on PR #1 for the Q2 head, merge PR #1 into `main`, then the user's cut-list decision (ADR-012) before Q3.
 **Last Updated:** 2026-11-11 by 10x-team orchestrator
 **Health:** On Track
 
@@ -63,7 +63,8 @@
 - **Before a public release:** Q2-28 (release pipeline pinning, `.asc`, updater) and the cut-list ADR.
 
 ### In Progress
-- [ ] CI on PR #1 for the Q2 head (the orchestrator pushes `q2/10x` to PR #1's branch), then merge PR #1 into `main` (pre-approved by the user once Q2's exit criteria are met and every CI job is green).
+- [x] 2026-11-12 CI green on PR #1 (head 69b18ce, 5/5 jobs); PR #1 merged into `main` as 7bd84a1; CI green on `main` (5/5). The "Deploy Website" workflow fails because GitHub Pages is not enabled (pre-existing since April; user decision).
+- [ ] Q3 `voxxad` CLI (started 2026-11-12, branch `q3/base`, two lanes `q3/10x` and `q3/ponytail`).
 - [x] 2026-11-12 Filed the 43 open Q2 tickets as GitHub issues #2–#44 (label `q2`); Q2-60 was closed by 713f40f before filing.
 
 ### Pending

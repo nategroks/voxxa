@@ -1,5 +1,13 @@
 # Current Handoff
 
+## User decisions for Q3 (2026-11-12, before the unattended run)
+- **Line budget:** add a separate budget row for the `voxxad` binary (`src-tauri/src/bin/voxxad*`) capped at **600** lines, recorded as a deviation in the ADR and in `scripts/loc_budget.py`. The audio-loop extraction into the library must fit the existing rows ("everything else in src-tauri/src" stays at 2500).
+- **Pre-approved:** push `q3/base` and open a draft PR against `main`; fix CI forward; merge that PR into `main` once Q3's exit criteria are met and every CI job is green; file Q3 tickets as GitHub issues (label `q3`).
+- **ADR-012 (cut list)** is not decided yet; Q3 does not depend on it. Q3's ADR is ADR-013.
+- **QA mode** (as in Q2): no microphone (`voxxad --device` is never run), no keystroke dispatch; `--shadow`, `--presenter none` or a local mock presenter only; audio from public-domain WAV files; the Whisper model `%APPDATA%oxxa\models\ggml-tiny.bin` is present.
+
+---
+
 ## From: Q2 (QA Engineer + Security Engineer, 2026-11-11) → To: the user (cut-list ADR-012), then Q3
 **Date:** 2026-11-11
 **Phase:** Phase 5 Verification done → user decision gate → Increment 1′ (Q3 `voxxad` CLI)
