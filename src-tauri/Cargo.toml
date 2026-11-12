@@ -6,6 +6,9 @@ authors = ["nategroks"]
 license = "GPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.90"
+# `voxxad` (src/bin/voxxad/) is the second binary; `cargo run` and `tauri dev`
+# keep starting the app.
+default-run = "voxxa"
 
 [lib]
 name = "voxxa_lib"
