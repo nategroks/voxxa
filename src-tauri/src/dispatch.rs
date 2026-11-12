@@ -51,14 +51,16 @@ pub fn refuse_if_focused(
 
 /// Blank or unblank. A toggle driver is only pressed when the wanted state
 /// differs from what Voxxa last sent; other drivers are idempotent.
-pub async fn set_blank(
+async fn set_blank(
     p: &dyn PresentationController,
     sent: &mut Sent,
     want: bool,
+    voxxa_focused: bool,
 ) -> Result<(), CtlError> {
     if sent.blank == want && is_toggle(p.kind()) {
         return Ok(());
     }
+    refuse_if_focused(p, voxxa_focused)?;
     if want {
         p.blank().await?;
     } else {
@@ -84,7 +86,9 @@ async fn presentation_is(p: &dyn PresentationController, title: &str, operator: 
     match p.current_state().await.map(|s| s.presentation_name) {
         Ok(Some(name)) => {
             let have = norm(&name);
-            !have.is_empty() && !want.is_empty() && (have.contains(&want) || want.contains(&have))
+            // The app's name may add to the title ("Be Thou My Vision (Irish)"),
+            // never drop from it: "Grace" is not "Amazing Grace".
+            !want.is_empty() && have.contains(&want)
         }
         _ => false,
     }
@@ -102,8 +106,8 @@ pub async fn drive(
     let (song, slide, target, title) = match action {
         Action::Noop => return Ok(()),
         Action::Blank | Action::Unblank => {
-            refuse_if_focused(p, voxxa_focused)?;
-            return set_blank(p, sent, matches!(action, Action::Blank)).await;
+            let want = matches!(action, Action::Blank);
+            return set_blank(p, sent, want, voxxa_focused).await;
         }
         Action::Goto {
             song_index,
@@ -118,12 +122,13 @@ pub async fn drive(
             song_title,
         ),
     };
-    refuse_if_focused(p, voxxa_focused)?;
+    // Focus is checked only where a key is really pressed: a Goto that sends
+    // nothing must still record where the screen is.
     if p.capabilities().can_goto_slide {
         // Goto drivers address the slide inside the selected presentation.
         if sent.song != Some(song) {
             if !presentation_is(p, title, operator).await {
-                let _ = set_blank(p, sent, true).await;
+                let _ = set_blank(p, sent, true, voxxa_focused).await;
                 return Err(CtlError::Other(format!(
                     "select \"{title}\" in your presentation app"
                 )));
@@ -137,6 +142,9 @@ pub async fn drive(
         // Keystroke-style drivers step through the setlist with next/prev.
         // With nothing sent yet the position is unknown, so nothing is pressed.
         let delta = target - sent.global;
+        if delta != 0 {
+            refuse_if_focused(p, voxxa_focused)?;
+        }
         for i in 0..delta.unsigned_abs() {
             if i > 0 {
                 tokio::time::sleep(Duration::from_millis(60)).await;
@@ -150,7 +158,7 @@ pub async fn drive(
     }
     sent.global = target;
     if sent.blank {
-        set_blank(p, sent, false).await?;
+        set_blank(p, sent, false, voxxa_focused).await?;
     }
     Ok(())
 }

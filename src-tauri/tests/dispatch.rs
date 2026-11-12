@@ -141,7 +141,7 @@ async fn keystrokes_are_refused_while_voxxa_has_focus() {
     let p = Fake::toggle();
     let mut sent = Sent::default();
     auto(&p, &mut sent, goto(0, 0)).await.unwrap();
-    for action in [goto(0, 1), Action::Blank, Action::Unblank] {
+    for action in [goto(0, 1), Action::Blank] {
         for operator in [false, true] {
             let r = drive(&p, &mut sent, &action, true, operator).await;
             assert!(r
@@ -150,6 +150,10 @@ async fn keystrokes_are_refused_while_voxxa_has_focus() {
                 .contains("focus your presentation app"));
         }
     }
+    // Unblank while not blanked presses nothing, so there is nothing to refuse.
+    drive(&p, &mut sent, &Action::Unblank, true, false)
+        .await
+        .unwrap();
     assert_eq!(p.take(), Vec::<String>::new(), "no key may reach Voxxa");
     assert_eq!(
         sent,
@@ -170,6 +174,31 @@ async fn keystrokes_are_refused_while_voxxa_has_focus() {
         .await
         .unwrap();
     assert_eq!(p.take(), ["goto 1"]);
+}
+
+#[tokio::test]
+async fn a_first_goto_while_voxxa_has_focus_still_records_the_slide() {
+    // The operator presses Start in Voxxa; the first detection sends no key
+    // (the position is unknown), so focus must not stop it from recording
+    // where the screen is. Otherwise the deck stays one slide behind.
+    let p = Fake::toggle();
+    let mut sent = Sent::default();
+    drive(&p, &mut sent, &goto(0, 0), true, false)
+        .await
+        .unwrap();
+    assert_eq!(p.take(), Vec::<String>::new());
+    // The operator clicks PowerPoint; the next line advances one slide.
+    auto(&p, &mut sent, goto(0, 1)).await.unwrap();
+    assert_eq!(p.take(), ["next"]);
+}
+
+#[tokio::test]
+async fn a_shorter_presentation_name_is_not_the_song() {
+    // ProPresenter still shows "Grace" while the room sings Amazing Grace.
+    let p = Fake::goto("Grace");
+    let mut sent = Sent::default();
+    assert!(auto(&p, &mut sent, goto(0, 1)).await.is_err());
+    assert_eq!(p.take(), ["blank"], "no slide of the wrong presentation");
 }
 
 #[tokio::test]

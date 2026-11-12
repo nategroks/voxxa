@@ -680,6 +680,7 @@ pub async fn manual_step(
     app: &tauri::AppHandle,
     delta: i32,
 ) -> Result<(), String> {
+    refuse_keys_from_voxxa(state, app).await?;
     let (action, total) = {
         let mut c = state.conductor.lock().await;
         match c.as_mut() {
@@ -694,7 +695,6 @@ pub async fn manual_step(
         // No active song — direct presenter call. Still update the last-sent
         // slide so a subsequent lyric Goto computes a sane delta.
         let p = state.presenter.lock().await;
-        dispatch::refuse_if_focused(p.as_ref(), voxxa_focused(app)).map_err(|e| e.to_string())?;
         let r = if delta > 0 {
             p.next_slide().await
         } else {
@@ -704,7 +704,17 @@ pub async fn manual_step(
         state.sent.lock().await.global += delta as i64;
         return Ok(());
     }
-    dispatch(app, action, total, true).await
+    // Next/Prev do not confirm that the app shows a new song; only the song
+    // chip does (see dispatch::drive).
+    dispatch(app, action, total, false).await
+}
+
+/// With the keystroke driver, refuse an operator step while Voxxa has the
+/// focus before the conductor moves, so the conductor never runs ahead of
+/// a screen that did not move.
+async fn refuse_keys_from_voxxa(state: &AppState, app: &tauri::AppHandle) -> Result<(), String> {
+    let p = state.presenter.lock().await;
+    dispatch::refuse_if_focused(p.as_ref(), voxxa_focused(app)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -720,6 +730,7 @@ pub async fn jump_to_song(
     app: tauri::AppHandle,
     song_index: usize,
 ) -> Result<(), String> {
+    refuse_keys_from_voxxa(&state, &app).await?;
     let (action, total) = {
         let mut c = state.conductor.lock().await;
         match c.as_mut() {
