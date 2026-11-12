@@ -133,3 +133,69 @@ fn malformed_pdfs_return_err_instead_of_panicking() {
         assert!(voxxa_lib::pdf_parse(&bytes, "T").is_err());
     }
 }
+
+fn example_conductor() -> voxxa_lib::Conductor {
+    let json = std::fs::read_to_string(manifest_dir().join("../setlist.example.json")).unwrap();
+    let setlist: voxxa_lib::Setlist = serde_json::from_str(&json).unwrap();
+    voxxa_lib::Conductor::new(setlist.setlist, voxxa_lib::SmartConfig::default())
+}
+
+const AMAZING_GRACE_V1: &str = "amazing grace how sweet the sound that saved a wretch like me \
+    i once was lost but now am found was blind but now i see";
+const MS: fn(u64) -> std::time::Duration = std::time::Duration::from_millis;
+
+/// Q2-02 (audit 1): after a song and a blank, a prayer must not bring the lyrics back.
+#[test]
+fn prayer_after_blank_does_not_reshow_lyrics() {
+    use voxxa_lib::Action;
+    let mut c = example_conductor();
+    let t0 = std::time::Instant::now();
+    assert!(matches!(
+        c.on_transcript(AMAZING_GRACE_V1, t0),
+        Action::Goto { .. }
+    ));
+    let blanked = (1..=50).any(|i| matches!(c.tick(t0 + MS(200 * i)), Action::Blank));
+    assert!(blanked && c.is_blank(), "10 s of silence blanks");
+    let action = c.on_transcript(
+        "let us bow our heads and pray father we thank you for this morning",
+        t0 + MS(11_000),
+    );
+    assert!(matches!(action, Action::Noop), "got {action:?}");
+    assert!(c.is_blank());
+}
+
+/// Q2-02 (audit 1): continuous speech that matches no song blanks the screen.
+#[test]
+fn continuous_unmatched_speech_blanks() {
+    use voxxa_lib::Action;
+    let sermon = [
+        "good morning church it is so good to see every one of you here today",
+        "before we begin please turn to the person next to you and say hello",
+        "this week the youth group meets on wednesday at six in the fellowship hall",
+        "open your bibles with me to the gospel of mark chapter four verse thirty five",
+        "jesus and his disciples got into a boat and a great storm came up on the lake",
+    ];
+    let mut c = example_conductor();
+    let t0 = std::time::Instant::now();
+    c.on_transcript(AMAZING_GRACE_V1, t0);
+    let first_unmatched = 5_000;
+    let limit =
+        (voxxa_lib::SmartConfig::default().unrecognized_speech_to_blank_secs * 1000.0) as u64;
+    let mut blank_at = None;
+    for ms in (200..30_000).step_by(200) {
+        let now = t0 + MS(ms);
+        c.on_speech(now);
+        if ms % 5_000 == 0 {
+            c.on_transcript(sermon[(ms / 5_000) as usize % sermon.len()], now);
+        }
+        if matches!(c.tick(now), Action::Blank) {
+            blank_at.get_or_insert(ms);
+        }
+    }
+    let blank_at = blank_at.expect("unmatched speech never blanked");
+    assert!(
+        blank_at <= first_unmatched + limit + 200,
+        "blanked at {blank_at} ms"
+    );
+    assert!(c.is_blank());
+}

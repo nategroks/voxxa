@@ -71,7 +71,9 @@ impl Default for SmartConfig {
             unrecognized_speech_to_blank_secs: 5.0,
             song_confidence_floor: 0.60,
             song_second_max: 0.40,
-            min_song_match: 40.0,
+            // Measured on setlist.example.json: unrelated speech scores 44-54,
+            // sung lyrics (with Whisper errors) 84-99. 40 let speech through.
+            min_song_match: 60.0,
             min_song_dwell_secs: 8.0,
             slide_advance_debounce_ms: 1500,
             min_advance_match: 70.0,
@@ -131,6 +133,8 @@ pub struct Conductor {
 
     last_speech: Option<Instant>,
     last_advance: Option<Instant>,
+    /// First transcript since the last match that did not match the current song.
+    unmatched_since: Option<Instant>,
 
     /// Most recent per-song softmax scores. Refreshed on every on_transcript
     /// call so the UI can render confidence bars in real time. Empty before
@@ -161,6 +165,7 @@ impl Conductor {
             buffer_words: Vec::new(),
             last_speech: None,
             last_advance: None,
+            unmatched_since: None,
             last_scores: Vec::new(),
         }
     }
@@ -227,6 +232,16 @@ impl Conductor {
 
     /// Time-based transitions. Call regularly (~100 ms is fine).
     pub fn tick(&mut self, now: Instant) -> Action {
+        let limit = Duration::from_secs_f64(self.config.unrecognized_speech_to_blank_secs);
+        if !self.is_blank
+            && self
+                .unmatched_since
+                .is_some_and(|t| now.saturating_duration_since(t) >= limit)
+        {
+            self.transition(MachineState::BlankHold, now);
+            self.is_blank = true;
+            return Action::Blank;
+        }
         let since_speech = match self.last_speech {
             Some(t) => now.saturating_duration_since(t),
             None => Duration::from_secs(86_400),
@@ -326,6 +341,18 @@ impl Conductor {
             return advance;
         }
 
+        // Speech that does not match the current song must not re-show it;
+        // tick() blanks once it has gone on for unrecognized_speech_to_blank_secs.
+        let current_raw = scores
+            .iter()
+            .find(|s| s.song_index == current)
+            .map_or(0.0, |s| s.raw_score);
+        if current_raw < self.config.min_song_match {
+            self.unmatched_since.get_or_insert(now);
+            return Action::Noop;
+        }
+        self.unmatched_since = None;
+
         // We matched the current song but didn't advance — ensure output is unblanked
         // and showing the current slide (recovers from BlankHold/InterVerseSilence).
         if self.is_blank || self.state != MachineState::Singing {
@@ -405,6 +432,7 @@ impl Conductor {
             self.current_slide_in_song = curr_idx + 1;
             self.buffer_words.clear();
             self.last_advance = Some(now);
+            self.unmatched_since = None;
             self.is_blank = false;
             self.transition(MachineState::Singing, now);
             log::info!(
@@ -427,6 +455,7 @@ impl Conductor {
         self.song_started_at = Some(now);
         self.buffer_words.clear();
         self.last_advance = Some(now);
+        self.unmatched_since = None;
         self.is_blank = false;
         self.transition(MachineState::Singing, now);
         self.goto_action_for_current().unwrap_or(Action::Noop)
@@ -484,6 +513,7 @@ impl Conductor {
         }
         self.current_slide_in_song = target as usize;
         self.last_advance = Some(now);
+        self.unmatched_since = None;
         self.is_blank = false;
         self.transition(MachineState::Singing, now);
         // Operator overrode the conductor — drop the rolling buffer so a
