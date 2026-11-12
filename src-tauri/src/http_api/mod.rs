@@ -3,14 +3,16 @@
 //! Off by default; the operator opts in via Settings → Integrations and picks
 //! a port (default 7575). Bound to 127.0.0.1 only — there is no use case for
 //! letting Voxxa be commanded from another machine over the LAN, and binding
-//! to 0.0.0.0 would be a footgun. Optional bearer token gates writes when set.
+//! to 0.0.0.0 would be a footgun. Every request needs the bearer token, and
+//! browser (Origin) and foreign-Host requests are refused: a web page could
+//! otherwise drive the screen or the mic (CSRF, DNS rebinding).
 //!
 //! Stream Deck plugins, Loupedeck profiles, foot pedals, MIDI controllers,
 //! and arbitrary shell scripts are the use cases.
 
 use axum::{
     extract::State,
-    http::{HeaderMap, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     routing::{get, post},
     Json, Router,
 };
@@ -22,12 +24,13 @@ use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
 /// Shared with route handlers. Holds a `tauri::AppHandle` so handlers can
-/// invoke commands the same way the JS frontend would, plus the bearer token
-/// for write-protection.
+/// invoke commands the same way the JS frontend would, plus what every
+/// request is checked against.
 #[derive(Clone)]
 struct ApiContext {
     app: tauri::AppHandle,
-    token: Option<String>,
+    token: String,
+    port: u16,
 }
 
 pub struct HttpApiServer {
@@ -52,17 +55,23 @@ impl HttpApiServer {
         self.port
     }
 
-    /// Bind and start the API. Errors if it's already running or the port is taken.
+    /// Bind and start the API; returns the token it requires. Errors if it's
+    /// already running, the token is too short or the port is taken.
     pub async fn start(
         &mut self,
         app: tauri::AppHandle,
         port: u16,
         token: Option<String>,
-    ) -> Result<(), String> {
+    ) -> Result<String, String> {
         if self.handle.is_some() {
             return Err("HTTP API already running".into());
         }
-        let ctx = ApiContext { app, token };
+        let token = resolve_token(token)?;
+        let ctx = ApiContext {
+            app,
+            token: token.clone(),
+            port,
+        };
         let router = Router::new()
             .route("/api/v1/state", get(get_state))
             .route("/api/v1/next", post(post_next))
@@ -87,7 +96,7 @@ impl HttpApiServer {
         });
         self.handle = Some(handle);
         self.port = port;
-        Ok(())
+        Ok(token)
     }
 
     pub fn stop(&mut self) {
@@ -114,28 +123,62 @@ struct ApiError {
     error: String,
 }
 
-/// Check the bearer token if one is configured. Returns Err with 401 when the
-/// token is wrong; Ok(()) when it's either absent (no auth required) or correct.
-fn check_token(ctx: &ApiContext, headers: &HeaderMap) -> Result<(), (StatusCode, Json<ApiError>)> {
-    let Some(required) = &ctx.token else {
-        return Ok(());
-    };
-    let header = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.strip_prefix("Bearer "))
-        .unwrap_or("");
-    // Constant-time-ish equality on equal-length strings; fine for a local API.
-    if header == required {
+/// The token the API requires: the operator's (16+ characters) or, when none
+/// is given, a random 32-hex one that the GUI then shows.
+pub fn resolve_token(token: Option<String>) -> Result<String, String> {
+    match token.filter(|t| !t.is_empty()) {
+        Some(t) if t.len() < 16 => {
+            Err("The token needs 16+ characters; leave it empty to generate one.".into())
+        }
+        Some(t) => Ok(t),
+        None => {
+            let mut bytes = [0u8; 16];
+            getrandom::fill(&mut bytes).map_err(|e| format!("no random token: {e}"))?;
+            Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
+        }
+    }
+}
+
+/// The guard on every route. A browser always sends Origin on cross-site
+/// requests and a DNS-rebinding page has a foreign Host: both are refused
+/// before the token is checked.
+pub fn authorize(headers: &HeaderMap, port: u16, token: &str) -> Result<(), StatusCode> {
+    let host = headers.get(header::HOST).and_then(|h| h.to_str().ok());
+    let local = [format!("127.0.0.1:{port}"), format!("localhost:{port}")];
+    if headers.contains_key(header::ORIGIN) || !host.is_some_and(|h| local.iter().any(|l| l == h)) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    let given = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|v| v.split_once(' '))
+        .filter(|(scheme, _)| scheme.eq_ignore_ascii_case("bearer"))
+        .map_or("", |(_, t)| t.trim());
+    // Constant time: every byte is compared whatever the first mismatch.
+    let diff = given
+        .bytes()
+        .zip(token.bytes())
+        .fold(0, |acc, (a, b)| acc | (a ^ b));
+    if given.len() == token.len() && diff == 0 {
         Ok(())
     } else {
-        Err((
-            StatusCode::UNAUTHORIZED,
-            Json(ApiError {
-                error: "invalid or missing bearer token".into(),
-            }),
-        ))
+        Err(StatusCode::UNAUTHORIZED)
     }
+}
+
+fn check_token(ctx: &ApiContext, headers: &HeaderMap) -> Result<(), (StatusCode, Json<ApiError>)> {
+    authorize(headers, ctx.port, &ctx.token).map_err(|code| {
+        let error = match code {
+            StatusCode::FORBIDDEN => "browser and non-local requests are refused",
+            _ => "invalid or missing bearer token",
+        };
+        (
+            code,
+            Json(ApiError {
+                error: error.into(),
+            }),
+        )
+    })
 }
 
 async fn get_state(

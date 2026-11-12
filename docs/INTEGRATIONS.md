@@ -21,8 +21,12 @@ Base URL: `http://127.0.0.1:<port>` (default `7575`, configurable).
 | POST | `/api/v1/listen/start` | Start auto-advance |
 | POST | `/api/v1/listen/stop` | Stop auto-advance |
 
-When the **Bearer token** field in Settings is non-empty, every request
-needs `Authorization: Bearer <token>`. When empty, no auth is required.
+Every request needs `Authorization: Bearer <token>`. Leave the **Bearer
+token** field in Settings empty and Voxxa generates a random token when you
+turn the API on and shows it in that field; copy it into your controller.
+A token you type yourself needs at least 16 characters. Requests that carry
+an `Origin` header (any web page) or a `Host` other than
+`127.0.0.1:<port>` / `localhost:<port>` get `403`.
 
 ### `GET /api/v1/state`
 
@@ -42,8 +46,9 @@ or `BlankHold` (see §4.3 of the project plan).
 
 ### Write endpoints
 
-All write endpoints return `204 No Content` on success, `401` on bad
-token, or `500` with a JSON `{"error": "..."}` body on failure.
+All write endpoints return `204 No Content` on success, `401` on a
+missing or wrong token, `403` for browser or non-local requests, or `500`
+with a JSON `{"error": "..."}` body on failure.
 
 ## Stream Deck (Elgato)
 
@@ -58,8 +63,8 @@ The simplest. No plugin needed.
    you want on that key).
 3. **Access in Background**: ON.
 4. **HTTP method**: switch to **POST** in the action's properties.
-5. **Headers**: if you set a bearer token, add
-   `Authorization: Bearer <your-token>`.
+5. **Headers**: add `Authorization: Bearer <your-token>` (the token shown
+   in Voxxa's Settings).
 
 Repeat for Prev, Blank, Start/Stop. The downside: no visual feedback —
 the key just fires.
@@ -105,8 +110,8 @@ Example bridge in Python with `hidapi`:
 import hid, requests
 
 VOXXA = "http://127.0.0.1:7575"
-TOKEN = ""  # set if you configured one
-HEADERS = {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
+TOKEN = "paste-the-token-from-voxxa-settings"
+HEADERS = {"Authorization": f"Bearer {TOKEN}"}
 
 # Replace with your pedal's vendor/product IDs (lsusb / Device Manager).
 VENDOR_ID = 0x05F3
@@ -150,8 +155,8 @@ with `mido` does the job:
 import mido, requests
 
 VOXXA = "http://127.0.0.1:7575"
-TOKEN = ""
-HEADERS = {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
+TOKEN = "paste-the-token-from-voxxa-settings"
+HEADERS = {"Authorization": f"Bearer {TOKEN}"}
 
 # CC -> action map. Customise to your controller.
 MAP = {
@@ -176,27 +181,29 @@ with mido.open_input() as port:
 Manual cron-like triggers, or one-off cues from any terminal:
 
 ```bash
+TOKEN=paste-the-token-from-voxxa-settings
+
 # Status snapshot
-curl -s http://127.0.0.1:7575/api/v1/state | jq .
+curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:7575/api/v1/state | jq .
 
 # Next slide
-curl -X POST http://127.0.0.1:7575/api/v1/next
+curl -X POST -H "Authorization: Bearer $TOKEN" http://127.0.0.1:7575/api/v1/next
 
-# Blank (with token)
-curl -X POST -H "Authorization: Bearer mytoken" \
-  http://127.0.0.1:7575/api/v1/blank
+# Blank
+curl -X POST -H "Authorization: Bearer $TOKEN" http://127.0.0.1:7575/api/v1/blank
 ```
 
 ## Security notes
 
-- The HTTP server binds **only** to `127.0.0.1`. There is no way to
-  expose it on the LAN through Voxxa's UI. If you want remote control,
-  put Voxxa behind something like Tailscale Funnel and tunnel from
-  there — never expose `0.0.0.0` directly.
-- The Bearer token is in-memory only and not persisted across launches.
-  Re-set it after restart if your integration needs it. (Persisting
-  the token to disk is on the roadmap for a future OS-keychain
-  integration.)
-- The `/api/v1/listen/start` endpoint can be a service-stopping action
-  in unfriendly hands; if you're piping commands through a shared
-  Stream Deck profile or remote bridge, set a token even on 127.0.0.1.
+- The HTTP server binds **only** to `127.0.0.1`. Do not expose it to the
+  LAN or the internet (no port forwarding, no tunnels such as Tailscale
+  Funnel): anyone who reaches it can blank the screen, move slides or
+  turn on the microphone.
+- The token is always required. Binding to 127.0.0.1 alone does not stop
+  a web page open on the same laptop from sending requests, so Voxxa also
+  refuses any request with an `Origin` header or a non-local `Host`.
+  Browser-based controllers therefore cannot call the API directly; use a
+  native tool (Stream Deck Website action, Companion, a script).
+- The token is in memory only and not persisted across launches: a
+  generated token changes each time the API is turned on. Type your own
+  (16+ characters) if your controller should keep working after a restart.

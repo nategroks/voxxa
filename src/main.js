@@ -1541,7 +1541,8 @@ if (httpApiToggle) {
       const port = parseInt(httpApiPort.value, 10) || 7575;
       const token = httpApiToken.value || null;
       try {
-        await invoke("start_http_api", { port, token });
+        httpApiToken.value = await invoke("start_http_api", { port, token });
+        httpApiToken.type = "text"; // show the (possibly generated) token so it can be copied
         writeJsonStorage(HTTP_API_STORAGE_KEY, { port, enabled: true });
       } catch (err) {
         console.error("start_http_api:", err);

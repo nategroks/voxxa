@@ -660,3 +660,63 @@ fn old_listening_loop_cannot_stop_a_new_session() {
     assert!(new.load(SeqCst) && l.is_running());
     assert!(!old.load(SeqCst));
 }
+
+/// Q2-13 (audit 10): the token is mandatory (generated when none is given).
+#[test]
+fn http_api_token_is_mandatory() {
+    let generated = voxxa_lib::resolve_token(None).unwrap();
+    assert_eq!(generated.len(), 32);
+    assert!(generated.chars().all(|c| c.is_ascii_hexdigit()));
+    assert_ne!(
+        generated,
+        voxxa_lib::resolve_token(Some(String::new())).unwrap()
+    );
+    assert!(voxxa_lib::resolve_token(Some("short".into())).is_err());
+    let own = "sixteen-chars-ok".to_string();
+    assert_eq!(voxxa_lib::resolve_token(Some(own.clone())).unwrap(), own);
+}
+
+/// Q2-13 (audit 10): web pages (Origin), DNS rebinding (foreign Host) and
+/// missing or wrong tokens are refused on every route.
+#[test]
+fn http_api_refuses_browsers_rebinding_and_bad_tokens() {
+    use axum::http::{HeaderMap, StatusCode};
+    const TOKEN: &str = "0123456789abcdef0123456789abcdef";
+    let req = |host: &str, auth: Option<&str>, origin: Option<&str>| {
+        let mut h = HeaderMap::new();
+        h.insert("host", host.parse().unwrap());
+        if let Some(a) = auth {
+            h.insert("authorization", a.parse().unwrap());
+        }
+        if let Some(o) = origin {
+            h.insert("origin", o.parse().unwrap());
+        }
+        voxxa_lib::authorize(&h, 7575, TOKEN)
+    };
+    let good = format!("Bearer {TOKEN}");
+    assert_eq!(req("127.0.0.1:7575", Some(&good), None), Ok(()));
+    assert_eq!(
+        req("localhost:7575", Some(&format!("bearer {TOKEN}")), None),
+        Ok(())
+    );
+    assert_eq!(
+        req("127.0.0.1:7575", None, None),
+        Err(StatusCode::UNAUTHORIZED)
+    );
+    assert_eq!(
+        req("127.0.0.1:7575", Some("Bearer wrong"), None),
+        Err(StatusCode::UNAUTHORIZED)
+    );
+    assert_eq!(
+        req("evil.example:7575", Some(&good), None),
+        Err(StatusCode::FORBIDDEN)
+    );
+    assert_eq!(
+        req("127.0.0.1:7575", Some(&good), Some("https://evil.example")),
+        Err(StatusCode::FORBIDDEN)
+    );
+    assert_eq!(
+        voxxa_lib::authorize(&HeaderMap::new(), 7575, TOKEN),
+        Err(StatusCode::FORBIDDEN)
+    );
+}
