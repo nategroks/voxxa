@@ -7,6 +7,7 @@ mod dispatch;
 mod http_api;
 mod hymnary;
 mod importers;
+pub mod listen;
 mod net_stats;
 mod planning_center;
 mod presenters;
@@ -17,7 +18,8 @@ mod vad;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
+pub use aligner::{check_setlist, Action, Conductor, MachineState, Setlist};
+pub use aligner::{Slide, SmartConfig, Song};
 pub use audio::{choose_config, AudioEngine, Resampler};
 pub use commands::Sessions;
 pub use dispatch::{drive, step, Sent};

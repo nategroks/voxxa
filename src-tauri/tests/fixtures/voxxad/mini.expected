@@ -1,0 +1,6 @@
+{"v":1,"t":300,"ev":"hypothesis","text":"Amazing grace, how sweet the sound that saved a wretch like me"}
+{"v":1,"t":300,"ev":"action","action":{"goto":{"song_index":0,"slide_in_song":0,"global_index":0,"slide_text":"Amazing grace, how sweet the sound\nThat saved a wretch like me\nI once was lost, but now am found\nWas blind, but now I see","next_slide_text":"'Twas grace that taught my heart to fear\nAnd grace my fears relieved\nHow precious did that grace appear\nThe hour I first believed","song_title":"Amazing Grace"}}}
+{"v":1,"t":400,"ev":"status","state":"singing","blank":false}
+{"v":1,"t":3400,"ev":"status","state":"inter_verse_silence","blank":false}
+{"v":1,"t":5400,"ev":"action","action":"blank"}
+{"v":1,"t":5400,"ev":"status","state":"blank_hold","blank":true}

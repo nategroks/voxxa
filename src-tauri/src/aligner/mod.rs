@@ -87,8 +87,9 @@ impl Default for SmartConfig {
 }
 
 /// Imperative action the state machine asks the audio loop to perform on the
-/// active presenter driver.
-#[derive(Debug, Clone)]
+/// active presenter driver. `voxxad` prints it as JSON.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Action {
     Noop,
     /// Move audience output to a specific slide. `global_index` is the index in

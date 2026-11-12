@@ -6,6 +6,8 @@ authors = ["nategroks"]
 license = "GPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.90"
+# Two binaries: the app, and the headless voxxad (src/bin/voxxad.rs).
+default-run = "voxxa"
 
 [lib]
 name = "voxxa_lib"
