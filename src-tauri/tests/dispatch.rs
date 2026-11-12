@@ -6,8 +6,8 @@
 use async_trait::async_trait;
 use std::sync::Mutex;
 use voxxa_lib::{
-    drive, Action, Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind,
-    PresenterState, Sent,
+    drive, step, Action, Capabilities, CtlError, PresentationController, PresenterConfig,
+    PresenterKind, PresenterState, Sent,
 };
 
 struct Fake {
@@ -305,4 +305,39 @@ async fn goto_drivers_that_cannot_report_the_presentation_trust_only_the_operato
     assert_eq!(p.take(), ["goto 0", "unblank"]);
     auto(&p, &mut sent, goto(2, 3)).await.unwrap();
     assert_eq!(p.take(), ["goto 3"]);
+}
+
+#[tokio::test]
+async fn a_raw_step_after_a_blank_keeps_the_toggle_in_step() {
+    // Next/Prev with no song active (button, HTTP /next, Stream Deck) press
+    // one raw key. In PowerPoint any key ends the black, so the flag must
+    // follow, or the first detection presses the toggle and blacks out.
+    let p = Fake::toggle();
+    let mut sent = Sent::default();
+    auto(&p, &mut sent, goto(0, 0)).await.unwrap();
+    drive(&p, &mut sent, &Action::Blank, false, true)
+        .await
+        .unwrap();
+    step(&p, &mut sent, 1, false).await.unwrap();
+    assert_eq!(*p.screen.lock().unwrap(), (1, false), "slide 1 shows");
+    assert!(!sent.blank);
+    auto(&p, &mut sent, goto(0, 0)).await.unwrap();
+    assert_eq!(*p.screen.lock().unwrap(), (0, false), "verse 1 visible");
+    assert!(!sent.blank);
+    auto(&p, &mut sent, Action::Blank).await.unwrap();
+    assert_eq!(
+        *p.screen.lock().unwrap(),
+        (0, true),
+        "the next Blank blanks"
+    );
+    assert_eq!(p.take(), ["blank", "unblank", "next", "prev", "blank"]);
+    // Voxxa focused: refused, nothing pressed, nothing recorded.
+    let before = sent;
+    assert!(step(&p, &mut sent, 1, true).await.is_err());
+    assert_eq!((p.take(), sent), (vec![], before));
+    // Network drivers: one key, no toggle bookkeeping.
+    let p = Fake::goto("Amazing Grace");
+    let mut sent = Sent::default();
+    step(&p, &mut sent, -1, true).await.unwrap();
+    assert_eq!(p.take(), ["prev"]);
 }

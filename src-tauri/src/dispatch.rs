@@ -174,3 +174,25 @@ pub async fn drive(
     }
     Ok(())
 }
+
+/// The operator's Next/Prev with no song active: one raw key. Like a Goto,
+/// a toggle driver unblanks first: any key ends PowerPoint's black, so the
+/// key alone would leave `sent.blank` inverted. Other drivers are unchanged.
+pub async fn step(
+    p: &dyn PresentationController,
+    sent: &mut Sent,
+    delta: i32,
+    voxxa_focused: bool,
+) -> Result<(), CtlError> {
+    refuse_if_focused(p, voxxa_focused)?;
+    if is_toggle(p.kind()) {
+        set_blank(p, sent, false, voxxa_focused).await?;
+    }
+    if delta > 0 {
+        p.next_slide().await?;
+    } else {
+        p.prev_slide().await?;
+    }
+    sent.global += delta as i64;
+    Ok(())
+}

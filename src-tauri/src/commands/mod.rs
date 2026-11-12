@@ -704,17 +704,12 @@ pub async fn manual_step(
         }
     };
     if matches!(action, Action::Noop) {
-        // No active song — direct presenter call. Still update the last-sent
-        // slide so a subsequent lyric Goto computes a sane delta.
+        // No active song: one raw key, recorded in `sent` (dispatch::step).
         let p = state.presenter.lock().await;
-        let r = if delta > 0 {
-            p.next_slide().await
-        } else {
-            p.prev_slide().await
-        };
-        r.map_err(|e| e.to_string())?;
-        state.sent.lock().await.global += delta as i64;
-        return Ok(());
+        let mut sent = state.sent.lock().await;
+        return dispatch::step(p.as_ref(), &mut sent, delta, voxxa_focused(app))
+            .await
+            .map_err(|e| e.to_string());
     }
     // Next/Prev do not confirm that the app shows a new song; only the song
     // chip does (see dispatch::drive).

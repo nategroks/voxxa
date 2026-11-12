@@ -20,7 +20,7 @@ use tokio::sync::Mutex;
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::{choose_config, AudioEngine, Resampler};
 pub use commands::Sessions;
-pub use dispatch::{drive, Sent};
+pub use dispatch::{drive, step, Sent};
 pub use http_api::{authorize, resolve_token};
 pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
