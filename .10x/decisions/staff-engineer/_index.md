@@ -27,3 +27,8 @@ Log: `reviews/2026-11-11-q0-claim-verification.md`.
 - **Patterns worth keeping (qualified):** the Capabilities pattern is good, but the "parity" test is one-way and skips unblank, and the GUI ignores the flags. "Action dispatched by capability" holds for Goto only.
 - **Unused dependency:** `env_logger`.
 - **Tracked prototype:** a Python prototype (`main.py`, `requirements.txt`, `voxxa/`) is still tracked on both branches. It is outside the merge diff.
+
+## Q3 (2026-11-12): conventions for `voxxad` (ADR-013)
+- The CLI lives in `src-tauri/src/bin/voxxad/` (`main.rs` for flags and I/O, `events.rs` for the wire format, the session recorder and replay). `events.rs` refers only to `voxxa_lib::…`, so `src-tauri/tests/voxxad_events.rs` includes it with `#[path]` and tests it without the binary or the model.
+- No new crates: flags and the WAV header are parsed by hand; `chrono`, `dirs`, `serde_json`, `tokio` are already dependencies.
+- Shared behaviour goes in the library or not at all: the loop (`listen::run`), the conductor input (`Conductor::apply`) and dispatch (`dispatch::drive`) each have one implementation.
