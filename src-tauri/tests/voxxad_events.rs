@@ -204,12 +204,7 @@ fn replay_recomputes_the_actions_instead_of_copying_them() {
     // Leave only the inputs: no action and no conductor status line.
     let inputs: String = (log.lines())
         .filter(|l| !outputs(l))
-        .map(|l| {
-            format!(
-                "{l}
-"
-            )
-        })
+        .map(|l| format!("{l}\n"))
         .collect();
     let replayed: Vec<String> = (replay(&inputs, songs()).unwrap().iter())
         .map(Line::to_json)
@@ -233,11 +228,7 @@ fn a_changed_transcript_changes_the_replayed_actions() {
             if let Kind::Hypothesis { text } = &mut line.kind {
                 *text = "Father we thank you for this morning and for everyone here".into();
             }
-            format!(
-                "{}
-",
-                line.to_json()
-            )
+            format!("{}\n", line.to_json())
         })
         .collect();
     let replayed = replay(&prayed, songs()).unwrap();
@@ -354,7 +345,7 @@ fn voxxad_reports_bad_input_as_one_error_line() {
     let dir = tempfile::tempdir().unwrap();
     // A mono 16-bit WAV with two samples at `rate`.
     let wav = |rate: u32| {
-        let mut bytes = b"RIFF    WAVEfmt ".to_vec();
+        let mut bytes = b"RIFF\0\0\0\0WAVEfmt ".to_vec();
         bytes.extend(16u32.to_le_bytes());
         bytes.extend([1, 0, 1, 0]);
         bytes.extend(rate.to_le_bytes());
