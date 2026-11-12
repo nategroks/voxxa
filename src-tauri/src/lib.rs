@@ -24,7 +24,7 @@ pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
     PresenterConfig, PresenterKind, PresenterState,
 };
-pub use transcription::TranscriptionEngine;
+pub use transcription::{download_and_load, download_file, TranscriptionEngine, WhisperModel};
 pub use vad::VadEngine;
 
 // Test-friendly importer re-exports. The integration tests in tests/

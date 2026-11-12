@@ -589,40 +589,32 @@ pub async fn download_model(
     model_name: String,
 ) -> Result<(), String> {
     let model = parse_model(&model_name)?;
-    // Drop the transcription lock before awaiting the download so other commands
-    // (status polls, language sets) don't block for the duration of a 1 GB pull.
-    {
-        let transcription = state.transcription.lock().await;
-        let app_handle = app.clone();
-        transcription
-            .download_model(&model, move |downloaded, total| {
-                let percent = if total > 0 {
-                    (downloaded as f32 / total as f32) * 100.0
-                } else {
-                    0.0
-                };
-                let _ = app_handle.emit(
-                    "download-progress",
-                    DownloadProgress {
-                        downloaded,
-                        total,
-                        percent,
-                    },
-                );
-            })
-            .await
-            .map_err(|e| e.to_string())?;
-    }
-    // Auto-load on first download so the operator doesn't have to remember to
-    // hit a separate "Use" button before pressing record. If a model is already
-    // loaded, leave the active model alone.
-    let mut transcription = state.transcription.lock().await;
-    if transcription.current_model().is_none() {
-        if let Err(e) = transcription.load_model(&model) {
-            log::warn!("auto-load after download failed: {e}");
-        }
-    }
-    Ok(())
+    let app_handle = app.clone();
+    let progress = move |downloaded, total| {
+        let percent = if total > 0 {
+            (downloaded as f32 / total as f32) * 100.0
+        } else {
+            0.0
+        };
+        let _ = app_handle.emit(
+            "download-progress",
+            DownloadProgress {
+                downloaded,
+                total,
+                percent,
+            },
+        );
+    };
+    // Downloads without holding the transcription lock, then auto-loads the
+    // model if none is loaded, so the operator need not press "Use".
+    crate::transcription::download_and_load(
+        &state.transcription,
+        &model,
+        &model.download_url(),
+        progress,
+    )
+    .await
+    .map_err(|e| e.to_string())
 }
 
 /// Manually advance one slide. Routes through the conductor when a song is
