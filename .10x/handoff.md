@@ -9,6 +9,7 @@
 ## Q3 finisher (2026-11-12) → orchestrator
 - `q3/base` = `q3/10x` merged with `--no-ff` (f6d18b3) + the comparator's picks, one commit each (7cc75b2..1f5e31b): the 10x test file made plain text (it held raw NULs), the bounded feeder, replay `path: session line N` errors and the `v` check, `say()` for every stdout line (no panic on a closed pipe), the keystroke stderr warning, usage errors for flags a mode would ignore, and three ADR-013 text fixes (privacy, release packaging, match the code). No graft was skipped.
 - All 7 gates pass from the worktree; exit demo re-run with real output (record: `decisions/sde/church-autoadvance.md`, "Q3 finish").
+- Verifier fixes (c54f16e, aa8b2d3, d65da8f, tests only): mutations M2–M6 in `listen::run` now each fail a test; a 12 s public-domain speech WAV is committed as a test fixture. 109 tests; all 7 gates and the exit demo pass again (record: "Q3 verifier fixes").
 - Still to do (pre-approved above): the ponytail record `reviews/2026-11-12-ponytail-q3.md`, push `q3/base`, draft PR, CI, file Q3 tickets including **Q3-T1** (does `tauri build` bundle `voxxad`? see ADR-013 Risks).
 - Watch out: text written through a Bash heredoc on this PC can turn `\0`, `\n` and `\v` into control bytes (seen in this run; probably how the NULs got into the 10x test file and a vertical tab into this file's model path, both fixed). Write such text with the Edit/Write tools and check with `git grep -lP '[\x00\x0b]'`.
 
