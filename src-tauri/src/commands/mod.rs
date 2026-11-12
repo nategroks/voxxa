@@ -9,9 +9,10 @@ use crate::planning_center::{PcoClient, PcoPlan, PcoServiceType};
 use crate::presenters::{
     make_controller, Capabilities, KeystrokeProfile, PresenterConfig, PresenterKind, PresenterState,
 };
-use crate::transcription::WhisperModel;
+use crate::transcription::{Rolling, WhisperModel};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -185,29 +186,20 @@ pub async fn start_listening_with_state(
     // without building a fresh runtime each iteration.
     let rt_handle = tokio::runtime::Handle::current();
     tokio::task::spawn_blocking(move || {
-        let sink = |_: Instant, event: Event| match event {
-            Event::Input(Input::Heard(text)) => {
-                let _ = app.emit("transcription", TranscriptionEvent { text });
-            }
-            Event::Action(action, total) => {
-                if let Err(e) = rt_handle.block_on(dispatch(&app, action, total, false)) {
+        let sink = |_: Instant, event: Event| match to_gui(event) {
+            Some(ToGui::Emit(name, payload)) => drop(app.emit(name, payload)),
+            Some(ToGui::Dispatch(action, total, operator)) => {
+                if let Err(e) = rt_handle.block_on(dispatch(&app, action, total, operator)) {
                     log::warn!("[DISPATCH] {e}");
-                    let _ = app.emit("presenter-error", e);
+                    let _ = app.emit(PRESENTER_ERROR, e);
                 }
             }
-            Event::State(state, is_blank) => {
-                let _ = app.emit("machine-state", StateChanged { state, is_blank });
-            }
-            Event::Mic(level) => drop(app.emit("mic-level", level)),
-            Event::Detection(rows) => drop(app.emit("song-detection", DetectionEvent { rows })),
-            Event::Input(_) | Event::Error(_) => {}
+            None => {}
         };
-        let transcribe = |pcm: &[f32]| {
-            transcription
-                .blocking_lock()
-                .transcribe(pcm)
-                .map(|r| r.text)
-        };
+        // The engine is locked per hop, so a model download can load meanwhile.
+        let whisper = Rolling::new(|pcm: &[f32], prompt: Option<&str>| {
+            transcription.blocking_lock().words(pcm, prompt)
+        });
         // `disconnected` distinguishes a clean stop (operator hit stop) from
         // the audio device dropping out underneath us. The frontend listens
         // for `listening-stopped` so it can re-arm the start button either way.
@@ -216,7 +208,7 @@ pub async fn start_listening_with_state(
             &run,
             &vad,
             &conductor,
-            transcribe,
+            whisper,
             |_| Instant::now(),
             sink,
         );
@@ -233,6 +225,36 @@ pub async fn start_listening_with_state(
     });
 
     Ok(())
+}
+
+/// The Tauri event a failed loop dispatch is reported with.
+pub const PRESENTER_ERROR: &str = "presenter-error";
+
+/// What the GUI does with one event of the listening loop.
+#[derive(Debug)]
+pub enum ToGui {
+    /// Emit a Tauri event: its name and JSON payload.
+    Emit(&'static str, serde_json::Value),
+    /// `dispatch(action, total_slides, operator)`; `operator` is false: the
+    /// loop is not the operator.
+    Dispatch(Action, Option<usize>, bool),
+}
+
+/// The GUI's mapping of loop events, kept pure so tests pin it (Q3-02).
+pub fn to_gui(event: Event) -> Option<ToGui> {
+    let emit = |name, payload| Some(ToGui::Emit(name, payload));
+    match event {
+        Event::Input(Input::Heard(text)) => {
+            emit("transcription", json!(TranscriptionEvent { text }))
+        }
+        Event::Action(action, total) => Some(ToGui::Dispatch(action, total, false)),
+        Event::State(state, is_blank) => {
+            emit("machine-state", json!(StateChanged { state, is_blank }))
+        }
+        Event::Mic(level) => emit("mic-level", json!(level)),
+        Event::Detection(rows) => emit("song-detection", json!(DetectionEvent { rows })),
+        Event::Input(_) | Event::Error(_) => None,
+    }
 }
 
 /// True when a Voxxa window has the keyboard focus, so synthetic keys would

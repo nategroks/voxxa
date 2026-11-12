@@ -20,14 +20,17 @@ use tokio::sync::Mutex;
 
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::{choose_config, AudioEngine, Resampler};
-pub use commands::Sessions;
+pub use commands::{to_gui, Sessions, ToGui, PRESENTER_ERROR};
 pub use dispatch::{drive, step, Sent};
 pub use http_api::{authorize, resolve_token};
 pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
     PresenterConfig, PresenterKind, PresenterState,
 };
-pub use transcription::{download_and_load, download_file, TranscriptionEngine, WhisperModel};
+pub use transcription::{
+    download_and_load, download_file, Hypothesis, Recognizer, Rolling, TranscriptionEngine,
+    WhisperModel, Word, HOP_MS, WINDOW_MS,
+};
 pub use vad::VadEngine;
 
 // Test-friendly importer re-exports. The integration tests in tests/

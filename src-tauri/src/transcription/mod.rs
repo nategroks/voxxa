@@ -49,15 +49,6 @@ impl WhisperModel {
     }
 }
 
-/// Transcription result from Whisper.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TranscriptionResult {
-    pub text: String,
-    pub language: Option<String>,
-    pub duration_ms: u64,
-    pub is_partial: bool,
-}
-
 /// Manages Whisper model loading and transcription.
 pub struct TranscriptionEngine {
     model_dir: PathBuf,
@@ -173,15 +164,14 @@ impl TranscriptionEngine {
         self.language = lang;
     }
 
-    /// Transcribe an audio buffer (16kHz mono f32 samples).
-    pub fn transcribe(&self, samples: &[f32]) -> Result<TranscriptionResult> {
+    /// The words Whisper hears in `samples` (16 kHz mono), each with its start
+    /// in seconds from the start of `samples` and its lowest token
+    /// probability. `prompt` becomes Whisper's initial_prompt.
+    pub fn words(&self, samples: &[f32], prompt: Option<&str>) -> Result<Vec<Word>> {
         let ctx = self
             .ctx
             .as_ref()
             .context("No model loaded. Call load_model first.")?;
-
-        let start = std::time::Instant::now();
-
         let mut state = ctx
             .create_state()
             .context("Failed to create Whisper state")?;
@@ -194,35 +184,130 @@ impl TranscriptionEngine {
         params.set_print_timestamps(false);
         params.set_suppress_blank(true);
         params.set_suppress_non_speech_tokens(true);
-
         if let Some(ref lang) = self.language {
             params.set_language(Some(lang));
         }
-
         // Single-segment mode for low latency
         params.set_single_segment(true);
         params.set_no_context(true);
+        params.set_token_timestamps(true);
+        if let Some(prompt) = prompt {
+            // shortcut: whisper-rs 0.13 leaks this CString on every call (a few
+            // hundred bytes per hop while biasing is on); recheck on a bump.
+            params.set_initial_prompt(prompt);
+        }
 
         state
             .full(params, samples)
             .context("Whisper transcription failed")?;
 
-        let num_segments = state.full_n_segments().context("Failed to get segments")?;
-        let mut text = String::new();
-        for i in 0..num_segments {
-            if let Ok(segment) = state.full_get_segment_text(i) {
-                text.push_str(&segment);
+        // Tokens from the end-of-text id up are special or timestamps. A
+        // token that starts with a space starts a word; others continue it.
+        let eot = ctx.token_eot();
+        let mut words: Vec<Word> = Vec::new();
+        for s in 0..state.full_n_segments().context("Failed to get segments")? {
+            for i in 0..state.full_n_tokens(s).context("Failed to get tokens")? {
+                let data = state.full_get_token_data(s, i)?;
+                if data.id >= eot {
+                    continue;
+                }
+                let text = state.full_get_token_text_lossy(s, i)?;
+                match words.last_mut() {
+                    Some(w) if !text.starts_with(' ') => {
+                        w.0.push_str(&text);
+                        w.2 = w.2.min(data.p);
+                    }
+                    // t0 is in 10 ms units.
+                    _ => words.push((text.trim().to_string(), data.t0 as f32 / 100.0, data.p)),
+                }
             }
         }
+        words.retain(|w| !w.0.is_empty());
+        Ok(words)
+    }
+}
 
-        let duration_ms = start.elapsed().as_millis() as u64;
+/// A word, its start in seconds and its confidence (ADR-004).
+pub type Word = (String, f32, f32);
 
-        Ok(TranscriptionResult {
-            text: text.trim().to_string(),
-            language: self.language.clone(),
-            duration_ms,
-            is_partial: false,
+/// What a recogniser heard in its latest window (ADR-004); word times are
+/// seconds of audio since the stream started.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Hypothesis {
+    pub words: Vec<Word>,
+}
+
+impl Hypothesis {
+    /// The words, space-separated: what the conductor reads.
+    pub fn text(&self) -> String {
+        let words: Vec<&str> = self.words.iter().map(|w| w.0.as_str()).collect();
+        words.join(" ")
+    }
+}
+
+/// The ADR-004 seam between audio and the conductor (ADR-014).
+pub trait Recognizer {
+    /// The next audio of the stream (16 kHz mono). A slice of digital silence
+    /// (all zeros: the loop mutes audio in which the VAD heard no speech) is
+    /// kept in the window but not transcribed. A hypothesis has a word.
+    fn feed(&mut self, pcm16k: &[f32]) -> Result<Vec<Hypothesis>>;
+    /// Text the recogniser should expect next, such as the coming lyrics.
+    fn bias(&mut self, text: &str);
+}
+
+/// Audio a hop must hold before the loop feeds it (ADR-004: 1 s hop).
+pub const HOP_MS: usize = 1000;
+/// The rolling window Whisper reads on each feed (ADR-004: 5 s window).
+pub const WINDOW_MS: usize = 5000;
+
+/// Whisper over a rolling window: each feed transcribes the last
+/// [`WINDOW_MS`] of audio with `infer` (`TranscriptionEngine::words`, or a
+/// fake in tests) and turns window times into stream times.
+pub struct Rolling<F> {
+    infer: F,
+    window: Vec<f32>,
+    /// Samples fed since the stream started.
+    fed: u64,
+    prompt: Option<String>,
+    /// Pass the text from `bias` to Whisper as initial_prompt. Off: Whisper
+    /// can repeat its prompt as if it heard it (research E6); measure first.
+    pub bias_enabled: bool,
+}
+
+impl<F: FnMut(&[f32], Option<&str>) -> Result<Vec<Word>>> Rolling<F> {
+    pub fn new(infer: F) -> Self {
+        Rolling {
+            infer,
+            window: Vec::new(),
+            fed: 0,
+            prompt: None,
+            bias_enabled: false,
+        }
+    }
+}
+
+impl<F: FnMut(&[f32], Option<&str>) -> Result<Vec<Word>>> Recognizer for Rolling<F> {
+    fn feed(&mut self, pcm16k: &[f32]) -> Result<Vec<Hypothesis>> {
+        self.fed += pcm16k.len() as u64;
+        self.window.extend_from_slice(pcm16k);
+        let excess = self.window.len().saturating_sub(WINDOW_MS * 16);
+        self.window.drain(..excess);
+        if pcm16k.iter().all(|&s| s == 0.0) {
+            return Ok(Vec::new());
+        }
+        let start = (self.fed - self.window.len() as u64) as f32 / 16_000.0;
+        let prompt = self.prompt.as_deref().filter(|_| self.bias_enabled);
+        let words: Vec<Word> = ((self.infer)(&self.window, prompt)?.into_iter())
+            .map(|(w, t, p)| (w, start + t, p))
+            .collect();
+        Ok(match words.is_empty() {
+            true => Vec::new(),
+            false => vec![Hypothesis { words }],
         })
+    }
+
+    fn bias(&mut self, text: &str) {
+        self.prompt = Some(text.to_string());
     }
 }
 

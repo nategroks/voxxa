@@ -47,7 +47,12 @@ importers = total(["importers/", "planning_center/"])
 # The listening loop it shares with the GUI lives in the library and counts in
 # "everything else", which stays at 2500.
 voxxad = total(["bin/voxxad.rs", "bin/voxxad/"])
-rest = sum(rust.values()) - conductor - presenters - importers - voxxad
+# Recorded deviation from ADR-010 Decision 3 (ADR-014, user decision 2026-11-12):
+# Whisper (transcription/) and the recogniser code of ADR-004 (the Recognizer
+# trait, Hypothesis, the rolling window) get their own row instead of raising
+# "everything else", which stays at 2500. The hop loop is in listen.rs.
+recognizer = total(["transcription/"])
+rest = sum(rust.values()) - conductor - presenters - importers - voxxad - recognizer
 
 checks = [
     ("conductor (aligner/)", conductor, 1200),
@@ -55,6 +60,7 @@ checks = [
     ("importers/ + planning_center/", importers, 1600),
     ("everything else in src-tauri/src", rest, 2500),
     ("voxxad binary (src/bin/voxxad*)", voxxad, 600),
+    ("recognizer (transcription/ + recognizer code)", recognizer, 700),
     ("GUI (src/, index.html, stage.html)", sum(gui.values()), 3000),
 ]
 for f, n in sorted(rust.items()):

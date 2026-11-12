@@ -1,9 +1,10 @@
-//! The listening loop: audio → VAD → recogniser → conductor (ADR-013). One
-//! function for the GUI (`commands::start_listening_with_state`) and for
-//! `voxxad`; each passes its own clock, recogniser and event sink.
+//! The listening loop: audio → VAD → recogniser → conductor (ADR-013,
+//! ADR-014). One function for the GUI (`commands::start_listening_with_state`)
+//! and for `voxxad`; each passes its own clock, recogniser and event sink.
 
 pub use crate::aligner::{check_setlist, Input};
 use crate::aligner::{Action, Conductor, MachineState};
+use crate::transcription::{Hypothesis, Recognizer, HOP_MS};
 use crate::vad::VadEngine;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -40,28 +41,30 @@ pub enum Event {
     Mic(MicLevel),
     /// Top song candidates after a transcript.
     Detection(Vec<DetectionRow>),
-    /// The recogniser failed on one chunk; the loop goes on.
+    /// The recogniser failed on one hop; the loop goes on.
     Error(String),
 }
 
 const TICK_EVERY: Duration = Duration::from_millis(200);
 // ~33 Hz UI updates — fast enough to look live, cheap enough to ignore.
 const MIC_EMIT_EVERY: Duration = Duration::from_millis(33);
+const HOP: usize = HOP_MS * 16;
 
 /// Run until `run` clears (a stop: returns false) or the audio channel closes
 /// while `run` is still set (device loss or end of file: returns true).
 /// `clock` maps the number of 16 kHz samples received so far to the time the
-/// conductor sees; `transcribe` turns ≥ 5 s of speech into text.
+/// conductor sees; `recognizer` is fed every hop of audio, muted when the
+/// VAD heard no speech in it, and each hypothesis goes to the conductor.
 pub fn run(
     rx: Receiver<Vec<f32>>,
     run: &AtomicBool,
     vad: &Mutex<VadEngine>,
     conductor: &Mutex<Option<Conductor>>,
-    mut transcribe: impl FnMut(&[f32]) -> anyhow::Result<String>,
+    mut recognizer: impl Recognizer,
     mut clock: impl FnMut(u64) -> Instant,
     mut sink: impl FnMut(Instant, Event),
 ) -> bool {
-    let mut accumulated: Vec<f32> = Vec::new();
+    let (mut hop, mut heard, mut due) = (Vec::new(), false, HOP);
     let (mut last_state, mut last_blank) = (MachineState::Listening, true);
     let mut received: u64 = 0;
     let (mut last_tick, mut last_mic_emit) = (clock(0), clock(0));
@@ -124,55 +127,71 @@ pub fn run(
             last_mic_emit = now;
         }
 
-        let speech_segment = {
+        {
             let mut v = vad.blocking_lock();
-            let seg = v.process(&samples);
+            v.process(&samples);
             if v.is_in_speech() {
+                heard = true;
                 sink(now, Event::Input(Input::Speech));
                 apply(Input::Speech, now, &mut |_| {});
             }
-            seg
-        };
-        let Some(segment) = speech_segment else {
-            continue;
-        };
-        accumulated.extend_from_slice(&segment);
-        if accumulated.len() < 16000 * 5 {
+        }
+        hop.extend_from_slice(&samples);
+        if hop.len() < due {
             continue;
         }
-        let result = transcribe(&accumulated);
-        accumulated.clear();
-        let text = match result {
-            Ok(text) if !text.is_empty() => text,
-            Ok(_) => continue,
+        if !heard {
+            hop.fill(0.0);
+        }
+        let now = clock(received);
+        let result = recognizer.feed(&hop);
+        // A recogniser slower than real time (GUI, --realtime) waits as long
+        // for its next hop as this one took, so at most one hop's audio queues
+        // up. At file speed the clock is audio time and every hop is HOP_MS.
+        let took = clock(received).saturating_duration_since(now);
+        due = HOP.max(took.as_millis() as usize * 16);
+        (hop, heard) = (Vec::new(), false);
+        let hypotheses = match result {
+            Ok(hypotheses) => hypotheses,
             Err(e) => {
                 log::error!("Transcription error: {}", e);
                 sink(now, Event::Error(e.to_string()));
                 continue;
             }
         };
-        log::info!("Heard: {}", text);
-        sink(now, Event::Input(Input::Heard(text.clone())));
-        let mut rows = Vec::new();
-        let (action, total) = apply(Input::Heard(text), now, &mut |c| {
-            let titles = c.song_titles();
-            // Top 5 candidates is enough — beyond that the UI bars get noisy.
-            rows = c
-                .last_scores()
-                .iter()
-                .take(5)
-                .map(|s| DetectionRow {
-                    song_index: s.song_index,
-                    song_title: titles.get(s.song_index).cloned().unwrap_or_default(),
-                    probability: s.probability,
-                    raw_score: s.raw_score,
-                })
-                .collect();
-        });
-        if !rows.is_empty() {
-            sink(now, Event::Detection(rows));
+        for text in hypotheses.iter().map(Hypothesis::text) {
+            log::info!("Heard: {}", text);
+            sink(now, Event::Input(Input::Heard(text.clone())));
+            let mut rows = Vec::new();
+            let (action, total) = apply(Input::Heard(text), now, &mut |c| {
+                let titles = c.song_titles();
+                // Top 5 candidates is enough — beyond that the UI bars get noisy.
+                rows = c
+                    .last_scores()
+                    .iter()
+                    .take(5)
+                    .map(|s| DetectionRow {
+                        song_index: s.song_index,
+                        song_title: titles.get(s.song_index).cloned().unwrap_or_default(),
+                        probability: s.probability,
+                        raw_score: s.raw_score,
+                    })
+                    .collect();
+            });
+            if !rows.is_empty() {
+                sink(now, Event::Detection(rows));
+            }
+            if let Action::Goto {
+                slide_text,
+                next_slide_text,
+                ..
+            } = &action
+            {
+                let next = next_slide_text.as_deref().unwrap_or_default();
+                recognizer.bias(&format!("{slide_text} {next}"));
+            }
+            sink(now, Event::Action(action, total));
         }
-        sink(now, Event::Action(action, total));
     }
     false
 }

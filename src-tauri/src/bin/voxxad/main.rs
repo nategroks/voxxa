@@ -19,7 +19,7 @@ use tokio::sync::Mutex;
 use voxxa_lib::listen::{self, check_setlist, Event};
 use voxxa_lib::{
     drive, make_controller, AudioEngine, Conductor, KeystrokeProfile, PresentationController,
-    PresenterConfig, PresenterKind, Sent, Setlist, SmartConfig, Song, TranscriptionEngine,
+    PresenterConfig, PresenterKind, Rolling, Sent, Setlist, SmartConfig, Song, TranscriptionEngine,
     VadEngine, WhisperModel,
 };
 
@@ -192,8 +192,8 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
             }
         }
     };
-    let transcribe = |pcm: &[f32]| engine.transcribe(pcm).map(|r| r.text);
-    let lost = listen::run(rx, &running, &vad, &conductor, transcribe, clock, sink);
+    let whisper = Rolling::new(|pcm: &[f32], prompt: Option<&str>| engine.words(pcm, prompt));
+    let lost = listen::run(rx, &running, &vad, &conductor, whisper, clock, sink);
     let reason = match (mode, lost) {
         ("device", true) => "device_lost",
         (_, true) => "end_of_audio",
