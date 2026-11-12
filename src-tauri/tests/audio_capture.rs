@@ -14,10 +14,8 @@ fn sine_mono(rate: u32) -> Vec<f32> {
             [v, v]
         })
         .collect();
-    stereo
-        .chunks_exact(2)
-        .map(|f| (f[0] + f[1]) / 2.0)
-        .collect()
+    let (frames, _) = stereo.as_chunks::<2>();
+    frames.iter().map(|[l, r]| (l + r) / 2.0).collect()
 }
 
 /// Frequency from zero crossings over 1 s.
