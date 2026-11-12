@@ -253,9 +253,10 @@ fn read_wav(path: &str) -> Result<Vec<f32>, String> {
 }
 
 /// Send the samples in 100 ms chunks, as fast as the loop takes them or, with
-/// `realtime`, one chunk every 100 ms. The channel closes at the end.
+/// `realtime`, one chunk every 100 ms. The channel closes at the end. At most
+/// 64 chunks (6.4 s) wait in it, so a long file is not copied twice.
 fn feed(pcm: Vec<f32>, realtime: bool) -> mpsc::Receiver<Vec<f32>> {
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = mpsc::sync_channel(64);
     std::thread::spawn(move || {
         for chunk in pcm.chunks(CHUNK) {
             if realtime {
