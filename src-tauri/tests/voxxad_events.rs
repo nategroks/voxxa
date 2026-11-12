@@ -335,6 +335,193 @@ fn the_shared_loop_ticks_every_200_ms_of_audio_on_a_sample_clock() {
     assert!(!ended);
 }
 
+/// Public-domain text (Amazing Grace, verse 1) read by the Windows SAPI
+/// voice, 16 kHz mono 16-bit PCM, 12 s. Real speech for the real VAD; the
+/// recogniser is faked, so no Whisper model is needed.
+const SPEECH_WAV: &str = "tests/fixtures/voxxad/amazing-grace-v1.wav";
+
+fn wav_16k_mono(path: &str) -> Vec<f32> {
+    let bytes = std::fs::read(path).unwrap();
+    assert_eq!((&bytes[..4], &bytes[8..12]), (&b"RIFF"[..], &b"WAVE"[..]));
+    let (mut at, mut fmt, mut data) = (12, None, None);
+    while at + 8 <= bytes.len() {
+        let len = u32::from_le_bytes(bytes[at + 4..at + 8].try_into().unwrap()) as usize;
+        let body = &bytes[at + 8..(at + 8 + len).min(bytes.len())];
+        match &bytes[at..at + 4] {
+            b"fmt " => fmt = Some(body),
+            b"data" => data = Some(body),
+            _ => {}
+        }
+        at += 8 + len + (len & 1);
+    }
+    let fmt = fmt.unwrap();
+    // PCM, one channel, 16000 Hz, 16 bits.
+    assert_eq!(&fmt[..8], &[1, 0, 1, 0, 0x80, 0x3e, 0, 0]);
+    assert_eq!(fmt[14], 16);
+    (data.unwrap().as_chunks::<2>().0.iter())
+        .map(|&b| f32::from(i16::from_le_bytes(b)) / 32768.0)
+        .collect()
+}
+
+/// 1 s of silence, the verse, 2 s of silence, the verse again, 12 s of
+/// silence: long enough for inter-verse silence and the blank after it.
+fn service() -> Vec<f32> {
+    let verse = wav_16k_mono(SPEECH_WAV);
+    let quiet = |secs: usize| vec![0.0f32; 16000 * secs];
+    [quiet(1), verse.clone(), quiet(2), verse, quiet(12)].concat()
+}
+
+/// What one `listen::run` over some audio produced.
+struct Heard {
+    /// Every event but mic levels, in order, with its audio time in ms.
+    events: Vec<(u64, Event)>,
+    /// The session log `voxxad` would write for this run.
+    log: String,
+    /// The length of each slice handed to the recogniser.
+    slices: Vec<usize>,
+    lost: bool,
+}
+
+/// Run the shared loop at file speed over `audio`; the fake recogniser
+/// answers with `texts` in turn, then with nothing. `operator` sees each
+/// event before it is recorded and may act on the conductor, as the GUI's
+/// Blank button does.
+fn listen_to(
+    audio: &[f32],
+    texts: &[String],
+    mut operator: impl FnMut(&Mutex<Option<Conductor>>, &Event),
+) -> Heard {
+    let (tx, rx) = mpsc::channel();
+    for chunk in audio.chunks(1600) {
+        tx.send(chunk.to_vec()).unwrap();
+    }
+    drop(tx);
+    let base = Instant::now();
+    let clock = |samples: u64| base + Duration::from_millis(samples / 16);
+    let conductor = Mutex::new(Some(Conductor::new(songs(), SmartConfig::default())));
+    let vad = Mutex::new(VadEngine::new());
+    let start = json!({ "config": SmartConfig::default(), "setlist": fingerprint(&songs()) });
+    let mut log = format!("{}\n", Line::new(0, status("start", Some(start))).to_json());
+    let (mut recorder, mut events, mut slices) = (Recorder::new(base), Vec::new(), Vec::new());
+    let mut texts = texts.iter();
+    let transcribe = |pcm: &[f32]| -> anyhow::Result<String> {
+        slices.push(pcm.len());
+        Ok(texts.next().cloned().unwrap_or_default())
+    };
+    let sink = |now: Instant, event: Event| {
+        if matches!(event, Event::Mic(_)) {
+            return;
+        }
+        operator(&conductor, &event);
+        for line in recorder.lines(now, &event) {
+            log.push_str(&line.to_json());
+            log.push('\n');
+        }
+        events.push((now.duration_since(base).as_millis() as u64, event));
+    };
+    let run = AtomicBool::new(true);
+    let lost = listen::run(rx, &run, &vad, &conductor, transcribe, clock, sink);
+    Heard {
+        events,
+        log,
+        slices,
+        lost,
+    }
+}
+
+/// The lines of Amazing Grace, slide by slide: what the fake recogniser hears.
+fn verses() -> Vec<String> {
+    songs()[0].slides.iter().map(|s| s.text.clone()).collect()
+}
+
+/// The audio time of the first transcript: the start of the first chunk
+/// after which the VAD's finished utterances add up to 5 s (80000
+/// samples), worked out from the VAD alone.
+fn first_transcript_ms(audio: &[f32]) -> u64 {
+    let mut vad = VadEngine::new();
+    let mut heard = 0;
+    for (i, chunk) in audio.chunks(1600).enumerate() {
+        heard += vad.process(chunk).map_or(0, |segment| segment.len());
+        if heard >= 80000 {
+            return i as u64 * 100;
+        }
+    }
+    panic!("the audio never holds 5 s of speech");
+}
+
+#[test]
+fn the_shared_loop_on_real_speech_agrees_with_a_replay_of_its_inputs() {
+    let audio = service();
+    let heard = listen_to(&audio, &verses(), |_, _| {});
+    assert!(heard.lost, "the end of the audio closes the channel");
+
+    // VAD speech reaches the sink.
+    let speech = (heard.events.iter())
+        .filter(|(_, e)| matches!(e, Event::Input(Input::Speech)))
+        .count();
+    assert!(speech > 20, "{speech} speech inputs");
+
+    // The recogniser gets at least 5 s at a time, and the first transcript
+    // comes when the VAD's utterances first add up to 5 s.
+    assert!(heard.slices.len() >= 2, "{:?}", heard.slices);
+    assert!(
+        heard.slices.iter().all(|&n| n >= 80000),
+        "{:?}",
+        heard.slices
+    );
+    let first = (heard.events.iter())
+        .find(|(_, e)| matches!(e, Event::Input(Input::Heard(_))))
+        .map(|(t, _)| *t);
+    assert_eq!(first, Some(first_transcript_ms(&audio)));
+
+    // Each transcript is reported, then its song detection, then the
+    // conductor's action: the GUI shows the detection before the slide.
+    let mut transcripts = 0;
+    for (i, (_, e)) in heard.events.iter().enumerate() {
+        if let Event::Input(Input::Heard(_)) = e {
+            transcripts += 1;
+            let next: Vec<_> = heard.events[i + 1..i + 3].iter().map(|(_, e)| e).collect();
+            assert!(
+                matches!(next[..], [Event::Detection(_), Event::Action(..)]),
+                "transcript {transcripts}"
+            );
+        }
+    }
+    assert_eq!(transcripts, heard.slices.len());
+
+    // The live outputs (actions and conductor states) are what replay
+    // computes from the recorded inputs alone ...
+    let live: Vec<&str> = heard.log.lines().filter(outputs).collect();
+    let inputs: String = (heard.log.lines())
+        .filter(|l| !outputs(l))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    let again = |inputs: &str| -> Vec<String> {
+        (replay(inputs, songs()).unwrap().iter())
+            .map(Line::to_json)
+            .filter(|l| outputs(&l.as_str()))
+            .collect()
+    };
+    assert_eq!(again(&inputs), live);
+    for want in [
+        r#""action":"goto","song":0,"slide":0,"#,
+        r#""action":"goto","song":0,"slide":1,"#,
+        r#""action":"blank""#,
+        r#""state":"singing","blank":false"#,
+        r#""state":"inter_verse_silence","blank":false"#,
+        r#""state":"blank_hold","blank":true"#,
+    ] {
+        assert!(live.iter().any(|l| l.contains(want)), "{want}: {live:#?}");
+    }
+    // ... and the speech inputs matter: without them the conductor would
+    // fall silent between transcripts.
+    let deaf: String = (inputs.lines())
+        .filter(|l| !l.contains(r#""type":"speech""#))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    assert_ne!(again(&deaf), live);
+}
+
 fn voxxad(args: &[&str]) -> (String, bool) {
     let out = Command::new(env!("CARGO_BIN_EXE_voxxad"))
         .args(args)
