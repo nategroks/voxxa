@@ -470,3 +470,97 @@ fn capability_grants_events_to_both_windows_and_nothing_else() {
         serde_json::json!(["core:event:default"])
     );
 }
+
+/// Serves one canned HTTP response, optionally a few bytes at a time.
+async fn serve_once(response: Vec<u8>, dribble: bool) -> String {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (mut sock, _) = listener.accept().await.unwrap();
+        let _ = sock.read(&mut [0u8; 2048]).await;
+        for part in response.chunks(if dribble { 64 } else { usize::MAX }) {
+            let _ = sock.write_all(part).await;
+            if dribble {
+                tokio::time::sleep(MS(30)).await;
+            }
+        }
+    });
+    format!("http://{addr}/ggml-test.bin")
+}
+
+fn http(status: &str, content_length: usize, body: &[u8]) -> Vec<u8> {
+    let mut r = format!(
+        "HTTP/1.1 {status}\r\nContent-Length: {content_length}\r\nConnection: close\r\n\r\n"
+    )
+    .into_bytes();
+    r.extend_from_slice(body);
+    r
+}
+
+/// Q2-12 (audit 12): a 404 or a short body never leaves a model file behind.
+#[tokio::test]
+async fn failed_model_download_leaves_no_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let dest = dir.path().join("ggml-base.bin");
+    let not_found = serve_once(http("404 Not Found", 9, b"not found"), false).await;
+    assert!(voxxa_lib::download(&not_found, &dest, |_, _| {})
+        .await
+        .is_err());
+    let short = serve_once(http("200 OK", 1000, &[7u8; 100]), false).await;
+    assert!(voxxa_lib::download(&short, &dest, |_, _| {}).await.is_err());
+    let leftovers: Vec<_> = std::fs::read_dir(dir.path()).unwrap().collect();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+
+    let good = serve_once(http("200 OK", 100, &[7u8; 100]), false).await;
+    voxxa_lib::download(&good, &dest, |_, _| {}).await.unwrap();
+    assert_eq!(std::fs::read(&dest).unwrap().len(), 100);
+    assert!(!dest.with_extension("part").exists());
+}
+
+/// Q2-12 (audit 12): a model file that will not load is set aside, so the
+/// Models tab offers Download again instead of a dead "Use".
+#[test]
+fn unloadable_model_is_no_longer_downloaded() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("ggml-base.bin"),
+        b"<html>not a model</html>",
+    )
+    .unwrap();
+    let mut engine = voxxa_lib::TranscriptionEngine::with_model_dir(dir.path().into());
+    let base = voxxa_lib::WhisperModel::Base;
+    assert!(engine.is_model_downloaded(&base));
+    assert!(engine.load_model(&base).is_err());
+    assert!(!engine.is_model_downloaded(&base));
+}
+
+/// Q2-08 (audit 6): the engine lock is free while a download runs, so the
+/// listening loop keeps transcribing and moving slides.
+#[tokio::test]
+async fn model_download_does_not_hold_the_engine_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let engine = std::sync::Arc::new(tokio::sync::Mutex::new(
+        voxxa_lib::TranscriptionEngine::with_model_dir(dir.path().into()),
+    ));
+    let url = serve_once(http("200 OK", 640, &[0u8; 640]), true).await;
+    let (started_tx, started_rx) = std::sync::mpsc::channel();
+    let task = {
+        let engine = engine.clone();
+        tokio::spawn(async move {
+            let progress = move |_, _| {
+                let _ = started_tx.send(());
+            };
+            voxxa_lib::download_and_load(&engine, &voxxa_lib::WhisperModel::Tiny, &url, progress)
+                .await
+        })
+    };
+    while started_rx.try_recv().is_err() {
+        tokio::time::sleep(MS(5)).await;
+    }
+    assert!(
+        engine.try_lock().is_ok(),
+        "engine locked during the download"
+    );
+    task.await.unwrap().unwrap();
+}

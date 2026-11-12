@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Available Whisper model variants.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -74,11 +74,15 @@ impl Default for TranscriptionEngine {
 
 impl TranscriptionEngine {
     pub fn new() -> Self {
-        let model_dir = dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("voxxa")
-            .join("models");
+        Self::with_model_dir(
+            dirs::data_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join("voxxa")
+                .join("models"),
+        )
+    }
 
+    pub fn with_model_dir(model_dir: PathBuf) -> Self {
         Self {
             model_dir,
             current_model: None,
@@ -138,11 +142,19 @@ impl TranscriptionEngine {
             );
         }
 
-        let ctx = whisper_rs::WhisperContext::new_with_params(
+        let ctx = match whisper_rs::WhisperContext::new_with_params(
             model_path.to_str().unwrap(),
             whisper_rs::WhisperContextParameters::default(),
-        )
-        .context("Failed to load Whisper model")?;
+        ) {
+            Ok(ctx) => ctx,
+            Err(e) => {
+                // An unloadable file (e.g. truncated by an older build) must not
+                // keep showing as "Downloaded": set it aside so Download is offered.
+                let _ = std::fs::rename(&model_path, model_path.with_extension("bad"));
+                return Err(anyhow::anyhow!("{e:?}"))
+                    .context("Failed to load Whisper model; download it again");
+            }
+        };
 
         self.ctx = Some(ctx);
         self.current_model = Some(model.clone());
@@ -206,47 +218,73 @@ impl TranscriptionEngine {
             is_partial: false,
         })
     }
+}
 
-    /// Download a model file with progress reporting.
-    pub async fn download_model<F>(&self, model: &WhisperModel, progress_callback: F) -> Result<()>
-    where
-        F: Fn(u64, u64) + Send + 'static,
-    {
-        use futures_util::StreamExt;
-
-        std::fs::create_dir_all(&self.model_dir).context("Failed to create model directory")?;
-
-        let url = model.download_url();
-        let dest = self.model_dir.join(model.filename());
-
-        log::info!("Downloading {} to {:?}", model.display_name(), dest);
-
-        let client = reqwest::Client::new();
+/// Download `url` to `dest` through `<dest>.part`. The final file appears only
+/// once the whole body arrived, so a failed download never shows as "Downloaded".
+pub async fn download(url: &str, dest: &Path, progress: impl Fn(u64, u64)) -> Result<()> {
+    use futures_util::StreamExt;
+    use tokio::io::AsyncWriteExt;
+    if let Some(dir) = dest.parent() {
+        std::fs::create_dir_all(dir).context("Failed to create model directory")?;
+    }
+    let part = dest.with_extension("part");
+    let result = async {
         crate::net_stats::record_request();
-        let response = client
-            .get(&url)
+        let response = reqwest::Client::new()
+            .get(url)
             .send()
             .await
-            .context("Failed to start download")?;
-
-        let total_size = response.content_length().unwrap_or(0);
-        let mut downloaded: u64 = 0;
-
-        let mut file = tokio::fs::File::create(&dest)
+            .context("Failed to start download")?
+            .error_for_status()
+            .context("Download refused by the server")?;
+        let total = response.content_length().unwrap_or(0);
+        let mut file = tokio::fs::File::create(&part)
             .await
             .context("Failed to create model file")?;
-
+        let mut downloaded = 0u64;
         let mut stream = response.bytes_stream();
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.context("Error downloading chunk")?;
-            tokio::io::AsyncWriteExt::write_all(&mut file, &chunk)
+            file.write_all(&chunk)
                 .await
                 .context("Failed to write chunk")?;
             downloaded += chunk.len() as u64;
-            progress_callback(downloaded, total_size);
+            progress(downloaded, total);
         }
-
-        log::info!("Download complete: {}", model.display_name());
-        Ok(())
+        file.flush().await.context("Failed to write model file")?;
+        drop(file);
+        if total > 0 && downloaded != total {
+            anyhow::bail!("Download incomplete: {downloaded} of {total} bytes");
+        }
+        tokio::fs::rename(&part, dest)
+            .await
+            .context("Failed to save model file")
     }
+    .await;
+    if result.is_err() {
+        let _ = std::fs::remove_file(&part);
+    }
+    result
+}
+
+/// Download `model` from `url`, then load it if no model is loaded yet. The
+/// engine lock is never held across the download: the listening loop needs it.
+pub async fn download_and_load(
+    engine: &tokio::sync::Mutex<TranscriptionEngine>,
+    model: &WhisperModel,
+    url: &str,
+    progress: impl Fn(u64, u64),
+) -> Result<()> {
+    let dest = engine.lock().await.model_dir().join(model.filename());
+    log::info!("Downloading {} to {:?}", model.display_name(), dest);
+    download(url, &dest, progress).await?;
+    // Auto-load on first download so the operator doesn't have to press "Use".
+    let mut t = engine.lock().await;
+    if t.current_model().is_none() {
+        if let Err(e) = t.load_model(model) {
+            log::warn!("auto-load after download failed: {e}");
+        }
+    }
+    Ok(())
 }
