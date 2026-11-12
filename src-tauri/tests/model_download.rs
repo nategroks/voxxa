@@ -104,3 +104,25 @@ async fn a_download_does_not_hold_the_transcription_lock() {
     drop(locked);
     task.await.unwrap().unwrap();
 }
+
+#[tokio::test]
+async fn two_downloads_of_one_model_never_mix_their_bytes() {
+    // The operator clicks Download twice. Both must finish, and the file must
+    // be exactly the body, not a mix of two writers on one .part file.
+    let dir = tempfile::tempdir().unwrap();
+    let dest = dir.path().join("ggml-tiny.bin");
+    let body: Vec<u8> = (0..1000u32).map(|i| (i % 251) as u8).collect();
+    let slow = serve("200 OK", 1000, body.clone(), Duration::from_millis(100)).await;
+    let fast = serve("200 OK", 1000, body.clone(), Duration::ZERO).await;
+    let first = {
+        let dest = dest.clone();
+        tokio::spawn(async move { download_file(&slow, &dest, |_, _| {}).await })
+    };
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    let second = download_file(&fast, &dest, |_, _| {}).await;
+    let first = first.await.unwrap();
+    assert!(first.is_ok(), "first download: {first:?}");
+    assert!(second.is_ok(), "second download: {second:?}");
+    assert_eq!(std::fs::read(&dest).unwrap(), body);
+    assert_eq!(files_in(dir.path()), ["ggml-tiny.bin"]);
+}

@@ -266,6 +266,10 @@ pub async fn download_file<F>(url: &str, dest: &Path, progress: F) -> Result<()>
 where
     F: Fn(u64, u64) + Send + 'static,
 {
+    // One download at a time: a second click on Download would truncate the
+    // same .part file under the first download and corrupt the model.
+    static DOWNLOADS: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    let _one_at_a_time = DOWNLOADS.lock().await;
     let part = with_suffix(dest, ".part");
     match fetch_to(url, &part, progress).await {
         Ok(()) => std::fs::rename(&part, dest).context("Failed to finish the model file"),
