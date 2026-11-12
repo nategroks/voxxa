@@ -107,6 +107,7 @@ pub fn run() {
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             commands::load_setlist,
+            commands::update_slide_text,
             commands::start_listening,
             commands::stop_listening,
             commands::get_status,

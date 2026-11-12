@@ -134,6 +134,22 @@ pub async fn load_setlist(
     Ok(songs)
 }
 
+/// The operator's inline slide edit: replace one slide's text in the running
+/// conductor without reloading it, so position and blank state are kept.
+#[tauri::command]
+pub async fn update_slide_text(
+    state: State<'_, AppState>,
+    global_index: usize,
+    text: String,
+) -> Result<(), String> {
+    let mut conductor = state.conductor.lock().await;
+    let c = conductor.as_mut().ok_or("No setlist loaded")?;
+    if !c.update_slide_text(global_index, text) {
+        return Err(format!("No slide {global_index} in the setlist"));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn get_smart_config(state: State<'_, AppState>) -> Result<SmartConfig, String> {
     Ok(state.smart_config.lock().await.clone())
