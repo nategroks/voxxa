@@ -15,11 +15,9 @@ use super::{
     Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind, PresenterState,
 };
 
-/// The foreground window belongs to Voxxa's own process, so these keys would
-/// land in Voxxa. Unlike webview focus it covers the tray menu's hidden
-/// window, which takes the foreground while the menu is open (PT2-02).
+/// The process id of the foreground window's owner, 0 when there is none.
 #[cfg(windows)]
-pub fn foreground_is_voxxa() -> bool {
+pub fn foreground_pid() -> u32 {
     #[link(name = "user32")]
     extern "system" {
         fn GetForegroundWindow() -> *mut std::ffi::c_void;
@@ -28,17 +26,21 @@ pub fn foreground_is_voxxa() -> bool {
     let mut pid = 0;
     // SAFETY: both calls only read; a null foreground window leaves pid 0.
     unsafe { GetWindowThreadProcessId(GetForegroundWindow(), &mut pid) };
-    is_voxxa_pid(pid)
+    pid
 }
 
 /// Off Windows the caller's webview focus check stands alone.
 #[cfg(not(windows))]
-pub fn foreground_is_voxxa() -> bool {
-    false
+pub fn foreground_pid() -> u32 {
+    0
 }
 
-fn is_voxxa_pid(pid: u32) -> bool {
-    pid == std::process::id()
+/// Synthetic keys would land in Voxxa: one of its webviews has focus, or the
+/// foreground window belongs to Voxxa's own process. The second covers the
+/// tray menu's hidden window, which takes the foreground while the menu is
+/// open (PT2-02).
+pub fn own_window_focused(foreground_pid: u32, webview_focused: bool) -> bool {
+    webview_focused || foreground_pid == std::process::id()
 }
 
 /// Per-app key profile from the §2 table of the project plan.
@@ -212,7 +214,9 @@ impl PresentationController for KeystrokeDriver {
 mod tests {
     #[test]
     fn a_foreground_window_of_our_own_process_counts_as_voxxa() {
-        assert!(super::is_voxxa_pid(std::process::id()));
-        assert!(!super::is_voxxa_pid(0));
+        use super::own_window_focused;
+        assert!(own_window_focused(std::process::id(), false));
+        assert!(own_window_focused(0, true));
+        assert!(!own_window_focused(0, false));
     }
 }

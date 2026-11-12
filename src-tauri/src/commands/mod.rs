@@ -393,12 +393,13 @@ pub async fn start_listening_with_state(
 /// True when a Voxxa window has the keyboard focus, so synthetic keys would
 /// land in Voxxa itself.
 fn voxxa_focused(app: &tauri::AppHandle) -> bool {
+    use crate::presenters::keystroke;
     use tauri::Manager;
-    crate::presenters::keystroke::foreground_is_voxxa()
-        || app
-            .webview_windows()
-            .values()
-            .any(|w| w.is_focused().unwrap_or(false))
+    let webview = app
+        .webview_windows()
+        .values()
+        .any(|w| w.is_focused().unwrap_or(false));
+    keystroke::own_window_focused(keystroke::foreground_pid(), webview)
 }
 
 /// Send one action to the presenter (see `dispatch::drive`) and tell the GUI.
