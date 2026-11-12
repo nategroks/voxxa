@@ -313,6 +313,11 @@ impl Conductor {
             return Action::Noop;
         }
         self.on_speech(now);
+        // Whisper turns music and applause into 1-3 words ("Amen."), and a
+        // short string scores ~100 against any song.
+        if text.split_whitespace().count() < 4 {
+            return Action::Noop;
+        }
 
         for w in text.split_whitespace() {
             self.buffer_words.push(w.to_lowercase());
@@ -337,6 +342,8 @@ impl Conductor {
         let confident = top.probability >= self.config.song_confidence_floor
             && second_p <= self.config.song_second_max
             && top.raw_score >= self.config.min_song_match;
+        // With one song p is always 1.0: the new words must read as the song.
+        let confident = confident && self.matches_song(top.song_index, text);
 
         log::info!(
             "[CONDUCTOR] top={} p={:.2} raw={:.1} second_p={:.2} confident={} state={:?}",
@@ -381,7 +388,7 @@ impl Conductor {
         // One such transcript may be a shout-out or a misheard line; a second
         // in a row means the service moved on (prayer, sermon), so blank,
         // even though VAD keeps hearing speech.
-        if !self.matches_current(text) {
+        if !self.matches_song(current, text) {
             let showing = matches!(
                 self.state,
                 MachineState::Singing | MachineState::InterVerseSilence
@@ -408,11 +415,11 @@ impl Conductor {
         Action::Noop
     }
 
-    /// The transcript reads as a line of the current song: the same bar as a
-    /// slide advance (`min_advance_match`), because ordinary speech already
-    /// scores 40-50 against any whole song.
-    fn matches_current(&self, text: &str) -> bool {
-        let Some(song) = self.current_song.and_then(|i| self.songs.get(i)) else {
+    /// The transcript reads as a line of song `i`: the same bar as a slide
+    /// advance (`min_advance_match`), because ordinary speech already scores
+    /// 40-50 against any whole song.
+    fn matches_song(&self, i: usize, text: &str) -> bool {
+        let Some(song) = self.songs.get(i) else {
             return false;
         };
         let combined = song
@@ -1210,6 +1217,55 @@ mod tests {
         let err = check_setlist(&vec![song; MAX_SETLIST_SONGS + 1]).unwrap_err();
         assert!(err.contains("pick today's songs"), "{err}");
         assert!(check_setlist(&[]).is_err());
+    }
+
+    #[test]
+    fn short_transcripts_never_start_a_song() {
+        // PT2-01: partial_ratio of a 1-3 word transcript is ~100 against any song.
+        for text in ["Oh", "soul", "Amen.", "Thank you.", "God is good."] {
+            let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+            let action = c.on_transcript(text, Instant::now());
+            assert!(matches!(action, Action::Noop), "{text}: {action:?}");
+        }
+    }
+
+    #[test]
+    fn short_transcripts_after_a_blank_keep_the_lyrics_off() {
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        assert!(matches!(c.on_transcript(VERSE_1, t0), Action::Goto { .. }));
+        let _ = c.tick(t0 + Duration::from_secs(4));
+        assert!(matches!(
+            c.tick(t0 + Duration::from_secs(11)),
+            Action::Blank
+        ));
+        for text in ["the", "me", "Lord"] {
+            let action = c.on_transcript(text, t0 + Duration::from_secs(12));
+            assert!(matches!(action, Action::Noop), "{text}: {action:?}");
+            assert!(c.is_blank(), "{text}");
+        }
+    }
+
+    #[test]
+    fn an_announcement_never_starts_the_only_song() {
+        // One song makes softmax p = 1.0, so only the absolute gates can refuse.
+        for song in example_setlist() {
+            let mut c = Conductor::new(vec![song], SmartConfig::default());
+            let text = "Good morning everyone, please take your seats.";
+            let action = c.on_transcript(text, Instant::now());
+            assert!(matches!(action, Action::Noop), "{action:?}");
+        }
+    }
+
+    #[test]
+    fn a_misheard_lyric_line_still_starts_the_right_slide() {
+        let t0 = Instant::now();
+        let mut c = Conductor::new(vec![example_setlist().remove(1)], SmartConfig::default());
+        let action = c.on_transcript("Be thou my vision, oh Lord of my heart.", t0);
+        assert_eq!(slide_of(&action), Some((0, 0)));
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let action = c.on_transcript("Though Satan should buffet, though trials should come", t0);
+        assert_eq!(slide_of(&action), Some((2, 2)));
     }
 
     #[test]
