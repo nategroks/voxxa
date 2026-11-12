@@ -16,6 +16,10 @@ struct Fake {
     /// What the app reports as its selected presentation.
     presentation: Mutex<Option<String>>,
     calls: Mutex<Vec<String>>,
+    /// What the audience sees, as PowerPoint and Keynote behave: (slide,
+    /// black). The toggle blacks out and back; while black, any key only
+    /// ends the black.
+    screen: Mutex<(i64, bool)>,
 }
 
 impl Fake {
@@ -25,6 +29,7 @@ impl Fake {
             caps,
             presentation: Mutex::new(None),
             calls: Mutex::new(Vec::new()),
+            screen: Mutex::new((0, false)),
         }
     }
     /// The default Keystroke driver: '.' toggles blank, no goto.
@@ -38,6 +43,14 @@ impl Fake {
         f
     }
     fn log(&self, call: String) -> Result<(), CtlError> {
+        let mut screen = self.screen.lock().unwrap();
+        match call.as_str() {
+            "blank" | "unblank" => screen.1 = !screen.1,
+            _ if screen.1 => screen.1 = false,
+            "next" => screen.0 += 1,
+            "prev" => screen.0 -= 1,
+            _ => {}
+        }
         self.calls.lock().unwrap().push(call);
         Ok(())
     }
@@ -132,8 +145,41 @@ async fn toggle_blank_is_pressed_only_when_the_state_changes() {
         .await
         .unwrap();
     auto(&p, &mut sent, goto(0, 1)).await.unwrap();
-    assert_eq!(p.take(), ["blank", "next", "unblank"]);
+    assert_eq!(p.take(), ["blank", "unblank", "next"]);
     assert!(!sent.blank);
+}
+
+#[tokio::test]
+async fn a_step_after_a_blank_shows_the_slide_not_black() {
+    // PowerPoint and Keynote: any key ends the black screen. Stepping first
+    // and toggling after would end the black and then black out the verse,
+    // leaving the blank state inverted for the next Blank.
+    let p = Fake::toggle();
+    let mut sent = Sent::default();
+    auto(&p, &mut sent, goto(0, 0)).await.unwrap();
+    auto(&p, &mut sent, Action::Blank).await.unwrap();
+    assert_eq!(*p.screen.lock().unwrap(), (0, true));
+    auto(&p, &mut sent, goto(0, 1)).await.unwrap();
+    assert_eq!(*p.screen.lock().unwrap(), (1, false), "slide 1, not black");
+    auto(&p, &mut sent, Action::Blank).await.unwrap();
+    assert_eq!(
+        *p.screen.lock().unwrap(),
+        (1, true),
+        "the next Blank blanks"
+    );
+    // OpenSong: a toggle driver with goto also unblanks first.
+    let caps = Capabilities {
+        can_query_state: false,
+        ..Capabilities::FULL
+    };
+    let p = Fake::new(PresenterKind::OpenSong, caps);
+    let mut sent = Sent::default();
+    drive(&p, &mut sent, &goto(0, 0), false, true)
+        .await
+        .unwrap();
+    auto(&p, &mut sent, Action::Blank).await.unwrap();
+    auto(&p, &mut sent, goto(0, 2)).await.unwrap();
+    assert_eq!(p.take(), ["goto 0", "blank", "unblank", "goto 2"]);
 }
 
 #[tokio::test]

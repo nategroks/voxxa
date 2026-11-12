@@ -126,17 +126,24 @@ pub async fn drive(
     };
     // Focus is checked only where a key is really pressed: a Goto that sends
     // nothing must still record where the screen is.
+    // A toggle driver unblanks before it steps: in PowerPoint and Keynote any
+    // key ends the black, so a step first and then the toggle would black out
+    // the verse. Idempotent drivers unblank after the goto (ProPresenter's
+    // unblank re-triggers the current slide).
+    let unblank_first = is_toggle(p.kind()) && sent.blank;
     if p.capabilities().can_goto_slide {
         // Goto drivers address the slide inside the selected presentation.
-        if sent.song != Some(song) {
-            if !presentation_is(p, title, operator).await {
-                let _ = set_blank(p, sent, true, voxxa_focused).await;
-                return Err(CtlError::Other(format!(
-                    "select \"{title}\" in your presentation app"
-                )));
-            }
-            p.goto_slide(slide).await?;
-        } else if target != sent.global {
+        let new_song = sent.song != Some(song);
+        if new_song && !presentation_is(p, title, operator).await {
+            let _ = set_blank(p, sent, true, voxxa_focused).await;
+            return Err(CtlError::Other(format!(
+                "select \"{title}\" in your presentation app"
+            )));
+        }
+        if unblank_first {
+            set_blank(p, sent, false, voxxa_focused).await?;
+        }
+        if new_song || target != sent.global {
             p.goto_slide(slide).await?;
         }
         sent.song = Some(song);
@@ -146,6 +153,9 @@ pub async fn drive(
         let delta = target - sent.global;
         if delta != 0 {
             refuse_if_focused(p, voxxa_focused)?;
+        }
+        if unblank_first {
+            set_blank(p, sent, false, voxxa_focused).await?;
         }
         for i in 0..delta.unsigned_abs() {
             if i > 0 {
