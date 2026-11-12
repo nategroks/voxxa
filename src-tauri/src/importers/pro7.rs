@@ -17,11 +17,11 @@
 //!   - `\par`, `\line`, `\page`, `\tab` become whitespace.
 //!
 //! Deduplication: ProPresenter often stores the same lyric text twice (audience
-//! view + stage display). Identical case-insensitive blocks are folded into one.
+//! view + stage display). An identical case-insensitive block right after its
+//! twin is folded into it; a chorus repeated later stays a separate slide.
 
 use crate::aligner::{Slide, Song};
 use anyhow::{anyhow, Result};
-use std::collections::HashSet;
 
 pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
     let blocks = find_rtf_blocks(bytes);
@@ -29,7 +29,6 @@ pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
         return Err(anyhow!("no RTF blocks found in .pro7 file"));
     }
     let mut slides: Vec<Slide> = Vec::new();
-    let mut seen: HashSet<String> = HashSet::new();
     for rtf in blocks {
         let text = rtf_to_text(&rtf);
         let trimmed = text.trim().to_string();
@@ -38,8 +37,10 @@ pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
         if trimmed.len() < 3 {
             continue;
         }
-        let key = trimmed.to_lowercase();
-        if !seen.insert(key) {
+        if slides
+            .last()
+            .is_some_and(|s| s.text.to_lowercase() == trimmed.to_lowercase())
+        {
             continue;
         }
         slides.push(Slide {

@@ -134,6 +134,21 @@ pub async fn load_setlist(
     Ok(songs)
 }
 
+/// Apply an inline slide edit in place, so the conductor keeps its position.
+#[tauri::command]
+pub async fn update_slide_text(
+    state: State<'_, AppState>,
+    song: usize,
+    slide: usize,
+    text: String,
+) -> Result<(), String> {
+    let mut conductor = state.conductor.lock().await;
+    match conductor.as_mut().map(|c| c.update_slide_text(song, slide, text)) {
+        Some(true) => Ok(()),
+        _ => Err("That slide is not in the loaded setlist.".into()),
+    }
+}
+
 #[tauri::command]
 pub async fn get_smart_config(state: State<'_, AppState>) -> Result<SmartConfig, String> {
     Ok(state.smart_config.lock().await.clone())

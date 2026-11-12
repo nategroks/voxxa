@@ -199,3 +199,49 @@ fn continuous_unmatched_speech_blanks() {
     );
     assert!(c.is_blank());
 }
+
+/// Q2-05 (audit 4): a blank pptx slide stays a slide, so next/prev counts match the deck.
+#[test]
+fn pptx_blank_slide_is_kept() {
+    use std::io::Write;
+    let opts = zip::write::SimpleFileOptions::default();
+    let mut zw = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    for (i, text) in [
+        "Come thou fount of every blessing",
+        "",
+        "Streams of mercy never ceasing",
+    ]
+    .iter()
+    .enumerate()
+    {
+        zw.start_file(format!("ppt/slides/slide{}.xml", i + 1), opts)
+            .unwrap();
+        let body = format!(r#"<p:sld><a:p><a:r><a:t>{text}</a:t></a:r></a:p></p:sld>"#);
+        zw.write_all(body.as_bytes()).unwrap();
+    }
+    let bytes = zw.finish().unwrap().into_inner();
+    let song = voxxa_lib::pptx_parse(&bytes, "Come, Thou Fount").unwrap();
+    let texts: Vec<&str> = song.slides.iter().map(|s| s.text.as_str()).collect();
+    assert_eq!(
+        texts,
+        [
+            "Come thou fount of every blessing",
+            "",
+            "Streams of mercy never ceasing"
+        ]
+    );
+}
+
+/// Q2-05 (audit 4): a chorus repeated later in a .pro7 file is kept; a twin
+/// block right after its original (audience + stage copy) is still folded.
+#[test]
+fn pro7_repeated_chorus_is_kept() {
+    let mut buf = b"PROTOBUF".to_vec();
+    for block in ["verse one", "chorus", "chorus", "verse two", "chorus"] {
+        buf.extend_from_slice(format!(r"{{\rtf1 {block}\par}}").as_bytes());
+        buf.extend_from_slice(b"\x00\x01");
+    }
+    let song = voxxa_lib::pro7_parse(&buf, "T").unwrap();
+    let texts: Vec<&str> = song.slides.iter().map(|s| s.text.as_str()).collect();
+    assert_eq!(texts, ["verse one", "chorus", "verse two", "chorus"]);
+}

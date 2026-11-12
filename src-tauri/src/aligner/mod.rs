@@ -222,7 +222,7 @@ impl Conductor {
         if song_idx >= self.songs.len() {
             return Action::Noop;
         }
-        self.start_song(song_idx, now)
+        self.start_song(song_idx, 0, now)
     }
 
     /// Notify the machine that VAD says the user is speaking.
@@ -317,7 +317,8 @@ impl Conductor {
         // No song committed yet — wait for high confidence before showing anything.
         let Some(current) = self.current_song else {
             if confident {
-                return self.start_song(top.song_index, now);
+                let slide = self.best_slide(top.song_index, &buffer_text);
+                return self.start_song(top.song_index, slide, now);
             }
             return Action::Noop;
         };
@@ -332,7 +333,8 @@ impl Conductor {
             })
             .unwrap_or(false);
         if confident && top.song_index != current && dwelled {
-            return self.start_song(top.song_index, now);
+            let slide = self.best_slide(top.song_index, &buffer_text);
+            return self.start_song(top.song_index, slide, now);
         }
 
         // Try to advance within the current song.
@@ -416,7 +418,11 @@ impl Conductor {
         let song = &self.songs[current];
         let curr_idx = self.current_slide_in_song;
         let curr = song.slides.get(curr_idx);
-        let next = song.slides.get(curr_idx + 1);
+        // Empty placeholder slides (blank pptx/PDF pages) are never matched; skip them.
+        let next_idx = (curr_idx + 1..song.slides.len())
+            .find(|&i| !song.slides[i].text.trim().is_empty())
+            .unwrap_or(song.slides.len());
+        let next = song.slides.get(next_idx);
 
         let score_curr = curr
             .map(|s| partial_ratio(buffer_text, &s.text.to_lowercase()))
@@ -429,7 +435,7 @@ impl Conductor {
             && score_next >= self.config.min_advance_match
             && score_next > (score_curr + self.config.advance_margin)
         {
-            self.current_slide_in_song = curr_idx + 1;
+            self.current_slide_in_song = next_idx;
             self.buffer_words.clear();
             self.last_advance = Some(now);
             self.unmatched_since = None;
@@ -444,14 +450,27 @@ impl Conductor {
         Action::Noop
     }
 
-    fn start_song(&mut self, song_idx: usize, now: Instant) -> Action {
+    /// Slide of `song` that best matches the recent words; the first on ties,
+    /// so a song detected mid-way starts where the room is singing.
+    fn best_slide(&self, song: usize, buffer_text: &str) -> usize {
+        let mut best = (0, 0.0);
+        for (i, slide) in self.songs[song].slides.iter().enumerate() {
+            let score = partial_ratio(buffer_text, &slide.text.to_lowercase());
+            if score > best.1 {
+                best = (i, score);
+            }
+        }
+        best.0
+    }
+
+    fn start_song(&mut self, song_idx: usize, slide: usize, now: Instant) -> Action {
         log::info!(
-            "[CONDUCTOR] start song {} ({})",
+            "[CONDUCTOR] start song {} ({}) at slide {slide}",
             song_idx,
             self.songs[song_idx].title
         );
         self.current_song = Some(song_idx);
-        self.current_slide_in_song = 0;
+        self.current_slide_in_song = slide;
         self.song_started_at = Some(now);
         self.buffer_words.clear();
         self.last_advance = Some(now);
@@ -488,6 +507,22 @@ impl Conductor {
     /// until something else triggers a Goto.
     pub fn notify_external_blank(&mut self) {
         self.is_blank = true;
+    }
+
+    /// Apply an operator's inline edit of one slide. Position and blank state
+    /// are kept (a reload would restart the song at slide 1). False if absent.
+    pub fn update_slide_text(&mut self, song: usize, slide: usize, text: String) -> bool {
+        match self
+            .songs
+            .get_mut(song)
+            .and_then(|s| s.slides.get_mut(slide))
+        {
+            Some(s) => {
+                s.text = text;
+                true
+            }
+            None => false,
+        }
     }
 
     /// Operator-initiated manual step within the current song. Bounded by the
@@ -952,5 +987,89 @@ mod tests {
         // Probabilities sum to ~1 (softmax).
         let total: f64 = scores.iter().map(|s| s.probability).sum();
         assert!((total - 1.0).abs() < 1e-6);
+    }
+
+    /// Q2-07 (audit 5): a song detected mid-way starts at the slide being sung.
+    #[test]
+    fn song_detected_midway_starts_at_matching_slide() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let action = c.on_transcript(
+            "twas grace that taught my heart to fear and grace my fears relieved",
+            Instant::now(),
+        );
+        assert!(
+            matches!(
+                action,
+                Action::Goto {
+                    song_index: 0,
+                    slide_in_song: 2,
+                    ..
+                }
+            ),
+            "got {action:?}"
+        );
+    }
+
+    /// Q2-07 (audit 5): an inline edit keeps the position; the next verse advances by one.
+    #[test]
+    fn slide_edit_keeps_position() {
+        let mut c = Conductor::new(mk_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        c.on_transcript(
+            "i once was lost but now am found was blind but now i see",
+            t0,
+        );
+        assert_eq!(c.current_index(), 1);
+        assert!(c.update_slide_text(0, 1, "I once was lost but now I'm found".into()));
+        assert_eq!((c.current_song(), c.current_index()), (Some(0), 1));
+        let action = c.on_transcript(
+            "twas grace that taught my heart to fear and grace my fears relieved",
+            t0 + Duration::from_secs(5),
+        );
+        assert!(
+            matches!(
+                action,
+                Action::Goto {
+                    slide_in_song: 2,
+                    ..
+                }
+            ),
+            "got {action:?}"
+        );
+        assert!(!c.update_slide_text(0, 9, String::new()));
+    }
+
+    /// Q2-05 (audit 4): empty placeholder slides are kept but never matched.
+    #[test]
+    fn empty_slides_are_skipped_when_matching() {
+        let mut songs = mk_setlist();
+        songs[0].slides.insert(
+            1,
+            Slide {
+                id: 9,
+                text: String::new(),
+            },
+        );
+        let mut c = Conductor::new(songs, SmartConfig::default());
+        let t0 = Instant::now();
+        c.on_transcript(
+            "amazing grace how sweet the sound that saved a wretch like me",
+            t0,
+        );
+        let action = c.on_transcript(
+            "i once was lost but now am found was blind but now i see",
+            t0 + Duration::from_secs(5),
+        );
+        assert!(
+            matches!(
+                action,
+                Action::Goto {
+                    slide_in_song: 2,
+                    global_index: 2,
+                    ..
+                }
+            ),
+            "got {action:?}"
+        );
     }
 }

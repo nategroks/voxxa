@@ -659,7 +659,7 @@ function beginEditSlide(el) {
     // Mutating the slide also updates currentSongs because slides[] holds
     // references to the same Slide objects.
     slide.text = newText;
-    await reloadConductorPreservingPosition();
+    await saveSlideEdit(slide);
   };
 
   const onBlur = () => finish(true);
@@ -676,21 +676,12 @@ function beginEditSlide(el) {
   el.addEventListener("keydown", onKey);
 }
 
-// Push the in-memory currentSongs back into the conductor. The conductor
-// resets to slide 0 on load, so we manually re-advance to where we were.
-async function reloadConductorPreservingPosition() {
-  if (!currentSongs.length) return;
-  const targetIdx = currentSlideIndex;
+// Update the edited slide in place; a setlist reload would reset the
+// conductor's position to slide 1.
+async function saveSlideEdit(slide) {
+  const song = currentSongs.findIndex((s) => s.slides.includes(slide));
   try {
-    await invoke("load_setlist", {
-      setlistJson: JSON.stringify({ setlist: currentSongs }),
-    });
-    // Rebuild the flat slides[] from the (possibly edited) currentSongs.
-    slides = [];
-    for (const song of currentSongs) {
-      for (const slide of song.slides) slides.push(slide);
-    }
-    currentSlideIndex = Math.min(targetIdx, slides.length - 1);
+    await invoke("update_slide_text", { song, slide: currentSongs[song].slides.indexOf(slide), text: slide.text });
     updateSlideDisplay();
   } catch (err) {
     console.error("Failed to apply slide edit:", err);
