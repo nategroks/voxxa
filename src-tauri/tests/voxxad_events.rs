@@ -377,8 +377,20 @@ fn voxxad_reports_bad_input_as_one_error_line() {
     };
     let (k8, k16) = (wav(8000), wav(16000));
     // Every case fails before a model is loaded or audio is opened.
-    let cases: [(&[&str], &str); 5] = [
+    let cases: [(&[&str], &str); 8] = [
         (&["--stdin-audio", &k8, "--setlist", SETLIST], "16 kHz mono"),
+        (
+            &["--replay", SESSION, "--setlist", SETLIST, "--shadow"],
+            "--replay takes only",
+        ),
+        (
+            &["--replay", SESSION, "--stdin-audio", &k16],
+            "--replay takes only",
+        ),
+        (
+            &["--setlist", SETLIST, "--realtime", "--device", "x"],
+            "--realtime needs",
+        ),
         (&["--stdin-audio", &k16], "--setlist is required"),
         (&["--setlist", SETLIST], "give one of"),
         (&["--frobnicate"], "unknown argument"),

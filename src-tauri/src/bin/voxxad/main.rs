@@ -102,6 +102,21 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
         say(&Line::new(0, status("devices", info)).to_json());
         return Ok(());
     }
+    let live = [
+        &args.wav,
+        &args.device,
+        &args.presenter,
+        &args.host,
+        &args.model,
+        &args.log_dir,
+    ];
+    let live = args.shadow || args.port.is_some() || live.iter().any(|o| o.is_some());
+    if args.replay.is_some() && live {
+        return Err("--replay takes only --setlist; see voxxad --help".into());
+    }
+    if args.realtime && args.wav.is_none() {
+        return Err("--realtime needs --stdin-audio; see voxxad --help".into());
+    }
     let setlist = args.setlist.as_deref().ok_or("--setlist is required")?;
     let songs = load_setlist(setlist)?;
     if let Some(path) = &args.replay {
