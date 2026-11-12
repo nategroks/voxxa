@@ -147,3 +147,68 @@ Process record: `reviews/2026-11-12-ponytail-q3.md`. Tickets: `reviews/2026-11-1
 All 7 gates pass at 912b978 (109 tests).
 
 **Debt (tickets).** Q3-03 release packaging (was Q3-T1); Q3-04 keystroke focus from a terminal; Q3-05 transcripts in the roaming `%APPDATA%`; Q3-06 synchronous transcription (Q4); Q3-07 GUI loop and `--device` not run on hardware; Q3-08 repeated goto in the action stream; Q3-09 no GUI session log or operator inputs; Q3-10 16 kHz mono WAV only; Q3-11 small output gaps; Q3-12 no control-byte gate; Q3-13 slow debug tests.
+
+## 2026-11-12 — Q4: Recognizer trait and streaming hop (ADR-014), 10x lane `q4/10x`
+Design: ADR-014 (Accepted on the user's pre-approved Q4 decisions), committed before code (6041344). ADR-013 has a dated amendment pointing to it. Code: cc59ffb; fixture re-record: 77b0b6f.
+
+**What was built.**
+- `src-tauri/src/transcription/recognizer.rs` (new):
+  - `trait Recognizer { fn feed(&mut self, pcm16k: &[f32]) -> Vec<Hypothesis>; fn bias(&mut self, text: &str); fn gate(&mut self, _open: bool) {} }`.
+  - `Hypothesis { words: Vec<(String, f32, f32)>, end: f32, error: Option<String> }`. Word starts and `end` are stream seconds (samples fed / 16,000).
+  - `Rolling<D: Decode>`: keeps the last `window_ms = 5000` of audio and decodes it each time the samples fed cross a multiple of `hop_ms = 1000`, while the gate is open. If one `feed` crosses several boundaries, it decodes once, on the newest window. Word starts are clamped to the window and never placed before the previous word (Whisper's token times can land past the window).
+  - `bias_enabled` (default false) passes the `bias()` text on as `initial_prompt`.
+  - `Decode` is implemented for `TranscriptionEngine` (`voxxad`) and for the GUI's `Arc<Mutex<TranscriptionEngine>>`, which is locked per decode.
+- `TranscriptionEngine::words(samples, prompt)` replaces `transcribe`, and `TranscriptionResult` is removed. Settings: `single_segment`, `no_context`, `token_timestamps`; special tokens (`id >= eot`) are dropped. A token that starts with a space starts a word. A word's time is its first token's `t0`; its confidence is the mean token `p`.
+- `listen::run` takes `&mut impl Recognizer` instead of the closure. The 5 s batch is gone. For each chunk the loop runs tick, mic and VAD, then sets the gate, then calls `feed`.
+  - **Gate:** open only if the VAD said speech within the last second **and** the loop is at most one hop behind the audio.
+  - **Lag:** session clock elapsed minus audio received. The floor is re-taken whenever `try_recv` finds the queue empty.
+  - **Skip rule:** hops are skipped while behind, never caught up. On a sample clock the lag is always 0, so file speed is deterministic.
+  - **Hypotheses:** each is timed at `clock(received)`, the end of its hop's audio. An error becomes `Event::Error`. Empty text is dropped. Otherwise the order is Heard, Detection, Action, as in Q3.
+  - **Bias:** after a `Goto`, `recognizer.bias(slide text + next slide text)`.
+- GUI (Q3-02, #46): `commands::gui_event(Event) -> GuiEvent` is pure.
+  - `Emit(name, json)` covers `transcription`, `machine-state`, `mic-level` and `song-detection`. The payload is serialised once and sent with `app.emit_str`, byte for byte what `emit` sent.
+  - `Dispatch(action, total, operator = false)` handles loop actions. `presenter_error(e)` builds the `presenter-error` event.
+  - The sink in `start_listening_with_state` only forwards. `TranscriptionEvent` is replaced by `json!({"text": …})` (a single key, so the bytes are the same).
+- `voxxad`: `--bias` (off by default). It is recorded as `"bias"` in the `start` line, and `--replay` refuses it.
+- `lib.rs`: `pub mod transcription` (the trait and `Rolling` are used by `voxxad` and the tests); re-exports `gui_event`, `presenter_error`, `GuiEvent`.
+- Tests (all in `src-tauri/tests/`, none needs a model except the one that skips):
+  - `recognizer.rs` (7): the window grows to 5 s and then slides; there is one decode per hop; word times are stream time; a closed gate skips hops but keeps time; several hops in one feed give one decode; bias reaches the engine only when enabled; a failed decode gives one error hypothesis and an empty one gives none; and **`whisper_tiny_on_a_10_s_wav_gives_monotonically_increasing_timestamps`**, which uses the new committed fixture `amazing-grace-v2.wav` (PD text, SAPI voice, 10.3 s) and skips when `ggml-tiny.bin` is missing.
+  - `gui_events.rs` (7): the event names, the exact JSON payloads (the f32 mic digits and the detection field order are kept), `operator = false` for every loop action, nothing for tick, speech and error, and `presenter-error`.
+  - `voxxad_events.rs` (21, was 20):
+    - The harness feeds the real `Rolling` with a fake `Decode`.
+    - The two tests that pinned the batch are restated. In the first, the decoder is asked at every whole second with VAD speech in the second before it and only then; the windows are `min(t·16, 80000)` samples; every sample is fed once, in order; hypotheses are timed at the hop end. The second is now `a_failed_or_empty_hop_tells_the_gui_one_error_or_nothing_and_the_loop_goes_on`.
+    - New: `overlapping_windows_show_each_slide_once_and_the_prayer_nothing` (scripted words on real VAD speech: goto 0/0, goto 0/1, blank, nothing else; the blank falls during the prayer; replay agrees).
+    - A `--bias` usage-error case.
+
+**Gates at 77b0b6f (Windows 11, rustc 1.99.1):** all 7 pass. 124 tests (54 unit + 70 integration). Budgets: everything else 2,270/2,500 (was 2,496; `transcription/` moved out, +25 net in `listen.rs`, `commands/` and `lib.rs`); new recognizer row 374/700 (`transcription/` was 251); voxxad 538/600 (+7); conductor 1,153/1,200 (unchanged; the conductor was not touched); GUI 2,951/3,000 (unchanged).
+
+**Exit demo (Whisper Tiny, release `voxxad`).**
+- Command: `voxxad --stdin-audio demo-45s.wav --setlist tests/fixtures/voxxad/pd-hymns-setlist.json --shadow`. The 44.4 s WAV is 3 s silence, `ag-v1`, 1 s, `ag-v2`, 4 s, `prayer`, 6 s.
+- Hypothesis `t` values (ms): 4000, 5000, 6000, 7000, 8000, 10000 … 15000, 17000 … 26000, 31000 … 38000, one per second while there was speech. The gaps fall at 9 s (a pause between lines), at 16 s (between the verses), from 27 to 30 s (silence) and after 38 s.
+- Actions: goto Amazing Grace/0 at 6.0 s (Q3: 8.1 s); goto Amazing Grace/1 at 22.0 s; blank at 33.0 s, 2.7 s into the prayer. No slide during the prayer.
+- Replay: `cmp` of the action lines is byte-identical. The session became `tests/fixtures/voxxad/session-pd-hymns.jsonl`.
+- `--realtime` in a debug build: the 44.4 s of audio ended at t = 47.2 s (Q3: 47 s of audio ended at 92 s). Hypotheses came every 2–5 s because hops were skipped. Actions: goto AG/0, goto AG/1, and a blank during the prayer.
+
+**Inference time per hop** (Whisper Tiny, 4-core PC, 5 s window, other lanes and apps running):
+- **Debug build** (whisper.cpp RelWithDebInfo, which whisper-rs-sys forces in debug), measured alone: 1.8–2.1 s per hop.
+- **Release build**: 7–10 s per hop at best, with spikes to 40–70 s while another lane's `voxxad` was decoding. The file-speed exit demo took 742 s of wall time for 44.4 s of audio.
+- Release is consistently slower than debug here. The suspected cause is not verified: `[profile.release] opt-level = "s"` reaches whisper.cpp's C/C++ flags through the cmake and cc crates (MSVC `/O1`). Ticket below.
+- Either way, a hop costs more than 1 s on this PC. In real time the gate skips hops, so the design holds and the lag stays bounded. Real-time hypotheses come every 2–5 s, not every 1 s.
+
+**Deviations.**
+- **Budget** (user decision): a new row, "recognizer (transcription/ + recognizer code)", capped at 700 and excluded from "everything else". It is recorded in `scripts/loc_budget.py` and ADR-014 Decision 9. No budget was raised.
+- **Trait:** a provided `gate` method on top of ADR-004's two, and `end` and `error` on `Hypothesis` (ADR-014 Decision 1). Engines that implement only `feed` and `bias` still compile.
+- **Removed:** `TranscriptionEngine::transcribe` and `TranscriptionResult`; nothing else used them.
+- **New fixture:** `tests/fixtures/voxxad/amazing-grace-v2.wav`, the 10 s WAV the prompt asks for (PD text, the Q2 `ag-v2.wav`).
+- **Not logged:** word times; schema v1 is unchanged (ADR-014 Decision 4).
+- **Test tolerance:** the 10 s real-model test allows up to 50 ms of backward jitter in a hypothesis's first-word time. Whisper times the same word 0.13 s and then 0.12 s in two overlapping windows. Within one hypothesis, times are non-decreasing by construction.
+- **Event timing:** a hypothesis is now timed at the end of its hop (`clock(received)` after the chunk). Q3 timed the batch transcript at the start of the chunk that completed it.
+
+**Debt / tickets for the orchestrator.**
+- Q4-a: release whisper.cpp is ~4x slower than in the debug build (above). Check the flags; try `[profile.release.package.whisper-rs-sys] opt-level = 3` and measure. This matters for the shipped app.
+- Q4-b: a hop costs more than 1 s on the dev PC in either build, so real-time and GUI hypotheses arrive every 2–5 s. Q3-06 (inference off the loop thread) is still open but now bounded.
+- Q4-c: two unmatched windows in a row now span about 2 s of speech, so a misheard stretch of a song can blank sooner (ADR-014 risk). Measure with `voxxa-eval`.
+- Q4-d: `whisper-rs` 0.13 `set_initial_prompt` leaks its CString on every decode with `--bias` (about 200 B a hop). Biasing (E6) has not been measured yet.
+- Q4-e: the conductor's word buffer holds overlapping text. This is fine on the PD WAVs and unmeasured on real singing.
+- Q4-f: the real-model test takes about 17 s in debug when it runs alone (more under load). CI skips it (no model).
+- Q4-g: the GUI sink still forwards `operator` from `gui_event`; a mutation inside the forwarding closure, such as hard-coding `true`, is not caught by a test. The mapping itself is pure and tested.
