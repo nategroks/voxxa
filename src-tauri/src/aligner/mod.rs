@@ -112,6 +112,34 @@ pub struct SongScore {
     pub probability: f64,
 }
 
+/// Most songs a setlist may hold. Every transcript is scored against every
+/// song (about 70 ms per song in release), so a whole EasyWorship library
+/// would delay slide control by minutes; 50 keeps a transcript well under the
+/// 5 s it takes to hear the next one.
+pub const MAX_SETLIST_SONGS: usize = 50;
+
+/// Reject setlists the conductor cannot follow, before loading them. An
+/// empty setlist leaves the conductor in Listening forever; a song with zero
+/// slides commits internally but can't fire a Goto.
+pub fn check_setlist(songs: &[Song]) -> Result<(), String> {
+    if songs.is_empty() {
+        return Err("Setlist is empty — no songs to load.".into());
+    }
+    if songs.len() > MAX_SETLIST_SONGS {
+        return Err(format!(
+            "This library has {} songs; pick today's songs (at most {MAX_SETLIST_SONGS}).",
+            songs.len()
+        ));
+    }
+    match songs.iter().find(|s| s.slides.is_empty()) {
+        Some(bad) => Err(format!(
+            "Song \"{}\" has no slides — every song needs at least one.",
+            bad.title
+        )),
+        None => Ok(()),
+    }
+}
+
 pub struct Conductor {
     songs: Vec<Song>,
     /// `song_offsets[i]` = global index of the first slide of song i.
@@ -1131,6 +1159,17 @@ mod tests {
         );
         assert_eq!(slide_of(&action), Some((0, 2)));
         assert_eq!(c.best_slide(0, ""), 0);
+    }
+
+    #[test]
+    fn whole_libraries_are_refused_as_a_setlist() {
+        // Q2-17 (audit 13): an EasyWorship import used to load every song.
+        let song = example_setlist().remove(0);
+        let at_most = vec![song.clone(); MAX_SETLIST_SONGS];
+        assert_eq!(check_setlist(&at_most), Ok(()));
+        let err = check_setlist(&vec![song; MAX_SETLIST_SONGS + 1]).unwrap_err();
+        assert!(err.contains("pick today's songs"), "{err}");
+        assert!(check_setlist(&[]).is_err());
     }
 
     #[test]
