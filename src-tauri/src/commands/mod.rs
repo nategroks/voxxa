@@ -185,9 +185,6 @@ pub async fn start_listening_with_state(
     state: &AppState,
     app: &tauri::AppHandle,
 ) -> Result<(), String> {
-    if state.is_running.load(Ordering::SeqCst) {
-        return Err("Already running".to_string());
-    }
     {
         let c = state.conductor.lock().await;
         if c.is_none() {
@@ -202,11 +199,11 @@ pub async fn start_listening_with_state(
             );
         }
     }
-    state.is_running.store(true, Ordering::SeqCst);
-
-    let rx = {
+    let (session, rx) = {
         let mut audio = state.audio.lock().await;
-        audio.start().map_err(|e| e.to_string())?
+        state
+            .listening
+            .start(|| audio.start().map_err(|e| e.to_string()))?
     };
 
     let vad = state.vad.clone();
@@ -214,13 +211,12 @@ pub async fn start_listening_with_state(
     let conductor = state.conductor.clone();
     let presenter = state.presenter.clone();
     let dispatched = state.dispatched.clone();
-    let is_running = state.is_running.clone();
+    let listening = state.listening.clone();
     let app_handle = app.clone();
     // Capture the runtime handle so spawn_blocking can call back into async-land
     // without building a fresh runtime each iteration.
     let rt_handle = tokio::runtime::Handle::current();
 
-    let is_running_for_task = is_running.clone();
     let app_handle_for_cleanup = app.clone();
     tokio::task::spawn_blocking(move || {
         let mut accumulated: Vec<f32> = Vec::new();
@@ -245,7 +241,7 @@ pub async fn start_listening_with_state(
             }
         };
 
-        while is_running.load(Ordering::SeqCst) {
+        while session.load(Ordering::SeqCst) {
             let now = Instant::now();
 
             // Periodic tick — drives time-based transitions (silence → blank).
@@ -408,9 +404,8 @@ pub async fn start_listening_with_state(
                 }
             }
         }
-        // Always reset is_running on loop exit so the UI doesn't think we're
-        // still listening after a device dropout.
-        is_running_for_task.store(false, Ordering::SeqCst);
+        // Ends only this session: a newer one keeps running.
+        listening.finished(&session);
         let _ = app_handle_for_cleanup.emit(
             "listening-stopped",
             serde_json::json!({ "disconnected": disconnected }),
@@ -418,6 +413,54 @@ pub async fn start_listening_with_state(
     });
 
     Ok(())
+}
+
+/// The current listening session's run flag. Each session has its own flag,
+/// so an old loop still winding down can never stop a newer session.
+#[derive(Default)]
+pub struct Listening(std::sync::Mutex<Option<Arc<AtomicBool>>>);
+
+impl Listening {
+    fn current(&self) -> std::sync::MutexGuard<'_, Option<Arc<AtomicBool>>> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.current()
+            .as_ref()
+            .is_some_and(|f| f.load(Ordering::SeqCst))
+    }
+
+    /// Claim a new session, then run `open` (the audio start). Nothing stays
+    /// claimed when `open` fails, so a failed start never blocks the next one.
+    pub fn start<T>(
+        &self,
+        open: impl FnOnce() -> Result<T, String>,
+    ) -> Result<(Arc<AtomicBool>, T), String> {
+        let mut current = self.current();
+        if current.as_ref().is_some_and(|f| f.load(Ordering::SeqCst)) {
+            return Err("Already running".into());
+        }
+        let opened = open()?;
+        let flag = Arc::new(AtomicBool::new(true));
+        *current = Some(flag.clone());
+        Ok((flag, opened))
+    }
+
+    pub fn stop(&self) {
+        if let Some(f) = self.current().take() {
+            f.store(false, Ordering::SeqCst);
+        }
+    }
+
+    /// A session's loop ended; it is cleared only if it is still the current one.
+    pub fn finished(&self, flag: &Arc<AtomicBool>) {
+        flag.store(false, Ordering::SeqCst);
+        let mut current = self.current();
+        if current.as_ref().is_some_and(|c| Arc::ptr_eq(c, flag)) {
+            *current = None;
+        }
+    }
 }
 
 /// What Voxxa last sent to the presenter. Reset when the setlist or the
@@ -627,12 +670,17 @@ fn dispatch_action_with_total(
 /// Stop listening.
 #[tauri::command]
 pub async fn stop_listening(state: State<'_, AppState>) -> Result<(), String> {
-    state.is_running.store(false, Ordering::SeqCst);
+    stop_listening_with_state(&state).await;
+    Ok(())
+}
+
+/// Stop from any path (GUI, HTTP API).
+pub async fn stop_listening_with_state(state: &AppState) {
+    state.listening.stop();
     let mut audio = state.audio.lock().await;
     audio.stop();
     let mut vad = state.vad.lock().await;
     vad.reset();
-    Ok(())
 }
 
 /// Get current status.
@@ -653,7 +701,7 @@ pub async fn get_status(state: State<'_, AppState>) -> Result<StatusInfo, String
     };
     let model_loaded = state.transcription.lock().await.current_model().is_some();
     Ok(StatusInfo {
-        is_running: state.is_running.load(Ordering::SeqCst),
+        is_running: state.listening.is_running(),
         model_loaded,
         current_slide,
         total_slides,

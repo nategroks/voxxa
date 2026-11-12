@@ -632,3 +632,31 @@ fn capture_config_prefers_float_or_i16_at_the_default_rate() {
         voxxa_lib::choose_config(default(SampleFormat::U8), &[range(SampleFormat::U8)]).is_none()
     );
 }
+
+/// Q2-11 (audit 9): a failed start leaves nothing claimed; a second start is refused.
+#[test]
+fn failed_listening_start_does_not_block_the_next_one() {
+    use std::sync::atomic::Ordering::SeqCst;
+    let l = voxxa_lib::Listening::default();
+    assert!(l.start(|| Err::<(), _>("device lost".to_string())).is_err());
+    assert!(!l.is_running());
+    let (flag, ()) = l.start(|| Ok(())).unwrap();
+    assert!(flag.load(SeqCst) && l.is_running());
+    assert!(
+        l.start(|| Ok(())).is_err(),
+        "a second concurrent start must be refused"
+    );
+}
+
+/// Q2-11 (audit 9): an old loop that winds down late cannot stop the new session.
+#[test]
+fn old_listening_loop_cannot_stop_a_new_session() {
+    use std::sync::atomic::Ordering::SeqCst;
+    let l = voxxa_lib::Listening::default();
+    let (old, ()) = l.start(|| Ok(())).unwrap();
+    l.stop();
+    let (new, ()) = l.start(|| Ok(())).unwrap();
+    l.finished(&old);
+    assert!(new.load(SeqCst) && l.is_running());
+    assert!(!old.load(SeqCst));
+}

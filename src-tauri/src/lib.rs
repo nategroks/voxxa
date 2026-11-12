@@ -18,7 +18,7 @@ use tokio::sync::Mutex;
 
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::{choose_config, downmix_f32, resample_to_16k, AudioEngine};
-pub use commands::{apply_action, step_raw, Dispatched};
+pub use commands::{apply_action, step_raw, Dispatched, Listening};
 pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
     PresenterConfig, PresenterKind, PresenterState,
@@ -50,7 +50,7 @@ pub struct AppState {
     pub smart_config: Arc<Mutex<SmartConfig>>,
     /// What the dispatcher last sent to the presenter (slide, song, blank).
     pub dispatched: Arc<commands::Dispatched>,
-    pub is_running: Arc<std::sync::atomic::AtomicBool>,
+    pub listening: Arc<commands::Listening>,
     /// Optional local HTTP API for hardware integrations. None until the user
     /// turns it on in Settings.
     pub http_api: http_api::SharedHttpApi,
@@ -87,7 +87,6 @@ pub fn run() {
         let _ = rt.block_on(keystroke.connect(cfg));
     }
     let presenter = Arc::new(Mutex::new(keystroke));
-    let is_running = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let state = AppState {
         audio: audio.clone(),
@@ -97,7 +96,7 @@ pub fn run() {
         presenter: presenter.clone(),
         smart_config: smart_config.clone(),
         dispatched: Arc::default(),
-        is_running: is_running.clone(),
+        listening: Arc::default(),
         http_api: http_api.clone(),
     };
 
