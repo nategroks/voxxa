@@ -119,7 +119,7 @@ pub async fn load_setlist(
     *state.conductor.lock().await = Some(conductor);
     // A new setlist numbers slides afresh; the blank state is the presenter's.
     let mut sent = state.sent.lock().await;
-    (sent.global, sent.song) = (-1, None);
+    (sent.global, sent.song) = (None, None);
     log::info!("Loaded setlist with {} songs", songs.len());
     Ok(songs)
 }

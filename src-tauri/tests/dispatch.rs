@@ -201,7 +201,7 @@ async fn keystrokes_are_refused_while_voxxa_has_focus() {
     assert_eq!(
         sent,
         Sent {
-            global: 0,
+            global: Some(0),
             song: None,
             blank: false
         }
@@ -349,7 +349,7 @@ async fn a_raw_step_before_any_detection_keeps_the_position_unknown() {
     step(&p, &mut sent, 1, false).await.unwrap();
     auto(&p, &mut sent, goto(1, 1)).await.unwrap();
     assert_eq!(p.take(), ["next"], "only the operator's own key");
-    assert_eq!(sent.global, 5);
+    assert_eq!(sent.global, Some(5));
 }
 
 #[tokio::test]
@@ -369,4 +369,20 @@ async fn drivers_without_a_per_song_slide_index_step_across_songs() {
             "{kind:?}"
         );
     }
+}
+
+#[tokio::test]
+async fn a_prev_below_the_first_song_keeps_the_deck_position_known() {
+    // Announcement slides before the first song: the operator's Prev on
+    // Amazing Grace slide 0 lands on one. Global -1 used to mean "unknown",
+    // so every later slide was off by the swallowed steps.
+    let p = Fake::toggle();
+    let mut sent = Sent::default();
+    auto(&p, &mut sent, goto(0, 0)).await.unwrap();
+    step(&p, &mut sent, -1, false).await.unwrap();
+    for (song, slide) in [(0, 1), (0, 2), (1, 0)] {
+        auto(&p, &mut sent, goto(song, slide)).await.unwrap();
+    }
+    assert_eq!(p.screen.lock().unwrap().0, 4, "Be Thou My Vision slide 0");
+    assert_eq!(p.take(), ["prev", "next", "next", "next", "next", "next"]);
 }

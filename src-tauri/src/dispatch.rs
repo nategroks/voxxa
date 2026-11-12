@@ -9,25 +9,16 @@ use std::time::Duration;
 
 /// What Voxxa last sent to the presenter. Voxxa has sent nothing at launch,
 /// so it starts "no slide, not blanked".
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Sent {
-    /// Setlist-global index of the last slide sent; -1 when none yet.
-    pub global: i64,
+    /// Setlist-global index of the last slide sent; None while unknown. It can
+    /// go below 0: a Prev from the first song lands on a slide before it.
+    pub global: Option<i64>,
     /// Song of that slide. Goto drivers address slides inside one presentation
     /// (one song), so a song change needs the right presentation selected.
     pub song: Option<usize>,
     /// Voxxa last sent a blank. Toggle drivers depend on this being right.
     pub blank: bool,
-}
-
-impl Default for Sent {
-    fn default() -> Self {
-        Self {
-            global: -1,
-            song: None,
-            blank: false,
-        }
-    }
 }
 
 pub const FOCUS_MSG: &str = "focus your presentation app: Voxxa's own window has the keyboard";
@@ -143,14 +134,14 @@ pub async fn drive(
         if unblank_first {
             set_blank(p, sent, false, voxxa_focused).await?;
         }
-        if new_song || target != sent.global {
+        if new_song || sent.global != Some(target) {
             p.goto_slide(slide).await?;
         }
         sent.song = Some(song);
-    } else if sent.global >= 0 {
+    } else if let Some(cur) = sent.global {
         // Keystroke-style drivers step through the setlist with next/prev.
         // With nothing sent yet the position is unknown, so nothing is pressed.
-        let delta = target - sent.global;
+        let delta = target - cur;
         if delta != 0 {
             refuse_if_focused(p, voxxa_focused)?;
         }
@@ -168,7 +159,7 @@ pub async fn drive(
             }
         }
     }
-    sent.global = target;
+    sent.global = Some(target);
     if sent.blank {
         set_blank(p, sent, false, voxxa_focused).await?;
     }
@@ -193,9 +184,9 @@ pub async fn step(
     } else {
         p.prev_slide().await?;
     }
-    // An unknown position (-1) stays unknown until a detection places the deck.
-    if sent.global >= 0 {
-        sent.global += delta as i64;
+    // An unknown position stays unknown until a detection places the deck.
+    if let Some(g) = sent.global.as_mut() {
+        *g += delta as i64;
     }
     Ok(())
 }
