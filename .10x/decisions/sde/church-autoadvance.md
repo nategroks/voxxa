@@ -118,3 +118,32 @@ The second verifier's mutations L1–L3 in `listen::run` survived `cargo test`, 
 - 37dd632: the tick test now also feeds one 1 s chunk and five 1 ms chunks and expects one tick at 1000 ms, not five catch-up ticks (L4); the real-speech replay test now also checks that replay returns the hypothesis lines exactly as recorded (R2).
 
 **Gates:** all 7 pass at 37dd632. Test: 108 passed by the sum of the per-binary results (54 unit + 54 integration; `voxxad_events` 19, about 20 s in debug; also run with `APPDATA` pointed at an empty directory, so no Whisper model is needed). The earlier "109 (55 integration, `voxxad_events` 17)" does not add up against this count (it would be 106); it was probably miscounted. Budgets unchanged: everything else 2496/2500, voxxad 531/600 (tests are not counted). **Exit demo** re-run with the same 45 s WAV (1 s silence, `ag-v1.wav`, `ag-v2.wav`, 7 s silence, `prayer.wav`, 7 s silence) and `tests/fixtures/voxxad/pd-hymns-setlist.json`, Whisper Tiny, `--presenter propresenter7_rest --port 18425 --shadow` against `scripts/qa/mock_pro7.py`: goto Amazing Grace/0 at 8.1 s, goto Amazing Grace/1 at 22.8 s, blank at 27.8 s; the prayer showed nothing. `--replay <session-20261112-1542.jsonl> --setlist …`: the 3 action lines are byte-identical (`cmp`) to stdout and to the log; hypothesis lines match too; replay wrote nothing to stderr. Mock `/_log` stayed `[]`; the mock was stopped by PID.
+
+## 2026-11-12 — Q3 final: `voxxad` CLI on `q3/base` (head f2bcea1), merge on hold
+Process record: `reviews/2026-11-12-ponytail-q3.md`. Tickets: `reviews/2026-11-12-q3-tickets.md` (Q3-01 … Q3-13).
+
+**What was built.**
+- `voxxa_lib::listen::run` (`src-tauri/src/listen.rs`) is the one listening loop. The GUI and `voxxad` both call it, each with its own clock, recogniser closure and event sink. The GUI's sink emits the same Tauri events in the same order and dispatches through `commands::dispatch`.
+- Every conductor input is an `Input` (`Tick`, `Speech`, `Heard`) applied through `Conductor::apply`, by the loop and by replay.
+- `voxxad` (`src-tauri/src/bin/voxxad/main.rs`, `events.rs`): file speed on a sample clock, `--realtime` and `--device` on a wall clock rounded to whole ms; `--shadow`; `--presenter` with the five drivers or `none` (the default); `--replay`; `--list-devices`. Output is JSON lines, schema v1: `status`, `hypothesis`, `action`, `error` on stdout, plus `tick` and `speech` in the session log only.
+- Session log in `<data dir>/voxxa/sessions/`, 14-day rotation by the date in the file name. Replay is byte-identical on action lines, needs no model, and refuses another setlist, a bad line (`<path>: session line N`) or a `v` other than 1.
+- Base: the 10x lane, plus six ponytail grafts (bounded feeder, replay line errors and the `v` check, `say()` for stdout, the keystroke stderr warning, usage errors for ignored flags, ADR-013 privacy and packaging text).
+- Tests: `src-tauri/tests/voxxad_events.rs`, 19 tests, no Whisper model or audio device. They cover wire forms, replay of a real recorded session, the loop on silence and on real public-domain speech with a fake recogniser, and the binary's replay and error output. The mutations from verifier rounds 1 and 2 (M2–M6, L1–L5, R2) each fail a test.
+
+**Gates at f2bcea1 (Windows 11, rustc 1.99.1):** all 7 pass. 108 tests (54 unit + 54 integration). Budgets: everything else 2,496/2,500, conductor 1,153/1,200, voxxad 531/600, presenters 1,149/2,000, importers 1,362/1,600, GUI 2,951/3,000.
+
+**Deviations from the prompt.**
+- **Budget:** a new row, "voxxad binary (src/bin/voxxad*)", capped at 600 and excluded from "everything else". This was the user's decision. It deviates from ADR-010 Decision 3 and is recorded in `scripts/loc_budget.py` and ADR-013 Decision 7. No other budget was raised. The loop extraction fits the existing rows (+13 in everything else, +16 in the conductor).
+- Extra flags: `--host`, `--port`, `--model`, `--log-dir`, `--device default`, `--stdin-audio -`. Flags a mode would ignore are usage errors.
+- Session logs go in a `sessions/` subfolder of the data dir.
+- `start`, `stop` and `devices` are `status` states. `action` leaves out slide text. `--replay` needs `--setlist` and prints no start or stop line.
+- `--shadow` never builds or connects a presenter, so it does not check that the presenter is reachable.
+- `Cargo.toml` gains `default-run = "voxxa"`.
+
+**Merge on hold.** Verifier round 3 at f2bcea1: verifier A passed, verifier B failed. Open:
+- Q3-01: deleting the `--shadow` guard (`main.rs:312-314`) passes every gate.
+- Q3-02: three mutations of the GUI event sink pass every gate.
+
+The PR must not be merged until Q3-01 has a test, Q3-02 has a test or a recorded deferral, and a verifier re-run passes.
+
+**Debt (tickets).** Q3-03 release packaging (was Q3-T1); Q3-04 keystroke focus from a terminal; Q3-05 transcripts in the roaming `%APPDATA%`; Q3-06 synchronous transcription (Q4); Q3-07 GUI loop and `--device` not run on hardware; Q3-08 repeated goto in the action stream; Q3-09 no GUI session log or operator inputs; Q3-10 16 kHz mono WAV only; Q3-11 small output gaps; Q3-12 no control-byte gate; Q3-13 slow debug tests.

@@ -6,83 +6,76 @@
 - **ADR-012 (cut list)** is not decided yet; Q3 does not depend on it. Q3's ADR is ADR-013.
 - **QA mode** (as in Q2): no microphone (`voxxad --device` is never run), no keystroke dispatch; `--shadow`, `--presenter none` or a local mock presenter only; audio from public-domain WAV files; the Whisper model `%APPDATA%\voxxa\models\ggml-tiny.bin` is present.
 
-## Q3 finisher (2026-11-12) → orchestrator
-- `q3/base` = `q3/10x` merged with `--no-ff` (f6d18b3) + the comparator's picks, one commit each (7cc75b2..1f5e31b): the 10x test file made plain text (it held raw NULs), the bounded feeder, replay `path: session line N` errors and the `v` check, `say()` for every stdout line (no panic on a closed pipe), the keystroke stderr warning, usage errors for flags a mode would ignore, and three ADR-013 text fixes (privacy, release packaging, match the code). No graft was skipped.
-- All 7 gates pass from the worktree; exit demo re-run with real output (record: `decisions/sde/church-autoadvance.md`, "Q3 finish").
-- Verifier fixes (c54f16e, aa8b2d3, d65da8f, tests only): mutations M2–M6 in `listen::run` now each fail a test; a 12 s public-domain speech WAV is committed as a test fixture. 109 tests; all 7 gates and the exit demo pass again (record: "Q3 verifier fixes").
-- Verifier round 2 (2fa3eb0, 14e8a6e, 37dd632, tests only): mutations L1–L5 and R2 now each fail a test (recogniser error and empty transcript, mic meter, tick catch-up, detection row count, replayed hypotheses). 108 tests by per-binary sum (`voxxad_events` 19; the earlier 109 looks miscounted); all 7 gates and the exit demo pass again (record: "Q3 verifier round 2").
-- Still to do (pre-approved above): the ponytail record `reviews/2026-11-12-ponytail-q3.md`, push `q3/base`, draft PR, CI, file Q3 tickets including **Q3-T1** (does `tauri build` bundle `voxxad`? see ADR-013 Risks).
-- Watch out: text written through a Bash heredoc on this PC can turn `\0`, `\n` and `\v` into control bytes (seen in this run; probably how the NULs got into the 10x test file and a vertical tab into this file's model path, both fixed). Write such text with the Edit/Write tools and check with `git grep -lP '[\x00\x0b]'`.
-
 ---
 
-## From: Q2 (QA Engineer + Security Engineer, 2026-11-11) → To: the user (cut-list ADR-012), then Q3
-**Date:** 2026-11-11
-**Phase:** Phase 5 Verification done → user decision gate → Increment 1′ (Q3 `voxxad` CLI)
+## From: Q3 → To: Q4 (Recognizer trait and streaming hop)
+**Date:** 2026-11-12
+**Phase:** Phase 4 Implementation done on `q3/base`; merge on hold → Q4
 
-### What Q2 did
-- Verified the merged base (1568810) in simulate mode and fixed every crash, data-loss, freeze, listening-impossible and wrong-slide defect found, each with a test that fails without the fix: `reviews/2026-11-11-qa-report.md`.
-- Security review with STRIDE-lite over 10 boundaries; S1 (HTTP API, High) and S3 (PDF abort, Critical) fixed; no Critical or High open: `reviews/2026-11-11-security-review.md`.
-- Ran as the user's ponytail process: a QA lane and a Security lane, a skeptic, two independent fix lanes (`q2/10x`, `q2/ponytail`), cross-reviews, comparator (base 10x + ponytail grafts), finisher and adversarial verifier. The verifier's one finding (Q2-44) was fixed by the orchestrator: `reviews/2026-11-11-ponytail-q2.md`.
-- 43 open tickets (18 medium, 25 low), filed 2026-11-12 as GitHub issues #2–#44 (label `q2`): `reviews/2026-11-11-q2-tickets.md`.
-- Code head: `q2/10x` @ b09373d (24 commits on 1568810), plus the Q2 state commit. `q2/ponytail` (0d3162f) stays local for reference.
-- **Gates on Windows:** all seven pass; 45 unit + 33 integration tests; no budget raised.
-- **Ponytail-audit re-run (2026-11-12, on 3446e09):** fixed with tests PT2-01, PT2-02, PT2-05 and the older Prev-below-the-first-song defect (f2519ba..b677d69, code head **b677d69**, all 7 gates pass); 10 new tickets Q2-55 … Q2-64 (44 in all); the last fix-now item is closed: a worship phrase during a prayer blank could show the next slide through the in-song advance path; fixed with a test in 4129dcd, and the PT2-02 focus check got a pure-helper test in 713f40f. A second verifier passed at 713f40f (all 7 gates; every mutation caught by a test or a gate; `reviews/2026-11-11-ponytail-q2.md` §8.6). Code head is now **713f40f**. The hold is lifted: the PR #1 push and the ticket filing below can go ahead.
+### What Q3 did
+- Added the headless `voxxad` binary over `voxxa_lib` and moved the GUI's listening loop into the library, so the GUI and the CLI share one function. ADR-013 (Accepted) records the design.
+- Ran as two lanes (`q3/10x`, `q3/ponytail`) with cross-reviews, a comparator (base 10x, six ponytail grafts), a finisher and three verifier rounds: `reviews/2026-11-12-ponytail-q3.md`.
+- Code head: `q3/base` @ **f2bcea1**. All 7 gates pass on Windows; 108 tests (54 unit + 54 integration; `voxxad_events` 19, no Whisper model or audio device needed).
+- Exit demo shown with real output: a shadow run printed the actions, replay was byte-identical on them, and the ProPresenter mock received nothing under `--shadow`.
+- Record: `decisions/sde/church-autoadvance.md` ("Q3 final"). Tickets: `reviews/2026-11-12-q3-tickets.md` (13: 7 medium, 6 low; not filed yet).
 
-### Exit criteria
-- Both reviews committed: **met** (this state commit).
-- No open crash, data-loss or wrong-slide (audit 1–4) defect: **met** in code; real-app confirmation is the founder checklist (risk R14).
-- Security findings triaged as fix-now (done) or ticket: **met**.
+### Open before the Q3 merge (orchestrator) — do not merge until 1–3 are done
+Verifier round 3 at f2bcea1: verifier A passed, **verifier B failed**.
+1. **Q3-01:** deleting the `--shadow` guard (`src-tauri/src/bin/voxxad/main.rs:312-314`) passes every gate. Add the model-free test described in the ticket (`--model nonexistent`, a test-owned `TcpListener`, no connection under `--shadow`).
+2. **Q3-02:** three mutations of the GUI event sink in `commands::start_listening_with_state` pass every gate. Add a tested pure event mapping (4 lines left in "everything else"), or record a decision to defer it to the ticket.
+3. Re-run a verifier, all 7 gates and the exit demo on the new head.
+4. Pre-approved: push `q3/base`, draft PR against `main`, CI (first Linux and macOS run of `listen.rs` and `voxxad_events`; the loop test builds a real `VadEngine`, which falls back to the energy detector if Silero/ORT cannot start), merge when every job is green, file the 13 tickets (label `q3`).
 
-### Next user decision: the post-Q2 cut-list ADR (ADR-012, the next free number)
-Q2 gathered facts only (QA report §9). The features and what Q2 found:
-- **HTTP API:** works; now token-mandatory and browser-proof; 5 unique crates; no pilot request recorded; generated token is not kept across launches (Q2-51).
-- **mDNS Auto-detect:** not run (Windows Firewall prompt); 6 unique crates; spoofable LAN answers.
-- **Hymnary:** broken (403).
-- **PDF importer:** works since Q2-06; 27 unique crates; panics on 4.8 % of mutated inputs (now caught; stack overflow is not).
-- **Stage display:** works since Q2-09; never takes focus; ADR-011-compliant by default; copy ticket Q2-30.
-- **Flatpak:** no workflow builds it.
-- **Signing scaffolds:** `.asc` never released; updater unwired (Q2-28).
-- **Unused plugins:** updater (17 unique crates, a second HTTP stack), shell (7), global-shortcut (3); Python prototype still in the tree.
+### What Q4 must know
+**Where the shared loop lives.**
+- `src-tauri/src/listen.rs`: `voxxa_lib::listen::run(rx, run, vad, conductor, transcribe, clock, sink) -> bool`. It returns true when the channel closes while `run` is set (device lost or end of file).
+- Callers: the GUI (`commands::start_listening_with_state`, clock `|_| Instant::now()`, sink emits the Tauri events and dispatches through `commands::dispatch`) and `voxxad` (`src-tauri/src/bin/voxxad/main.rs`, sample or wall clock, sink writes JSON lines and dispatches through `dispatch::drive`).
+- The recogniser is a closure, `FnMut(&[f32]) -> Result<String>`. That is the ADR-004 seam in its smallest form. Q4's Recognizer trait replaces it; ADR-013's review trigger ("a second recogniser lands") applies, so amend ADR-013 or write a new ADR first.
 
-### Open for the orchestrator (pre-approved by the user)
-1. Push `q2/10x` to PR #1's branch and watch CI (first Linux/macOS run of the Q2 code: zbus from the single-instance plugin; timing-based download tests; PDF fixtures need `.gitattributes`). Fix forward.
-2. Merge PR #1 into `main` once every CI job is green.
-3. ~~File the tickets as GitHub issues~~ done 2026-11-12: #2–#44.
+**The hop loop replaces the 5 s batch there.**
+- The batch is the `accumulated.len() < 16000 * 5` block at `listen.rs:140` and the recogniser call after it. Transcription is synchronous inside the loop, so ticks, timers and VAD stall while Whisper runs (Q3-06). In a debug build `--realtime` fell behind (47 s of audio ended at t = 92 s). Measure real-time factor and tick lag in a release build.
+- Tests pin today's batch on purpose, so Q4 will change them deliberately, not by accident. In `src-tauri/tests/voxxad_events.rs`: `the_shared_loop_on_real_speech_agrees_with_a_replay_of_its_inputs` (every slice ≥ 80,000 samples; the first transcript comes when the VAD's speech adds up to 5 s) and `a_failed_or_empty_transcript_drops_its_audio_and_the_loop_goes_on` (the recogniser gets the VAD's speech in order and **none of it twice**). An overlapping hop sends audio twice by design, so that assertion has to be restated for the hop.
+- The test harness `listen_with` drives the loop with any setlist and a fake recogniser told the slice number. Use it for hop tests; CI has no Whisper model.
+- GUI behaviour stayed identical in Q3. A hop changes recognition timing in the GUI too; record that as a deliberate behaviour change in the ADR.
 
-### What Q3 must know
-- **Dispatch has one path:** `commands::dispatch` → `dispatch::drive` / `dispatch::step` (pure, tested with fake presenters in `tests/dispatch.rs`). A `voxxad` non-shadow mode must reuse it, not call presenters directly. `Sent` replaced `last_dispatched_global`; `Sessions` replaced `is_running`.
-- **Behaviour changes** to keep: the conductor blanks on the second unmatched transcript; keystrokes are refused while a Voxxa window has focus; goto drivers address the slide within the song and blank on an unconfirmed song change; empty slides are kept; setlists over 50 songs are refused; capture resamples device audio to 16 kHz (`audio::Resampler`, `choose_config`). Full list: QA report §6.
-- **Line budget:** "everything else in src-tauri/src" is 2489/2500. Q3's `voxxad` binary and the audio-loop extraction will not fit; plan an explicit, recorded budget decision (smallest raise, recorded as a deviation) or move code into an already-budgeted module. Keep tests in `src-tauri/tests/`.
-- **ADR numbering:** Q3's prompt says "write ADR-011 first" if needed; ADR-011 is taken and ADR-012 is reserved for the cut list, so Q3 uses ADR-013.
-- **GUI checks:** `scripts/qa/cdp-smoke.mjs` + `scripts/qa/mock_pro7.py` (needs a scratch build with remote debugging; ticket Q2-53).
+**Event schema v1 and replay rules (ADR-013).**
+- One JSON object per line, keys in order `v`, `t`, `type`. `t` is ms since the session started: audio time at file speed (sample clock), wall time rounded to whole ms with `--realtime` and `--device`.
+- `status` (`start`, `listening`, `singing`, `inter_verse_silence`, `blank_hold`, `stop`), `hypothesis` (`text`), `action` (`goto` with `song`, `slide`, `global`, `title`; `blank`; `unblank`), `error` (`message`) go to stdout and the session log. `tick` and `speech` go to the session log only. That is 6 of ADR-001's 8 types. A new type (for example a partial hypothesis) may be added within 8. Changing an existing type's meaning needs `"v":2`.
+- Every conductor input is an `Input` (`Tick`, `Speech`, `Heard`) applied through `Conductor::apply(&Input, now)`, by the loop and by replay. Replay applies the logged `tick`, `speech` and `hypothesis` lines at `base + t` and must stay byte-identical on action lines without the model.
+- Speech lines are coalesced to the last one before each tick or hypothesis. This is exact only while `Conductor::on_speech` just records `now` (noted on the method). If the hop makes speech matter between ticks, log every speech input instead.
+- The start line carries `SmartConfig` and the setlist fingerprint; replay refuses another setlist, a bad line and a `v` other than 1.
+- The committed fixture `tests/fixtures/voxxad/session-pd-hymns.jsonl` is a real session. If Q4 changes what the conductor does with the same inputs, re-record it deliberately and say why in the commit.
+- Q4's `voxxa-eval` reads these lines. The conductor can repeat a goto to the slide already shown (Q3-08): dispatch drops it, but an eval would count it.
 
-### Founder checklist (before any pilot leaves shadow mode)
-QA report §10 (M1–M14: real mic, failed start, singing with the band, Keystroke toggle with PowerPoint/ProPresenter, own-window guard, unplug, Auto-detect, pptx order, real presentation apps, displays, tray, export, close and relaunch, Stream Deck) and security review §10. First clear `%LOCALAPPDATA%\com.voxxa.app` (Q2 left a mock presenter config at 127.0.0.1:18025); keep `%APPDATA%\voxxa\models\ggml-tiny.bin`.
+**Budget numbers (after Q3).**
+| Row | Used / cap | Left |
+|---|---|---|
+| everything else in src-tauri/src (holds `listen.rs`) | 2,496 / 2,500 | 4 |
+| conductor (`aligner/`) | 1,153 / 1,200 | 47 |
+| voxxad binary (`src/bin/voxxad*`, new in Q3, user decision) | 531 / 600 | 69 |
+| presenters | 1,149 / 2,000 | 851 |
+| importers + planning_center | 1,362 / 1,600 | 238 |
+| GUI | 2,951 / 3,000 | 49 |
 
-### Housekeeping left by Q2
-- A vite dev server (PID 1580) and esbuild (PID 7944) started for the CDP smoke still run from `C:/dev/q2-10x/node_modules`; stopping them was refused by the permission classifier. End them, then run `npm ci` in `C:/dev/q2-10x` (an `npm ci` attempt partly removed `node_modules`). Gate 1 passed on a clean `git archive` export of HEAD.
-- Untracked scratch: `C:/dev/q2-find/target-scratch/` (QA logs, mocks, crash backtrace); CDP results in the session scratchpad.
+The hop loop goes in `listen.rs`, which has 4 lines left. Q4 needs an explicit budget decision before code: move recogniser code into a module with its own recorded row, or ask the user. Never raise a budget silently. Tests in `src-tauri/tests/` are not counted.
 
-### What an unattended run needs (answer to the user's question)
-1. **Remote debugging for GUI checks:** permission to build a scratch copy with `additionalBrowserArgs: --remote-debugging-port=…` (the WebView2 env var is ignored), or a committed dev-only switch (ticket Q2-53).
-2. **Process control:** a rule allowing agents to stop processes they started, by PID (`taskkill /PID`, `Stop-Process -Id`), including dev servers. Killing by image name is correctly refused. This was the one blocker in Q2.
-3. **CDP dispatch rule:** pre-approve `node scripts/qa/cdp-smoke.mjs`-style calls against the local mock, including dispatch while disconnected (one such call was refused, so that case is untested).
-4. **mDNS:** decide whether agents may trigger the Windows Firewall prompt, or accept code reading only.
-5. **Hymnary:** accept that it is broken (Q2-29), or give a working endpoint.
-6. **Planning Center:** a debug-only base-URL override to test against `fixtures/pco` (ticket Q2-35).
-7. **Network:** keep crates.io access (a new crate was added) and the Hugging Face download.
-8. **Shared state:** separate `CARGO_TARGET_DIR` and app-data profiles per lane (two lanes shared `%APPDATA%\voxxa` and the WebView2 profile in Q2); copy an exe aside before launching it from a shared target dir.
-9. **PowerShell:** `.ps1` files are blocked by the execution policy; inline PowerShell works.
+**Other things to keep.**
+- One dispatch path: `dispatch::drive`. `--shadow` and `--presenter none` never build a presenter.
+- Q2 behaviour changes stay (QA report §6): blank on the second unmatched transcript, keystroke focus guard, per-song goto with a blank on an unconfirmed song change, 50-song cap, 16 kHz resampling of device audio.
+- Safety rules for unattended runs are unchanged: no microphone, no keystroke dispatch, a local mock presenter only, stop every process by PID.
+- Watch out: text written through a Bash heredoc on this PC can turn `\0`, `\n` and `\v` into control bytes (it put NULs into a test file and a vertical tab into this file in Q3). Write such text with the Edit or Write tools and check with `git grep -lIP '[\x00\x0b]'` (ticket Q3-12).
 
-### Still open from Q1
-- **A15 follow-ups:** `fixtures/setlists/pd-hymns.json` and `fixtures/pco/plan-sample.json` don't fit the May parsers; re-run the Windows verification (a003992) on the merged head (`handoff-local-windows.md`); finish reconciling `docs/signing-policy.md` with `SIGNING.md`.
+### Still open from earlier steps
+- **Founder checklist** before any pilot leaves shadow mode: QA report §10 (M1–M14) and security review §10, plus Q3-07 (start and stop listening in the GUI, unplug, and one `voxxad --device default --shadow` run on the booth PC). First clear `%LOCALAPPDATA%\com.voxxa.app`; keep `%APPDATA%\voxxa\models\ggml-tiny.bin`.
+- **User decision:** the cut-list ADR-012 (evidence in the QA report §9).
+- **Q1 A15 follow-ups:** `fixtures/setlists/pd-hymns.json` and `fixtures/pco/plan-sample.json` don't fit the May parsers; re-run the Windows verification (a003992) on the merged head (`handoff-local-windows.md`); finish reconciling `docs/signing-policy.md` with `SIGNING.md`.
 
 **Process rule (user, 2026-11-11):** every prompt (Q2…Q27) also runs independently through ponytail. Run it as two lanes plus cross-review for code steps, or `ponytail` + `ponytail-audit` for verification and close steps. Record the result in `reviews/YYYY-MM-DD-ponytail-<Q>.md`.
 
 ---
 
 ## Handoff History
+- 2026-11-12 Q2 → Q3 (handed to the user for ADR-012, then Q3): Q2 verified the merged base in simulate mode and fixed every crash, data-loss, freeze and wrong-slide defect found, with tests (code head 713f40f after the ponytail-audit re-run, merged into `main` as 7bd84a1); 43 tickets filed as issues #2–#44; the full section, with the unattended-run needs and the cut-list evidence, is in this file's git history (f2bcea1).
 - 2026-11-11 Q2: QA + security verification in simulate mode; 18 fix-now items + verifier finding Q2-44 fixed with tests; two fix lanes (10x, ponytail) → 10x base with ponytail grafts; 34 tickets; ADR-011 stage window compliant by default; cut-list evidence for ADR-012.
 - 2026-11-11 Q1: May branch merged per ADR-010 + A1–A15; two lanes (10x, ponytail) → 10x base with ponytail grafts; all local gates green; build.yml YAML fixed.
 - 2026-11-11 Q0 gate: the user accepted ADR-010 as amended; ADR-011; cuts deferred until after Q2; Q2 widened to cover wrong-slide defects.
