@@ -78,7 +78,8 @@ impl PresentationController for OpenSongDriver {
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             can_blank: true,
-            can_goto_slide: true,
+            // Slide numbers span the whole set, not the selected song (PT2-05).
+            can_goto_slide: false,
             can_query_state: false,
         }
     }
@@ -159,7 +160,7 @@ impl PresentationController for OpenSongDriver {
     }
 
     async fn goto_slide(&self, index: u32) -> Result<(), CtlError> {
-        // 1-based slide indices on OpenSong's API.
+        // Unused (can_goto_slide is false): 1-based and set-wide on OpenSong's API.
         let one_based = index.saturating_add(1);
         let path = format!("/presentation/slide/{one_based}");
         self.post(&path).await?;

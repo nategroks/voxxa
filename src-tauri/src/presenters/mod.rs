@@ -226,4 +226,17 @@ mod contract_tests {
             }
         }
     }
+
+    /// PT2-05: their slide index is not inside the selected presentation
+    /// (ProPresenter WS: a playlist item; OpenSong: the whole set), so they step.
+    #[test]
+    fn drivers_whose_index_spans_more_than_one_song_do_not_goto() {
+        use PresenterKind::*;
+        for kind in [ProPresenter7Ws, ProPresenter6Ws, OpenSong] {
+            assert!(
+                !make_controller(kind).capabilities().can_goto_slide,
+                "{kind:?}"
+            );
+        }
+    }
 }

@@ -133,7 +133,9 @@ impl PresentationController for ProPresenter7WsDriver {
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             can_blank: false, // Pro7 WS has no documented clear/blank action.
-            can_goto_slide: true,
+            // presentationTriggerIndex addresses a playlist item ("0:0" is the
+            // first item of the first playlist), not the selected song (PT2-05).
+            can_goto_slide: false,
             can_query_state: false,
         }
     }
@@ -231,7 +233,7 @@ impl PresentationController for ProPresenter7WsDriver {
 
     async fn goto_slide(&self, index: u32) -> Result<(), CtlError> {
         // slideIndex is STRING on Pro7 (upstream bug) and INT on Pro6.
-        // presentationPath "0:0" = currently-selected presentation, group 0.
+        // Unused (can_goto_slide is false): "0:0" is the first playlist item.
         let payload = match self.family {
             Family::Pro7 => json!({
                 "action": "presentationTriggerIndex",

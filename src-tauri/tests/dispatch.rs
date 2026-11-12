@@ -6,8 +6,8 @@
 use async_trait::async_trait;
 use std::sync::Mutex;
 use voxxa_lib::{
-    drive, step, Action, Capabilities, CtlError, PresentationController, PresenterConfig,
-    PresenterKind, PresenterState, Sent,
+    drive, make_controller, step, Action, Capabilities, CtlError, PresentationController,
+    PresenterConfig, PresenterKind, PresenterState, Sent,
 };
 
 struct Fake {
@@ -167,19 +167,16 @@ async fn a_step_after_a_blank_shows_the_slide_not_black() {
         (1, true),
         "the next Blank blanks"
     );
-    // OpenSong: a toggle driver with goto also unblanks first.
-    let caps = Capabilities {
-        can_query_state: false,
-        ..Capabilities::FULL
-    };
-    let p = Fake::new(PresenterKind::OpenSong, caps);
+    // OpenSong: the other toggle driver also unblanks first.
+    let kind = PresenterKind::OpenSong;
+    let p = Fake::new(kind, make_controller(kind).capabilities());
     let mut sent = Sent::default();
     drive(&p, &mut sent, &goto(0, 0), false, true)
         .await
         .unwrap();
     auto(&p, &mut sent, Action::Blank).await.unwrap();
     auto(&p, &mut sent, goto(0, 2)).await.unwrap();
-    assert_eq!(p.take(), ["goto 0", "blank", "unblank", "goto 2"]);
+    assert_eq!(p.take(), ["blank", "unblank", "next", "next"]);
 }
 
 #[tokio::test]
@@ -289,7 +286,7 @@ async fn goto_drivers_get_the_slide_within_the_selected_song() {
 
 #[tokio::test]
 async fn goto_drivers_that_cannot_report_the_presentation_trust_only_the_operator() {
-    // FreeShow, OpenSong, ProPresenter WS: goto, no state query.
+    // FreeShow: the only goto driver without a state query.
     let caps = Capabilities {
         can_query_state: false,
         ..Capabilities::FULL
@@ -353,4 +350,23 @@ async fn a_raw_step_before_any_detection_keeps_the_position_unknown() {
     auto(&p, &mut sent, goto(1, 1)).await.unwrap();
     assert_eq!(p.take(), ["next"], "only the operator's own key");
     assert_eq!(sent.global, 5);
+}
+
+#[tokio::test]
+async fn drivers_without_a_per_song_slide_index_step_across_songs() {
+    // PT2-05: ProPresenter WS "0:0" is the first playlist item and OpenSong
+    // numbers slides across the set, so a goto would show the wrong song.
+    use PresenterKind::*;
+    for kind in [ProPresenter7Ws, ProPresenter6Ws, OpenSong] {
+        let p = Fake::new(kind, make_controller(kind).capabilities());
+        let mut sent = Sent::default();
+        auto(&p, &mut sent, goto(0, 0)).await.unwrap();
+        auto(&p, &mut sent, goto(1, 0)).await.unwrap();
+        auto(&p, &mut sent, goto(0, 3)).await.unwrap();
+        assert_eq!(
+            p.take(),
+            ["next", "next", "next", "next", "prev"],
+            "{kind:?}"
+        );
+    }
 }
