@@ -18,7 +18,7 @@ use tokio::sync::Mutex;
 
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::{choose_config, downmix_f32, resample_to_16k, AudioEngine};
-pub use commands::{apply_action, step_raw, Dispatched, Listening};
+pub use commands::{apply_action, step_raw, validate_setlist, Dispatched, Listening};
 pub use http_api::{authorize, resolve_token};
 pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,

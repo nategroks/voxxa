@@ -114,19 +114,7 @@ pub async fn load_setlist(
 ) -> Result<Vec<Song>, String> {
     let setlist: Setlist = serde_json::from_str(&setlist_json).map_err(|e| e.to_string())?;
     let songs = setlist.setlist.clone();
-    // Reject degenerate setlists at the door rather than half-load them. An
-    // empty setlist leaves the conductor in Listening forever; a song with
-    // zero slides commits internally but can't fire a Goto, so the operator
-    // sees song-detection events with no slide motion.
-    if songs.is_empty() {
-        return Err("Setlist is empty — no songs to load.".into());
-    }
-    if let Some(bad) = songs.iter().find(|s| s.slides.is_empty()) {
-        return Err(format!(
-            "Song \"{}\" has no slides — every song needs at least one.",
-            bad.title
-        ));
-    }
+    validate_setlist(&songs)?;
     let cfg = state.smart_config.lock().await.clone();
     let conductor = Conductor::new(songs.clone(), cfg);
     *state.conductor.lock().await = Some(conductor);
@@ -150,6 +138,32 @@ pub async fn update_slide_text(
     {
         Some(true) => Ok(()),
         _ => Err("That slide is not in the loaded setlist.".into()),
+    }
+}
+
+/// Most songs a setlist may hold. Matching cost grows with every song (about
+/// 70 ms each per transcript), so a whole library would lag slides by minutes.
+pub const MAX_SETLIST_SONGS: usize = 50;
+
+/// Reject degenerate setlists at the door rather than half-load them. An
+/// empty setlist leaves the conductor in Listening forever; a song with
+/// zero slides commits internally but can't fire a Goto.
+pub fn validate_setlist(songs: &[Song]) -> Result<(), String> {
+    if songs.is_empty() {
+        return Err("Setlist is empty — no songs to load.".into());
+    }
+    if songs.len() > MAX_SETLIST_SONGS {
+        return Err(format!(
+            "This library has {} songs; pick today's songs (at most {MAX_SETLIST_SONGS}).",
+            songs.len()
+        ));
+    }
+    match songs.iter().find(|s| s.slides.is_empty()) {
+        Some(bad) => Err(format!(
+            "Song \"{}\" has no slides — every song needs at least one.",
+            bad.title
+        )),
+        None => Ok(()),
     }
 }
 

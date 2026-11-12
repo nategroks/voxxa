@@ -720,3 +720,20 @@ fn http_api_refuses_browsers_rebinding_and_bad_tokens() {
         Err(StatusCode::FORBIDDEN)
     );
 }
+
+/// Q2-17 (audit 13): a whole library (EasyWorship import) is refused as a
+/// setlist; matching every song on every transcript would lag slides by minutes.
+#[test]
+fn setlist_over_fifty_songs_is_refused() {
+    let song = |i: usize| voxxa_lib::Song {
+        title: format!("Hymn {i}"),
+        slides: vec![voxxa_lib::Slide {
+            id: i,
+            text: "Holy holy holy".into(),
+        }],
+    };
+    let songs: Vec<_> = (0..51).map(song).collect();
+    let err = voxxa_lib::validate_setlist(&songs).unwrap_err();
+    assert!(err.contains("pick today's songs"), "{err}");
+    assert!(voxxa_lib::validate_setlist(&songs[..50]).is_ok());
+}
