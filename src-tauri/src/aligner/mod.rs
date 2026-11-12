@@ -1057,6 +1057,27 @@ mod tests {
     }
 
     #[test]
+    fn words_heard_before_a_blank_cannot_bring_the_lyrics_back() {
+        // Review of q2/ponytail: two lines on slide 1 leave lyric words in the
+        // rolling buffer; after the silence blank, a prayer must not re-show
+        // the song on the strength of those old words.
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        assert!(matches!(c.on_transcript(VERSE_1, t0), Action::Goto { .. }));
+        let line2 = "i once was lost but now am found was blind but now i see";
+        let _ = c.on_transcript(line2, t0 + Duration::from_secs(5));
+        let t1 = t0 + Duration::from_secs(5);
+        let blanked = (1..=60)
+            .map(|i| c.tick(t1 + Duration::from_millis(200 * i)))
+            .any(|a| matches!(a, Action::Blank));
+        assert!(blanked && c.is_blank());
+        let prayer = "let us bow our heads and pray father we thank you for this morning";
+        let action = c.on_transcript(prayer, t1 + Duration::from_secs(13));
+        assert!(matches!(action, Action::Noop), "got {action:?}");
+        assert!(c.is_blank());
+    }
+
+    #[test]
     fn continuous_unmatched_speech_blanks() {
         // Audit 1 / Q2-02: the pastor talks straight after the last song. VAD
         // hears speech all the time, so the silence timer never fires.
