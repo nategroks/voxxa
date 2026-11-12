@@ -157,9 +157,7 @@ async fn get_state(
         None => (0, 0, None, true, None),
     };
     Ok(Json(ApiState {
-        is_running: app_state
-            .is_running
-            .load(std::sync::atomic::Ordering::SeqCst),
+        is_running: app_state.sessions.is_running(),
         current_slide,
         total_slides,
         song_title,
@@ -230,13 +228,7 @@ async fn post_listen_stop(
     check_token(&ctx, &headers)?;
     use tauri::Manager;
     let app_state = ctx.app.state::<crate::AppState>();
-    app_state
-        .is_running
-        .store(false, std::sync::atomic::Ordering::SeqCst);
-    let mut audio = app_state.audio.lock().await;
-    audio.stop();
-    let mut vad = app_state.vad.lock().await;
-    vad.reset();
+    crate::commands::stop_session(&app_state).await;
     Ok(StatusCode::NO_CONTENT)
 }
 

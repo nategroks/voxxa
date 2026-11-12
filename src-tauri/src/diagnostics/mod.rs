@@ -11,7 +11,6 @@ use chrono::Utc;
 use log::{Log, Metadata, Record};
 use serde::Serialize;
 use std::collections::VecDeque;
-use std::sync::atomic::Ordering;
 use std::sync::{Mutex, OnceLock};
 
 const RING_CAPACITY: usize = 500;
@@ -139,7 +138,7 @@ pub async fn generate_report(state: &AppState) -> DiagnosticReport {
         total_slides,
         machine_state,
         is_blank,
-        is_running: state.is_running.load(Ordering::SeqCst),
+        is_running: state.sessions.is_running(),
         outbound_requests: crate::net_stats::snapshot().outbound_requests,
         recent_log: LOGGER.get().map(|l| l.snapshot()).unwrap_or_default(),
     }

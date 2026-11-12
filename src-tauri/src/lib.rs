@@ -19,6 +19,7 @@ use tokio::sync::Mutex;
 
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::{choose_config, AudioEngine, Resampler};
+pub use commands::Sessions;
 pub use dispatch::{drive, Sent};
 pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
@@ -52,7 +53,7 @@ pub struct AppState {
     /// What Voxxa last sent to the presenter (slide, song, blank). Lock it
     /// after `presenter`. See `dispatch::drive`.
     pub sent: Arc<Mutex<Sent>>,
-    pub is_running: Arc<std::sync::atomic::AtomicBool>,
+    pub sessions: Arc<commands::Sessions>,
     /// Optional local HTTP API for hardware integrations. None until the user
     /// turns it on in Settings.
     pub http_api: http_api::SharedHttpApi,
@@ -89,7 +90,6 @@ pub fn run() {
         let _ = rt.block_on(keystroke.connect(cfg));
     }
     let presenter = Arc::new(Mutex::new(keystroke));
-    let is_running = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     let state = AppState {
         audio: audio.clone(),
@@ -99,7 +99,7 @@ pub fn run() {
         presenter: presenter.clone(),
         smart_config: smart_config.clone(),
         sent: Arc::new(Mutex::new(Sent::default())),
-        is_running: is_running.clone(),
+        sessions: Arc::default(),
         http_api: http_api.clone(),
     };
 

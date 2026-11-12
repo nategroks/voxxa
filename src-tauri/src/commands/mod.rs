@@ -11,7 +11,8 @@ use crate::presenters::{
 use crate::transcription::WhisperModel;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{Emitter, State};
 
@@ -183,9 +184,6 @@ pub async fn start_listening_with_state(
     state: &AppState,
     app: &tauri::AppHandle,
 ) -> Result<(), String> {
-    if state.is_running.load(Ordering::SeqCst) {
-        return Err("Already running".to_string());
-    }
     {
         let c = state.conductor.lock().await;
         if c.is_none() {
@@ -200,23 +198,22 @@ pub async fn start_listening_with_state(
             );
         }
     }
-    state.is_running.store(true, Ordering::SeqCst);
-
-    let rx = {
+    let (rx, run) = {
         let mut audio = state.audio.lock().await;
-        audio.start().map_err(|e| e.to_string())?
+        state
+            .sessions
+            .begin(|| audio.start().map_err(|e| e.to_string()))?
     };
 
     let vad = state.vad.clone();
     let transcription = state.transcription.clone();
     let conductor = state.conductor.clone();
-    let is_running = state.is_running.clone();
+    let sessions = state.sessions.clone();
     let app_handle = app.clone();
     // Capture the runtime handle so spawn_blocking can call back into async-land
     // without building a fresh runtime each iteration.
     let rt_handle = tokio::runtime::Handle::current();
 
-    let is_running_for_task = is_running.clone();
     let app_handle_for_cleanup = app.clone();
     tokio::task::spawn_blocking(move || {
         let mut accumulated: Vec<f32> = Vec::new();
@@ -241,7 +238,7 @@ pub async fn start_listening_with_state(
             }
         };
 
-        while is_running.load(Ordering::SeqCst) {
+        while run.load(Ordering::SeqCst) {
             let now = Instant::now();
 
             // Periodic tick — drives time-based transitions (silence → blank).
@@ -388,9 +385,9 @@ pub async fn start_listening_with_state(
                 }
             }
         }
-        // Always reset is_running on loop exit so the UI doesn't think we're
-        // still listening after a device dropout.
-        is_running_for_task.store(false, Ordering::SeqCst);
+        // Reset the running state on loop exit (also after a device dropout),
+        // unless a newer session has started meanwhile.
+        sessions.end(&run);
         let _ = app_handle_for_cleanup.emit(
             "listening-stopped",
             serde_json::json!({ "disconnected": disconnected }),
@@ -467,14 +464,67 @@ pub async fn blank_output(app: &tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Stop listening.
+/// The single listening session. Each session has its own run flag: stop
+/// clears the current one, and a loop runs while its own flag is set, so a
+/// slow old loop cannot end a new session.
+#[derive(Default)]
+pub struct Sessions {
+    running: AtomicBool,
+    current: std::sync::Mutex<Arc<AtomicBool>>,
+}
+
+impl Sessions {
+    pub fn is_running(&self) -> bool {
+        self.running.load(Ordering::SeqCst)
+    }
+
+    /// Claim the session atomically and run `start`. On error the claim is
+    /// released, so a failed start never leaves "Already running" behind.
+    pub fn begin<T>(
+        &self,
+        start: impl FnOnce() -> Result<T, String>,
+    ) -> Result<(T, Arc<AtomicBool>), String> {
+        if self.running.swap(true, Ordering::SeqCst) {
+            return Err("Already running".into());
+        }
+        match start() {
+            Ok(v) => {
+                let run = Arc::new(AtomicBool::new(true));
+                *self.current.lock().unwrap() = run.clone();
+                Ok((v, run))
+            }
+            Err(e) => {
+                self.running.store(false, Ordering::SeqCst);
+                Err(e)
+            }
+        }
+    }
+
+    /// A session's loop ended: clear `running` only if it is still current.
+    pub fn end(&self, run: &Arc<AtomicBool>) {
+        run.store(false, Ordering::SeqCst);
+        if Arc::ptr_eq(&self.current.lock().unwrap(), run) {
+            self.running.store(false, Ordering::SeqCst);
+        }
+    }
+
+    /// Stop the current session (its loop exits on its next check).
+    pub fn stop(&self) {
+        let run = self.current.lock().unwrap().clone();
+        self.end(&run);
+    }
+}
+
+/// Stop listening: the GUI button and the HTTP API.
+pub async fn stop_session(state: &AppState) {
+    state.sessions.stop();
+    state.audio.lock().await.stop();
+    state.vad.lock().await.reset();
+}
+
 #[tauri::command]
 pub async fn stop_listening(state: State<'_, AppState>) -> Result<(), String> {
-    state.is_running.store(false, Ordering::SeqCst);
-    let mut audio = state.audio.lock().await;
-    audio.stop();
-    let mut vad = state.vad.lock().await;
-    vad.reset();
+    stop_session(&state).await;
     Ok(())
 }
 
@@ -496,7 +546,7 @@ pub async fn get_status(state: State<'_, AppState>) -> Result<StatusInfo, String
     };
     let model_loaded = state.transcription.lock().await.current_model().is_some();
     Ok(StatusInfo {
-        is_running: state.is_running.load(Ordering::SeqCst),
+        is_running: state.sessions.is_running(),
         model_loaded,
         current_slide,
         total_slides,
