@@ -75,14 +75,6 @@ fn tray_blank(app: &AppHandle) {
 
 fn tray_toggle_stage(app: &AppHandle) {
     if let Some(win) = app.get_webview_window("stage") {
-        match win.is_visible() {
-            Ok(true) => {
-                let _ = win.hide();
-            }
-            _ => {
-                // No set_focus: keystrokes must keep reaching the presentation app.
-                let _ = win.show();
-            }
-        }
+        let _ = crate::commands::show_stage(&win, !win.is_visible().unwrap_or(false));
     }
 }

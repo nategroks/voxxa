@@ -873,14 +873,30 @@ pub fn toggle_stage_display(app: tauri::AppHandle) -> Result<bool, String> {
         .get_webview_window("stage")
         .ok_or("Stage Display window not configured")?;
     let visible = win.is_visible().map_err(|e| e.to_string())?;
-    if visible {
-        win.hide().map_err(|e| e.to_string())?;
-        Ok(false)
+    show_stage(&win, !visible).map_err(|e| e.to_string())?;
+    Ok(!visible)
+}
+
+/// Show or hide the Stage Display without taking the keyboard from the
+/// presentation app, where the keystroke driver's keys must land. On Windows
+/// tao's show() is ShowWindow(SW_SHOW), which activates even a "focusable":
+/// false window; hide goes the same way so tao's own flag is never used.
+pub fn show_stage(win: &tauri::WebviewWindow, show: bool) -> tauri::Result<()> {
+    #[cfg(windows)]
+    if let Ok(hwnd) = win.hwnd() {
+        #[link(name = "user32")]
+        extern "system" {
+            fn ShowWindow(hwnd: *mut std::ffi::c_void, cmd: i32) -> i32;
+        }
+        // SW_SHOWNOACTIVATE = 4, SW_HIDE = 0.
+        // SAFETY: a live HWND of this window; ShowWindow only reads it.
+        unsafe { ShowWindow(hwnd.0, if show { 4 } else { 0 }) };
+        return Ok(());
+    }
+    if show {
+        win.show()
     } else {
-        // No set_focus: the keyboard stays with the presentation app, where
-        // the keystroke driver's keys must land.
-        win.show().map_err(|e| e.to_string())?;
-        Ok(true)
+        win.hide()
     }
 }
 

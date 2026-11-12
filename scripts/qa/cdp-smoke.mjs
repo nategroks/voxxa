@@ -15,6 +15,7 @@
 // on slide 3" fails (the preview shows slide 4).
 import fs from "node:fs";
 import net from "node:net";
+import { execFileSync } from "node:child_process";
 
 const ROOT = process.argv[2];
 const MOCK = "http://127.0.0.1:18025";
@@ -153,17 +154,20 @@ r = await main.ev(`
   return [before.current_slide, after.current_slide, after.song_title];`);
 ok("Q2-07 update_slide_text keeps current slide", r.value && r.value[0] === r.value[1] && r.value[0] !== null, r.error || JSON.stringify(r.value));
 
-// Q2-04: Stage Display does not take focus.
+// Q2-04: showing the Stage Display leaves the foreground window (the
+// presentation app) alone. document.hasFocus() is no signal here: WebView2
+// reports true for the stage even while it is hidden, so ask Win32.
+const foreground = () =>
+  execFileSync("powershell", ["-NoProfile", "-Command",
+    `Add-Type -Name F -Namespace W -MemberDefinition '[DllImport("user32.dll")] public static extern System.IntPtr GetForegroundWindow(); [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(System.IntPtr h, System.Text.StringBuilder s, int n);'; $h=[W.F]::GetForegroundWindow(); $s=New-Object System.Text.StringBuilder 256; [void][W.F]::GetWindowText($h,$s,256); "$h $s"`,
+  ], { encoding: "utf8" }).trim();
+const fgBefore = foreground();
 r = await main.ev(`return await window.__TAURI__.core.invoke('toggle_stage_display');`);
 await sleep(800);
-const stageT2 = await target((u) => u.includes("stage.html"));
-if (stageT2) {
-  const stage = session(stageT2.webSocketDebuggerUrl);
-  const f = await stage.ev(`return document.hasFocus();`);
-  ok("Q2-04 stage shown without focus (known residual on Windows, ticketed)", r.value === true && f.value === false, `visible=${r.value} stageFocus=${f.value}`);
-  stage.close();
-}
-await main.ev(`return await window.__TAURI__.core.invoke('toggle_stage_display');`);
+const fgAfter = foreground();
+ok("Q2-04 stage shown without taking the foreground", r.value === true && fgAfter === fgBefore && !fgAfter.includes("Stage Display"), `visible=${r.value} before=[${fgBefore}] after=[${fgAfter}]`);
+r = await main.ev(`return await window.__TAURI__.core.invoke('toggle_stage_display');`);
+ok("Q2-04 stage hides again", r.value === false, r.error || String(r.value));
 
 // Q2-13: HTTP API.
 r = await main.ev(`return await window.__TAURI__.core.invoke('start_http_api', { port: 17575, token: null });`);
