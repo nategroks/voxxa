@@ -64,7 +64,7 @@
 
 ### In Progress
 - [x] 2026-11-12 CI green on PR #1 (head 69b18ce, 5/5 jobs); PR #1 merged into `main` as 7bd84a1; CI green on `main` (5/5). The "Deploy Website" workflow fails because GitHub Pages is not enabled (pre-existing since April; user decision).
-- [ ] Q3 `voxxad` CLI (started 2026-11-12, branch `q3/base`, two lanes `q3/10x` and `q3/ponytail`). Base finished locally: `q3/10x` merged (f6d18b3) plus the comparator's 10x fix and 6 ponytail grafts (7cc75b2..1f5e31b); all 7 gates pass (54 unit + 49 integration tests; everything else 2,496/2,500, voxxad 531/600, no other row changed); exit demo shown (replay byte-identical on actions, `--shadow` sent nothing to the mock). Left: ponytail record, push, draft PR, CI, Q3 tickets (Q3-T1 release packaging of `voxxad`). Record: `decisions/sde/church-autoadvance.md`.
+- [ ] Q3 `voxxad` CLI (started 2026-11-12, branch `q3/base`, two lanes `q3/10x` and `q3/ponytail`). Base finished locally: `q3/10x` merged (f6d18b3) plus the comparator's 10x fix and 6 ponytail grafts (7cc75b2..1f5e31b); all 7 gates pass (54 unit + 49 integration tests; everything else 2,496/2,500, voxxad 531/600, no other row changed); exit demo shown (replay byte-identical on actions, `--shadow` sent nothing to the mock). Two verifier rounds: every surviving mutation of the shared loop (M2–M6, L1–L5) and of replay (R2) now fails a test (tests only, c54f16e..37dd632; 108 tests, `voxxad_events` 19, no Whisper model needed); gates and exit demo re-run. Left: ponytail record, push, draft PR, CI, Q3 tickets (Q3-T1 release packaging of `voxxad`). Record: `decisions/sde/church-autoadvance.md`.
 - [x] 2026-11-12 Filed the 43 open Q2 tickets as GitHub issues #2–#44 (label `q2`); Q2-60 was closed by 713f40f before filing.
 
 ### Pending
