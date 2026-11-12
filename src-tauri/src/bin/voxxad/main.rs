@@ -111,6 +111,10 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
         }
         return Ok(());
     }
+    if args.presenter.as_deref() == Some("keystroke") && !args.shadow {
+        let warning = "keystroke types into the focused window; focus the presentation app";
+        let _ = writeln!(std::io::stderr(), "voxxad: {warning}");
+    }
     let (rx, mode, _capture) = match (&args.wav, &args.device) {
         (Some(path), None) => {
             let mode = if args.realtime { "realtime" } else { "file" };

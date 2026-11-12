@@ -403,4 +403,17 @@ fn voxxad_reports_bad_input_as_one_error_line() {
             other => panic!("{other:?}"),
         }
     }
+    // Keystroke warns on stderr before any audio is read; shadow does not.
+    // The 8 kHz file stops both runs before a presenter is built.
+    let stderr = |extra: &[&str]| {
+        let args = ["--stdin-audio", &k8, "--setlist", SETLIST, "--presenter"];
+        let out = Command::new(env!("CARGO_BIN_EXE_voxxad"))
+            .args(args.iter().chain(["keystroke"].iter()).chain(extra))
+            .output()
+            .unwrap();
+        assert!(!out.status.success());
+        String::from_utf8(out.stderr).unwrap()
+    };
+    assert!(stderr(&[]).contains("focus the presentation app"));
+    assert!(stderr(&["--shadow"]).is_empty());
 }
