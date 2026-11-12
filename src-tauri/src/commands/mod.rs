@@ -836,17 +836,17 @@ pub async fn get_http_api_status(state: State<'_, AppState>) -> Result<HttpApiSt
     })
 }
 
-/// Turn the local HTTP API on. `token` is optional — when set, writes
-/// require an `Authorization: Bearer <token>` header.
+/// Turn the local HTTP API on. Every request needs `Authorization: Bearer
+/// <token>`; a blank `token` makes Voxxa generate one. Returns the token in
+/// force so the GUI can show it.
 #[tauri::command]
 pub async fn start_http_api(
     state: State<'_, AppState>,
     app: tauri::AppHandle,
     port: u16,
     token: Option<String>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let mut api = state.http_api.lock().await;
-    let token = token.filter(|t| !t.is_empty());
     api.start(app, port, token).await
 }
 

@@ -64,6 +64,8 @@ axum = { version = "0.7", default-features = false, features = ["json", "tokio",
 
 # OpenLP optional Basic Auth header
 base64 = "0.22"
+# The local HTTP API's generated bearer token (already in the tree via ring/rand).
+getrandom = "0.3"
 
 # Setlist importers (OpenLyrics, OpenSong, ChordPro, .pptx, .pdf, EW6 SQLite)
 # Versions are the smallest that clear RustSec advisories (cargo deny):

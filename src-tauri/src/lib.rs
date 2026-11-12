@@ -21,6 +21,7 @@ pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, 
 pub use audio::{choose_config, AudioEngine, Resampler};
 pub use commands::Sessions;
 pub use dispatch::{drive, Sent};
+pub use http_api::{authorize, resolve_token};
 pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
     PresenterConfig, PresenterKind, PresenterState,

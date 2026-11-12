@@ -1541,7 +1541,9 @@ if (httpApiToggle) {
       const port = parseInt(httpApiPort.value, 10) || 7575;
       const token = httpApiToken.value || null;
       try {
-        await invoke("start_http_api", { port, token });
+        // Every request needs the token; when blank, Voxxa generates one. Show it.
+        httpApiToken.value = await invoke("start_http_api", { port, token });
+        httpApiToken.type = "text";
         writeJsonStorage(HTTP_API_STORAGE_KEY, { port, enabled: true });
       } catch (err) {
         console.error("start_http_api:", err);
