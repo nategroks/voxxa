@@ -22,7 +22,10 @@ fn rust_sources(dir: &Path, out: &mut Vec<PathBuf>) {
 #[test]
 fn no_copyrighted_lyric_fixtures_in_sources() {
     // Split so this file does not match itself.
-    let banned = [["way", " maker"].concat(), ["how great", " is our god"].concat()];
+    let banned = [
+        ["way", " maker"].concat(),
+        ["how great", " is our god"].concat(),
+    ];
     let mut files = Vec::new();
     rust_sources(&manifest_dir().join("src"), &mut files);
     for f in files {
