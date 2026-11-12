@@ -182,8 +182,13 @@ impl Recorder {
 /// with the `SmartConfig` from its `start` line, without a recogniser. Returns
 /// the `hypothesis`, `action` and conductor `status` lines a live run prints.
 pub fn replay(log: &str, songs: Vec<Song>) -> Result<Vec<Line>, String> {
-    let mut lines = (log.lines().filter(|l| !l.trim().is_empty()))
-        .map(|l| serde_json::from_str::<Line>(l).map_err(|e| format!("bad session line: {e}")));
+    let mut lines = (log.lines().enumerate())
+        .filter(|(_, l)| !l.trim().is_empty())
+        .map(|(n, l)| match serde_json::from_str::<Line>(l) {
+            Ok(line) if line.v == 1 => Ok(line),
+            Ok(line) => Err(format!("session line {}: v {} is not 1", n + 1, line.v)),
+            Err(e) => Err(format!("session line {}: {e}", n + 1)),
+        });
     let start = lines.next().ok_or("the session log is empty")??;
     let info = match start.kind {
         Kind::Status {

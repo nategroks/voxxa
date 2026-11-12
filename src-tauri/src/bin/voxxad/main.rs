@@ -106,7 +106,7 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
     let songs = load_setlist(setlist)?;
     if let Some(path) = &args.replay {
         let log = fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
-        for line in events::replay(&log, songs)? {
+        for line in events::replay(&log, songs).map_err(|e| format!("{path}: {e}"))? {
             println!("{}", line.to_json());
         }
         return Ok(());

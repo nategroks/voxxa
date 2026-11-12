@@ -249,6 +249,23 @@ fn replay_refuses_a_session_recorded_with_another_setlist() {
 }
 
 #[test]
+fn replay_names_the_line_of_a_cut_off_or_wrong_version_line() {
+    let log = std::fs::read_to_string(SESSION).unwrap();
+    let lines: Vec<&str> = log.lines().collect();
+    let n = lines.len();
+    // A crash can leave a partial last line.
+    let cut = log.trim_end();
+    let err = replay(&cut[..cut.len() - 5], songs()).unwrap_err();
+    assert!(err.starts_with(&format!("session line {n}: ")), "{err}");
+    // A future v2 log is refused, not misread.
+    let mut v2 = lines.clone();
+    let third = lines[2].replacen(r#""v":1"#, r#""v":2"#, 1);
+    v2[2] = &third;
+    let err = replay(&v2.join("\n"), songs()).unwrap_err();
+    assert_eq!(err, "session line 3: v 2 is not 1");
+}
+
+#[test]
 fn the_fingerprint_names_the_setlist_and_changes_with_any_text() {
     let fp = fingerprint(&songs());
     assert_eq!(fp["songs"], 3);
