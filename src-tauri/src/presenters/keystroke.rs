@@ -15,6 +15,32 @@ use super::{
     Capabilities, CtlError, PresentationController, PresenterConfig, PresenterKind, PresenterState,
 };
 
+/// The foreground window belongs to Voxxa's own process, so these keys would
+/// land in Voxxa. Unlike webview focus it covers the tray menu's hidden
+/// window, which takes the foreground while the menu is open (PT2-02).
+#[cfg(windows)]
+pub fn foreground_is_voxxa() -> bool {
+    #[link(name = "user32")]
+    extern "system" {
+        fn GetForegroundWindow() -> *mut std::ffi::c_void;
+        fn GetWindowThreadProcessId(hwnd: *mut std::ffi::c_void, pid: *mut u32) -> u32;
+    }
+    let mut pid = 0;
+    // SAFETY: both calls only read; a null foreground window leaves pid 0.
+    unsafe { GetWindowThreadProcessId(GetForegroundWindow(), &mut pid) };
+    is_voxxa_pid(pid)
+}
+
+/// Off Windows the caller's webview focus check stands alone.
+#[cfg(not(windows))]
+pub fn foreground_is_voxxa() -> bool {
+    false
+}
+
+fn is_voxxa_pid(pid: u32) -> bool {
+    pid == std::process::id()
+}
+
 /// Per-app key profile from the §2 table of the project plan.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -179,5 +205,14 @@ impl PresentationController for KeystrokeDriver {
     async fn current_state(&self) -> Result<PresenterState, CtlError> {
         // We cannot read state from a target we only write keystrokes to.
         Err(CtlError::Unsupported("current_state"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn a_foreground_window_of_our_own_process_counts_as_voxxa() {
+        assert!(super::is_voxxa_pid(std::process::id()));
+        assert!(!super::is_voxxa_pid(0));
     }
 }

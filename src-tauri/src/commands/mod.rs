@@ -394,9 +394,11 @@ pub async fn start_listening_with_state(
 /// land in Voxxa itself.
 fn voxxa_focused(app: &tauri::AppHandle) -> bool {
     use tauri::Manager;
-    app.webview_windows()
-        .values()
-        .any(|w| w.is_focused().unwrap_or(false))
+    crate::presenters::keystroke::foreground_is_voxxa()
+        || app
+            .webview_windows()
+            .values()
+            .any(|w| w.is_focused().unwrap_or(false))
 }
 
 /// Send one action to the presenter (see `dispatch::drive`) and tell the GUI.
