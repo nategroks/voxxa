@@ -86,3 +86,19 @@ Local (Ubuntu, rust 1.97): `cargo fmt --check` ok; `cargo clippy --all-targets -
 - `--device` was never run (no microphone, by the safety rules): founder checklist.
 - The GUI writes no session log; operator inputs (manual steps, song jumps, external blanks) are not `Input`s yet, so a GUI session log would need new variants before it could replay.
 - WAV input must already be 16 kHz mono (16-bit PCM or 32-bit float); no resampling of files. No `--language` flag (auto-detect, as the GUI's default).
+
+## 2026-11-12 — Q3 finish on `q3/base`: 10x base + ponytail grafts
+**Commits.** f6d18b3 merges `q3/10x` (`--no-ff`); then one commit per item chosen by the comparator:
+- 7cc75b2 the 10x review's should-fix: `tests/voxxad_events.rs` held four raw NUL bytes and two raw newlines inside string literals, so git and grep saw a binary file and `rg` skipped it. Now escapes; `rg replay_reproduces src-tauri/tests` finds the test.
+- 029acf3 the file feeder uses `sync_channel(64)` (6.4 s of audio), so an hour-long WAV is not copied into the queue a second time (about 230 MB). The clock counts samples, so determinism is unchanged.
+- 587be77 replay errors name the line (`<path>: session line N: …`) and a line whose `v` is not 1 is refused; test with a cut-off last line and a `v:2` line.
+- 5cb0d76 every stdout line goes through `say()` (`writeln!` on the locked stdout, error ignored). Before: `voxxad --replay … | true` exited 101 with "failed printing to stdout: The pipe is being closed. (os error 232)"; after: exit 0, nothing on stderr.
+- 23c459c `--presenter keystroke` without `--shadow` prints one stderr line, "voxxad: keystroke types into the focused window; focus the presentation app", before any audio is read; tested with an 8 kHz WAV so no presenter is built.
+- d5cf9cf `--replay` with any live-run flag, and `--realtime` without `--stdin-audio`, are usage errors (they were ignored); tested.
+- e8d6306, b0943f7, 1f5e31b ADR-013: the privacy sentence corrected (14-day transcripts under the roaming `%APPDATA%`; `data_local_dir` recorded as the alternative), a release-packaging risk (installers will probably carry `voxxad`; guard `required-features` or a bundler exclusion; ticket **Q3-T1**), and the text matched to the grafted code.
+
+**Gates (from the worktree root, rustc 1.99.1, Windows 11):** npm ci + build ok; fmt ok; clippy `--all-targets -D warnings` ok; test 103 passed (54 unit + 49 integration; `voxxad_events` 14); cargo-deny ok; budgets ok: everything else 2,496/2,500, voxxad 531/600, conductor 1,153/1,200, no other row changed; dictat grep empty.
+
+**Exit demo (debug build, Whisper Tiny).** A 45 s WAV (1 s silence, Amazing Grace verses 1 and 2, 7 s silence, a spoken prayer, 7 s silence; public-domain synthetic speech) with `tests/fixtures/voxxad/pd-hymns-setlist.json`: `--shadow` printed goto Amazing Grace/0 at 8.1 s, goto Amazing Grace/1 at 22.8 s, blank at 27.8 s; the prayer showed nothing. `--replay <its session log>`: the 3 action lines are byte-identical (`cmp`) to stdout and to the log, and every hypothesis and conductor status line matches too; replay wrote nothing to stderr (no model loaded). With `--presenter propresenter7_rest --port 18225 --shadow` against `scripts/qa/mock_pro7.py` the mock's `/_log` stayed `[]`; a control run without `--shadow` sent version, slide_index, triggers 0 and 1 and a clear.
+
+**Debt added.** Q3-T1: check whether `tauri build` bundles `voxxad` (`tauri build --no-bundle` or the CI build job), then guard it or decide to ship and sign it (Q5).

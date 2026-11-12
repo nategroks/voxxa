@@ -4,7 +4,13 @@
 - **Line budget:** add a separate budget row for the `voxxad` binary (`src-tauri/src/bin/voxxad*`) capped at **600** lines, recorded as a deviation in the ADR and in `scripts/loc_budget.py`. The audio-loop extraction into the library must fit the existing rows ("everything else in src-tauri/src" stays at 2500).
 - **Pre-approved:** push `q3/base` and open a draft PR against `main`; fix CI forward; merge that PR into `main` once Q3's exit criteria are met and every CI job is green; file Q3 tickets as GitHub issues (label `q3`).
 - **ADR-012 (cut list)** is not decided yet; Q3 does not depend on it. Q3's ADR is ADR-013.
-- **QA mode** (as in Q2): no microphone (`voxxad --device` is never run), no keystroke dispatch; `--shadow`, `--presenter none` or a local mock presenter only; audio from public-domain WAV files; the Whisper model `%APPDATA%oxxa\models\ggml-tiny.bin` is present.
+- **QA mode** (as in Q2): no microphone (`voxxad --device` is never run), no keystroke dispatch; `--shadow`, `--presenter none` or a local mock presenter only; audio from public-domain WAV files; the Whisper model `%APPDATA%\voxxa\models\ggml-tiny.bin` is present.
+
+## Q3 finisher (2026-11-12) → orchestrator
+- `q3/base` = `q3/10x` merged with `--no-ff` (f6d18b3) + the comparator's picks, one commit each (7cc75b2..1f5e31b): the 10x test file made plain text (it held raw NULs), the bounded feeder, replay `path: session line N` errors and the `v` check, `say()` for every stdout line (no panic on a closed pipe), the keystroke stderr warning, usage errors for flags a mode would ignore, and three ADR-013 text fixes (privacy, release packaging, match the code). No graft was skipped.
+- All 7 gates pass from the worktree; exit demo re-run with real output (record: `decisions/sde/church-autoadvance.md`, "Q3 finish").
+- Still to do (pre-approved above): the ponytail record `reviews/2026-11-12-ponytail-q3.md`, push `q3/base`, draft PR, CI, file Q3 tickets including **Q3-T1** (does `tauri build` bundle `voxxad`? see ADR-013 Risks).
+- Watch out: text written through a Bash heredoc on this PC can turn `\0`, `\n` and `\v` into control bytes (seen in this run; probably how the NULs got into the 10x test file and a vertical tab into this file's model path, both fixed). Write such text with the Edit/Write tools and check with `git grep -lP '[\x00\x0b]'`.
 
 ---
 
