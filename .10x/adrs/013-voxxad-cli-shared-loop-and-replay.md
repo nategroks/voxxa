@@ -57,7 +57,7 @@ Q3 adds a second binary, `voxxad`, that runs Voxxa's pipeline headlessly. Phase 
 - The GUI and the CLI cannot drift: they share the loop, `Conductor::apply` and `dispatch::drive`.
 ### Negative
 - `voxxad` duplicates no logic, but it does hand-parse flags and WAV headers (16-bit PCM or 32-bit float, mono, 16 kHz only).
-- The session log contains transcripts (as the diagnostics ring buffer already does). It stays on the machine; nothing uploads it.
+- The session log keeps full transcripts for 14 days, prayers and spoken names included (the diagnostics ring buffer keeps only recent ones, in memory). Voxxa never uploads it, but it is not guaranteed to stay on the machine: it is written under `dirs::data_dir()`, which on Windows is the roaming `%APPDATA%`, and on a domain-joined church network with roaming profiles that folder is copied to the server. We keep `data_dir` so the logs sit beside the models (`%APPDATA%\voxxa\models`), where the prompt asked for them ("in the data dir"). Considered alternative: `dirs::data_local_dir()` (`%LOCALAPPDATA%`, never roams), at the cost of a second Voxxa folder; `--log-dir` already moves them. Q5's privacy text must say this.
 - File-speed runs are only as fast as Whisper, because the loop transcribes synchronously (Q0 finding, unchanged).
 ### Risks
 - **Keystroke from a terminal.** `voxxad` has no window, so the GUI's own-window focus guard cannot apply; `--presenter keystroke` types into whatever window has focus, the terminal included. Mitigation: never the default, `--shadow` and `none` build no presenter, and the README/INTEGRATIONS text (Q5) must say "focus the presentation app". Ticket for Q5.
