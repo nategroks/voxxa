@@ -82,7 +82,9 @@ async fn presentation_is(p: &dyn PresentationController, title: &str, operator: 
             .flat_map(char::to_lowercase)
             .collect()
     };
-    let want = norm(title);
+    // A subtitle in brackets ("Amazing Grace (My Chains Are Gone)", as
+    // Planning Center lists it) is often not in the app's name.
+    let want = norm(title.split('(').next().unwrap_or(title));
     match p.current_state().await.map(|s| s.presentation_name) {
         Ok(Some(name)) => {
             let have = norm(&name);

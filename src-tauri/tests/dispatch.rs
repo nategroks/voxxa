@@ -202,6 +202,24 @@ async fn a_shorter_presentation_name_is_not_the_song() {
 }
 
 #[tokio::test]
+async fn a_bracketed_subtitle_need_not_be_in_the_presentation_name() {
+    // Planning Center: "Amazing Grace (My Chains Are Gone)"; ProPresenter:
+    // "Amazing Grace". Without this the song could never be shown.
+    let p = Fake::goto("Amazing Grace");
+    let mut sent = Sent::default();
+    let action = Action::Goto {
+        song_index: 0,
+        slide_in_song: 1,
+        global_index: 1,
+        slide_text: String::new(),
+        next_slide_text: None,
+        song_title: "Amazing Grace (My Chains Are Gone)".into(),
+    };
+    auto(&p, &mut sent, action).await.unwrap();
+    assert_eq!(p.take(), ["goto 1"]);
+}
+
+#[tokio::test]
 async fn goto_drivers_get_the_slide_within_the_selected_song() {
     let p = Fake::goto("Amazing Grace");
     let mut sent = Sent::default();
