@@ -5,12 +5,13 @@ use crate::importers::{self, ImportFormat};
 use crate::net_stats::{self, NetworkStats};
 use crate::planning_center::{PcoClient, PcoPlan, PcoServiceType};
 use crate::presenters::{
-    make_controller, Capabilities, KeystrokeProfile, PresenterConfig, PresenterKind, PresenterState,
+    make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
+    PresenterConfig, PresenterKind, PresenterState,
 };
 use crate::transcription::WhisperModel;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{Emitter, State};
@@ -129,7 +130,7 @@ pub async fn load_setlist(
     let cfg = state.smart_config.lock().await.clone();
     let conductor = Conductor::new(songs.clone(), cfg);
     *state.conductor.lock().await = Some(conductor);
-    state.last_dispatched_global.store(-1, Ordering::SeqCst);
+    state.dispatched.reset();
     log::info!("Loaded setlist with {} songs", songs.len());
     Ok(songs)
 }
@@ -143,7 +144,10 @@ pub async fn update_slide_text(
     text: String,
 ) -> Result<(), String> {
     let mut conductor = state.conductor.lock().await;
-    match conductor.as_mut().map(|c| c.update_slide_text(song, slide, text)) {
+    match conductor
+        .as_mut()
+        .map(|c| c.update_slide_text(song, slide, text))
+    {
         Some(true) => Ok(()),
         _ => Err("That slide is not in the loaded setlist.".into()),
     }
@@ -209,7 +213,7 @@ pub async fn start_listening_with_state(
     let transcription = state.transcription.clone();
     let conductor = state.conductor.clone();
     let presenter = state.presenter.clone();
-    let last_dispatched = state.last_dispatched_global.clone();
+    let dispatched = state.dispatched.clone();
     let is_running = state.is_running.clone();
     let app_handle = app.clone();
     // Capture the runtime handle so spawn_blocking can call back into async-land
@@ -234,6 +238,12 @@ pub async fn start_listening_with_state(
         // the audio device dropping out underneath us. The frontend listens
         // for `listening-stopped` so it can re-arm the start button either way.
         let mut disconnected = false;
+        // Auto-advance has no caller to return an error to; show it as a toast.
+        let report = |r: Result<(), String>| {
+            if let Err(e) = r {
+                let _ = app_handle.emit("dispatch-error", e);
+            }
+        };
 
         while is_running.load(Ordering::SeqCst) {
             let now = Instant::now();
@@ -248,14 +258,15 @@ pub async fn start_listening_with_state(
                         None => (Action::Noop, None),
                     }
                 };
-                dispatch_action_with_total(
+                report(dispatch_action_with_total(
                     &rt_handle,
                     action,
                     &presenter,
-                    &last_dispatched,
+                    &dispatched,
                     &app_handle,
                     total,
-                );
+                    false,
+                ));
 
                 // Emit state changes for the UI.
                 let snap = {
@@ -373,14 +384,15 @@ pub async fn start_listening_with_state(
                                             DetectionEvent { rows: detection },
                                         );
                                     }
-                                    dispatch_action_with_total(
+                                    report(dispatch_action_with_total(
                                         &rt_handle,
                                         action,
                                         &presenter,
-                                        &last_dispatched,
+                                        &dispatched,
                                         &app_handle,
                                         total,
-                                    );
+                                        false,
+                                    ));
                                 }
                                 Ok(_) => {}
                                 Err(e) => log::error!("Transcription error: {}", e),
@@ -408,118 +420,208 @@ pub async fn start_listening_with_state(
     Ok(())
 }
 
-/// Translate a `Conductor` action into one or more presenter calls. `Goto` is
-/// resolved against `last_dispatched_global` to choose between `next/prev` (delta of
-/// ±1) and the driver's `goto_slide` capability, falling back to a run of next/prev
-/// keys when the driver lacks goto support.
+/// What Voxxa last sent to the presenter. Reset when the setlist or the
+/// presenter changes.
+pub struct Dispatched {
+    /// Global slide index last shown; -1 when unknown.
+    pub global: AtomicI64,
+    /// Song index last addressed; -1 when none.
+    pub song: AtomicI64,
+    /// Voxxa's last blank command (true = blanked). False at start: nothing sent yet.
+    pub blank: AtomicBool,
+}
+
+impl Default for Dispatched {
+    fn default() -> Self {
+        Self {
+            global: AtomicI64::new(-1),
+            song: AtomicI64::new(-1),
+            blank: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Dispatched {
+    pub fn reset(&self) {
+        self.global.store(-1, Ordering::SeqCst);
+        self.song.store(-1, Ordering::SeqCst);
+    }
+}
+
+/// The keystroke driver types into whichever window has focus; never into Voxxa's own.
+fn check_focus(p: &dyn PresentationController, voxxa_focused: bool) -> Result<(), CtlError> {
+    if voxxa_focused && p.kind() == PresenterKind::Keystroke {
+        return Err(CtlError::Other(
+            "Click your presentation app first: Voxxa's key presses would land in its own window."
+                .into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Send blank/unblank only when it changes what Voxxa last sent, so a toggle
+/// key never inverts the screen. A non-toggle blank is always re-sent.
+async fn set_blank(
+    p: &dyn PresentationController,
+    d: &Dispatched,
+    blank: bool,
+) -> Result<(), CtlError> {
+    if d.blank.load(Ordering::SeqCst) == blank && (p.blank_toggles() || !blank) {
+        return Ok(());
+    }
+    if blank {
+        p.blank().await?;
+    } else {
+        p.unblank().await?;
+    }
+    d.blank.store(blank, Ordering::SeqCst);
+    Ok(())
+}
+
+async fn presentation_is(p: &dyn PresentationController, title: &str) -> bool {
+    p.current_state()
+        .await
+        .ok()
+        .and_then(|s| s.presentation_name)
+        .is_some_and(|n| n.trim().eq_ignore_ascii_case(title.trim()))
+}
+
+/// Send one conductor action to the presenter. `voxxa_focused`: a Voxxa window
+/// has keyboard focus. `operator_song`: the operator picked this song, which
+/// confirms it for jump drivers that cannot report their open presentation.
+pub async fn apply_action(
+    p: &dyn PresentationController,
+    d: &Dispatched,
+    action: &Action,
+    voxxa_focused: bool,
+    operator_song: bool,
+) -> Result<(), CtlError> {
+    let Action::Goto {
+        song_index,
+        slide_in_song,
+        global_index,
+        song_title,
+        ..
+    } = action
+    else {
+        if matches!(action, Action::Noop) {
+            return Ok(());
+        }
+        check_focus(p, voxxa_focused)?;
+        return set_blank(p, d, matches!(action, Action::Blank)).await;
+    };
+    check_focus(p, voxxa_focused)?;
+    let (song, target) = (*song_index as i64, *global_index as i64);
+    let caps = p.capabilities();
+    if caps.can_goto_slide {
+        // Jump drivers address a slide in the app's open presentation: send the
+        // slide within the song, and only once that song is confirmed open.
+        let same_song = d.song.load(Ordering::SeqCst) == song;
+        if !same_song
+            && !presentation_is(p, song_title).await
+            && !(operator_song && !caps.can_query_state)
+        {
+            let _ = set_blank(p, d, true).await;
+            return Err(CtlError::Other(format!(
+                "Open \"{song_title}\" in your presentation app, then pick it in Voxxa."
+            )));
+        }
+        if !same_song || d.global.load(Ordering::SeqCst) != target {
+            p.goto_slide(*slide_in_song as u32).await?;
+        }
+        set_blank(p, d, false).await?;
+    } else {
+        // Show first: on a blacked-out screen a slide key only un-blacks it.
+        set_blank(p, d, false).await?;
+        let prev = d.global.load(Ordering::SeqCst);
+        // From an unknown position the operator is assumed to be on the slide.
+        let delta = if prev < 0 { 0 } else { target - prev };
+        for i in 0..delta.unsigned_abs() {
+            if i > 0 {
+                tokio::time::sleep(Duration::from_millis(60)).await;
+            }
+            if delta > 0 {
+                p.next_slide().await?;
+            } else {
+                p.prev_slide().await?;
+            }
+        }
+    }
+    d.global.store(target, Ordering::SeqCst);
+    d.song.store(song, Ordering::SeqCst);
+    Ok(())
+}
+
+/// Manual next/prev when no song is active: a raw step in the presentation app.
+pub async fn step_raw(
+    p: &dyn PresentationController,
+    d: &Dispatched,
+    delta: i64,
+    voxxa_focused: bool,
+) -> Result<(), CtlError> {
+    check_focus(p, voxxa_focused)?;
+    if delta > 0 {
+        p.next_slide().await?;
+    } else {
+        p.prev_slide().await?;
+    }
+    // Keep the count so a later lyric Goto computes a sane delta.
+    d.global.fetch_add(delta, Ordering::SeqCst);
+    Ok(())
+}
+
+fn voxxa_focused(app: &tauri::AppHandle) -> bool {
+    use tauri::Manager;
+    app.webview_windows()
+        .values()
+        .any(|w| w.is_focused().unwrap_or(false))
+}
+
+/// Run `action` from a blocking thread and tell the UI about a slide change.
 fn dispatch_action_with_total(
     rt: &tokio::runtime::Handle,
     action: Action,
     presenter: &Arc<Mutex<Box<dyn crate::PresentationController>>>,
-    last_dispatched: &Arc<AtomicI64>,
+    dispatched: &Dispatched,
     app_handle: &tauri::AppHandle,
     total_slides_hint: Option<usize>,
-) {
-    match action {
-        Action::Noop => {}
-        Action::Blank => {
-            let p = presenter.clone();
-            let res = rt.block_on(async move {
-                let p = p.lock().await;
-                p.blank().await
-            });
-            if let Err(e) = res {
-                log::warn!("blank failed: {e}");
-            }
-        }
-        Action::Unblank => {
-            let p = presenter.clone();
-            let res = rt.block_on(async move {
-                let p = p.lock().await;
-                p.unblank().await
-            });
-            if let Err(e) = res {
-                log::warn!("unblank failed: {e}");
-            }
-        }
-        Action::Goto {
-            song_index: _,
-            slide_in_song: _,
-            global_index,
-            slide_text,
-            next_slide_text,
-            song_title,
-        } => {
-            let target = global_index as i64;
-            let prev = last_dispatched.load(Ordering::SeqCst);
-            let p = presenter.clone();
-            let can_goto = rt.block_on(async {
-                let p = p.lock().await;
-                p.capabilities().can_goto_slide
-            });
-
-            let p = presenter.clone();
-            let res: Result<(), crate::CtlError> = rt.block_on(async move {
-                let p = p.lock().await;
-                if prev < 0 {
-                    // No prior dispatch — use goto_slide where available; otherwise we
-                    // can't jump to an absolute slide via keystrokes from an unknown
-                    // start, so we just unblank and hope the operator manually advanced
-                    // to slide 0 first. (Keystroke users typically start at slide 0.)
-                    if can_goto {
-                        return p.goto_slide(global_index as u32).await;
-                    }
-                    return p.unblank().await;
-                }
-                let delta = target - prev;
-                if delta == 0 {
-                    return p.unblank().await;
-                }
-                if delta == 1 {
-                    return p.next_slide().await;
-                }
-                if delta == -1 {
-                    return p.prev_slide().await;
-                }
-                if can_goto {
-                    return p.goto_slide(global_index as u32).await;
-                }
-                // Translate larger jumps to repeated next/prev keystrokes. Sleep a
-                // tick between sends so the receiver isn't overwhelmed.
-                let steps = delta.unsigned_abs() as usize;
-                for _ in 0..steps {
-                    let r = if delta > 0 {
-                        p.next_slide().await
-                    } else {
-                        p.prev_slide().await
-                    };
-                    r?;
-                    tokio::time::sleep(Duration::from_millis(60)).await;
-                }
-                Ok(())
-            });
-
-            if let Err(e) = res {
-                log::error!("Goto({global_index}) failed: {e}");
-                return;
-            }
-            last_dispatched.store(target, Ordering::SeqCst);
-
-            let _ = app_handle.emit(
-                "slide-advanced",
-                SlideAdvanced {
-                    slide_index: global_index,
-                    // Fall back to (global+1) only when the caller didn't pass the
-                    // true total — it's a harmless underestimate for the manual
-                    // command paths that don't have conductor access on hand.
-                    total_slides: total_slides_hint.unwrap_or(global_index + 1),
-                    slide_text,
-                    next_slide_text,
-                    song_title,
-                },
-            );
-        }
+    operator_song: bool,
+) -> Result<(), String> {
+    if matches!(action, Action::Noop) {
+        return Ok(());
     }
+    let focused = voxxa_focused(app_handle);
+    let res = rt.block_on(async {
+        let p = presenter.lock().await;
+        apply_action(&**p, dispatched, &action, focused, operator_song).await
+    });
+    if let Err(e) = res {
+        log::warn!("presenter action failed: {e}");
+        return Err(e.to_string());
+    }
+    if let Action::Goto {
+        global_index,
+        slide_text,
+        next_slide_text,
+        song_title,
+        ..
+    } = action
+    {
+        let _ = app_handle.emit(
+            "slide-advanced",
+            SlideAdvanced {
+                slide_index: global_index,
+                // Fall back to (global+1) only when the caller didn't pass the
+                // true total — it's a harmless underestimate for the manual
+                // command paths that don't have conductor access on hand.
+                total_slides: total_slides_hint.unwrap_or(global_index + 1),
+                slide_text,
+                next_slide_text,
+                song_title,
+            },
+        );
+    }
+    Ok(())
 }
 
 /// Stop listening.
@@ -716,43 +818,56 @@ pub async fn manual_step(
         }
     };
     if matches!(action, Action::Noop) {
-        // No active song — direct presenter call. Still update last_dispatched
-        // so a subsequent lyric Goto computes a sane delta.
+        // No active song: a raw step in the presentation app.
+        let focused = voxxa_focused(app);
         let p = state.presenter.lock().await;
-        let r = if delta > 0 {
-            p.next_slide().await
-        } else {
-            p.prev_slide().await
-        };
-        r.map_err(|e| e.to_string())?;
-        state
-            .last_dispatched_global
-            .fetch_add(delta as i64, Ordering::SeqCst);
-        return Ok(());
+        return step_raw(&**p, &state.dispatched, delta as i64, focused)
+            .await
+            .map_err(|e| e.to_string());
     }
+    dispatch_blocking(state, app, action, total, false).await
+}
+
+async fn dispatch_blocking(
+    state: &AppState,
+    app: &tauri::AppHandle,
+    action: Action,
+    total: Option<usize>,
+    operator_song: bool,
+) -> Result<(), String> {
     let rt = tokio::runtime::Handle::current();
     let presenter = state.presenter.clone();
-    let last_dispatched = state.last_dispatched_global.clone();
+    let dispatched = state.dispatched.clone();
     let app_handle = app.clone();
     tokio::task::spawn_blocking(move || {
         dispatch_action_with_total(
             &rt,
             action,
             &presenter,
-            &last_dispatched,
+            &dispatched,
             &app_handle,
             total,
-        );
+            operator_song,
+        )
     })
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub async fn blank_manual(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn blank_manual(state: State<'_, AppState>, app: tauri::AppHandle) -> Result<(), String> {
+    blank_now(&state, &app).await
+}
+
+/// Operator blank from any path (button, tray, HTTP API): one place, so the
+/// toggle state and the focus guard cannot drift between copies.
+pub async fn blank_now(state: &AppState, app: &tauri::AppHandle) -> Result<(), String> {
+    let focused = voxxa_focused(app);
     {
         let p = state.presenter.lock().await;
-        p.blank().await.map_err(|e| e.to_string())?;
+        apply_action(&**p, &state.dispatched, &Action::Blank, focused, false)
+            .await
+            .map_err(|e| e.to_string())?;
     }
     // Tell the conductor we blanked, so the next lyric match fires an
     // unblank instead of seeing is_blank=false and assuming we're already
@@ -781,22 +896,7 @@ pub async fn jump_to_song(
             None => return Err("No setlist loaded".into()),
         }
     };
-    let rt = tokio::runtime::Handle::current();
-    let presenter = state.presenter.clone();
-    let last_dispatched = state.last_dispatched_global.clone();
-    let app_handle = app.clone();
-    tokio::task::spawn_blocking(move || {
-        dispatch_action_with_total(
-            &rt,
-            action,
-            &presenter,
-            &last_dispatched,
-            &app_handle,
-            total,
-        );
-    })
-    .await
-    .map_err(|e| e.to_string())
+    dispatch_blocking(&state, &app, action, total, true).await
 }
 
 #[tauri::command]
@@ -842,6 +942,9 @@ pub async fn connect_presenter(
     let mut active = state.presenter.lock().await;
     let _ = active.disconnect().await;
     *active = new_driver;
+    // Nothing has been sent to the new driver yet.
+    state.dispatched.reset();
+    state.dispatched.blank.store(false, Ordering::SeqCst);
     Ok(PresenterInfo {
         kind: active.kind(),
         display_name: active.kind().display_name(),
@@ -923,8 +1026,8 @@ pub fn toggle_stage_display(app: tauri::AppHandle) -> Result<bool, String> {
         win.hide().map_err(|e| e.to_string())?;
         Ok(false)
     } else {
+        // No set_focus: keystrokes must keep going to the presentation app.
         win.show().map_err(|e| e.to_string())?;
-        win.set_focus().map_err(|e| e.to_string())?;
         Ok(true)
     }
 }

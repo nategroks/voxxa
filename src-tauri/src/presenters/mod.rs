@@ -157,6 +157,11 @@ pub trait PresentationController: Send + Sync {
     async fn next_slide(&self) -> Result<(), CtlError>;
     async fn prev_slide(&self) -> Result<(), CtlError>;
 
+    /// True when unblank presses the same toggle as blank, so the dispatcher
+    /// must never send either twice in a row.
+    fn blank_toggles(&self) -> bool {
+        false
+    }
     async fn blank(&self) -> Result<(), CtlError> {
         Err(CtlError::Unsupported("blank"))
     }

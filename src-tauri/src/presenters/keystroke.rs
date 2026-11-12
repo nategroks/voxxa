@@ -124,6 +124,10 @@ impl PresentationController for KeystrokeDriver {
         self.connected
     }
 
+    fn blank_toggles(&self) -> bool {
+        true
+    }
+
     async fn connect(&mut self, cfg: PresenterConfig) -> Result<(), CtlError> {
         self.profile = cfg.keystroke_profile.unwrap_or_default();
         self.connected = true;

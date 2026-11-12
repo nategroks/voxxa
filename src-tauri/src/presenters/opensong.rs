@@ -87,6 +87,10 @@ impl PresentationController for OpenSongDriver {
         self.base_url.is_some()
     }
 
+    fn blank_toggles(&self) -> bool {
+        true
+    }
+
     async fn connect(&mut self, cfg: PresenterConfig) -> Result<(), CtlError> {
         let host = cfg.host.unwrap_or_else(|| DEFAULT_HOST.to_string());
         let port = cfg.port.unwrap_or(DEFAULT_PORT);

@@ -245,3 +245,213 @@ fn pro7_repeated_chorus_is_kept() {
     let texts: Vec<&str> = song.slides.iter().map(|s| s.text.as_str()).collect();
     assert_eq!(texts, ["verse one", "chorus", "verse two", "chorus"]);
 }
+
+/// Records every presenter call; drives the dispatcher without a real app.
+struct FakePresenter {
+    kind: voxxa_lib::PresenterKind,
+    caps: voxxa_lib::Capabilities,
+    toggles: bool,
+    open_presentation: std::sync::Mutex<Option<String>>,
+    calls: std::sync::Mutex<Vec<String>>,
+}
+
+impl FakePresenter {
+    /// Keystroke-style: no goto, blank and unblank press the same toggle.
+    fn toggle() -> Self {
+        Self::new(
+            voxxa_lib::PresenterKind::Keystroke,
+            voxxa_lib::Capabilities::KEYSTROKE,
+            true,
+        )
+    }
+    /// ProPresenter-REST-style: jumps, reports its open presentation.
+    fn jumper(open: &str) -> Self {
+        let f = Self::new(
+            voxxa_lib::PresenterKind::ProPresenter7Rest,
+            voxxa_lib::Capabilities::FULL,
+            false,
+        );
+        *f.open_presentation.lock().unwrap() = Some(open.into());
+        f
+    }
+    fn new(kind: voxxa_lib::PresenterKind, caps: voxxa_lib::Capabilities, toggles: bool) -> Self {
+        Self {
+            kind,
+            caps,
+            toggles,
+            open_presentation: Default::default(),
+            calls: Default::default(),
+        }
+    }
+    fn rec(&self, call: String) -> Result<(), voxxa_lib::CtlError> {
+        self.calls.lock().unwrap().push(call);
+        Ok(())
+    }
+    fn calls(&self) -> Vec<String> {
+        self.calls.lock().unwrap().clone()
+    }
+}
+
+#[async_trait::async_trait]
+impl voxxa_lib::PresentationController for FakePresenter {
+    fn kind(&self) -> voxxa_lib::PresenterKind {
+        self.kind
+    }
+    fn capabilities(&self) -> voxxa_lib::Capabilities {
+        self.caps
+    }
+    fn is_connected(&self) -> bool {
+        true
+    }
+    async fn connect(&mut self, _: voxxa_lib::PresenterConfig) -> Result<(), voxxa_lib::CtlError> {
+        Ok(())
+    }
+    async fn disconnect(&mut self) -> Result<(), voxxa_lib::CtlError> {
+        Ok(())
+    }
+    async fn next_slide(&self) -> Result<(), voxxa_lib::CtlError> {
+        self.rec("next".into())
+    }
+    async fn prev_slide(&self) -> Result<(), voxxa_lib::CtlError> {
+        self.rec("prev".into())
+    }
+    fn blank_toggles(&self) -> bool {
+        self.toggles
+    }
+    async fn blank(&self) -> Result<(), voxxa_lib::CtlError> {
+        self.rec("blank".into())
+    }
+    async fn unblank(&self) -> Result<(), voxxa_lib::CtlError> {
+        self.rec("unblank".into())
+    }
+    async fn goto_slide(&self, index: u32) -> Result<(), voxxa_lib::CtlError> {
+        self.rec(format!("goto {index}"))
+    }
+    async fn current_state(&self) -> Result<voxxa_lib::PresenterState, voxxa_lib::CtlError> {
+        Ok(voxxa_lib::PresenterState {
+            presentation_name: self.open_presentation.lock().unwrap().clone(),
+            ..Default::default()
+        })
+    }
+}
+
+fn goto(
+    song_index: usize,
+    slide_in_song: usize,
+    global_index: usize,
+    title: &str,
+) -> voxxa_lib::Action {
+    voxxa_lib::Action::Goto {
+        song_index,
+        slide_in_song,
+        global_index,
+        slide_text: String::new(),
+        next_slide_text: None,
+        song_title: title.into(),
+    }
+}
+
+async fn send(
+    p: &FakePresenter,
+    d: &voxxa_lib::Dispatched,
+    a: voxxa_lib::Action,
+) -> Result<(), voxxa_lib::CtlError> {
+    voxxa_lib::apply_action(p, d, &a, false, false).await
+}
+
+/// Q2-03 (audit 2): a toggle-only blank is sent only when the wanted state changes.
+#[tokio::test]
+async fn toggle_blank_is_never_inverted() {
+    use voxxa_lib::Action;
+    let (p, d) = (FakePresenter::toggle(), voxxa_lib::Dispatched::default());
+    send(&p, &d, goto(0, 0, 0, "Amazing Grace")).await.unwrap();
+    assert!(
+        p.calls().is_empty(),
+        "first detection must not press the toggle: {:?}",
+        p.calls()
+    );
+    send(&p, &d, Action::Blank).await.unwrap();
+    send(&p, &d, Action::Blank).await.unwrap();
+    send(&p, &d, goto(0, 0, 0, "Amazing Grace")).await.unwrap();
+    assert_eq!(p.calls(), ["blank", "unblank"]);
+    // Operator blank, then the next verse: exactly one unblank, then the step.
+    send(&p, &d, Action::Blank).await.unwrap();
+    send(&p, &d, goto(0, 1, 1, "Amazing Grace")).await.unwrap();
+    assert_eq!(p.calls(), ["blank", "unblank", "blank", "unblank", "next"]);
+}
+
+/// Q2-04 (audit 3): the keystroke driver never types into a focused Voxxa window.
+#[tokio::test]
+async fn keystrokes_refused_while_voxxa_is_focused() {
+    use voxxa_lib::{apply_action, step_raw, Action};
+    let (p, d) = (FakePresenter::toggle(), voxxa_lib::Dispatched::default());
+    d.global.store(0, std::sync::atomic::Ordering::SeqCst);
+    assert!(apply_action(&p, &d, &goto(0, 1, 1, "A"), true, false)
+        .await
+        .is_err());
+    assert!(apply_action(&p, &d, &Action::Blank, true, false)
+        .await
+        .is_err());
+    assert!(step_raw(&p, &d, 1, true).await.is_err());
+    assert!(p.calls().is_empty(), "{:?}", p.calls());
+    apply_action(&p, &d, &goto(0, 1, 1, "A"), false, false)
+        .await
+        .unwrap();
+    assert_eq!(p.calls(), ["next"]);
+    // Network drivers do not care about focus.
+    let pro = FakePresenter::jumper("A");
+    apply_action(
+        &pro,
+        &voxxa_lib::Dispatched::default(),
+        &goto(0, 1, 1, "A"),
+        true,
+        false,
+    )
+    .await
+    .unwrap();
+    assert_eq!(pro.calls(), ["goto 1"]);
+}
+
+/// Q2-05 (audit 4): jump drivers get the slide within the song, and only for
+/// the presentation that is actually open; otherwise they blank.
+#[tokio::test]
+async fn jump_drivers_address_the_open_song() {
+    let (p, d) = (
+        FakePresenter::jumper("Amazing Grace"),
+        voxxa_lib::Dispatched::default(),
+    );
+    send(&p, &d, goto(0, 2, 2, "Amazing Grace")).await.unwrap();
+    assert_eq!(p.calls(), ["goto 2"]);
+    let err = send(&p, &d, goto(2, 0, 8, "Be Thou My Vision"))
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("Be Thou My Vision"), "{err}");
+    assert_eq!(
+        p.calls(),
+        ["goto 2", "blank"],
+        "blank, never a slide of the wrong song"
+    );
+    *p.open_presentation.lock().unwrap() = Some("Be Thou My Vision".into());
+    send(&p, &d, goto(2, 0, 8, "Be Thou My Vision"))
+        .await
+        .unwrap();
+    assert_eq!(p.calls(), ["goto 2", "blank", "goto 0", "unblank"]);
+
+    // A jump driver that cannot report its presentation trusts only the operator's pick.
+    let caps = voxxa_lib::Capabilities {
+        can_query_state: false,
+        ..voxxa_lib::Capabilities::FULL
+    };
+    let fs = FakePresenter::new(voxxa_lib::PresenterKind::FreeShow, caps, false);
+    let d = voxxa_lib::Dispatched::default();
+    assert!(send(&fs, &d, goto(1, 0, 4, "Be Thou My Vision"))
+        .await
+        .is_err());
+    voxxa_lib::apply_action(&fs, &d, &goto(1, 0, 4, "Be Thou My Vision"), false, true)
+        .await
+        .unwrap();
+    send(&fs, &d, goto(1, 1, 5, "Be Thou My Vision"))
+        .await
+        .unwrap();
+    assert_eq!(fs.calls(), ["blank", "goto 0", "unblank", "goto 1"]);
+}

@@ -878,6 +878,8 @@ async function setupListeners() {
     updateDownloadProgress(event.payload.percent);
   });
 
+  await listen("dispatch-error", (event) => toast(event.payload, "error", 6000));
+
   await listen("tray-toggle-recording", () => {
     toggleListening();
   });
