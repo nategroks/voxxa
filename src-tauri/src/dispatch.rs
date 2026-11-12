@@ -193,6 +193,9 @@ pub async fn step(
     } else {
         p.prev_slide().await?;
     }
-    sent.global += delta as i64;
+    // An unknown position (-1) stays unknown until a detection places the deck.
+    if sent.global >= 0 {
+        sent.global += delta as i64;
+    }
     Ok(())
 }

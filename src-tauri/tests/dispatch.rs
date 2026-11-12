@@ -341,3 +341,16 @@ async fn a_raw_step_after_a_blank_keeps_the_toggle_in_step() {
     step(&p, &mut sent, -1, true).await.unwrap();
     assert_eq!(p.take(), ["prev"]);
 }
+
+#[tokio::test]
+async fn a_raw_step_before_any_detection_keeps_the_position_unknown() {
+    // Stream Deck Next through announcement slides before any song is
+    // detected: Voxxa does not know where the deck is, so the first
+    // detection must press nothing rather than step from a made-up position.
+    let p = Fake::toggle();
+    let mut sent = Sent::default();
+    step(&p, &mut sent, 1, false).await.unwrap();
+    auto(&p, &mut sent, goto(1, 1)).await.unwrap();
+    assert_eq!(p.take(), ["next"], "only the operator's own key");
+    assert_eq!(sent.global, 5);
+}
