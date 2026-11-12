@@ -159,9 +159,8 @@ pub struct Conductor {
 
     last_speech: Option<Instant>,
     last_advance: Option<Instant>,
-    /// When speech that does not match the current song started (the first
-    /// unmatched transcript since the last match). `tick` blanks once it is
-    /// older than `unrecognized_speech_to_blank_secs`.
+    /// When the first transcript that does not match the current song came
+    /// in (None after a match). A second unmatched transcript in a row blanks.
     unmatched_since: Option<Instant>,
 
     /// Most recent per-song softmax scores. Refreshed on every on_transcript
@@ -279,18 +278,6 @@ impl Conductor {
 
     /// Time-based transitions. Call regularly (~100 ms is fine).
     pub fn tick(&mut self, now: Instant) -> Action {
-        // Speech that matches no song (prayer, sermon, announcements) blanks
-        // after unrecognized_speech_to_blank_secs, even while VAD hears speech.
-        let showing = matches!(
-            self.state,
-            MachineState::Singing | MachineState::InterVerseSilence
-        ) && !self.is_blank;
-        if let Some(t) = self.unmatched_since.filter(|_| showing) {
-            let limit = Duration::from_secs_f64(self.config.unrecognized_speech_to_blank_secs);
-            if now.saturating_duration_since(t) >= limit {
-                return self.blank_hold(now);
-            }
-        }
         let since_speech = match self.last_speech {
             Some(t) => now.saturating_duration_since(t),
             None => Duration::from_secs(86_400),
@@ -390,9 +377,18 @@ impl Conductor {
             return advance;
         }
 
-        // Words that do not match the current song never re-show its lyrics;
-        // they start the unrecognized-speech timer that `tick` blanks on.
+        // Words that do not match the current song never re-show its lyrics.
+        // One such transcript may be a shout-out or a misheard line; a second
+        // in a row means the service moved on (prayer, sermon), so blank,
+        // even though VAD keeps hearing speech.
         if !self.matches_current(text) {
+            let showing = matches!(
+                self.state,
+                MachineState::Singing | MachineState::InterVerseSilence
+            ) && !self.is_blank;
+            if self.unmatched_since.is_some() && showing {
+                return self.blank_hold(now);
+            }
             self.unmatched_since.get_or_insert(now);
             return Action::Noop;
         }
@@ -1080,11 +1076,12 @@ mod tests {
         for step in 1..=600u32 {
             let now = t0 + tick * step;
             c.on_speech(now);
+            let mut action = Action::Noop;
             if step % 25 == 0 {
                 first_unmatched.get_or_insert(now);
-                let _ = c.on_transcript(sermon[(step / 25) as usize % 3], now);
+                action = c.on_transcript(sermon[(step / 25) as usize % 3], now);
             }
-            if matches!(c.tick(now), Action::Blank) {
+            if matches!(action, Action::Blank) || matches!(c.tick(now), Action::Blank) {
                 blanked_at = Some(now);
                 break;
             }
@@ -1097,6 +1094,28 @@ mod tests {
             blanked - start
         );
         assert!(c.is_blank());
+    }
+
+    #[test]
+    fn one_interjection_mid_song_does_not_blank() {
+        // The leader shouts between lines while the room keeps singing; the
+        // next transcript is at least 5 s away, so one stray line must not
+        // blank the lyrics in the meantime.
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        assert!(matches!(c.on_transcript(VERSE_1, t0), Action::Goto { .. }));
+        let shout = c.on_transcript(
+            "come on church sing it out everybody",
+            t0 + Duration::from_secs(5),
+        );
+        assert!(matches!(shout, Action::Noop), "got {shout:?}");
+        for i in 26..=50u32 {
+            let now = t0 + Duration::from_millis(200 * u64::from(i));
+            c.on_speech(now);
+            let action = c.tick(now);
+            assert!(!matches!(action, Action::Blank), "blanked at {i}");
+        }
+        assert!(!c.is_blank());
     }
 
     fn slide_of(action: &Action) -> Option<(usize, usize)> {
