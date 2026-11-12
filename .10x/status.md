@@ -54,6 +54,7 @@
   - **ADR-011:** the stage window cannot default to an audience output; copy and placement are a Low ticket.
   - **Gates on Windows** (rustc 1.99.1): frontend (clean export), fmt, clippy `-D warnings`, test (45 unit + 33 integration), `cargo deny`, budgets (no budget raised; everything else 2489/2500), dictat grep.
   - **Tickets:** 34 (14 medium, 20 low), ready to file as GitHub issues.
+- [ ] 2026-11-12 **Q2 ponytail-audit re-run** on 3446e09 (the first run's output was blocked): 16 findings; 3 new fix-now items (PT2-01 short or unrelated transcripts start a song or re-show lyrics, PT2-02 tray Blank inverts the Keystroke toggle, PT2-05 ProPresenter WS/OpenSong goto hits the wrong presentation) and one older wrong-slide defect found while checking b09373d (Prev below the first song) fixed with tests in f2519ba, 8846f36, a50ee6a, bde776b, b677d69; all 7 gates pass at b677d69 (53 unit tests; budget 2482/2500); tickets now 44 (Q2-55 … Q2-64 added); **still open, fix-now:** a worship phrase during a prayer blank can show the next slide (in-song advance path, `reviews/2026-11-11-ponytail-q2.md` §8.6), so Q2's "no open wrong-slide defect" is not met until it is fixed and re-verified; hold the PR #1 push until then.
 
 ### Release readiness (2026-11-11, after Q2)
 - **Code:** Q2's exit criteria are met. No open crash, data-loss, freeze or wrong-slide defect from the audit or Q2; no open Critical or High security finding.
