@@ -131,6 +131,10 @@ pub struct Conductor {
 
     last_speech: Option<Instant>,
     last_advance: Option<Instant>,
+    /// When speech that does not match the current song started (the first
+    /// unmatched transcript since the last match). `tick` blanks once it is
+    /// older than `unrecognized_speech_to_blank_secs`.
+    unmatched_since: Option<Instant>,
 
     /// Most recent per-song softmax scores. Refreshed on every on_transcript
     /// call so the UI can render confidence bars in real time. Empty before
@@ -161,6 +165,7 @@ impl Conductor {
             buffer_words: Vec::new(),
             last_speech: None,
             last_advance: None,
+            unmatched_since: None,
             last_scores: Vec::new(),
         }
     }
@@ -227,6 +232,18 @@ impl Conductor {
 
     /// Time-based transitions. Call regularly (~100 ms is fine).
     pub fn tick(&mut self, now: Instant) -> Action {
+        // Speech that matches no song (prayer, sermon, announcements) blanks
+        // after unrecognized_speech_to_blank_secs, even while VAD hears speech.
+        let showing = matches!(
+            self.state,
+            MachineState::Singing | MachineState::InterVerseSilence
+        ) && !self.is_blank;
+        if let Some(t) = self.unmatched_since.filter(|_| showing) {
+            let limit = Duration::from_secs_f64(self.config.unrecognized_speech_to_blank_secs);
+            if now.saturating_duration_since(t) >= limit {
+                return self.blank_hold(now);
+            }
+        }
         let since_speech = match self.last_speech {
             Some(t) => now.saturating_duration_since(t),
             None => Duration::from_secs(86_400),
@@ -243,9 +260,7 @@ impl Conductor {
                     >= Duration::from_secs_f64(self.config.unrecognized_speech_to_blank_secs)
                     && !self.is_blank
                 {
-                    self.transition(MachineState::BlankHold, now);
-                    self.is_blank = true;
-                    return Action::Blank;
+                    return self.blank_hold(now);
                 }
             }
             MachineState::Listening | MachineState::BlankHold => {
@@ -326,6 +341,14 @@ impl Conductor {
             return advance;
         }
 
+        // Words that do not match the current song never re-show its lyrics;
+        // they start the unrecognized-speech timer that `tick` blanks on.
+        if !self.matches_current(text) {
+            self.unmatched_since.get_or_insert(now);
+            return Action::Noop;
+        }
+        self.unmatched_since = None;
+
         // We matched the current song but didn't advance — ensure output is unblanked
         // and showing the current slide (recovers from BlankHold/InterVerseSilence).
         if self.is_blank || self.state != MachineState::Singing {
@@ -338,6 +361,33 @@ impl Conductor {
         }
 
         Action::Noop
+    }
+
+    /// The transcript reads as a line of the current song: the same bar as a
+    /// slide advance (`min_advance_match`), because ordinary speech already
+    /// scores 40-50 against any whole song.
+    fn matches_current(&self, text: &str) -> bool {
+        let Some(song) = self.current_song.and_then(|i| self.songs.get(i)) else {
+            return false;
+        };
+        let combined = song
+            .slides
+            .iter()
+            .map(|s| s.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase();
+        partial_ratio(&text.to_lowercase(), &combined) >= self.config.min_advance_match
+    }
+
+    /// Blank the output and hold. The rolling buffer is cleared so the words
+    /// heard before the blank cannot bring the lyrics back afterwards.
+    fn blank_hold(&mut self, now: Instant) -> Action {
+        self.transition(MachineState::BlankHold, now);
+        self.is_blank = true;
+        self.buffer_words.clear();
+        self.unmatched_since = None;
+        Action::Blank
     }
 
     fn score_all_songs(&self, buffer_text: &str) -> Vec<SongScore> {
@@ -404,6 +454,7 @@ impl Conductor {
         {
             self.current_slide_in_song = curr_idx + 1;
             self.buffer_words.clear();
+            self.unmatched_since = None;
             self.last_advance = Some(now);
             self.is_blank = false;
             self.transition(MachineState::Singing, now);
@@ -426,6 +477,7 @@ impl Conductor {
         self.current_slide_in_song = 0;
         self.song_started_at = Some(now);
         self.buffer_words.clear();
+        self.unmatched_since = None;
         self.last_advance = Some(now);
         self.is_blank = false;
         self.transition(MachineState::Singing, now);
@@ -484,6 +536,7 @@ impl Conductor {
         }
         self.current_slide_in_song = target as usize;
         self.last_advance = Some(now);
+        self.unmatched_since = None;
         self.is_blank = false;
         self.transition(MachineState::Singing, now);
         // Operator overrode the conductor — drop the rolling buffer so a
@@ -905,6 +958,72 @@ mod tests {
             !c.is_blank(),
             "conductor should have cleared its blank flag"
         );
+    }
+
+    fn example_setlist() -> Vec<Song> {
+        let json = include_str!("../../../setlist.example.json");
+        serde_json::from_str::<Setlist>(json).unwrap().setlist
+    }
+
+    const VERSE_1: &str = "amazing grace how sweet the sound that saved a wretch like me";
+
+    #[test]
+    fn prayer_after_blank_keeps_the_lyrics_off() {
+        // Audit 1 / Q2-02: song, 10 s of silence (blank), then a prayer.
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        assert!(matches!(c.on_transcript(VERSE_1, t0), Action::Goto { .. }));
+        let blanks = (1..=50)
+            .map(|i| c.tick(t0 + Duration::from_millis(200 * i)))
+            .filter(|a| matches!(a, Action::Blank))
+            .count();
+        assert_eq!(blanks, 1);
+        assert!(c.is_blank());
+        let action = c.on_transcript(
+            "let us bow our heads and pray father we thank you for this morning",
+            t0 + Duration::from_secs(11),
+        );
+        assert!(matches!(action, Action::Noop), "got {action:?}");
+        assert!(c.is_blank(), "a prayer must not re-show the lyrics");
+    }
+
+    #[test]
+    fn continuous_unmatched_speech_blanks() {
+        // Audit 1 / Q2-02: the pastor talks straight after the last song. VAD
+        // hears speech all the time, so the silence timer never fires.
+        let cfg = SmartConfig::default();
+        let limit = Duration::from_secs_f64(cfg.unrecognized_speech_to_blank_secs);
+        let mut c = Conductor::new(example_setlist(), cfg);
+        let t0 = Instant::now();
+        let _ = c.on_transcript(VERSE_1, t0);
+        let sermon = [
+            "good morning church please turn in your bibles to the book of romans",
+            "and the apostle paul tells us that nothing can separate us from god",
+            "so this week i want us to think about what that means for our families",
+        ];
+        let tick = Duration::from_millis(200);
+        let mut first_unmatched = None;
+        let mut blanked_at = None;
+        for step in 1..=600u32 {
+            let now = t0 + tick * step;
+            c.on_speech(now);
+            if step % 25 == 0 {
+                first_unmatched.get_or_insert(now);
+                let _ = c.on_transcript(sermon[(step / 25) as usize % 3], now);
+            }
+            if matches!(c.tick(now), Action::Blank) {
+                blanked_at = Some(now);
+                break;
+            }
+        }
+        let start = first_unmatched.unwrap();
+        let blanked = blanked_at.expect("never blanked");
+        assert!(
+            blanked - start <= limit + tick,
+            "after {:?}",
+            blanked - start
+        );
+        assert!(c.is_blank());
     }
 
     #[test]
