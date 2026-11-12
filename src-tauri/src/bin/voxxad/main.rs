@@ -85,7 +85,7 @@ fn parse_args(mut it: impl Iterator<Item = String>) -> Result<Args, String> {
 
 fn main() {
     if let Err(message) = run(parse_args(std::env::args().skip(1))) {
-        println!("{}", Line::new(0, Kind::Error { message }).to_json());
+        say(&Line::new(0, Kind::Error { message }).to_json());
         std::process::exit(1);
     }
 }
@@ -93,13 +93,13 @@ fn main() {
 fn run(args: Result<Args, String>) -> Result<(), String> {
     let args = args?;
     if args.help {
-        println!("{USAGE}");
+        say(USAGE);
         return Ok(());
     }
     if args.list_devices {
         let devices = AudioEngine::list_devices().map_err(|e| e.to_string())?;
         let info = Some(json!({ "devices": devices }));
-        println!("{}", Line::new(0, status("devices", info)).to_json());
+        say(&Line::new(0, status("devices", info)).to_json());
         return Ok(());
     }
     let setlist = args.setlist.as_deref().ok_or("--setlist is required")?;
@@ -107,7 +107,7 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
     if let Some(path) = &args.replay {
         let log = fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
         for line in events::replay(&log, songs).map_err(|e| format!("{path}: {e}"))? {
-            println!("{}", line.to_json());
+            say(&line.to_json());
         }
         return Ok(());
     }
@@ -191,9 +191,15 @@ fn emit(log: &mut File, line: &Line) {
     let json = line.to_json();
     let _ = writeln!(log, "{json}");
     if line.on_stdout() {
-        let mut out = std::io::stdout().lock();
-        let _ = writeln!(out, "{json}").and_then(|_| out.flush());
+        say(&json);
     }
+}
+
+/// One line on stdout, flushed. A closed pipe (`| head -1`) is ignored
+/// instead of panicking.
+fn say(text: &str) {
+    let mut out = std::io::stdout().lock();
+    let _ = writeln!(out, "{text}").and_then(|_| out.flush());
 }
 
 fn load_setlist(path: &str) -> Result<Vec<Song>, String> {
