@@ -383,20 +383,30 @@ impl Conductor {
             return self.start_song(top.song_index, slide, now);
         }
 
-        // Try to advance within the current song.
-        let advance = self.maybe_advance_within_current(&buffer_text, now);
-        if !matches!(advance, Action::Noop) {
-            return advance;
+        let showing = matches!(
+            self.state,
+            MachineState::Singing | MachineState::InterVerseSilence
+        ) && !self.is_blank;
+
+        // Try to advance within the current song. While the lyrics are off,
+        // an advance re-shows them, so it needs the start bar too, and only
+        // the latest words count: speech heard during the blank is not lyrics.
+        let words = if showing {
+            buffer_text
+        } else {
+            text.to_lowercase()
+        };
+        if showing || self.matches_song(current, text, self.config.min_start_match) {
+            let advance = self.maybe_advance_within_current(&words, now);
+            if !matches!(advance, Action::Noop) {
+                return advance;
+            }
         }
 
         // Words that do not match the current song never re-show its lyrics.
         // One such transcript may be a shout-out or a misheard line; a second
         // in a row means the service moved on (prayer, sermon), so blank,
         // even though VAD keeps hearing speech.
-        let showing = matches!(
-            self.state,
-            MachineState::Singing | MachineState::InterVerseSilence
-        ) && !self.is_blank;
         // Keeping lyrics up needs the advance bar; re-showing them, the start bar.
         let bar = if showing {
             self.config.min_advance_match
@@ -1298,6 +1308,46 @@ mod tests {
         let mut c = Conductor::new(vec![example_setlist().remove(2)], SmartConfig::default());
         let action = c.on_transcript("Let's give the Lord praise.", t0);
         assert!(matches!(action, Action::Noop), "{action:?}");
+    }
+
+    #[test]
+    fn worship_phrases_during_a_blank_never_advance_to_the_next_slide() {
+        // PT2-01 residual (§8.6): the in-song advance needs the start bar too.
+        let t0 = Instant::now();
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let line = "Though Satan should buffet, though trials should come";
+        assert_eq!(slide_of(&c.on_transcript(line, t0)), Some((2, 2)));
+        let blanks = (1..=80)
+            .map(|i| c.tick(t0 + Duration::from_millis(200 * i)))
+            .filter(|a| matches!(a, Action::Blank))
+            .count();
+        assert_eq!(blanks, 1);
+        let phrases = [
+            "Come on, praise the Lord!",
+            "Let's give the Lord praise.",
+            "Praise the Lord, everybody",
+            "Let's praise the Lord, praise the Lord together church",
+        ];
+        for (s, phrase) in (17..).zip(phrases) {
+            let action = c.on_transcript(phrase, t0 + Duration::from_secs(s));
+            assert!(matches!(action, Action::Noop), "{phrase}: {action:?}");
+            assert!(c.is_blank(), "{phrase}");
+        }
+        let line = "Is nailed to the cross, and I bear it no more";
+        let action = c.on_transcript(line, t0 + Duration::from_secs(22));
+        assert_eq!(slide_of(&action), Some((2, 3)));
+        assert!(!c.is_blank());
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let line = "Through many dangers, toils and snares I have already come";
+        assert_eq!(slide_of(&c.on_transcript(line, t0)), Some((0, 2)));
+        assert!(
+            (1..=80).any(|i| matches!(c.tick(t0 + Duration::from_millis(200 * i)), Action::Blank))
+        );
+        let action = c.on_transcript(
+            "The Lord has promised good things to us",
+            t0 + Duration::from_secs(17),
+        );
+        assert!(matches!(action, Action::Noop) && c.is_blank(), "{action:?}");
     }
 
     #[test]
