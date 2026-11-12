@@ -409,6 +409,8 @@ struct Heard {
     log: String,
     /// The length of each slice handed to the recogniser.
     slices: Vec<usize>,
+    /// Every slice handed to the recogniser, one after the other.
+    fed: Vec<f32>,
     lost: bool,
 }
 
@@ -419,6 +421,19 @@ struct Heard {
 fn listen_to(
     audio: &[f32],
     texts: &[String],
+    operator: impl FnMut(&Mutex<Option<Conductor>>, &Event),
+) -> Heard {
+    let mut texts = texts.iter();
+    let recognise = |_| Ok(texts.next().cloned().unwrap_or_default());
+    listen_with(songs(), audio, recognise, operator)
+}
+
+/// `listen_to` with any setlist and any recogniser, which is told the
+/// number (0, 1, ...) of the slice it is given.
+fn listen_with(
+    setlist: Vec<Song>,
+    audio: &[f32],
+    mut recognise: impl FnMut(usize) -> anyhow::Result<String>,
     mut operator: impl FnMut(&Mutex<Option<Conductor>>, &Event),
 ) -> Heard {
     let (tx, rx) = mpsc::channel();
@@ -428,15 +443,16 @@ fn listen_to(
     drop(tx);
     let base = Instant::now();
     let clock = |samples: u64| base + Duration::from_millis(samples / 16);
-    let conductor = Mutex::new(Some(Conductor::new(songs(), SmartConfig::default())));
+    let start = json!({ "config": SmartConfig::default(), "setlist": fingerprint(&setlist) });
+    let conductor = Mutex::new(Some(Conductor::new(setlist, SmartConfig::default())));
     let vad = Mutex::new(VadEngine::new());
-    let start = json!({ "config": SmartConfig::default(), "setlist": fingerprint(&songs()) });
     let mut log = format!("{}\n", Line::new(0, status("start", Some(start))).to_json());
     let (mut recorder, mut events, mut slices) = (Recorder::new(base), Vec::new(), Vec::new());
-    let mut texts = texts.iter();
+    let mut fed = Vec::new();
     let transcribe = |pcm: &[f32]| -> anyhow::Result<String> {
         slices.push(pcm.len());
-        Ok(texts.next().cloned().unwrap_or_default())
+        fed.extend_from_slice(pcm);
+        recognise(slices.len() - 1)
     };
     let sink = |now: Instant, event: Event| {
         if matches!(event, Event::Mic(_)) {
@@ -455,6 +471,7 @@ fn listen_to(
         events,
         log,
         slices,
+        fed,
         lost,
     }
 }
@@ -600,6 +617,85 @@ fn a_blank_without_a_state_change_still_reaches_the_gui() {
         Some(&(goto + 200, MachineState::Singing, false)),
         "{states:?}"
     );
+}
+
+/// Everything the VAD hands on from `audio` in 100 ms chunks, in order.
+fn vad_speech(audio: &[f32]) -> Vec<f32> {
+    let mut vad = VadEngine::new();
+    (audio.chunks(1600))
+        .filter_map(|chunk| vad.process(chunk))
+        .flatten()
+        .collect()
+}
+
+/// The PD hymns and three more songs that nobody sings: six candidates.
+fn six_songs() -> Vec<Song> {
+    let mut six = songs();
+    for n in 4..=6 {
+        let text = format!("filler number {n} is a slide that nobody in this test sings");
+        let slides = json!([{ "id": 9 + n, "text": text }]);
+        let song = json!({ "title": format!("Filler {n}"), "slides": slides });
+        six.push(serde_json::from_value(song).unwrap());
+    }
+    six
+}
+
+/// Whisper fails on one slice and hears nothing in another. The GUI gets
+/// one error and nothing at all for the empty transcript (no transcription
+/// event, no repeat of the old song detection); the audio of both slices
+/// is dropped, so the buffer cannot grow while errors repeat; and the loop
+/// goes on to the next transcript.
+#[test]
+fn a_failed_or_empty_transcript_drops_its_audio_and_the_loop_goes_on() {
+    // The service with a third verse: enough speech for four slices.
+    let audio = [service(), wav_16k_mono(SPEECH_WAV)].concat();
+    let verses = verses();
+    // Slice 0 fails, slice 2 is empty, the others hear the verses in turn.
+    let text = |n: usize| match n {
+        0 | 2 => None,
+        1 => verses.first(),
+        n => verses.get(n - 2),
+    };
+    let recognise = |n: usize| match n {
+        0 => Err(anyhow::anyhow!("whisper failed")),
+        n => Ok(text(n).cloned().unwrap_or_default()),
+    };
+    let heard = listen_with(six_songs(), &audio, recognise, |_, _| {});
+    assert!(heard.slices.len() >= 4, "{:?}", heard.slices);
+
+    // The recogniser got the VAD's speech in order, none of it twice: the
+    // audio of a failed or empty slice is not handed over again.
+    let speech = vad_speech(&audio);
+    assert!(heard.fed.len() <= speech.len(), "{:?}", heard.slices);
+    assert!(heard.fed == speech[..heard.fed.len()], "{:?}", heard.slices);
+
+    // What the GUI is told after each slice, in order.
+    let mut told = Vec::new();
+    for (_, e) in &heard.events {
+        match e {
+            Event::Error(m) => told.push(format!("error {m}")),
+            Event::Input(Input::Heard(text)) => told.push(format!("heard {text}")),
+            Event::Detection(rows) => told.push(format!("detection {}", rows.len())),
+            _ => {}
+        }
+    }
+    let mut want = vec!["error whisper failed".to_string()];
+    for text in (1..heard.slices.len()).filter_map(text) {
+        want.extend([format!("heard {text}"), "detection 5".to_string()]);
+    }
+    assert_eq!(told, want);
+    let error = r#""type":"error","message":"whisper failed""#;
+    assert!(heard.log.contains(error), "{}", heard.log);
+    assert!(!heard.log.contains(r#""text":"""#), "{}", heard.log);
+
+    // The loop went on: the slide follows the later transcripts.
+    let shown: Vec<usize> = (heard.events.iter())
+        .filter_map(|(_, e)| match e {
+            Event::Action(Action::Goto { slide_in_song, .. }, _) => Some(*slide_in_song),
+            _ => None,
+        })
+        .collect();
+    assert!(shown.len() >= 2 && shown[0] == 0, "{shown:?}");
 }
 
 fn voxxad(args: &[&str]) -> (String, bool) {
