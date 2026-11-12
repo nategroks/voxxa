@@ -31,6 +31,9 @@ pub use vad::VadEngine;
 pub use importers::chordpro::parse as chordpro_parse;
 pub use importers::openlyrics::parse as openlyrics_parse;
 pub use importers::opensong::parse as opensong_parse;
+pub use importers::pdf::parse as pdf_parse;
+pub use importers::pptx::parse as pptx_parse;
+pub use importers::pro7::parse as pro7_parse;
 pub use importers::txt::parse as txt_parse;
 
 /// Shared application state.

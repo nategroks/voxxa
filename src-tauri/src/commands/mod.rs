@@ -992,21 +992,33 @@ pub async fn discover_presenters(
     Ok(discovery::discover_all(timeout).await)
 }
 
+/// Run an importer off the UI thread. Sync Tauri commands run on the main
+/// thread, so a large file froze the window and a parser panic aborted the
+/// app; here a panic becomes an ordinary error.
+async fn off_ui_thread<T: Send + 'static>(
+    parse: impl FnOnce() -> anyhow::Result<T> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(parse)
+        .await
+        .map_err(|_| "the importer failed on this file".to_string())?
+        .map_err(|e| e.to_string())
+}
+
 /// Parse a text-source song (.txt, OpenLyrics, OpenSong, ChordPro). Returned
 /// `Song` is appended to the in-flight setlist by the frontend.
 #[tauri::command]
-pub fn parse_song_text(
+pub async fn parse_song_text(
     content: String,
     format: ImportFormat,
     fallback_title: Option<String>,
 ) -> Result<Song, String> {
     let fallback = fallback_title.unwrap_or_else(|| "Untitled".to_string());
-    importers::parse_text(format, &content, &fallback).map_err(|e| e.to_string())
+    off_ui_thread(move || importers::parse_text(format, &content, &fallback)).await
 }
 
 /// Parse a binary-source song (.pptx, .pdf, .pro7). `bytes_b64` is base64-encoded raw file bytes.
 #[tauri::command]
-pub fn parse_song_bytes(
+pub async fn parse_song_bytes(
     bytes_b64: String,
     format: ImportFormat,
     fallback_title: Option<String>,
@@ -1016,7 +1028,7 @@ pub fn parse_song_bytes(
         .decode(bytes_b64.as_bytes())
         .map_err(|e| format!("invalid base64: {e}"))?;
     let fallback = fallback_title.unwrap_or_else(|| "Untitled".to_string());
-    importers::parse_bytes(format, &bytes, &fallback).map_err(|e| e.to_string())
+    off_ui_thread(move || importers::parse_bytes(format, &bytes, &fallback)).await
 }
 
 /// Search Hymnary.org for public-domain hymns. No auth required.
@@ -1038,12 +1050,12 @@ pub async fn hymnary_fetch(slug: String) -> Result<Song, String> {
 /// database — unlike the other importers, one .db file is a whole multi-song
 /// library, not a single song.
 #[tauri::command]
-pub fn import_easyworship_db(bytes_b64: String) -> Result<Vec<Song>, String> {
+pub async fn import_easyworship_db(bytes_b64: String) -> Result<Vec<Song>, String> {
     use base64::Engine;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(bytes_b64.as_bytes())
         .map_err(|e| format!("invalid base64: {e}"))?;
-    importers::easyworship::parse_database(&bytes).map_err(|e| e.to_string())
+    off_ui_thread(move || importers::easyworship::parse_database(&bytes)).await
 }
 
 #[tauri::command]

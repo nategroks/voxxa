@@ -1,0 +1,2 @@
+# Test PDFs carry byte offsets in their xref tables; never convert line endings.
+*.pdf binary

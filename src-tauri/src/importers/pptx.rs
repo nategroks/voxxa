@@ -48,13 +48,10 @@ pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
             text: text.trim().to_string(),
         });
     }
-    // Drop blank slides (title-only, image-only, etc.) — they would confuse the
-    // conductor by making the song match score against empty strings.
-    slides.retain(|s| !s.text.is_empty());
-    for (i, s) in slides.iter_mut().enumerate() {
-        s.id = i;
-    }
-    if slides.is_empty() {
+    // Blank slides (title-only, image-only, etc.) stay as empty slides so the
+    // numbering matches the deck the presentation app steps through; the
+    // conductor never matches empty slides.
+    if slides.iter().all(|s| s.text.is_empty()) {
         return Err(anyhow!("no readable text in any slide"));
     }
     Ok(Song {
