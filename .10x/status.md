@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q1 complete locally (2026-11-11): May branch merged per ADR-010 + A1–A15, all gates green on Windows; CI on PR #1 judges Linux/macOS. Next: Q2 (verification, widened).
+**Current Phase:** Q2 complete locally (2026-11-11): QA + security reviews written; every crash, data-loss, freeze, listening-impossible and wrong-slide defect found is fixed with tests; 34 tickets; all gates green on Windows. Next: CI on PR #1 for the Q2 head, merge PR #1 into `main`, then the user's cut-list decision (ADR-012) before Q3.
 **Last Updated:** 2026-11-11 by 10x-team orchestrator
 **Health:** On Track
 
@@ -47,11 +47,28 @@
   - **Pre-existing fix:** `build.yml` was invalid YAML (6ef2d13).
   - **Records:** `decisions/sde/church-autoadvance.md` (merge record) and `decisions/dba/church-autoadvance.md` (bundled SQLite).
 
+- [x] 2026-11-11 **Q2** (Phase 5: QA Engineer + Security Engineer), with the ponytail lane: `reviews/2026-11-11-qa-report.md`, `reviews/2026-11-11-security-review.md`, `reviews/2026-11-11-q2-tickets.md`, `reviews/2026-11-11-ponytail-q2.md`.
+  - **Method:** simulate mode (user decision): GUI driven over WebView2 remote debugging, presenter on a local mock, no mic, no live keystrokes; one real Whisper Tiny download; transcription on locally synthesised PD speech. 35 of 38 commands exercised; HTTP API with and without a token; device loss by code reading only.
+  - **Fixed with tests** on `q2/10x` (1568810..b09373d, 24 commits): Q0 audit 1–13, 15, 16 and the ADR-007 fixtures, plus PDF page split, single-instance guard and one verifier finding (Q2-44). Two fix lanes (10x, ponytail), cross-reviewed; base 10x with ponytail grafts; adversarial verifier.
+  - **Security:** HTTP API token mandatory and browser/rebinding requests refused (High, fixed); PDF abort (Critical, fixed); capability file least-privilege. No Critical/High open. Outbound counter counts every reqwest send; no credentials logged at Info.
+  - **ADR-011:** the stage window cannot default to an audience output; copy and placement are a Low ticket.
+  - **Gates on Windows** (rustc 1.99.1): frontend (clean export), fmt, clippy `-D warnings`, test (45 unit + 33 integration), `cargo deny`, budgets (no budget raised; everything else 2489/2500), dictat grep.
+  - **Tickets:** 34 (14 medium, 20 low), ready to file as GitHub issues.
+
+### Release readiness (2026-11-11, after Q2)
+- **Code:** Q2's exit criteria are met. No open crash, data-loss, freeze or wrong-slide defect from the audit or Q2; no open Critical or High security finding.
+- **Not yet ready for a live service.** The fixes are proven against mocks and synthetic audio only. Before a pilot leaves shadow mode, the founder must pass checklist M1–M14 in the QA report (real mic, unplug, Keystroke driver with PowerPoint/ProPresenter, FreeShow/OpenLP/OpenSong, displays, Stream Deck) and the security checklist.
+- **Linux/macOS:** first judged by CI on PR #1 (new: single-instance plugin pulls zbus on Linux; timing-based download tests).
+- **Before a public release:** Q2-28 (release pipeline pinning, `.asc`, updater) and the cut-list ADR.
+
 ### In Progress
-- [ ] CI on PR #1 for the Q1 head: the first Linux and macOS builds of the merged tree.
+- [ ] CI on PR #1 for the Q2 head (the orchestrator pushes `q2/10x` to PR #1's branch), then merge PR #1 into `main` (pre-approved by the user once Q2's exit criteria are met and every CI job is green).
+- [ ] File the 34 Q2 tickets as GitHub issues (pre-approved).
 
 ### Pending
-- [ ] Q0 discovery/approval → Q1 merge + CI bar → Q2 verification → Increment 1′ (Q3–Q7) … per the 2026-11-11 prompt pack
+- [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
+- [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
+- [ ] Increment 1′ (Q3–Q7) … per the 2026-11-11 prompt pack
 - [ ] Founder: record two PD-hymn fixtures; apply to SignPath; open Partner Center; e-mail CCLI; form LLC; start research screener
 - [ ] Phases 4–6 per increment
 
@@ -59,15 +76,17 @@
 (none)
 
 ## Risks
-- R8 Unreviewed May-branch code. REVIEW.md's six critical bugs are fixed, but Q0 confirmed 12 more must-fix defects, including 4 wrong-slide defects. Q2 runs QA + security before any new feature; its scope is a gate question.
+- R8 **Closed (Q2).** Unreviewed May-branch code: Q2 ran QA and security over the merged base; all 12 Q0 must-fix defects and every new crash, data-loss and wrong-slide defect are fixed with tests; the rest are 34 tracked tickets.
+- R10 **Closed in code (Q2).** Wrong slide on screen (audit 1–4, plus audit 5, PDF page split, single instance, Q2-44): fixed with dispatcher and conductor tests. Confirmation on real presentation apps moves to R14.
+- R14 (new, Q2) Fixes proven only against mocks and synthetic audio. No real mic, keystroke driver, PowerPoint, ProPresenter, FreeShow, OpenLP or OpenSong was used. Mitigation: founder checklist M1–M14 before any pilot leaves shadow mode; promote Q2-20/Q2-22/Q2-47 if M3/M8 fail.
+- R15 (new, Q2) Tight line budget: "everything else in src-tauri/src" is at 2489/2500 (11 lines). Mitigation: keep new tests in `src-tauri/tests/`; the next Rust change outside the conductor, presenters and importers needs an explicit budget decision, never a silent raise.
 - R13 (new, Q1) Fragile CI gates.
-  - The GUI fits its budget with 34 lines to spare, partly by avoiding a tokei 15 HTML apostrophe miscount.
+  - The GUI fits its budget with 49 lines to spare (2951/3000 after Q2), partly by avoiding a tokei 15 HTML apostrophe miscount.
   - CI installs the latest tokei, the latest stable Rust (new clippy lints under `-D warnings`) and a fresh advisory DB.
   - Mitigation (approved and done 2026-11-11): `ci.yml` pins Rust 1.99.1 and tokei 15.0.0. Bump them deliberately in their own PR.
-- R10 (new, Q0) Wrong slide on screen: unmatched speech re-shows lyrics, keystroke unblank is a toggle, and Goto uses a setlist-global index. Mitigation: fix in Q2 before any pilot leaves shadow mode.
 - R11 (new, Q0) ADR-007/005 content in the May branch: copyrighted lyrics in `setlist.example.json`, a mislabelled "Public Domain" example, an MIT tag in the Flatpak metainfo. Mitigation: amendments A9/A10 in the Q1 merge.
 - R12 (new, Q0) Toolchain-dependent clippy: 8 `double_must_use` errors from `async_trait` on rustc 1.99, and CI uses unpinned stable. Mitigation: fix in Q1. Consider pinning the toolchain.
-- R9 Dependency advisories in pdf-extract/lopdf and rusqlite may force crate replacement — Q1 gates on cargo deny; PDF importer may go behind an off-by-default feature
+- R9 Dependency advisories in pdf-extract/lopdf and rusqlite may force crate replacement — Q1 gates on cargo deny; PDF importer may go behind an off-by-default feature. Q2: pdf-extract panics on 4.8 % of mutated PDFs (now caught; stack overflow is not) — cut-list evidence
 - R1 Recognition on sung vocals (Whisper WER 21–56% on singing) — mitigated by ADR-009 + eval harness in Inc 1; kill criterion week 14
 - R2 Support conversion ≈ 1% — Setup & Calibration + Store listing as independent lines; decision gate month 12
 - R3 CCLI/publisher objection to lyric indexing — no lyrics shipped; written question before launch
