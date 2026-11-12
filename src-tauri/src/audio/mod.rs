@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{SampleFormat, StreamConfig};
+use cpal::{SampleFormat, SupportedStreamConfig, SupportedStreamConfigRange};
 use std::sync::mpsc;
-use std::sync::Arc;
 
 /// Audio sample rate for Whisper (16kHz mono).
 pub const SAMPLE_RATE: u32 = 16000;
@@ -40,12 +39,11 @@ impl AudioEngine {
         self.device_name = name;
     }
 
-    /// Start capturing audio. Returns a receiver for audio chunks.
+    /// Start capturing audio. Returns a receiver of 16 kHz mono chunks.
     ///
-    /// Whisper expects 16 kHz mono. Most laptop / USB mics support this
-    /// directly; pro audio interfaces locked to 48 kHz and stereo-only
-    /// devices won't, and surface a clear error here so the operator can
-    /// pick a different device.
+    /// Opens the device at its default config (on Windows the shared-mode mix
+    /// format, usually 44.1 or 48 kHz) and converts in the callback: shared
+    /// mode refuses 16 kHz on most devices.
     pub fn start(&mut self) -> Result<mpsc::Receiver<Vec<f32>>> {
         let host = cpal::default_host();
         let device = match &self.device_name {
@@ -61,89 +59,53 @@ impl AudioEngine {
                 .context("No default audio input device")?,
         };
 
-        // Pick the cheapest supported config that satisfies (channels >= 1,
-        // sample-rate-range includes 16k). If nothing matches, surface a
-        // helpful error rather than letting cpal fail with a cryptic one.
+        let default = device
+            .default_input_config()
+            .context("Failed to get the default input config")?;
         let supported: Vec<_> = device
             .supported_input_configs()
             .context("Failed to get supported configs")?
             .collect();
-        let chosen = supported
-            .iter()
-            .find(|c| {
-                c.channels() >= 1
-                    && c.min_sample_rate().0 <= SAMPLE_RATE
-                    && c.max_sample_rate().0 >= SAMPLE_RATE
-            })
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "device {} does not support 16 kHz capture (configs: {})",
-                    device.name().unwrap_or_else(|_| "?".into()),
-                    supported
-                        .iter()
-                        .map(|c| format!(
-                            "{}-{}Hz×{}ch",
-                            c.min_sample_rate().0,
-                            c.max_sample_rate().0,
-                            c.channels()
-                        ))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            })?;
-        // Open mono if available, otherwise take whatever the device offers
-        // and average down to mono in the callback.
-        let channels = if supported.iter().any(|c| c.channels() == 1) {
-            1
-        } else {
-            chosen.channels()
-        };
-        let config = StreamConfig {
-            channels,
-            sample_rate: cpal::SampleRate(SAMPLE_RATE),
-            buffer_size: cpal::BufferSize::Default,
-        };
+        let chosen = choose_config(default, &supported).ok_or_else(|| {
+            anyhow::anyhow!(
+                "device {} offers neither 32-bit float nor 16-bit capture",
+                device.name().unwrap_or_else(|_| "?".into())
+            )
+        })?;
+        let config = chosen.config();
+        let (chans, rate) = (config.channels as usize, config.sample_rate.0);
 
         let (tx, rx) = mpsc::channel::<Vec<f32>>();
-        let tx = Arc::new(std::sync::Mutex::new(tx));
-
-        let sample_format = chosen.sample_format();
-
-        let chans = channels as usize;
-        let stream = match sample_format {
-            SampleFormat::F32 => {
-                let tx = tx.clone();
-                device.build_input_stream(
-                    &config,
-                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                        let samples = downmix_f32(data, chans);
-                        let _ = tx.lock().unwrap().send(samples);
-                    },
-                    |err| log::error!("Audio stream error: {}", err),
-                    None,
-                )?
-            }
-            SampleFormat::I16 => {
-                let tx = tx.clone();
-                device.build_input_stream(
-                    &config,
-                    move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                        let f: Vec<f32> =
-                            data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
-                        let samples = downmix_f32(&f, chans);
-                        let _ = tx.lock().unwrap().send(samples);
-                    },
-                    |err| log::error!("Audio stream error: {}", err),
-                    None,
-                )?
-            }
+        let mut pos = 0.0;
+        let stream = match chosen.sample_format() {
+            SampleFormat::F32 => device.build_input_stream(
+                &config,
+                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    let mono = downmix_f32(data, chans);
+                    let _ = tx.send(resample_to_16k(&mono, rate, &mut pos));
+                },
+                |err| log::error!("Audio stream error: {}", err),
+                None,
+            )?,
+            SampleFormat::I16 => device.build_input_stream(
+                &config,
+                move |data: &[i16], _: &cpal::InputCallbackInfo| {
+                    let f: Vec<f32> = data.iter().map(|&s| s as f32 / i16::MAX as f32).collect();
+                    let mono = downmix_f32(&f, chans);
+                    let _ = tx.send(resample_to_16k(&mono, rate, &mut pos));
+                },
+                |err| log::error!("Audio stream error: {}", err),
+                None,
+            )?,
             format => anyhow::bail!("Unsupported sample format: {:?}", format),
         };
 
         stream.play().context("Failed to start audio stream")?;
         self.stream = Some(SendStream(stream));
 
-        log::info!("Audio capture started at {}Hz mono", SAMPLE_RATE);
+        log::info!(
+            "Audio capture started at {rate} Hz x{chans}, converted to {SAMPLE_RATE} Hz mono"
+        );
         Ok(rx)
     }
 
@@ -154,9 +116,49 @@ impl AudioEngine {
     }
 }
 
+/// The device's default config if it is F32 or I16, else an F32 (then I16)
+/// config at the default rate. 16 kHz is never required.
+pub fn choose_config(
+    default: SupportedStreamConfig,
+    supported: &[SupportedStreamConfigRange],
+) -> Option<SupportedStreamConfig> {
+    if matches!(
+        default.sample_format(),
+        SampleFormat::F32 | SampleFormat::I16
+    ) {
+        return Some(default);
+    }
+    [SampleFormat::F32, SampleFormat::I16]
+        .into_iter()
+        .find_map(|format| {
+            let range = *supported.iter().find(|c| c.sample_format() == format)?;
+            Some(
+                range
+                    .try_with_sample_rate(default.sample_rate())
+                    .unwrap_or_else(|| range.with_max_sample_rate()),
+            )
+        })
+}
+
+/// Linear resample of mono `input` at `from` Hz to 16 kHz. `pos` carries the
+/// fractional read position from one callback to the next.
+pub fn resample_to_16k(input: &[f32], from: u32, pos: &mut f64) -> Vec<f32> {
+    let step = from as f64 / SAMPLE_RATE as f64;
+    let mut out = Vec::with_capacity((input.len() as f64 / step) as usize + 1);
+    while *pos < input.len() as f64 {
+        let i = *pos as usize;
+        let frac = (*pos - i as f64) as f32;
+        let next = input[(i + 1).min(input.len() - 1)];
+        out.push(input[i] * (1.0 - frac) + next * frac);
+        *pos += step;
+    }
+    *pos -= input.len() as f64;
+    out
+}
+
 /// Average a multi-channel interleaved buffer down to mono. For mono input
 /// (the common case) this is a near-zero-cost passthrough.
-fn downmix_f32(data: &[f32], chans: usize) -> Vec<f32> {
+pub fn downmix_f32(data: &[f32], chans: usize) -> Vec<f32> {
     if chans <= 1 {
         return data.to_vec();
     }

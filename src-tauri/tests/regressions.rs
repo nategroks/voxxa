@@ -564,3 +564,71 @@ async fn model_download_does_not_hold_the_engine_lock() {
     );
     task.await.unwrap().unwrap();
 }
+
+/// 1 s of a 440 Hz tone at `rate`, interleaved over `chans` channels, pushed
+/// through downmix + resample in 10 ms callbacks like cpal delivers it.
+fn tone_to_16k(rate: u32, chans: usize) -> Vec<f32> {
+    let frames: Vec<f32> = (0..rate)
+        .flat_map(|i| {
+            let v = (2.0 * std::f32::consts::PI * 440.0 * i as f32 / rate as f32).sin();
+            std::iter::repeat_n(v, chans)
+        })
+        .collect();
+    let mut pos = 0.0;
+    frames
+        .chunks(rate as usize / 100 * chans)
+        .flat_map(|cb| {
+            voxxa_lib::resample_to_16k(&voxxa_lib::downmix_f32(cb, chans), rate, &mut pos)
+        })
+        .collect()
+}
+
+/// Q2-10 (audit 8): 44.1 and 48 kHz devices are converted to 16 kHz mono.
+#[test]
+fn capture_is_resampled_to_16k_mono() {
+    let out = tone_to_16k(48_000, 2);
+    assert!(out.len().abs_diff(16_000) <= 1, "{}", out.len());
+    let crossings = out
+        .windows(2)
+        .filter(|w| (w[0] < 0.0) != (w[1] < 0.0))
+        .count();
+    let hz = crossings as f64 / 2.0;
+    assert!((hz - 440.0).abs() <= 8.8, "dominant frequency {hz} Hz");
+    let out = tone_to_16k(44_100, 1);
+    assert!(out.len().abs_diff(16_000) <= 1, "{}", out.len());
+}
+
+/// Q2-10 (audit 8): the capture config is the device default (never "16 kHz
+/// or fail"), and an F32/I16 format is preferred over U8.
+#[test]
+fn capture_config_prefers_float_or_i16_at_the_default_rate() {
+    use cpal::{
+        SampleFormat, SampleRate, SupportedBufferSize, SupportedStreamConfig,
+        SupportedStreamConfigRange,
+    };
+    let range = |f| {
+        SupportedStreamConfigRange::new(
+            2,
+            SampleRate(48_000),
+            SampleRate(48_000),
+            SupportedBufferSize::Unknown,
+            f,
+        )
+    };
+    let default =
+        |f| SupportedStreamConfig::new(2, SampleRate(48_000), SupportedBufferSize::Unknown, f);
+    let supported = [range(SampleFormat::U8), range(SampleFormat::I16)];
+    let chosen = voxxa_lib::choose_config(default(SampleFormat::U8), &supported).unwrap();
+    assert_eq!(
+        (chosen.sample_format(), chosen.sample_rate().0),
+        (SampleFormat::I16, 48_000)
+    );
+    let chosen = voxxa_lib::choose_config(default(SampleFormat::F32), &supported).unwrap();
+    assert_eq!(
+        (chosen.sample_format(), chosen.sample_rate().0),
+        (SampleFormat::F32, 48_000)
+    );
+    assert!(
+        voxxa_lib::choose_config(default(SampleFormat::U8), &[range(SampleFormat::U8)]).is_none()
+    );
+}
