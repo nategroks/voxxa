@@ -862,3 +862,45 @@ fn voxxad_reports_bad_input_as_one_error_line() {
     assert!(stderr(&[]).contains("focus the presentation app"));
     assert!(stderr(&["--shadow"]).is_empty());
 }
+
+/// Q3-01: `--shadow` must never reach the presenter. Deleting the shadow
+/// guard in `connect_presenter` used to pass every gate. The presenter is
+/// built before the model is picked, so an unknown model ends both runs
+/// without needing Whisper, after the presenter step.
+#[test]
+fn shadow_never_connects_to_the_presenter() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port().to_string();
+    let args = |shadow: bool| {
+        let mut a = vec!["--stdin-audio", SPEECH_WAV, "--setlist", SETLIST];
+        a.extend(["--presenter", "propresenter7_rest", "--host", "127.0.0.1"]);
+        a.extend(["--port", &port, "--model", "nonexistent"]);
+        a.extend(shadow.then_some("--shadow"));
+        a.into_iter().map(String::from).collect::<Vec<_>>()
+    };
+    let error = |args: Vec<String>| {
+        let out = Command::new(env!("CARGO_BIN_EXE_voxxad"))
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(!out.status.success());
+        let stdout = String::from_utf8(out.stdout).unwrap();
+        match serde_json::from_str::<Line>(stdout.trim()).unwrap().kind {
+            Kind::Error { message } => message,
+            other => panic!("{other:?}"),
+        }
+    };
+    // Shadow: nothing connects; the run fails later, on the model.
+    listener.set_nonblocking(true).unwrap();
+    let message = error(args(true));
+    assert!(message.contains("unknown model"), "{message}");
+    let pending = listener.accept().map(|_| ()).map_err(|e| e.kind());
+    assert_eq!(pending, Err(std::io::ErrorKind::WouldBlock));
+    // Without shadow the same command connects, and fails on the presenter
+    // because this listener hangs up without answering.
+    listener.set_nonblocking(false).unwrap();
+    let hang_up = std::thread::spawn(move || listener.accept().is_ok());
+    let message = error(args(false));
+    assert!(message.starts_with("presenter:"), "{message}");
+    assert!(hang_up.join().unwrap());
+}
