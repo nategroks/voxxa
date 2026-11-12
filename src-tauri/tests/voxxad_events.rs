@@ -328,6 +328,24 @@ fn the_shared_loop_ticks_every_200_ms_of_audio_on_a_sample_clock() {
     assert_eq!(ticks, [200, 400, 600, 800, 1000]);
     assert_eq!(other, 0, "silence starts nothing");
 
+    // A loop that was held up for a second (a slow transcript) ticks once
+    // when it gets going again, not five times to catch up.
+    let (tx, rx) = mpsc::channel();
+    tx.send(vec![0.0f32; 16000]).unwrap();
+    for _ in 0..5 {
+        tx.send(vec![0.0f32; 16]).unwrap(); // 1 ms each
+    }
+    drop(tx);
+    let mut ticks = Vec::new();
+    let sink = |now: Instant, event: Event| {
+        if let Event::Input(Input::Tick) = event {
+            ticks.push(now.duration_since(base).as_millis());
+        }
+    };
+    let conductor = Mutex::new(Some(Conductor::new(songs(), SmartConfig::default())));
+    listen::run(rx, &run, &vad, &conductor, no_speech, clock, sink);
+    assert_eq!(ticks, [1000]);
+
     // A stopped session returns at once and reports a stop, not a loss.
     let (_tx, rx) = mpsc::channel();
     let stopped = AtomicBool::new(false);
@@ -550,6 +568,18 @@ fn the_shared_loop_on_real_speech_agrees_with_a_replay_of_its_inputs() {
             .collect()
     };
     assert_eq!(again(&inputs), live);
+    // Replay also returns the hypotheses, as recorded.
+    let hypotheses = |lines: Vec<String>| -> Vec<String> {
+        (lines.into_iter())
+            .filter(|l| l.contains(r#""type":"hypothesis""#))
+            .collect()
+    };
+    let replayed = replay(&inputs, songs()).unwrap();
+    let recorded = heard.log.lines().map(String::from).collect();
+    assert_eq!(
+        hypotheses(replayed.iter().map(Line::to_json).collect()),
+        hypotheses(recorded)
+    );
     for want in [
         r#""action":"goto","song":0,"slide":0,"#,
         r#""action":"goto","song":0,"slide":1,"#,
