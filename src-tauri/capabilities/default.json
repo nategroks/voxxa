@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Both windows may listen to Voxxa's own events (slide-advanced, machine-state, download-progress, ...). Least privilege: the GUI calls no plugin API other than core events.",
+  "windows": ["main", "stage"],
+  "permissions": ["core:event:default"]
+}

@@ -1,0 +1,47 @@
+{
+  "v": 1,
+  "songs": [
+    {
+      "title": "Amazing Grace",
+      "sections": [
+        { "kind": "verse", "label": "Verse 1", "slides": [
+          { "text": "Amazing grace! How sweet the sound\nThat saved a wretch like me!" },
+          { "text": "I once was lost, but now am found;\nWas blind, but now I see." }
+        ] },
+        { "kind": "verse", "label": "Verse 2", "slides": [
+          { "text": "'Twas grace that taught my heart to fear,\nAnd grace my fears relieved;" },
+          { "text": "How precious did that grace appear\nThe hour I first believed!" }
+        ] },
+        { "kind": "verse", "label": "Verse 3", "slides": [
+          { "text": "Through many dangers, toils and snares,\nI have already come;" },
+          { "text": "'Tis grace hath brought me safe thus far,\nAnd grace will lead me home." }
+        ] },
+        { "kind": "verse", "label": "Verse 4", "slides": [
+          { "text": "When we've been there ten thousand years,\nBright shining as the sun," },
+          { "text": "We've no less days to sing God's praise\nThan when we'd first begun." }
+        ] }
+      ]
+    },
+    {
+      "title": "Be Thou My Vision",
+      "sections": [
+        { "kind": "verse", "label": "Verse 1", "slides": [
+          { "text": "Be Thou my Vision, O Lord of my heart;\nNaught be all else to me, save that Thou art." },
+          { "text": "Thou my best Thought, by day or by night,\nWaking or sleeping, Thy presence my light." }
+        ] },
+        { "kind": "verse", "label": "Verse 2", "slides": [
+          { "text": "Be Thou my Wisdom, and Thou my true Word;\nI ever with Thee and Thou with me, Lord;" },
+          { "text": "Thou my great Father, I Thy true son;\nThou in me dwelling, and I with Thee one." }
+        ] },
+        { "kind": "verse", "label": "Verse 3", "slides": [
+          { "text": "Riches I heed not, nor man's empty praise,\nThou mine Inheritance, now and always:" },
+          { "text": "Thou and Thou only, first in my heart,\nHigh King of Heaven, my Treasure Thou art." }
+        ] },
+        { "kind": "verse", "label": "Verse 4", "slides": [
+          { "text": "High King of Heaven, my victory won,\nMay I reach Heaven's joys, O bright Heaven's Sun!" },
+          { "text": "Heart of my own heart, whatever befall,\nStill be my Vision, O Ruler of all." }
+        ] }
+      ]
+    }
+  ]
+}

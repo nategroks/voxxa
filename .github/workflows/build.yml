@@ -87,44 +87,130 @@ jobs:
             rm certificate.p12
           fi
 
+      # Stage the App Store Connect API key on disk so notarytool can read it.
+      # Using the API key path (recommended in §5.2 of the plan) is materially more
+      # reliable than the legacy APPLE_ID + app-specific-password flow.
+      - name: Stage Apple API key
+        if: runner.os == 'macOS'
+        env:
+          APPLE_API_KEY_B64: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          if [ -z "$APPLE_API_KEY_B64" ] || [ -z "$APPLE_API_KEY_ID" ]; then
+            echo "Apple API key secrets not set — release builds will not be notarized."
+            exit 0
+          fi
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          echo "$APPLE_API_KEY_B64" | base64 --decode \
+            > "$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+          echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8" \
+            >> "$GITHUB_ENV"
+
+      # Microsoft Artifact Signing (formerly Azure Trusted Signing) for Windows:
+      # the ADR-008 fallback; SignPath Foundation is the primary path (see
+      # SIGNING.md and docs/signing-policy.md). Only installs the CLI if the Azure
+      # credentials are present, so the workflow still produces an unsigned but
+      # working .msi for forks that haven't subscribed. Pinned for reproducibility.
+      - name: Install trusted-signing-cli
+        if: runner.os == 'Windows'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        shell: bash
+        run: |
+          if [ -z "$AZURE_CLIENT_ID" ]; then
+            echo "AZURE_CLIENT_ID not set — Windows .msi will be unsigned."
+            exit 0
+          fi
+          cargo install trusted-signing-cli --locked --version 0.11.0
+
+      # Build a Tauri --config override that injects signCommand on Windows when
+      # the Azure secrets are present. Empty string when not set so the action
+      # runs as a no-op override.
+      - name: Compute Tauri config override
+        id: tauri_override
+        shell: bash
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ] && [ -n "$AZURE_CLIENT_ID" ]; then
+            echo 'override={"bundle":{"windows":{"signCommand":"trusted-signing-cli -e %AZURE_CODE_SIGNING_ENDPOINT% -a %AZURE_CODE_SIGNING_ACCOUNT% -c %AZURE_CODE_SIGNING_CERTIFICATE_PROFILE% %1"}}}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'override=' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing & notarization
+
+          # macOS signing & notarization (App Store Connect API key path).
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Tauri updater key pair
+
+          # Microsoft Artifact Signing for Windows: read by the `signCommand`
+          # that the "Compute Tauri config override" step injects via --config
+          # (tauri.conf.json itself has no signCommand).
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CODE_SIGNING_ENDPOINT: ${{ secrets.AZURE_CODE_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
+          AZURE_CODE_SIGNING_CERTIFICATE_PROFILE: ${{ secrets.AZURE_CODE_SIGNING_CERTIFICATE_PROFILE }}
+
+          # Tauri updater key pair (Ed25519 — generated with `tauri signer generate`).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name || inputs.version || 'v0.0.0-dev' }}
-          releaseName: 'Voxxa ${{ github.ref_name || inputs.version || 'dev' }}'
+          releaseName: "Voxxa ${{ github.ref_name || inputs.version || 'dev' }}"
           releaseBody: |
-            ## Voxxa — Local Voice Dictation
+            ## Voxxa — voice-following slide advancer for churches
 
-            Download the installer for your platform below.
+            Voxxa listens to the room and tells your presentation software when to change the lyric slide. It never projects lyrics and never uploads audio.
 
             | Platform | File |
             |----------|------|
+            | Windows | `.msi` / `-setup.exe` |
             | macOS (Apple Silicon) | `.dmg` |
             | macOS (Intel) | `.dmg` |
-            | Windows | `.msi` |
             | Linux | `.AppImage` / `.deb` |
 
-            ### First launch
-            1. Install and open Voxxa
-            2. Go to **Models** tab and download a Whisper model (Base recommended to start)
-            3. Press **Ctrl+Shift+Space** (or click the mic) to start dictating
+            ### First service
+            1. Install and open Voxxa; follow the first-run steps (audio device, presentation software, speech model).
+            2. Load today's setlist and press **Start Listening**.
+            3. Your hands stay free; the operator can always take over.
 
-            > Voxxa runs 100% locally — your voice never leaves your machine.
+            > Audio never leaves the computer. No telemetry; network only when the operator starts a model download, a Planning Center import or a Hymnary.org lookup.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
           updaterJsonKeepUniversal: true
-          args: --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} ${{ steps.tauri_override.outputs.override && format('--config ''{0}''', steps.tauri_override.outputs.override) || '' }}
+
+      # GPG-sign Linux artifacts so downstream users can verify authenticity
+      # against the published public key. We sign every AppImage and .deb the
+      # workflow produced. Skipped if no GPG_PRIVATE_KEY secret is set.
+      - name: GPG-sign Linux artifacts
+        if: matrix.platform == 'ubuntu-22.04'
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          if [ -z "$GPG_PRIVATE_KEY" ]; then
+            echo "GPG_PRIVATE_KEY not set — Linux artifacts will not be signed."
+            exit 0
+          fi
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          BUNDLE_DIR="src-tauri/target/${{ matrix.target }}/release/bundle"
+          # Detached ASCII-armored signatures next to each .AppImage and .deb.
+          for f in "$BUNDLE_DIR"/**/*.AppImage "$BUNDLE_DIR"/**/*.deb; do
+            [ -f "$f" ] || continue
+            echo "Signing $f"
+            echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+              --passphrase-fd 0 --detach-sign --armor "$f"
+          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -134,7 +220,9 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb.asc
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.asc
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.tar.gz
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis

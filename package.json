@@ -1,6 +1,7 @@
 {
   "name": "voxxa",
   "private": true,
+  "license": "GPL-3.0-or-later",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
@@ -8,9 +9,6 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^2"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
