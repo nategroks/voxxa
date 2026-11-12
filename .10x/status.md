@@ -63,7 +63,7 @@
 - R13 (new, Q1) Fragile CI gates.
   - The GUI fits its budget with 34 lines to spare, partly by avoiding a tokei 15 HTML apostrophe miscount.
   - CI installs the latest tokei, the latest stable Rust (new clippy lints under `-D warnings`) and a fresh advisory DB.
-  - Mitigation: pin tokei and the toolchain in `ci.yml`. This needs the user's sign-off because it changes the CI bar.
+  - Mitigation (approved and done 2026-11-11): `ci.yml` pins Rust 1.99.1 and tokei 15.0.0. Bump them deliberately in their own PR.
 - R10 (new, Q0) Wrong slide on screen: unmatched speech re-shows lyrics, keystroke unblank is a toggle, and Goto uses a setlist-global index. Mitigation: fix in Q2 before any pilot leaves shadow mode.
 - R11 (new, Q0) ADR-007/005 content in the May branch: copyrighted lyrics in `setlist.example.json`, a mislabelled "Public Domain" example, an MIT tag in the Flatpak metainfo. Mitigation: amendments A9/A10 in the Q1 merge.
 - R12 (new, Q0) Toolchain-dependent clippy: 8 `double_must_use` errors from `async_trait` on rustc 1.99, and CI uses unpinned stable. Mitigation: fix in Q1. Consider pinning the toolchain.

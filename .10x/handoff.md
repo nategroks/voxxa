@@ -20,8 +20,16 @@
 5. **Known May bugs found in Q1 reviews:** the PDF importer never splits pages; GPG `.asc` signatures never reach the release.
 6. **Evidence for the post-Q2 cut-list ADR:** HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds.
 
+### User decisions for Q2 (2026-11-11, before the unattended run)
+- **QA mode:** simulate, but download a real Whisper model. No microphone and no live keystrokes: the keystroke presenter types into whatever window has focus. Drive the GUI through WebView2 remote debugging, with the presenter pointed at a local mock. Run transcription on a public-domain WAV. Leave a short manual checklist (mic, unplug, real presentation apps) for the founder.
+- **Security fix-now bar:** fix Critical and High now with tests, even when behaviour changes (Voxxa has no released users yet). Record each behaviour change in the security review. Medium and Low become tickets.
+- **Pre-approved:**
+  - push Q2 to PR #1 and fix CI forward
+  - pin the Rust toolchain (1.99.1) and tokei (15.0.0) in `ci.yml` (R13: done)
+  - file GitHub issues for the tickets
+  - merge PR #1 into `main` once Q2's exit criteria are met and all CI jobs are green
+
 ### Open for the user
-- **Pin the CI toolchain and tokei** (R13)? Recommended; it changes the CI bar, so it needs the user's sign-off.
 - **A15 follow-ups:** `fixtures/setlists/pd-hymns.json` and `fixtures/pco/plan-sample.json` don't fit the May parsers; re-run the Windows verification (a003992) on the merged head (`handoff-local-windows.md`); finish reconciling `docs/signing-policy.md` with `SIGNING.md`.
 - **ADR numbering:** the next free number is ADR-012.
 
