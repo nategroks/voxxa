@@ -522,6 +522,56 @@ fn the_shared_loop_on_real_speech_agrees_with_a_replay_of_its_inputs() {
     assert_ne!(again(&deaf), live);
 }
 
+/// The operator's Blank button (`commands::blank_output`) blanks the
+/// conductor without changing its state; the GUI learns of it, and of the
+/// next lyric match that unblanks, only from the loop's state events.
+#[test]
+fn a_blank_without_a_state_change_still_reaches_the_gui() {
+    let mut blanked_at = None;
+    let heard = listen_to(&service(), &verses(), |conductor, event| {
+        if let Event::State(MachineState::Singing, false) = event {
+            if blanked_at.is_none() {
+                let mut c = conductor.blocking_lock();
+                c.as_mut().unwrap().notify_external_blank();
+                blanked_at = Some(());
+            }
+        }
+    });
+    assert!(blanked_at.is_some(), "the song never started");
+    let states: Vec<(u64, MachineState, bool)> = (heard.events.iter())
+        .filter_map(|(t, e)| match e {
+            Event::State(s, b) => Some((*t, *s, *b)),
+            _ => None,
+        })
+        .collect();
+    // The blank is reported at the next tick, still singing ...
+    let (t0, t1) = (states[0].0, states[1].0);
+    assert_eq!(
+        (states[0].1, states[0].2, states[1].1, states[1].2, t1),
+        (
+            MachineState::Singing,
+            false,
+            MachineState::Singing,
+            true,
+            t0 + 200
+        ),
+        "{states:?}"
+    );
+    // ... and the unblank at the tick after the slide that brought the
+    // lyrics back.
+    let goto = (heard.events.iter())
+        .filter(|(_, e)| matches!(e, Event::Action(Action::Goto { .. }, _)))
+        .map(|(t, _)| *t)
+        .nth(1)
+        .unwrap();
+    let after = states.iter().find(|s| s.0 > goto);
+    assert_eq!(
+        after,
+        Some(&(goto + 200, MachineState::Singing, false)),
+        "{states:?}"
+    );
+}
+
 fn voxxad(args: &[&str]) -> (String, bool) {
     let out = Command::new(env!("CARGO_BIN_EXE_voxxad"))
         .args(args)
