@@ -204,16 +204,9 @@ async fn post_blank(
     headers: HeaderMap,
 ) -> Result<StatusCode, (StatusCode, Json<ApiError>)> {
     check_token(&ctx, &headers)?;
-    use tauri::Manager;
-    let app_state = ctx.app.state::<crate::AppState>();
-    {
-        let p = app_state.presenter.lock().await;
-        p.blank().await.map_err(api_err)?;
-    }
-    // Keep the conductor's is_blank in sync (same reason as blank_manual).
-    if let Some(c) = app_state.conductor.lock().await.as_mut() {
-        c.notify_external_blank();
-    }
+    crate::commands::blank_output(&ctx.app)
+        .await
+        .map_err(api_err)?;
     Ok(StatusCode::NO_CONTENT)
 }
 

@@ -3,6 +3,7 @@ mod audio;
 mod commands;
 mod diagnostics;
 mod discovery;
+mod dispatch;
 mod http_api;
 mod hymnary;
 mod importers;
@@ -18,6 +19,7 @@ use tokio::sync::Mutex;
 
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::AudioEngine;
+pub use dispatch::{drive, Sent};
 pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
     PresenterConfig, PresenterKind, PresenterState,
@@ -47,10 +49,9 @@ pub struct AppState {
     /// constructed by load_setlist; can also be hot-swapped into the current
     /// conductor via set_smart_config.
     pub smart_config: Arc<Mutex<SmartConfig>>,
-    /// Last global slide index the dispatcher actually sent to the presenter.
-    /// Used to translate a `Goto` action into next/prev keypresses or a single
-    /// `goto_slide` API call, depending on driver capabilities.
-    pub last_dispatched_global: Arc<std::sync::atomic::AtomicI64>,
+    /// What Voxxa last sent to the presenter (slide, song, blank). Lock it
+    /// after `presenter`. See `dispatch::drive`.
+    pub sent: Arc<Mutex<Sent>>,
     pub is_running: Arc<std::sync::atomic::AtomicBool>,
     /// Optional local HTTP API for hardware integrations. None until the user
     /// turns it on in Settings.
@@ -68,7 +69,6 @@ pub fn run() {
     let vad = Arc::new(Mutex::new(VadEngine::new()));
     let conductor = Arc::new(Mutex::new(None::<Conductor>));
     let smart_config = Arc::new(Mutex::new(SmartConfig::default()));
-    let last_dispatched_global = Arc::new(std::sync::atomic::AtomicI64::new(-1));
     let http_api = Arc::new(Mutex::new(http_api::HttpApiServer::new()));
     // Default driver: keystroke / universal — works the moment the user focuses any
     // presentation app, no configuration required.
@@ -98,7 +98,7 @@ pub fn run() {
         conductor: conductor.clone(),
         presenter: presenter.clone(),
         smart_config: smart_config.clone(),
-        last_dispatched_global: last_dispatched_global.clone(),
+        sent: Arc::new(Mutex::new(Sent::default())),
         is_running: is_running.clone(),
         http_api: http_api.clone(),
     };
