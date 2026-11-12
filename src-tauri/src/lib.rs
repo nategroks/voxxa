@@ -7,6 +7,7 @@ mod dispatch;
 mod http_api;
 mod hymnary;
 mod importers;
+pub mod listen;
 mod net_stats;
 mod planning_center;
 mod presenters;
