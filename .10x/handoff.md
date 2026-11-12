@@ -11,7 +11,7 @@
 - 34 tickets (14 medium, 20 low), ready to file: `reviews/2026-11-11-q2-tickets.md`.
 - Code head: `q2/10x` @ b09373d (24 commits on 1568810), plus the Q2 state commit. `q2/ponytail` (0d3162f) stays local for reference.
 - **Gates on Windows:** all seven pass; 45 unit + 33 integration tests; no budget raised.
-- **Ponytail-audit re-run (2026-11-12, on 3446e09):** fixed with tests PT2-01, PT2-02, PT2-05 and the older Prev-below-the-first-song defect (f2519ba..b677d69, code head **b677d69**, all 7 gates pass); 10 new tickets Q2-55 … Q2-64 (44 in all); **one fix-now item is open**: a worship phrase during a prayer blank can show the next slide through the in-song advance path; fix it with its test (`reviews/2026-11-11-ponytail-q2.md` §8.6) and re-verify before the PR #1 push and before filing tickets.
+- **Ponytail-audit re-run (2026-11-12, on 3446e09):** fixed with tests PT2-01, PT2-02, PT2-05 and the older Prev-below-the-first-song defect (f2519ba..b677d69, code head **b677d69**, all 7 gates pass); 10 new tickets Q2-55 … Q2-64 (44 in all); the last fix-now item is closed: a worship phrase during a prayer blank could show the next slide through the in-song advance path; fixed with a test in 4129dcd, and the PT2-02 focus check got a pure-helper test in 713f40f. A second verifier passed at 713f40f (all 7 gates; every mutation caught by a test or a gate; `reviews/2026-11-11-ponytail-q2.md` §8.6). Code head is now **713f40f**. The hold is lifted: the PR #1 push and the ticket filing below can go ahead.
 
 ### Exit criteria
 - Both reviews committed: **met** (this state commit).
