@@ -24,11 +24,30 @@ fn a_slow_old_loop_cannot_end_a_new_session() {
     assert!(!old.load(Ordering::SeqCst), "stop ends the old loop");
     // Start again before the old loop (busy transcribing) has noticed.
     let (_, new) = s.begin(|| Ok(())).unwrap();
-    // The old loop wakes up and exits.
-    s.end(&old);
+    // The old loop wakes up and exits; it is not current, so it must not
+    // tell the GUI that listening stopped.
+    assert!(!s.end(&old), "a stale loop's end is not reported");
     assert!(new.load(Ordering::SeqCst), "the new loop keeps running");
     assert!(s.is_running());
     // The new loop's own exit (device dropout) does end the session.
-    s.end(&new);
+    assert!(s.end(&new));
+    assert!(!s.is_running());
+}
+
+#[test]
+fn stop_marks_the_session_as_stopped_not_lost() {
+    // Stop closes the audio channel too; the loop reads its own run flag to
+    // tell a Stop (false) from a device loss (true).
+    let s = Sessions::default();
+    let (_, run) = s.begin(|| Ok(())).unwrap();
+    assert!(
+        run.load(Ordering::SeqCst),
+        "a device loss now would be reported"
+    );
+    s.stop();
+    assert!(
+        !run.load(Ordering::SeqCst),
+        "after Stop the closed channel is no loss"
+    );
     assert!(!s.is_running());
 }

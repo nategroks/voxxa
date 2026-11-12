@@ -367,15 +367,20 @@ pub async fn start_listening_with_state(
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                    log::warn!("[AUDIO] capture channel disconnected");
-                    disconnected = true;
+                    // Stop also closes the channel; only a loss while this
+                    // session should still run is a device loss.
+                    disconnected = run.load(Ordering::SeqCst);
+                    log::warn!("[AUDIO] capture channel closed (device lost: {disconnected})");
                     break;
                 }
             }
         }
         // Reset the running state on loop exit (also after a device dropout),
         // unless a newer session has started meanwhile.
-        sessions.end(&run);
+        if !sessions.end(&run) {
+            // A newer session started meanwhile; this one's end is not news.
+            return;
+        }
         let _ = app_handle_for_cleanup.emit(
             "listening-stopped",
             serde_json::json!({ "disconnected": disconnected }),
@@ -489,24 +494,31 @@ impl Sessions {
     }
 
     /// A session's loop ended: clear `running` only if it is still current.
-    pub fn end(&self, run: &Arc<AtomicBool>) {
+    /// False when a newer session has started, so the GUI is not told.
+    pub fn end(&self, run: &Arc<AtomicBool>) -> bool {
         run.store(false, Ordering::SeqCst);
-        if Arc::ptr_eq(&self.current.lock().unwrap(), run) {
+        let current = Arc::ptr_eq(&self.current.lock().unwrap(), run);
+        if current {
             self.running.store(false, Ordering::SeqCst);
         }
+        current
     }
 
     /// Stop the current session (its loop exits on its next check).
     pub fn stop(&self) {
         let run = self.current.lock().unwrap().clone();
-        self.end(&run);
+        let _ = self.end(&run);
     }
 }
 
 /// Stop listening: the GUI button and the HTTP API.
 pub async fn stop_session(state: &AppState) {
+    // Take the audio lock first, so a Start in progress finishes before it
+    // is stopped instead of having its new stream dropped underneath it.
+    let mut audio = state.audio.lock().await;
     state.sessions.stop();
-    state.audio.lock().await.stop();
+    audio.stop();
+    drop(audio);
     state.vad.lock().await.reset();
 }
 
