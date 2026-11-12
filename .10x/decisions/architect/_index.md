@@ -49,3 +49,4 @@ The statements above were checked against the code at `f7b56e6`; the full log is
   - event schema v1: `status`, `hypothesis`, `action`, `error` on stdout, plus `tick` and `speech` in the session log (6 of ADR-001's 8);
   - budget: a new 600-line `voxxad` row, a recorded deviation from ADR-010 Decision 3; the loop extraction fits the existing rows.
 - **Boundaries unchanged:** one dispatch path (`dispatch::drive`); `--shadow` and `--presenter none` never build a presenter; replay never loads a model or opens audio.
+- **Built (Q3, 0669328 + 2f588df):** as decided; budgets everything else 2,496/2,500, voxxad 504/600. Replay of the exit-demo session is byte-identical on actions and is a CI test. Open risk: keystroke from a terminal has no focus guard (ADR-013 Risks).
