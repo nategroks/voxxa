@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 use voxxa_lib::listen::{self, check_setlist, Event};
+use voxxa_lib::transcription::Rolling;
 use voxxa_lib::{
     drive, make_controller, AudioEngine, Conductor, KeystrokeProfile, PresentationController,
     PresenterConfig, PresenterKind, Sent, Setlist, SmartConfig, Song, TranscriptionEngine,
@@ -36,6 +37,7 @@ options:
   --model tiny|base|small|medium|large-v3-turbo|distil-large-v3
               (default: the smallest downloaded model)
   --log-dir <dir>  session logs (default <data dir>/voxxa/sessions)
+  --bias      bias Whisper towards the slides around the current one
 The WAV must be 16 kHz mono, 16-bit PCM or 32-bit float. It is read at file
 speed (t is audio time) unless --realtime is given.";
 
@@ -56,6 +58,7 @@ struct Args {
     list_devices: bool,
     model: Option<String>,
     log_dir: Option<String>,
+    bias: bool,
     help: bool,
 }
 
@@ -75,6 +78,7 @@ fn parse_args(mut it: impl Iterator<Item = String>) -> Result<Args, String> {
             "--log-dir" => a.log_dir = Some(value()?),
             "--realtime" => a.realtime = true,
             "--shadow" => a.shadow = true,
+            "--bias" => a.bias = true,
             "--list-devices" => a.list_devices = true,
             "--help" | "-h" => a.help = true,
             _ => return Err(format!("unknown argument {flag}; see voxxad --help")),
@@ -110,7 +114,8 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
         &args.model,
         &args.log_dir,
     ];
-    let live = args.shadow || args.port.is_some() || live.iter().any(|o| o.is_some());
+    let flags = args.shadow || args.bias || args.port.is_some();
+    let live = flags || live.iter().any(|o| o.is_some());
     if args.replay.is_some() && live {
         return Err("--replay takes only --setlist; see voxxad --help".into());
     }
@@ -154,6 +159,7 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
     let driving = presenter.as_ref().and(args.presenter.as_deref());
     let info = json!({
         "mode": mode, "shadow": args.shadow, "model": model.filename(), "presenter": driving,
+        "bias": args.bias,
         "setlist": fingerprint(&songs), "config": config,
         "log": path.display().to_string(), "version": env!("CARGO_PKG_VERSION"),
     });
@@ -192,8 +198,9 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
             }
         }
     };
-    let transcribe = |pcm: &[f32]| engine.transcribe(pcm).map(|r| r.text);
-    let lost = listen::run(rx, &running, &vad, &conductor, transcribe, clock, sink);
+    let mut recognizer = Rolling::new(engine);
+    recognizer.bias_enabled = args.bias;
+    let lost = listen::run(rx, &running, &vad, &conductor, &mut recognizer, clock, sink);
     let reason = match (mode, lost) {
         ("device", true) => "device_lost",
         (_, true) => "end_of_audio",

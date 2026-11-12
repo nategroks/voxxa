@@ -1,6 +1,7 @@
 //! Q3 / ADR-013: `voxxad`'s event schema v1, the session recorder, replay
-//! determinism and the shared listening loop's clock. None of these needs a
-//! Whisper model or an audio device, so they run in CI.
+//! determinism and the shared listening loop's clock; Q4 / ADR-014: the
+//! loop's streaming hop. None of these needs a Whisper model or an audio
+//! device (the recogniser's decoder is faked), so they run in CI.
 
 #[allow(dead_code)]
 #[path = "../src/bin/voxxad/events.rs"]
@@ -15,6 +16,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use voxxa_lib::listen::{self, Event, Input};
+use voxxa_lib::transcription::{Decode, Hypothesis, Recognizer, Rolling, Word};
 use voxxa_lib::{Action, Conductor, MachineState, Setlist, SmartConfig, Song, VadEngine};
 
 const SETLIST: &str = "tests/fixtures/voxxad/pd-hymns-setlist.json";
@@ -299,6 +301,15 @@ fn session_logs_expire_after_fourteen_days_and_nothing_else_is_touched() {
     }
 }
 
+/// Decodes nothing: the VAD gate must keep it from ever being asked.
+struct Silent;
+
+impl Decode for Silent {
+    fn decode(&mut self, _: &[f32], _: Option<&str>) -> anyhow::Result<Vec<Word>> {
+        panic!("silence was decoded")
+    }
+}
+
 /// The shared loop at file speed: time is audio time, whatever the speed.
 #[test]
 fn the_shared_loop_ticks_every_200_ms_of_audio_on_a_sample_clock() {
@@ -318,9 +329,9 @@ fn the_shared_loop_ticks_every_200_ms_of_audio_on_a_sample_clock() {
         Event::Action(Action::Noop, Some(13)) | Event::Mic(_) => {}
         _ => other += 1,
     };
-    let no_speech = |_: &[f32]| -> anyhow::Result<String> { panic!("silence was transcribed") };
     let run = AtomicBool::new(true);
-    let ended = listen::run(rx, &run, &vad, &conductor, no_speech, clock, sink);
+    let silent = &mut Rolling::new(Silent);
+    let ended = listen::run(rx, &run, &vad, &conductor, silent, clock, sink);
     assert!(
         ended,
         "the end of the audio is reported as the channel closing"
@@ -343,13 +354,15 @@ fn the_shared_loop_ticks_every_200_ms_of_audio_on_a_sample_clock() {
         }
     };
     let conductor = Mutex::new(Some(Conductor::new(songs(), SmartConfig::default())));
-    listen::run(rx, &run, &vad, &conductor, no_speech, clock, sink);
+    let silent = &mut Rolling::new(Silent);
+    listen::run(rx, &run, &vad, &conductor, silent, clock, sink);
     assert_eq!(ticks, [1000]);
 
     // A stopped session returns at once and reports a stop, not a loss.
     let (_tx, rx) = mpsc::channel();
     let stopped = AtomicBool::new(false);
-    let ended = listen::run(rx, &stopped, &vad, &conductor, no_speech, clock, |_, _| {});
+    let silent = &mut Rolling::new(Silent);
+    let ended = listen::run(rx, &stopped, &vad, &conductor, silent, clock, |_, _| {});
     assert!(!ended);
 }
 
@@ -377,8 +390,8 @@ fn a_stop_that_closes_the_channel_mid_loop_is_not_a_device_loss() {
     };
     let conductor = Mutex::new(Some(Conductor::new(songs(), SmartConfig::default())));
     let vad = Mutex::new(VadEngine::new());
-    let no_speech = |_: &[f32]| -> anyhow::Result<String> { panic!("silence was transcribed") };
-    let lost = listen::run(rx, &run, &vad, &conductor, no_speech, clock, |_, _| {});
+    let silent = &mut Rolling::new(Silent);
+    let lost = listen::run(rx, &run, &vad, &conductor, silent, clock, |_, _| {});
     assert_eq!(heard, 16000, "the stop came after the audio, mid-loop");
     assert!(!lost, "a stop was reported as a device loss");
 }
@@ -411,11 +424,14 @@ fn wav_16k_mono(path: &str) -> Vec<f32> {
         .collect()
 }
 
+fn quiet(secs: usize) -> Vec<f32> {
+    vec![0.0f32; 16000 * secs]
+}
+
 /// 1 s of silence, the verse, 2 s of silence, the verse again, 12 s of
 /// silence: long enough for inter-verse silence and the blank after it.
 fn service() -> Vec<f32> {
     let verse = wav_16k_mono(SPEECH_WAV);
-    let quiet = |secs: usize| vec![0.0f32; 16000 * secs];
     [quiet(1), verse.clone(), quiet(2), verse, quiet(12)].concat()
 }
 
@@ -425,11 +441,47 @@ struct Heard {
     events: Vec<(u64, Event)>,
     /// The session log `voxxad` would write for this run.
     log: String,
-    /// The length of each slice handed to the recogniser.
-    slices: Vec<usize>,
-    /// Every slice handed to the recogniser, one after the other.
+    /// The length of each window the decoder was given.
+    windows: Vec<usize>,
+    /// Every sample the recogniser was fed, in order.
     fed: Vec<f32>,
     lost: bool,
+}
+
+/// A decoder told the number (0, 1, ...) of the window it is given; it
+/// hears the answer's words 0.3 s apart from the window's start.
+struct Numbered<F> {
+    answer: F,
+    windows: Vec<usize>,
+}
+
+impl<F: FnMut(usize) -> anyhow::Result<String>> Decode for Numbered<F> {
+    fn decode(&mut self, window: &[f32], _: Option<&str>) -> anyhow::Result<Vec<Word>> {
+        self.windows.push(window.len());
+        let text = (self.answer)(self.windows.len() - 1)?;
+        Ok((text.split_whitespace().enumerate())
+            .map(|(i, w)| (w.to_string(), i as f32 * 0.3, 0.9))
+            .collect())
+    }
+}
+
+/// Wraps a recogniser and keeps everything it is fed.
+struct Spy<'a, R> {
+    inner: R,
+    fed: &'a mut Vec<f32>,
+}
+
+impl<R: Recognizer> Recognizer for Spy<'_, R> {
+    fn feed(&mut self, pcm16k: &[f32]) -> Vec<Hypothesis> {
+        self.fed.extend_from_slice(pcm16k);
+        self.inner.feed(pcm16k)
+    }
+    fn bias(&mut self, text: &str) {
+        self.inner.bias(text)
+    }
+    fn gate(&mut self, open: bool) {
+        self.inner.gate(open)
+    }
 }
 
 /// Run the shared loop at file speed over `audio`; the fake recogniser
@@ -446,14 +498,41 @@ fn listen_to(
     listen_with(songs(), audio, recognise, operator)
 }
 
-/// `listen_to` with any setlist and any recogniser, which is told the
-/// number (0, 1, ...) of the slice it is given.
+/// `listen_to` with any setlist and any answer for window n.
 fn listen_with(
     setlist: Vec<Song>,
     audio: &[f32],
-    mut recognise: impl FnMut(usize) -> anyhow::Result<String>,
-    mut operator: impl FnMut(&Mutex<Option<Conductor>>, &Event),
+    answer: impl FnMut(usize) -> anyhow::Result<String>,
+    operator: impl FnMut(&Mutex<Option<Conductor>>, &Event),
 ) -> Heard {
+    let numbered = Numbered {
+        answer,
+        windows: Vec::new(),
+    };
+    let mut fed = Vec::new();
+    let mut spy = Spy {
+        inner: Rolling::new(numbered),
+        fed: &mut fed,
+    };
+    let (events, log, lost) = listen_with_recognizer(setlist, audio, &mut spy, operator);
+    let windows = spy.inner.decoder().windows.clone();
+    Heard {
+        events,
+        log,
+        windows,
+        fed,
+        lost,
+    }
+}
+
+type Run = (Vec<(u64, Event)>, String, bool);
+
+fn listen_with_recognizer(
+    setlist: Vec<Song>,
+    audio: &[f32],
+    recognizer: &mut impl Recognizer,
+    mut operator: impl FnMut(&Mutex<Option<Conductor>>, &Event),
+) -> Run {
     let (tx, rx) = mpsc::channel();
     for chunk in audio.chunks(1600) {
         tx.send(chunk.to_vec()).unwrap();
@@ -465,13 +544,7 @@ fn listen_with(
     let conductor = Mutex::new(Some(Conductor::new(setlist, SmartConfig::default())));
     let vad = Mutex::new(VadEngine::new());
     let mut log = format!("{}\n", Line::new(0, status("start", Some(start))).to_json());
-    let (mut recorder, mut events, mut slices) = (Recorder::new(base), Vec::new(), Vec::new());
-    let mut fed = Vec::new();
-    let transcribe = |pcm: &[f32]| -> anyhow::Result<String> {
-        slices.push(pcm.len());
-        fed.extend_from_slice(pcm);
-        recognise(slices.len() - 1)
-    };
+    let (mut recorder, mut events) = (Recorder::new(base), Vec::new());
     let sink = |now: Instant, event: Event| {
         if matches!(event, Event::Mic(_)) {
             return;
@@ -484,14 +557,8 @@ fn listen_with(
         events.push((now.duration_since(base).as_millis() as u64, event));
     };
     let run = AtomicBool::new(true);
-    let lost = listen::run(rx, &run, &vad, &conductor, transcribe, clock, sink);
-    Heard {
-        events,
-        log,
-        slices,
-        fed,
-        lost,
-    }
+    let lost = listen::run(rx, &run, &vad, &conductor, recognizer, clock, sink);
+    (events, log, lost)
 }
 
 /// The lines of Amazing Grace, slide by slide: what the fake recogniser hears.
@@ -499,25 +566,38 @@ fn verses() -> Vec<String> {
     songs()[0].slides.iter().map(|s| s.text.clone()).collect()
 }
 
-/// The audio time of the first transcript: the start of the first chunk
-/// after which the VAD's finished utterances add up to 5 s (80000
-/// samples), worked out from the VAD alone.
-fn first_transcript_ms(audio: &[f32]) -> u64 {
+/// Audio times (ms) of the chunks the VAD calls speech, worked out from
+/// the VAD alone: the end of each such 100 ms chunk.
+fn vad_speech_ms(audio: &[f32]) -> Vec<u64> {
     let mut vad = VadEngine::new();
-    let mut heard = 0;
-    for (i, chunk) in audio.chunks(1600).enumerate() {
-        heard += vad.process(chunk).map_or(0, |segment| segment.len());
-        if heard >= 80000 {
-            return i as u64 * 100;
-        }
-    }
-    panic!("the audio never holds 5 s of speech");
+    (audio.chunks(1600).enumerate())
+        .filter_map(|(i, chunk)| {
+            vad.process(chunk);
+            vad.is_in_speech().then_some((i as u64 + 1) * 100)
+        })
+        .collect()
+}
+
+/// The hop times the gate opens for: every whole second of audio with VAD
+/// speech in the second before it.
+fn hops_with_speech(audio: &[f32]) -> Vec<u64> {
+    let speech = vad_speech_ms(audio);
+    (1..=audio.len() as u64 / 16000)
+        .map(|s| s * 1000)
+        .filter(|&t| speech.iter().any(|&at| at <= t && t - at < 1000))
+        .collect()
 }
 
 #[test]
 fn the_shared_loop_on_real_speech_agrees_with_a_replay_of_its_inputs() {
     let audio = service();
-    let heard = listen_to(&audio, &verses(), |_, _| {});
+    // The first hop hears verse 1, the next nothing, the third verse 2.
+    let v = verses();
+    let heard = listen_to(
+        &audio,
+        &[v[0].clone(), String::new(), v[1].clone()],
+        |_, _| {},
+    );
     assert!(heard.lost, "the end of the audio closes the channel");
 
     // VAD speech reaches the sink.
@@ -526,18 +606,30 @@ fn the_shared_loop_on_real_speech_agrees_with_a_replay_of_its_inputs() {
         .count();
     assert!(speech > 20, "{speech} speech inputs");
 
-    // The recogniser gets at least 5 s at a time, and the first transcript
-    // comes when the VAD's utterances first add up to 5 s.
-    assert!(heard.slices.len() >= 2, "{:?}", heard.slices);
+    // The recogniser is asked at every whole second of audio with speech in
+    // the second before it, and only then (silence is never decoded), over
+    // the last 5 s of audio or all of it if there is less.
+    let hops = hops_with_speech(&audio);
+    assert!(hops.len() >= 15, "{hops:?}");
+    let windows: Vec<usize> = (hops.iter())
+        .map(|&t| (t as usize * 16).min(80000))
+        .collect();
+    assert_eq!(heard.windows, windows);
+    // Every sample is fed once, in order: overlap stays inside the window.
     assert!(
-        heard.slices.iter().all(|&n| n >= 80000),
-        "{:?}",
-        heard.slices
+        heard.fed == audio,
+        "{} of {} samples fed",
+        heard.fed.len(),
+        audio.len()
     );
-    let first = (heard.events.iter())
-        .find(|(_, e)| matches!(e, Event::Input(Input::Heard(_))))
-        .map(|(t, _)| *t);
-    assert_eq!(first, Some(first_transcript_ms(&audio)));
+
+    // A hypothesis is timed at the end of its hop's audio; a hop that hears
+    // nothing gives none.
+    let heard_at: Vec<u64> = (heard.events.iter())
+        .filter(|(_, e)| matches!(e, Event::Input(Input::Heard(_))))
+        .map(|(t, _)| *t)
+        .collect();
+    assert_eq!(heard_at, [hops[0], hops[2]]);
 
     // Each transcript is reported, then its song detection, then the
     // conductor's action: the GUI shows the detection before the slide.
@@ -552,7 +644,7 @@ fn the_shared_loop_on_real_speech_agrees_with_a_replay_of_its_inputs() {
             );
         }
     }
-    assert_eq!(transcripts, heard.slices.len());
+    assert_eq!(transcripts, 2);
 
     // The live outputs (actions and conductor states) are what replay
     // computes from the recorded inputs alone ...
@@ -634,28 +726,27 @@ fn a_blank_without_a_state_change_still_reaches_the_gui() {
         ),
         "{states:?}"
     );
-    // ... and the unblank at the tick after the slide that brought the
-    // lyrics back.
+    // ... and the unblank at the first tick after the slide that brought
+    // the lyrics back (the tick at the hop's own time comes after it).
     let goto = (heard.events.iter())
-        .filter(|(_, e)| matches!(e, Event::Action(Action::Goto { .. }, _)))
-        .map(|(t, _)| *t)
-        .nth(1)
+        .position(|(_, e)| matches!(e, Event::Action(Action::Goto { .. }, _)))
+        .and_then(|first| {
+            (heard.events.iter().enumerate().skip(first + 1))
+                .find(|(_, (_, e))| matches!(e, Event::Action(Action::Goto { .. }, _)))
+        })
+        .map(|(i, (t, _))| (i, *t))
         .unwrap();
-    let after = states.iter().find(|s| s.0 > goto);
-    assert_eq!(
-        after,
-        Some(&(goto + 200, MachineState::Singing, false)),
-        "{states:?}"
+    let after = (heard.events[goto.0..].iter())
+        .find_map(|(t, e)| match e {
+            Event::State(s, b) => Some((*t, *s, *b)),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(after.1, MachineState::Singing, "{states:?}");
+    assert!(
+        !after.2 && after.0 - goto.1 < 200,
+        "{after:?} after {goto:?}"
     );
-}
-
-/// Everything the VAD hands on from `audio` in 100 ms chunks, in order.
-fn vad_speech(audio: &[f32]) -> Vec<f32> {
-    let mut vad = VadEngine::new();
-    (audio.chunks(1600))
-        .filter_map(|chunk| vad.process(chunk))
-        .flatten()
-        .collect()
 }
 
 /// The PD hymns and three more songs that nobody sings: six candidates.
@@ -670,17 +761,17 @@ fn six_songs() -> Vec<Song> {
     six
 }
 
-/// Whisper fails on one slice and hears nothing in another. The GUI gets
-/// one error and nothing at all for the empty transcript (no transcription
-/// event, no repeat of the old song detection); the audio of both slices
-/// is dropped, so the buffer cannot grow while errors repeat; and the loop
-/// goes on to the next transcript.
+/// Whisper fails on one window and hears nothing in another. The GUI gets
+/// one error and nothing at all for the empty window (no transcription
+/// event, no repeat of the old song detection); the loop goes on to the
+/// next hop. The recogniser is still fed every sample once, in order: a
+/// failed hop does not hold audio back or hand it over again.
 #[test]
-fn a_failed_or_empty_transcript_drops_its_audio_and_the_loop_goes_on() {
-    // The service with a third verse: enough speech for four slices.
+fn a_failed_or_empty_hop_tells_the_gui_one_error_or_nothing_and_the_loop_goes_on() {
+    // The service with a third verse: enough speech for many hops.
     let audio = [service(), wav_16k_mono(SPEECH_WAV)].concat();
     let verses = verses();
-    // Slice 0 fails, slice 2 is empty, the others hear the verses in turn.
+    // Window 0 fails, window 2 is empty, the others hear the verses in turn.
     let text = |n: usize| match n {
         0 | 2 => None,
         1 => verses.first(),
@@ -691,15 +782,10 @@ fn a_failed_or_empty_transcript_drops_its_audio_and_the_loop_goes_on() {
         n => Ok(text(n).cloned().unwrap_or_default()),
     };
     let heard = listen_with(six_songs(), &audio, recognise, |_, _| {});
-    assert!(heard.slices.len() >= 4, "{:?}", heard.slices);
+    assert!(heard.windows.len() >= 6, "{:?}", heard.windows);
+    assert!(heard.fed == audio, "{} of {}", heard.fed.len(), audio.len());
 
-    // The recogniser got the VAD's speech in order, none of it twice: the
-    // audio of a failed or empty slice is not handed over again.
-    let speech = vad_speech(&audio);
-    assert!(heard.fed.len() <= speech.len(), "{:?}", heard.slices);
-    assert!(heard.fed == speech[..heard.fed.len()], "{:?}", heard.slices);
-
-    // What the GUI is told after each slice, in order.
+    // What the GUI is told after each hop, in order.
     let mut told = Vec::new();
     for (_, e) in &heard.events {
         match e {
@@ -710,8 +796,9 @@ fn a_failed_or_empty_transcript_drops_its_audio_and_the_loop_goes_on() {
         }
     }
     let mut want = vec!["error whisper failed".to_string()];
-    for text in (1..heard.slices.len()).filter_map(text) {
-        want.extend([format!("heard {text}"), "detection 5".to_string()]);
+    for text in (1..heard.windows.len()).filter_map(text) {
+        let words: Vec<&str> = text.split_whitespace().collect();
+        want.extend([format!("heard {}", words.join(" ")), "detection 5".into()]);
     }
     assert_eq!(told, want);
     let error = r#""type":"error","message":"whisper failed""#;
@@ -726,6 +813,134 @@ fn a_failed_or_empty_transcript_drops_its_audio_and_the_loop_goes_on() {
         })
         .collect();
     assert!(shown.len() >= 2 && shown[0] == 0, "{shown:?}");
+}
+
+/// Hears the words of a script that fall inside each window, as Whisper on
+/// overlapping windows would: a word at stream time `t` is heard by every
+/// window that holds `t`. The script's own clock is the samples fed.
+struct Scripted {
+    words: Vec<(String, f32)>,
+    fed: std::rc::Rc<std::cell::Cell<u64>>,
+}
+
+impl Decode for Scripted {
+    fn decode(&mut self, window: &[f32], _: Option<&str>) -> anyhow::Result<Vec<Word>> {
+        let end = self.fed.get() as f32 / 16000.0;
+        let start = end - window.len() as f32 / 16000.0;
+        Ok((self.words.iter())
+            .filter(|(_, t)| *t >= start && *t < end)
+            .map(|(w, t)| (w.clone(), t - start, 0.9))
+            .collect())
+    }
+}
+
+/// Counts the samples fed before handing them on, for [`Scripted`].
+struct Clocked<R> {
+    inner: R,
+    fed: std::rc::Rc<std::cell::Cell<u64>>,
+}
+
+impl<R: Recognizer> Recognizer for Clocked<R> {
+    fn feed(&mut self, pcm16k: &[f32]) -> Vec<Hypothesis> {
+        self.fed.set(self.fed.get() + pcm16k.len() as u64);
+        self.inner.feed(pcm16k)
+    }
+    fn bias(&mut self, text: &str) {
+        self.inner.bias(text)
+    }
+    fn gate(&mut self, open: bool) {
+        self.inner.gate(open)
+    }
+}
+
+/// `text`'s words spread evenly over `from..to` seconds.
+fn spread(text: &str, from: f32, to: f32) -> Vec<(String, f32)> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let step = (to - from) / words.len() as f32;
+    (words.iter().enumerate())
+        .map(|(i, w)| (w.to_string(), from + i as f32 * step))
+        .collect()
+}
+
+/// ADR-014: the conductor now hears the last 5 s again every second. On a
+/// service of verse 1, verse 2 and a spoken prayer, each slide is shown
+/// once, never twice in a row and never out of order, the prayer blanks,
+/// and nothing is shown during the prayer.
+#[test]
+fn overlapping_windows_show_each_slide_once_and_the_prayer_nothing() {
+    let verse = wav_16k_mono(SPEECH_WAV);
+    let secs = verse.len() as f32 / 16000.0;
+    // The VAD hears real speech in all three parts; the script says what
+    // was said: verse 1, verse 2, then a prayer.
+    let audio = [
+        quiet(1),
+        verse.clone(),
+        quiet(1),
+        verse.clone(),
+        quiet(3),
+        verse,
+        quiet(8),
+    ]
+    .concat();
+    let (v1, v2) = (1.0, 2.0 + secs);
+    let prayer = 5.0 + 2.0 * secs;
+    let pray = "Let us bow our heads and pray. Father, we thank you for this morning \
+                and for everyone gathered here today. Be with us as we listen.";
+    let verses = verses();
+    let mut words = spread(&verses[0], v1 + 0.5, v1 + secs - 0.5);
+    words.extend(spread(&verses[1], v2 + 0.5, v2 + secs - 0.5));
+    words.extend(spread(pray, prayer + 0.5, prayer + secs - 0.5));
+    let fed = std::rc::Rc::new(std::cell::Cell::new(0));
+    let scripted = Scripted {
+        words,
+        fed: fed.clone(),
+    };
+    let mut recognizer = Clocked {
+        inner: Rolling::new(scripted),
+        fed,
+    };
+    let (events, log, _) = listen_with_recognizer(songs(), &audio, &mut recognizer, |_, _| {});
+    let hypotheses = (events.iter())
+        .filter(|(_, e)| matches!(e, Event::Input(Input::Heard(_))))
+        .count();
+    assert!(
+        hypotheses >= 25,
+        "{hypotheses} hypotheses: about one a second of speech"
+    );
+
+    let actions: Vec<(u64, String)> = (events.iter())
+        .filter_map(|(t, e)| match e {
+            Event::Action(
+                Action::Goto {
+                    slide_in_song,
+                    song_index,
+                    ..
+                },
+                _,
+            ) => Some((*t, format!("goto {song_index}/{slide_in_song}"))),
+            Event::Action(Action::Blank, _) => Some((*t, "blank".into())),
+            Event::Action(Action::Unblank, _) => Some((*t, "unblank".into())),
+            _ => None,
+        })
+        .collect();
+    let names: Vec<&str> = actions.iter().map(|(_, a)| a.as_str()).collect();
+    assert_eq!(names, ["goto 0/0", "goto 0/1", "blank"], "{actions:?}");
+    // Slide 1 comes while verse 2 is heard, the blank during the prayer,
+    // and nothing after it.
+    let (ms, at) = (|s: f32| (s * 1000.0) as u64, |i: usize| actions[i].0);
+    assert!(at(0) < ms(v2), "{actions:?}");
+    assert!(at(1) > ms(v2) && at(1) < ms(v2 + secs), "{actions:?}");
+    assert!(
+        at(2) > ms(prayer) && at(2) < ms(prayer + secs),
+        "{actions:?}"
+    );
+    // Replay of this session agrees.
+    let live: Vec<&str> = log.lines().filter(outputs).collect();
+    let again: Vec<String> = (replay(&log, songs()).unwrap().iter())
+        .map(Line::to_json)
+        .filter(|l| outputs(&l.as_str()))
+        .collect();
+    assert_eq!(again, live);
 }
 
 /// The GUI's only mic-signal meter: peak and RMS over each window of at
@@ -753,9 +968,9 @@ fn the_mic_meter_reports_peak_and_rms_per_33_ms_window_of_audio() {
             mic.push((now.duration_since(base).as_millis(), level.peak, level.rms));
         }
     };
-    let no_speech = |_: &[f32]| -> anyhow::Result<String> { panic!("a click was transcribed") };
     let run = AtomicBool::new(true);
-    listen::run(rx, &run, &vad, &conductor, no_speech, clock, sink);
+    let silent = &mut Rolling::new(Silent);
+    listen::run(rx, &run, &vad, &conductor, silent, clock, sink);
     // The first window holds the loud chunk and four quiet ones (800
     // samples): RMS sqrt(160 * 2.25 / 800). Every later window is silent.
     let first_rms = (160.0f32 * 2.25 / 800.0).sqrt();
@@ -810,10 +1025,14 @@ fn voxxad_reports_bad_input_as_one_error_line() {
     };
     let (k8, k16) = (wav(8000), wav(16000));
     // Every case fails before a model is loaded or audio is opened.
-    let cases: [(&[&str], &str); 8] = [
+    let cases: [(&[&str], &str); 9] = [
         (&["--stdin-audio", &k8, "--setlist", SETLIST], "16 kHz mono"),
         (
             &["--replay", SESSION, "--setlist", SETLIST, "--shadow"],
+            "--replay takes only",
+        ),
+        (
+            &["--replay", SESSION, "--setlist", SETLIST, "--bias"],
             "--replay takes only",
         ),
         (

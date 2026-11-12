@@ -1,0 +1,165 @@
+//! The recogniser seam (ADR-004, ADR-014): any engine that turns a 16 kHz
+//! stream into timed words. Whisper sits behind it as [`Rolling`], a 5 s
+//! window decoded every 1 s of audio.
+
+use anyhow::Result;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+/// Samples per second of the stream every recogniser is fed.
+pub const RATE: u64 = 16_000;
+
+/// A word, its start in stream seconds, and a confidence from 0 to 1.
+pub type Word = (String, f32, f32);
+
+/// What a recogniser heard in one hop.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Hypothesis {
+    /// In order. Starts are stream time (samples fed / 16,000), not window
+    /// time.
+    pub words: Vec<Word>,
+    /// Stream time, in seconds, where the decoded audio ends.
+    pub end: f32,
+    /// The hop's inference failed; `words` is empty.
+    pub error: Option<String>,
+}
+
+impl Hypothesis {
+    /// The words joined by spaces: what the conductor hears.
+    pub fn text(&self) -> String {
+        let words: Vec<&str> = self.words.iter().map(|w| w.0.as_str()).collect();
+        words.join(" ")
+    }
+}
+
+/// ADR-004's recogniser. `feed` gets every sample of the stream once, in
+/// order.
+pub trait Recognizer {
+    fn feed(&mut self, pcm16k: &[f32]) -> Vec<Hypothesis>;
+    /// Text the next decodes may be biased towards (the slides around the
+    /// current one).
+    fn bias(&mut self, text: &str);
+    /// While closed, audio still enters the stream but nothing is decoded:
+    /// the loop closes it on silence and while it is behind (ADR-014).
+    /// Engines that cost little may ignore it.
+    fn gate(&mut self, _open: bool) {}
+}
+
+/// Decodes one window of audio into words timed from the window's start.
+pub trait Decode {
+    fn decode(&mut self, window: &[f32], prompt: Option<&str>) -> Result<Vec<Word>>;
+}
+
+impl Decode for super::TranscriptionEngine {
+    fn decode(&mut self, window: &[f32], prompt: Option<&str>) -> Result<Vec<Word>> {
+        self.words(window, prompt)
+    }
+}
+
+/// The GUI's shared engine: locked per decode, not per chunk, so model
+/// commands are not held up between hops.
+impl Decode for Arc<Mutex<super::TranscriptionEngine>> {
+    fn decode(&mut self, window: &[f32], prompt: Option<&str>) -> Result<Vec<Word>> {
+        self.blocking_lock().words(window, prompt)
+    }
+}
+
+/// A rolling window over the stream, decoded once per hop while the gate is
+/// open. Several hop boundaries in one `feed` give one decode, of the newest
+/// window.
+pub struct Rolling<D> {
+    decode: D,
+    pub window_ms: u64,
+    pub hop_ms: u64,
+    /// Pass the text given to [`Recognizer::bias`] to the engine (Whisper's
+    /// `initial_prompt`). Off by default: it may hallucinate (ADR-004, E6).
+    pub bias_enabled: bool,
+    prompt: Option<String>,
+    window: Vec<f32>,
+    fed: u64,
+    next_hop: u64,
+    open: bool,
+}
+
+impl<D: Decode> Rolling<D> {
+    /// A 5 s window and a 1 s hop, unbiased, gate open.
+    pub fn new(decode: D) -> Self {
+        Rolling {
+            decode,
+            window_ms: 5000,
+            hop_ms: 1000,
+            bias_enabled: false,
+            prompt: None,
+            window: Vec::new(),
+            fed: 0,
+            next_hop: 0,
+            open: true,
+        }
+    }
+
+    /// Samples fed so far.
+    pub fn fed(&self) -> u64 {
+        self.fed
+    }
+
+    pub fn decoder(&self) -> &D {
+        &self.decode
+    }
+}
+
+impl<D: Decode> Recognizer for Rolling<D> {
+    fn feed(&mut self, pcm16k: &[f32]) -> Vec<Hypothesis> {
+        let hop = (self.hop_ms * RATE / 1000).max(1);
+        let keep = (self.window_ms * RATE / 1000) as usize;
+        if self.next_hop == 0 {
+            self.next_hop = hop;
+        }
+        self.window.extend_from_slice(pcm16k);
+        self.fed += pcm16k.len() as u64;
+        let over = self.window.len().saturating_sub(keep);
+        self.window.drain(..over);
+        if self.fed < self.next_hop {
+            return Vec::new();
+        }
+        // The next boundary after everything fed: hops that fell inside
+        // this call are not decoded one by one.
+        self.next_hop = (self.fed / hop + 1) * hop;
+        if !self.open {
+            return Vec::new();
+        }
+        let start = (self.fed - self.window.len() as u64) as f32 / RATE as f32;
+        let end = self.fed as f32 / RATE as f32;
+        let prompt = self.prompt.as_deref().filter(|_| self.bias_enabled);
+        let hypothesis = match self.decode.decode(&self.window, prompt) {
+            Ok(words) if words.is_empty() => return Vec::new(),
+            Ok(words) => Hypothesis {
+                // Whisper's token times are a heuristic: late tokens can
+                // land past the window or before the word ahead of them.
+                // Clamp each to the window and never before the last word.
+                words: (words.into_iter())
+                    .scan(0.0f32, |last, (w, t, c)| {
+                        *last = t.max(*last).min(end - start);
+                        Some((w, start + *last, c))
+                    })
+                    .collect(),
+                end,
+                error: None,
+            },
+            Err(e) => Hypothesis {
+                end,
+                error: Some(e.to_string()),
+                ..Hypothesis::default()
+            },
+        };
+        vec![hypothesis]
+    }
+
+    fn bias(&mut self, text: &str) {
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        self.prompt = Some(text).filter(|t| !t.is_empty());
+    }
+
+    fn gate(&mut self, open: bool) {
+        self.open = open;
+    }
+}
