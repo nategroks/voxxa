@@ -59,6 +59,9 @@ pub struct SmartConfig {
     pub min_song_dwell_secs: f64,
     pub slide_advance_debounce_ms: u64,
     pub min_advance_match: f64,
+    /// partial_ratio the new transcript needs to start a song or re-show
+    /// lyrics. Stricter than an advance: short worship phrases score 70-81.
+    pub min_start_match: f64,
     pub advance_margin: f64,
     pub max_buffer_words: usize,
     pub softmax_temperature: f64,
@@ -75,6 +78,7 @@ impl Default for SmartConfig {
             min_song_dwell_secs: 8.0,
             slide_advance_debounce_ms: 1500,
             min_advance_match: 70.0,
+            min_start_match: 85.0,
             advance_margin: 10.0,
             max_buffer_words: 40,
             softmax_temperature: 12.0,
@@ -343,7 +347,8 @@ impl Conductor {
             && second_p <= self.config.song_second_max
             && top.raw_score >= self.config.min_song_match;
         // With one song p is always 1.0: the new words must read as the song.
-        let confident = confident && self.matches_song(top.song_index, text);
+        let confident =
+            confident && self.matches_song(top.song_index, text, self.config.min_start_match);
 
         log::info!(
             "[CONDUCTOR] top={} p={:.2} raw={:.1} second_p={:.2} confident={} state={:?}",
@@ -388,11 +393,17 @@ impl Conductor {
         // One such transcript may be a shout-out or a misheard line; a second
         // in a row means the service moved on (prayer, sermon), so blank,
         // even though VAD keeps hearing speech.
-        if !self.matches_song(current, text) {
-            let showing = matches!(
-                self.state,
-                MachineState::Singing | MachineState::InterVerseSilence
-            ) && !self.is_blank;
+        let showing = matches!(
+            self.state,
+            MachineState::Singing | MachineState::InterVerseSilence
+        ) && !self.is_blank;
+        // Keeping lyrics up needs the advance bar; re-showing them, the start bar.
+        let bar = if showing {
+            self.config.min_advance_match
+        } else {
+            self.config.min_start_match
+        };
+        if !self.matches_song(current, text, bar) {
             if self.unmatched_since.is_some() && showing {
                 return self.blank_hold(now);
             }
@@ -415,10 +426,9 @@ impl Conductor {
         Action::Noop
     }
 
-    /// The transcript reads as a line of song `i`: the same bar as a slide
-    /// advance (`min_advance_match`), because ordinary speech already scores
-    /// 40-50 against any whole song.
-    fn matches_song(&self, i: usize, text: &str) -> bool {
+    /// The transcript reads as a line of song `i` (partial_ratio >= `bar`);
+    /// ordinary speech already scores 40-50 against any whole song.
+    fn matches_song(&self, i: usize, text: &str, bar: f64) -> bool {
         let Some(song) = self.songs.get(i) else {
             return false;
         };
@@ -429,7 +439,7 @@ impl Conductor {
             .collect::<Vec<_>>()
             .join(" ")
             .to_lowercase();
-        partial_ratio(&text.to_lowercase(), &combined) >= self.config.min_advance_match
+        partial_ratio(&text.to_lowercase(), &combined) >= bar
     }
 
     /// Blank the output and hold. The rolling buffer is cleared so the words
@@ -1266,6 +1276,41 @@ mod tests {
         let mut c = Conductor::new(example_setlist(), SmartConfig::default());
         let action = c.on_transcript("Though Satan should buffet, though trials should come", t0);
         assert_eq!(slide_of(&action), Some((2, 2)));
+    }
+
+    #[test]
+    fn worship_phrases_never_start_a_song_or_re_show_lyrics() {
+        // PT2-01 residual: these score 70-81 against It Is Well, real lines 94-100.
+        let phrase = "Come on, praise the Lord!";
+        let t0 = Instant::now();
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let action = c.on_transcript(phrase, t0);
+        assert!(matches!(action, Action::Noop), "{action:?}");
+        assert!(matches!(c.on_transcript(VERSE_1, t0), Action::Goto { .. }));
+        let _ = c.tick(t0 + Duration::from_secs(4));
+        assert!(matches!(
+            c.tick(t0 + Duration::from_secs(11)),
+            Action::Blank
+        ));
+        let action = c.on_transcript(phrase, t0 + Duration::from_secs(12));
+        assert!(matches!(action, Action::Noop), "{action:?}");
+        assert!(c.is_blank());
+        let mut c = Conductor::new(vec![example_setlist().remove(2)], SmartConfig::default());
+        let action = c.on_transcript("Let's give the Lord praise.", t0);
+        assert!(matches!(action, Action::Noop), "{action:?}");
+    }
+
+    #[test]
+    fn a_loose_line_mid_song_keeps_the_lyrics_up() {
+        // Keeping lyrics up uses the advance bar (70), not the start bar (85).
+        let t0 = Instant::now();
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let line = "When peace, like a river, attendeth my way";
+        assert_eq!(slide_of(&c.on_transcript(line, t0)), Some((2, 0)));
+        for s in [1, 2] {
+            let _ = c.on_transcript("Come on, praise the Lord!", t0 + Duration::from_secs(s));
+        }
+        assert!(!c.is_blank());
     }
 
     #[test]
