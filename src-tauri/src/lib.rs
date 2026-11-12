@@ -18,7 +18,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
-pub use audio::AudioEngine;
+pub use audio::{choose_config, AudioEngine, Resampler};
 pub use dispatch::{drive, Sent};
 pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,
