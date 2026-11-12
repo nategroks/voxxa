@@ -1,16 +1,17 @@
 # Current Handoff
 
-## User decisions for Q3 (2026-11-12, before the unattended run)
-- **Line budget:** add a separate budget row for the `voxxad` binary (`src-tauri/src/bin/voxxad*`) capped at **600** lines, recorded as a deviation in the ADR and in `scripts/loc_budget.py`. The audio-loop extraction into the library must fit the existing rows ("everything else in src-tauri/src" stays at 2500).
-- **Pre-approved:** push `q3/base` and open a draft PR against `main`; fix CI forward; merge that PR into `main` once Q3's exit criteria are met and every CI job is green; file Q3 tickets as GitHub issues (label `q3`).
-- **ADR-012 (cut list)** is not decided yet; Q3 does not depend on it. Q3's ADR is ADR-013.
-- **QA mode** (as in Q2): no microphone (`voxxad --device` is never run), no keystroke dispatch; `--shadow`, `--presenter none` or a local mock presenter only; audio from public-domain WAV files; the Whisper model `%APPDATA%\voxxa\models\ggml-tiny.bin` is present.
+## User decisions for Q4 (2026-11-12, before the unattended run)
+- **Line budget:** move `src-tauri/src/transcription/` (316 lines) and all new recognizer code (trait, rolling window, `Hypothesis`) into one new row, "recognizer (transcription/ + recognizer code)", capped at **700** lines and excluded from "everything else". Record it as a deviation in the ADR and in `scripts/loc_budget.py`. "Everything else in src-tauri/src" stays at 2500; no other budget is raised.
+- **Pre-approved:** push `q4/base` and open a draft PR against `main`; fix CI forward; merge that PR into `main` once Q4's exit criteria are met and every CI job is green; file Q4 tickets as GitHub issues (label `q4`); re-record `src-tauri/tests/fixtures/voxxad/session-pd-hymns.jsonl` with Whisper Tiny on the public-domain WAVs if the hop changes what the conductor hears (the reason goes in the commit).
+- **Q4 owns Q3-02 (#46):** the GUI event mapping becomes pure and tested when the hop rewrites the shared loop.
+- **ADR:** ADR-012 is still reserved for the cut list. Q4 amends ADR-013 or writes ADR-014.
+- **QA mode** (as in Q2 and Q3): no microphone, no keystroke dispatch; `--shadow`, `--presenter none` or a local mock only; public-domain WAVs; `ggml-tiny.bin` is present.
 
 ---
 
 ## From: Q3 → To: Q4 (Recognizer trait and streaming hop)
 **Date:** 2026-11-12
-**Phase:** Phase 4 Implementation done on `q3/base`; merge on hold → Q4
+**Phase:** Phase 4 Implementation done; merged into `main` (PR #45, ec6d85e) → Q4
 
 ### What Q3 did
 - Added the headless `voxxad` binary over `voxxa_lib` and moved the GUI's listening loop into the library, so the GUI and the CLI share one function. ADR-013 (Accepted) records the design.

@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q3 implemented on `q3/base` (code head 912b978, 2026-11-12). Verifier round 3 left two items: Q3-01 is closed with a test (912b978) and Q3-02 is deferred to Q4 by a recorded decision. Next: push `q3/base`, draft PR against `main`, CI, merge, file the Q3 tickets; then Q4 (Recognizer trait and streaming hop).
+**Current Phase:** Q4 in progress (2026-11-12): Recognizer trait and streaming hop, branch `q4/base`, two lanes `q4/10x` and `q4/ponytail`. Q3 complete and merged into `main` (PR #45, ec6d85e).
 **Last Updated:** 2026-11-12 by 10x-team orchestrator
 **Health:** On Track
 
@@ -79,7 +79,7 @@
   1. [x] Q3-01: model-free `--shadow` test added (912b978); the N9 mutation fails it.
   2. [x] Q3-02: deferred to Q4 by a recorded decision (tickets file).
   3. [x] All 7 gates on 912b978 (109 tests); test-only change, so the f2bcea1 exit demo stands.
-  4. [ ] `q3/base` pushed; draft PR #45 against `main` opened; merge when every CI job is green.
+  4. [x] `q3/base` pushed; PR #45 CI green (5/5 jobs at 035d381); merged into `main` as ec6d85e.
   5. [x] Filed the 12 Q3 tickets as GitHub issues #46–#57 (label `q3`).
 
   The user pre-approved the push, PR, merge and filing in steps 4 and 5.
