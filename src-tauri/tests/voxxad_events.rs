@@ -372,6 +372,51 @@ fn the_shared_loop_ticks_every_200_ms_of_audio_on_a_sample_clock() {
     assert!(!ended);
 }
 
+/// On a wall clock (GUI, `--realtime`) a recogniser slower than real time
+/// must not let audio queue up without bound: after a hop that took 2.5 s
+/// the loop waits for 2.5 s of audio before the next one, and the audio of
+/// the skipped hops goes with it (nothing is fed twice or dropped).
+#[test]
+fn a_slow_recogniser_stretches_the_hop_instead_of_queueing_audio() {
+    let (tx, rx) = mpsc::channel();
+    for _ in 0..100 {
+        tx.send(vec![0.0f32; 1600]).unwrap(); // 10 s
+    }
+    drop(tx);
+    let base = Instant::now();
+    let slow = std::cell::Cell::new(Duration::ZERO);
+    // Wall time: audio time plus the time spent inside the recogniser.
+    let clock = |samples: u64| base + Duration::from_millis(samples / 16) + slow.get();
+    let mut hops = Vec::new();
+    let recognizer = Fake(|pcm: &[f32]| {
+        hops.push(pcm.len() / 1600);
+        slow.set(slow.get() + Duration::from_millis(2500));
+        Ok(Vec::new())
+    });
+    let conductor = Mutex::new(Some(Conductor::new(songs(), SmartConfig::default())));
+    let vad = Mutex::new(VadEngine::new());
+    let run = AtomicBool::new(true);
+    listen::run(rx, &run, &vad, &conductor, recognizer, clock, |_, _| {});
+    // Hops in 100 ms chunks: 1 s, then 2.5 s each; the last 0.5 s is not
+    // a whole hop.
+    assert_eq!(hops, [10, 25, 25, 25]);
+
+    // At file speed (the clock is audio time) every hop is 1 s.
+    let (tx, rx) = mpsc::channel();
+    for _ in 0..30 {
+        tx.send(vec![0.0f32; 1600]).unwrap();
+    }
+    drop(tx);
+    let mut hops = Vec::new();
+    let recognizer = Fake(|pcm: &[f32]| {
+        hops.push(pcm.len() / 1600);
+        Ok(Vec::new())
+    });
+    let clock = |samples: u64| base + Duration::from_millis(samples / 16);
+    listen::run(rx, &run, &vad, &conductor, recognizer, clock, |_, _| {});
+    assert_eq!(hops, [10, 10, 10]);
+}
+
 /// The GUI's Stop clears the session's run flag and then stops capture,
 /// which closes the channel. A loop that is waiting for audio when that
 /// happens sees the channel close with the flag clear: a stop, reported as
