@@ -698,6 +698,46 @@ fn a_failed_or_empty_transcript_drops_its_audio_and_the_loop_goes_on() {
     assert!(shown.len() >= 2 && shown[0] == 0, "{shown:?}");
 }
 
+/// The GUI's only mic-signal meter: peak and RMS over each window of at
+/// least 33 ms of audio, peak clipped at 1.0, both back to 0 once the
+/// signal goes quiet.
+#[test]
+fn the_mic_meter_reports_peak_and_rms_per_33_ms_window_of_audio() {
+    let (tx, rx) = mpsc::channel();
+    // 10 ms chunks: one too loud (±1.5), then 200 ms of silence.
+    let loud: Vec<f32> = (0..160)
+        .map(|i| if i % 2 == 0 { 1.5 } else { -1.5 })
+        .collect();
+    tx.send(loud).unwrap();
+    for _ in 0..20 {
+        tx.send(vec![0.0f32; 160]).unwrap();
+    }
+    drop(tx);
+    let base = Instant::now();
+    let clock = |samples: u64| base + Duration::from_millis(samples / 16);
+    let conductor = Mutex::new(Some(Conductor::new(songs(), SmartConfig::default())));
+    let vad = Mutex::new(VadEngine::new());
+    let mut mic = Vec::new();
+    let sink = |now: Instant, event: Event| {
+        if let Event::Mic(level) = event {
+            mic.push((now.duration_since(base).as_millis(), level.peak, level.rms));
+        }
+    };
+    let no_speech = |_: &[f32]| -> anyhow::Result<String> { panic!("a click was transcribed") };
+    let run = AtomicBool::new(true);
+    listen::run(rx, &run, &vad, &conductor, no_speech, clock, sink);
+    // The first window holds the loud chunk and four quiet ones (800
+    // samples): RMS sqrt(160 * 2.25 / 800). Every later window is silent.
+    let first_rms = (160.0f32 * 2.25 / 800.0).sqrt();
+    let mut want = vec![(40, 1.0, first_rms)];
+    want.extend([80, 120, 160, 200].map(|t| (t, 0.0, 0.0)));
+    assert_eq!(mic.len(), want.len(), "{mic:?}");
+    for ((t, peak, rms), (want_t, want_peak, want_rms)) in mic.iter().zip(&want) {
+        assert_eq!((*t, *peak), (*want_t, *want_peak), "{mic:?}");
+        assert!((rms - want_rms).abs() < 1e-6, "{mic:?}");
+    }
+}
+
 fn voxxad(args: &[&str]) -> (String, bool) {
     let out = Command::new(env!("CARGO_BIN_EXE_voxxad"))
         .args(args)
