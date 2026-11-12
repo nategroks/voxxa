@@ -589,28 +589,29 @@ mod tests {
                 ],
             },
             Song {
-                title: "How Great Is Our God".into(),
+                title: "Holy, Holy, Holy".into(),
                 slides: vec![
                     Slide {
                         id: 3,
-                        text: "The splendor of the King clothed in majesty".into(),
+                        text: "Holy holy holy Lord God Almighty".into(),
                     },
                     Slide {
                         id: 4,
-                        text: "How great is our God sing with me how great is our God".into(),
+                        text: "Early in the morning our song shall rise to Thee".into(),
                     },
                 ],
             },
             Song {
-                title: "Way Maker".into(),
+                title: "Come, Thou Fount".into(),
                 slides: vec![
                     Slide {
                         id: 5,
-                        text: "You are here moving in our midst I worship You I worship You".into(),
+                        text: "Come Thou fount of every blessing tune my heart to sing Thy grace"
+                            .into(),
                     },
                     Slide {
                         id: 6,
-                        text: "Way maker miracle worker promise keeper light in the darkness"
+                        text: "Streams of mercy never ceasing call for songs of loudest praise"
                             .into(),
                     },
                 ],
@@ -708,9 +709,9 @@ mod tests {
             t0,
         );
         assert_eq!(c.current_song_title(), Some("Amazing Grace"));
-        // Right after, sing the chorus of song 1.
+        // Right after, sing a line of song 1.
         let _ = c.on_transcript(
-            "how great is our God sing with me how great is our God",
+            "early in the morning our song shall rise to Thee",
             t0 + Duration::from_millis(500),
         );
         assert_eq!(
@@ -730,10 +731,10 @@ mod tests {
         );
         // After dwell expires, a song-1 match SHOULD switch.
         let _ = c.on_transcript(
-            "how great is our God sing with me how great is our God",
+            "early in the morning our song shall rise to Thee",
             t0 + Duration::from_secs(5),
         );
-        assert_eq!(c.current_song_title(), Some("How Great Is Our God"));
+        assert_eq!(c.current_song_title(), Some("Holy, Holy, Holy"));
     }
 
     #[test]
@@ -754,7 +755,7 @@ mod tests {
             }
             other => panic!("expected Goto from jump_to_song, got {other:?}"),
         }
-        assert_eq!(c.current_song_title(), Some("Way Maker"));
+        assert_eq!(c.current_song_title(), Some("Come, Thou Fount"));
         assert_eq!(c.state(), MachineState::Singing);
         assert!(!c.is_blank());
     }
