@@ -335,6 +335,36 @@ fn the_shared_loop_ticks_every_200_ms_of_audio_on_a_sample_clock() {
     assert!(!ended);
 }
 
+/// The GUI's Stop clears the session's run flag and then stops capture,
+/// which closes the channel. A loop that is waiting for audio when that
+/// happens sees the channel close with the flag clear: a stop, reported as
+/// listening-stopped {disconnected: false}, not a device loss.
+#[test]
+fn a_stop_that_closes_the_channel_mid_loop_is_not_a_device_loss() {
+    let (tx, rx) = mpsc::channel();
+    for _ in 0..10 {
+        tx.send(vec![0.0f32; 1600]).unwrap();
+    }
+    drop(tx);
+    let run = AtomicBool::new(true);
+    let base = Instant::now();
+    let mut heard = 0;
+    // The operator presses Stop once the last chunk has been taken in.
+    let clock = |samples: u64| {
+        heard = samples;
+        if samples == 16000 {
+            run.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+        base + Duration::from_millis(samples / 16)
+    };
+    let conductor = Mutex::new(Some(Conductor::new(songs(), SmartConfig::default())));
+    let vad = Mutex::new(VadEngine::new());
+    let no_speech = |_: &[f32]| -> anyhow::Result<String> { panic!("silence was transcribed") };
+    let lost = listen::run(rx, &run, &vad, &conductor, no_speech, clock, |_, _| {});
+    assert_eq!(heard, 16000, "the stop came after the audio, mid-loop");
+    assert!(!lost, "a stop was reported as a device loss");
+}
+
 /// Public-domain text (Amazing Grace, verse 1) read by the Windows SAPI
 /// voice, 16 kHz mono 16-bit PCM, 12 s. Real speech for the real VAD; the
 /// recogniser is faked, so no Whisper model is needed.
