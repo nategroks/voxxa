@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Both windows may listen to app events (slide, state, mic level, download progress). Nothing else: the GUI uses no other plugin API.",
+  "windows": ["main", "stage"],
+  "permissions": ["core:event:default"]
+}

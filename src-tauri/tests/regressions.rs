@@ -455,3 +455,18 @@ async fn jump_drivers_address_the_open_song() {
         .unwrap();
     assert_eq!(fs.calls(), ["blank", "goto 0", "unblank", "goto 1"]);
 }
+
+/// Q2-09 (audit 7): without a capability file every listen() is rejected, so
+/// neither window ever updates. Least privilege: events only.
+#[test]
+fn capability_grants_events_to_both_windows_and_nothing_else() {
+    let path = manifest_dir().join("capabilities/default.json");
+    let cap: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let windows = cap["windows"].as_array().unwrap();
+    assert!(windows.contains(&"main".into()) && windows.contains(&"stage".into()));
+    assert_eq!(
+        cap["permissions"],
+        serde_json::json!(["core:event:default"])
+    );
+}
