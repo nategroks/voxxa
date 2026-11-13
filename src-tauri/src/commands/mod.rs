@@ -88,6 +88,30 @@ pub fn presenter_error(e: String) -> GuiEvent {
     emit_json("presenter-error", e)
 }
 
+/// The GUI's sink for one loop event: `emit` sends a Tauri event (name,
+/// JSON payload) and `send` a loop action to [`dispatch`] (action, slide
+/// count, operator). A failed send is shown as `presenter-error`. The
+/// closures are injected so tests can record what the GUI would do.
+pub fn gui_sink(
+    event: Event,
+    emit: &mut impl FnMut(&'static str, String),
+    send: &mut impl FnMut(Action, Option<usize>, bool) -> Result<(), String>,
+) {
+    let shown = match gui_event(event) {
+        GuiEvent::Dispatch(action, total, operator) => match send(action, total, operator) {
+            Ok(()) => GuiEvent::Nothing,
+            Err(e) => {
+                log::warn!("[DISPATCH] {e}");
+                presenter_error(e)
+            }
+        },
+        other => other,
+    };
+    if let GuiEvent::Emit(name, payload) = shown {
+        emit(name, payload);
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModelInfo {
     pub name: String,
@@ -214,20 +238,13 @@ pub async fn start_listening_with_state(
     // without building a fresh runtime each iteration.
     let rt_handle = tokio::runtime::Handle::current();
     tokio::task::spawn_blocking(move || {
-        let emit = |e| {
-            if let GuiEvent::Emit(name, payload) = e {
-                let _ = app.emit_str(name, payload);
-            }
+        let mut emit = |name: &'static str, payload: String| {
+            let _ = app.emit_str(name, payload);
         };
-        let sink = |_: Instant, event: Event| match gui_event(event) {
-            GuiEvent::Dispatch(action, total, operator) => {
-                if let Err(e) = rt_handle.block_on(dispatch(&app, action, total, operator)) {
-                    log::warn!("[DISPATCH] {e}");
-                    emit(presenter_error(e));
-                }
-            }
-            other => emit(other),
-        };
+        // Passes `gui_sink`'s operator flag through unchanged (always false).
+        let mut send =
+            |action, total, operator| rt_handle.block_on(dispatch(&app, action, total, operator));
+        let sink = |_: Instant, event: Event| gui_sink(event, &mut emit, &mut send);
         // `disconnected` distinguishes a clean stop (operator hit stop) from
         // the audio device dropping out underneath us. The frontend listens
         // for `listening-stopped` so it can re-arm the start button either way.
