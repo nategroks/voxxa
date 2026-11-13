@@ -428,3 +428,13 @@ Design: ADR-016 (Accepted, with a measurement amendment). Numbers: `reviews/2026
 **Tuning record:** decay × threshold sweep in replay (0.4/0.3/0.2/0.1 × 0.35/0.30): no cell lost precision or recall; 0.3/0.35 chosen (ADR-016 amendment 1). Leading-words term only for slides being entered (amendment 2). Operator exclusion lifted once the room sings the operator's slide (amendment 3).
 
 **Debt / follow-ups:** no importer writes `sections` yet (OpenSong, ChordPro, OpenLyrics carry the labels); `slide_advance_debounce_ms` and `advance_margin` are unused but kept for the wire; ADR-009's next-song candidate and adapter `current()` re-sync are still open; numbers tuned on synthetic speech only (Q5-01); a function-word-heavy 12-word window can still hold the current slide for an extra transcript (jump's return to verse 1).
+
+## 2026-11-13 — Q6 finish on `q6/base` (SDE + Senior Engineer)
+- **Merge:** `q6/10x` (ca84cd9) into `q6/base` with `--no-ff` as d92800c. The comparator chose the 10x lane as the base.
+- **Review fixes, one commit each:**
+  - should-fix 2: the test `a_chorus_of_two_slides_is_followed_through_both_and_on_to_the_next_verse` (It Is Well with its refrain over two slides; sing 0,1,2,3,1,2,4; exactly those gotos). Three mutants fail it: `same_section` always false, `next()` ignoring `same_section`, and `is_start` testing the last slide. The last of these fails no other test. The mutant `is_start` always true survives (Q6-02).
+  - nit 4: one log line per move. `[EVIDENCE]` now carries the song index, and the `[CONDUCTOR]` move line is gone. Conductor row 1,174 → 1,173 of 1,200; evidence row 213 → 215 of 500.
+- **Ponytail graft:** none (ADR-016 second amendment, item 3).
+- **Must-fix 1 (`jump-be-thou-my-vision` thresholds):** pending a user decision. The committed baseline was not loosened. Option (a), 1,500 / 6,000, is checked on a scratch copy: the gate prints OK and `voxxa_eval` passes 26 of 26.
+- **Should-fix 3 (the GUI stores the whole `SmartConfig`):** a GUI change needs the user's approval (decision 5), so it is filed as ticket Q6-01 and not committed.
+- **Eval:** "before" re-measured on a 733c7e1 export, and "after" on the head. Both match the 10x lane's tables cell for cell (`reviews/2026-11-13-q6-before-after.md`, "Finish on `q6/base`").

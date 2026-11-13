@@ -76,3 +76,20 @@ Text comes from the committed public-domain fixture setlists; transcripts are 5-
 ## Process
 - No microphone, no presenter: only `voxxad --replay` and `voxxa-eval --full` (which passes `--shadow`). Every process started was stopped or exited; two full runs were stopped by PID (7820, 276, 13020, 6864) because three parallel Whisper runs starved each other, then re-run one at a time.
 - The other lane (`q6/ponytail`) was not read.
+
+## Finish on `q6/base` (after the merge d92800c and the review fixes)
+**Before, measured again.** The finisher re-measured 733c7e1 on a `git archive` export of that commit, in replay. Every cell of the "Before" table above came out the same. The finisher also replayed `prayer-before-first-song`'s committed log with the 733c7e1 conductor: 2 slides, 1 goto, 1 hit, 1 missed, recall 0.50, latency 6,710 ms, blank and unblank `miss`. That matches the Q5 ticket's number.
+
+**After, on the `q6/base` head, in replay.** Every cell equals the "After (`q6/10x`)" table above. Neither review fix changes behaviour: one is a test, and the other removes a log line and adds the song index to another.
+
+| fixture | before (733c7e1) median / p95 ms | after median / p95 ms | before → after recall | false before → after |
+|---|---|---|---|---|
+| jump-be-thou-my-vision | 900 / 900 | 1200 / 5850 | 0.25 → 1.00 | 0 → 0 |
+| prayer-before-first-song | 6710 / 6710 (log replayed with the old conductor) | 1710 / 2800 | 0.50 → 1.00 | 0 → 0 |
+| prayer-between-songs | 8490 / 11230 | 2490 / 4870 | 1.00 → 1.00 | 0 → 0 |
+| prayer-then-reprise | 2900 / 8900 | 2900 / 2900 | 1.00 → 1.00 | 0 → 0 |
+| prayer-without-pause | 2900 / 8900 | 1900 / 2900 | 1.00 → 1.00 | 0 → 0 |
+| refrain-it-is-well | 4120 / 10310 | 2120 / 3900 | 0.50 → 1.00 | 1 → 0 |
+| total (5 fixtures before, 6 after) | 4120 / 11230 | 2310 / 4870 | 0.68 → 1.00 | 1 → 0 |
+
+**Gate status.** The replay gate, the CI step and two `voxxa_eval` tests still fail on the two `jump-be-thou-my-vision` cells (`median_ms` 1200 against 1000, `p95_ms` 5850 against 1000). That is ADR-016's second amendment, item 5, and it is pending the user's decision. With option (a) on a scratch copy of `baseline.json` (`median_ms` 1500, `p95_ms` 6000), `voxxa-eval --baseline <copy>` prints OK and exits 0, and `cargo test --test voxxa_eval` passes 26 of 26. The committed `baseline.json` was not changed.
