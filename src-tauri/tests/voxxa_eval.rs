@@ -14,9 +14,20 @@ use serde_json::json;
 use std::process::Command;
 
 fn slide(t: u64, s: usize) -> At {
+    song(t, 0, s)
+}
+
+fn song(t: u64, song: usize, s: usize) -> At {
     At {
         t,
-        cue: Cue::Slide(0, s),
+        cue: Cue::Slide(song, s),
+    }
+}
+
+fn unblank(t: u64) -> At {
+    At {
+        t,
+        cue: Cue::Unblank,
     }
 }
 
@@ -61,6 +72,8 @@ fn a_wrong_slide_or_an_early_blank_is_a_false_advance() {
     let m = score(&truth(), &acts);
     assert_eq!((m.hits, m.gotos, m.false_advances), (2, 3, 2));
     assert_eq!(m.values()[0], Some(2.0 / 3.0));
+    // A false advance costs precision, never recall: no slide was missed.
+    assert_eq!((m.slides - m.hits, m.values()[1]), (0, Some(1.0)));
     assert_eq!(
         m.blank,
         [None],
@@ -73,6 +86,7 @@ fn a_goto_to_the_slide_already_shown_is_a_double_advance() {
     let m = score(&truth(), &[slide(1500, 0), slide(4000, 0), slide(13400, 1)]);
     assert_eq!((m.hits, m.double_advances, m.false_advances), (2, 1, 0));
     assert_eq!(m.values()[0], Some(2.0 / 3.0));
+    assert_eq!((m.slides - m.hits, m.values()[1]), (0, Some(1.0)));
     // After a blank the same slide is shown again: not a double.
     let m = score(
         &[slide(1000, 0)],
@@ -106,6 +120,52 @@ fn a_row_owns_from_1_s_before_it_to_1_s_before_the_next_row() {
     let m = score(&t, &[slide(11999, 0), slide(13400, 1)]);
     assert_eq!((m.hits, m.false_advances), (2, 0));
     assert_eq!(m.latency, [10999, 400]);
+}
+
+#[test]
+fn the_span_boundaries_are_exact_to_the_millisecond() {
+    // Slide 1's span starts at exactly 13000 - 1000 = 12000.
+    let t = [slide(1000, 0), slide(13000, 1)];
+    let m = score(&t, &[slide(12000, 1)]);
+    assert_eq!(
+        (m.hits, m.false_advances, m.latency.clone()),
+        (1, 0, vec![-1000])
+    );
+    let m = score(&t, &[slide(12000, 0)]);
+    assert_eq!(
+        (m.hits, m.false_advances),
+        (0, 1),
+        "12000 belongs to slide 1"
+    );
+    // Exactly 1 s early for the first row still matches it.
+    let m = score(&t, &[slide(0, 0)]);
+    assert_eq!(
+        (m.hits, m.false_advances, m.latency.clone()),
+        (1, 0, vec![-1000])
+    );
+}
+
+#[test]
+fn the_right_slide_number_in_the_wrong_song_is_a_false_advance() {
+    let m = score(&[song(1000, 0, 1)], &[song(1500, 1, 1)]);
+    assert_eq!((m.hits, m.false_advances, m.double_advances), (0, 1, 0));
+    assert!(m.latency.is_empty());
+    // Truth is song 1; the conductor picks song 0, slide 0.
+    let m = score(&[song(1000, 1, 0)], &[song(1500, 0, 0)]);
+    assert_eq!((m.hits, m.false_advances), (0, 1));
+    assert_eq!(m.values()[..2], [Some(0.0), Some(0.0)]);
+    // Slide 0 of another song after slide 0 is a change, not a double.
+    let t = [song(1000, 0, 0), song(13000, 1, 0)];
+    let m = score(&t, &[song(1500, 0, 0), song(13400, 1, 0)]);
+    assert_eq!((m.hits, m.double_advances, m.false_advances), (2, 0, 0));
+}
+
+#[test]
+fn an_unblank_ends_the_blank_so_the_next_blank_is_not_a_double() {
+    // Blank, unblank, blank, all inside verse 1: two false advances.
+    let acts = [slide(1500, 0), blank(5000), unblank(6000), blank(7000)];
+    let m = score(&truth(), &acts);
+    assert_eq!((m.false_advances, m.double_advances), (2, 0));
 }
 
 #[test]
@@ -202,6 +262,20 @@ fn the_total_row_sums_counts_and_pools_latencies() {
     total.add(&score(&truth(), &[slide(1300, 0), slide(14000, 1)]));
     assert_eq!((total.slides, total.gotos, total.hits), (4, 3, 3));
     assert_eq!(total.latency, [500, 300, 1000]);
+    assert_eq!((total.false_advances, total.double_advances), (0, 0));
+    // A double (the goto at 4 s) and a false advance (slide 2) per run.
+    let acts = [
+        slide(1500, 0),
+        slide(4000, 0),
+        slide(5000, 2),
+        slide(13400, 1),
+    ];
+    let mut sum = Metrics::default();
+    for _ in 0..2 {
+        sum.add(&score(&truth(), &acts));
+    }
+    assert_eq!((sum.false_advances, sum.double_advances), (2, 2));
+    assert_eq!((sum.slides, sum.gotos, sum.hits), (4, 8, 4));
     assert_eq!(
         total.values()[6],
         Some(f64::INFINITY),
@@ -353,4 +427,29 @@ fn a_broken_threshold_fails_the_gate_and_names_the_metric() {
     assert_eq!(code, 1, "{out}");
     assert!(out.contains("FAIL total: p95_ms is"), "{out}");
     assert!(!out.contains("FAIL prayer"), "{out}");
+}
+
+#[test]
+fn a_session_log_recorded_with_another_setlist_is_an_error_not_a_score() {
+    // voxxad --replay refuses the log (exit 1); voxxa-eval must stop with
+    // exit 2 instead of scoring an empty action list.
+    let dir = tempfile::tempdir().unwrap();
+    let fixture = dir.path().join("mismatch");
+    std::fs::create_dir(&fixture).unwrap();
+    let from = std::path::Path::new("../fixtures/recordings");
+    for (src, file) in [
+        ("prayer-then-reprise", "session.jsonl"),
+        ("prayer-then-reprise", "truth.jsonl"),
+        ("prayer-without-pause", "setlist.json"),
+    ] {
+        std::fs::copy(from.join(src).join(file), fixture.join(file)).unwrap();
+    }
+    let out = Command::new(env!("CARGO_BIN_EXE_voxxa-eval"))
+        .arg(&fixture)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(2), "{stderr}");
+    assert!(stderr.contains("different setlist"), "{stderr}");
+    assert!(!String::from_utf8_lossy(&out.stdout).contains("mode:"));
 }
