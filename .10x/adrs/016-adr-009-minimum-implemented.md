@@ -1,0 +1,103 @@
+# ADR-016: ADR-009 minimum implemented: section labels, repeat-aware priors and a word-token evidence accumulator
+
+**Status:** Accepted 2026-11-13 (the user's binding Q6 decisions: ADR number, synthetic TTS fixtures, one 500-line "conductor evidence (ADR-009 minimum)" budget row, baseline tightened never loosened, no GUI change, no sockets) · **Date:** 2026-11-13 · **Feature:** church-autoadvance · **Reversibility:** Easy for every number (one `EvidenceConfig` value each, stored per session log); moderate for the `sections[].kind` setlist field (setlists written with it are a promise to users) · **Owner:** nategroks · **Author:** 10x-Team (Principal Architect + Staff Engineer), Q6 10x lane
+
+Implements the minimum of ADR-009. Supersedes nothing; ADR-009's graph-wide position tracking (next song as a candidate, adapter `current()` re-sync, ±1 translation for adapters without `goto`) stays open.
+
+## Context
+Q6's prompt: run `voxxa-eval` on every fixture; if false advances ≤ 1 per 10-song set **and** p95 latency ≤ 2.5 s, record "ADR-009 deferred"; otherwise build ADR-009's minimum.
+
+**The decision (both Q6 lanes measured independently at 733c7e15 and agree on every cell).** Replay mode (what CI runs), Whisper Tiny logs recorded at 733c7e1; the ponytail lane also ran `--full` and got the identical table.
+
+| fixture | slides | gotos | hits | missed | prec | recall | median ms | p95 ms | false | double | blank ms | unblank ms |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| jump-be-thou-my-vision | 4 | 1 | 1 | 3 | 1.00 | 0.25 | 900 | 900 | 0 | 0 | - | - |
+| prayer-between-songs | 4 | 4 | 4 | 0 | 1.00 | 1.00 | 8490 | 11230 | 0 | 0 | 7280 | 8490 |
+| prayer-then-reprise | 3 | 3 | 3 | 0 | 1.00 | 1.00 | 2900 | 8900 | 0 | 0 | 200 | 1500 |
+| prayer-without-pause | 2 | 2 | 2 | 0 | 1.00 | 1.00 | 2900 | 8900 | 0 | 0 | 6600 | - |
+| refrain-it-is-well | 6 | 4 | 3 | 3 | 0.75 | 0.50 | 4120 | 10310 | 1 | 0 | - | - |
+| total | 19 | 14 | 13 | 6 | 0.93 | 0.68 | 4120 | 11230 | 1 | 0 | 7280 | 8490 |
+
+- **Normalised rule** (prompt facts): false advances over all fixtures ÷ songs sung × 10 = 1 ÷ 6 × 10 = **1.67 per 10 songs** (limit 1): fails. Songs sung, from each `truth.jsonl`: jump 1, prayer-between 2, reprise 1, without-pause 1, refrain 1. Counting setlist entries instead (15) gives 0.67, but counts songs nobody sang.
+- **p95 latency** over all 13 matched advances (nearest rank, as the eval's total row computes it): **11.23 s** (limit 2.5 s): fails by 8.7 s. Median 4.12 s. Only 2 of 13 hits are within 2.5 s.
+- **Kind of latency:** stream time at file speed. `voxxad` without `--realtime` stamps `t` from a sample clock (ADR-013), so the figure leaves out inference time. It is not wall-clock time. Live, one hop costs more than 1 s on the reference PC even optimised (Q4-02), so hypotheses arrive every 2-5 s and every number above would be up to one decode plus one hop higher. That only strengthens the fail.
+- **Verdict: the conductor does not meet the budget; build the minimum.** The structural gaps are visible in the same table: the conductor looks only at the next slide (jump: 3 of 4 rows missed; refrain: none of the 3 refrain rows matched, and its one false advance is a refrain goto that lands while the next verse is already sung), and its 40-word buffer keeps the old verse after a new one starts (Q4-04: advances 8.9-11.2 s late).
+
+Forces:
+- **Keep** `MachineState`, blanking, `manual_step`, the conductor's public API (`Conductor`'s methods, `Action`, `Input`) and event schema v1 (prompt, user decision 5). No GUI change.
+- **Budget** (user decision 3): the conductor row (`aligner/`) is at 1,188 / 1,200 and stays capped at 1,200; new modules go in one new row capped at 500 for a dedicated directory.
+- **Replay** builds the conductor from the `SmartConfig` in each log's start line (ADR-015, Q5-07), and checks an FNV-1a fingerprint of the setlist's JSON (ADR-013).
+- **Evidence** is five synthetic, spoken fixtures (user decision 2); the CI gate must not get worse on any fixture, and `baseline.json` may only be tightened (user decision 4).
+
+## Decision
+1. **Setlist schema: optional `sections[].kind` on each song (setlist.json v1, backwards compatible).**
+   ```json
+   {"title": "It Is Well with My Soul",
+    "slides": [{"id":0,"text":"…"}, {"id":1,"text":"…"}, …],
+    "sections": [{"kind":"verse","slides":[0]}, {"kind":"chorus","slides":[1]},
+                 {"kind":"verse","slides":[2]}, {"kind":"verse","slides":[3]}]}
+   ```
+   - `kind`: `verse`, `chorus` (`refrain` is read as `chorus`), `bridge`, `tag`; any other string is read as `other`, so a newer writer never breaks an older Voxxa. `slides`: 0-based slide indices within the song, in order.
+   - `sections` may be missing or empty (every setlist before Q6, every importer today). It is then not serialised (`skip_serializing_if`), so an old setlist round-trips byte for byte and its replay fingerprint is unchanged. A setlist with sections has a different fingerprint, which is right: the labels change what the conductor does.
+   - Slides need not all be labelled. Rejected when loading (`check_setlist`, the same error path as an empty song): a slide index outside the song, a section with no slides, or a slide in two sections.
+   - The types (`Section`, `SectionKind`) live in the new module; `Song` gains the one field. No version key is added: the field is optional, and a reader that ignores it behaves as before.
+2. **Candidates and repeat-aware transitions.** Within the committed song, every non-empty slide is a candidate (empty slides are kept for numbering and never chosen, as before). Each gets one prior per hop, the highest that applies:
+   | Transition | Prior (`EvidenceConfig`) | Default |
+   |---|---|---|
+   | stay on the current slide | `prior_stay` | 1.0 |
+   | next: the next non-empty slide; **after a chorus, the slide after the verse that led into it** | `prior_next` | 0.9 |
+   | the first slide of any chorus section (labelled songs only) | `prior_chorus` | 0.8 |
+   | the first slide of any section; in an unlabelled song every slide, and every unlabelled slide | `prior_section` | 0.6 |
+   | any other slide (inside a labelled section) | `prior_other` | 0.4 |
+   | the slide an operator just left (until the conductor next moves on its own) | none | 0.0 |
+   - *Repeat-aware:* when the position enters a chorus from a non-chorus slide *v*, the tracker remembers the first non-chorus slide after *v*; from the chorus's last slide, "next" is that slide, not the slide after the chorus in the list. So V1 C V2 C V3 C with one chorus slide (the common presentation-app layout) follows 0 1 2 1 3 1. A chorus duplicated in the slide list works through "next".
+   - Song changes stay with today's song detection (40-word buffer, softmax, `min_song_dwell_secs`); the next song is not a candidate here (ADR-009's full graph, deferred).
+3. **Scoring: word tokens on the last 12 recognised words.** Every transcript the conductor accepts (4 words or more, as today) is split into tokens (lower case, letters and digits; punctuation and apostrophes dropped, hyphens split) and appended to a window of the last **12** tokens. For each candidate slide *c* with tokens *S*:
+   `s_c = (LCS(window, S) − LCS(window without the newest words, S)) ÷ newest`,
+   where `newest` is the number of tokens the latest transcript added (at most 12) and LCS is the existing longest-common-subsequence routine, now generic over tokens. So *s* is the share of the newly heard words that extend an in-order alignment with that slide, in the context of the words just before them: words the old verse left in the window cannot vote for the old slide, a dropped word costs only its own share, and a misheard word scores 0 for every slide.
+4. **Evidence accumulator with decay.** One evidence value per candidate of the current song, updated once per accepted transcript:
+   `E_c ← decay · E_c + (1 − decay) · prior_c · s_c`, with `decay` = **0.4**.
+   When the position changes for any reason other than the tracker's own move (song start, `manual_step`, `jump_to_song`), the evidence is reset: 1.0 for the new current slide, 0 elsewhere.
+5. **Decision, at most once per transcript.** Move to the best candidate *b* (highest `E`; ties go to the current slide, then the nearest after it) when all hold: *b* ≠ current, `E_b ≥ threshold` (**0.35**), `E_b ≥ E_current + margin` (**0.05**), and at least `min_dwell_ms` (**1,500 ms**) since the last move by anyone (`last_advance`, which `manual_step` and a song start also set). The move is a `goto(song, slide)` through the existing action path, so jumps and repeats are ordinary gotos. With these numbers a clean next-slide line moves in one transcript (`E` = 0.54 against a current slide that falls to about 0.45), a jump to a section start needs two, and an "other" slide needs about three.
+6. **The operator always wins.** An operator move resets the evidence (Decision 4), starts the dwell, and gives the slide the operator left a prior of 0 until the conductor next moves on its own, so words still being sung from that slide never pull the screen back. The cost: if the operator steps back and the room then sings the slide they left, the conductor waits for the operator.
+7. **Where the code lives, and what stays.** New directory `src-tauri/src/aligner/evidence/` (the tracker, the scoring and the section types; `EvidenceConfig`). In `aligner/mod.rs`, `maybe_advance_within_current` (next-slide-only, character LCS on the 40-word buffer) is replaced by a call to the tracker; the conductor still clears its 40-word buffer and resets the unmatched timer on a move, as before. Unchanged: `MachineState` and every transition, `tick`, `blank_hold`, the unmatched-speech blank rules, the re-show rule after a blank, `manual_step`, `jump_to_song`, `notify_external_blank`, song detection and `best_slide`. `SmartConfig` gains one nested field, `evidence: EvidenceConfig` with `#[serde(default)]`, so old session logs and the GUI's stored settings still load (with today's evidence defaults), and new logs record the values used. `slide_advance_debounce_ms` and `advance_margin` stay in `SmartConfig` for wire compatibility but no longer drive anything; `min_dwell_ms` and `margin` replace them.
+8. **Budget (recorded deviation from ADR-010 Decision 3, user decision 3).** `scripts/loc_budget.py` gets one new row, "conductor evidence (ADR-009 minimum)" for `src-tauri/src/aligner/evidence/`, capped at **500** tokei code lines and subtracted from the conductor row (`aligner/`) and so from "everything else". The conductor row stays at 1,200: the changes to `aligner/mod.rs` must fit its 12 free lines, so the replaced next-slide code is deleted rather than kept. No other budget changes. Tests in `src-tauri/tests/` are not counted.
+9. **Measurement.** Before: the table above. After: `voxxa-eval` in replay on every fixture, and full mode where a log is re-recorded. A fixture whose setlist gains `sections` must have its `session.jsonl` re-recorded with `voxxa-eval --full --record` (its fingerprint changes); logs whose setlist does not change replay unchanged, with `evidence` defaults filled in. Results, per fixture, go to `.10x/reviews/2026-11-13-q6-before-after.md`; `baseline.json` is tightened wherever a metric improved and never loosened.
+10. **Out of scope:** the next song as a candidate, adapter `current()` re-sync, `advance`/`prev` translation for adapters without `goto`, Q5-04 (song detection on the 40-word buffer after an opening prayer), blank timing (Q4-03), any `SmartConfig` default other than the new `evidence` values, any GUI change, new crates, sockets.
+
+## Alternatives Considered
+| Alternative | Pros | Cons | Why Not |
+|---|---|---|---|
+| Write "ADR-009 deferred" | No code | Both limbs of the rule fail (1.67 per 10 songs; p95 11.23 s) | The prompt's rule |
+| Keep next-slide matching, shrink the 40-word buffer after an advance (Q4-04's other fix) | A few lines | Cannot follow a repeated chorus or a jump; the refrain and jump fixtures stay at recall 0.50 and 0.25 | ADR-009 already rejected it |
+| Score each candidate on the whole 12-word window (a suffix-anchored or plain LCS ratio) | Simpler formula | Words of the old verse still in the window keep voting for the old slide, which is Q4-04 again on a smaller scale; a hand calculation on the prayer-between-songs transcripts (Holy, Holy, Holy into verse 2) keeps verse 1 one transcript longer | The incremental share (Decision 3) counts only new words |
+| Score on the newest transcript alone | Fastest | 4-6 words; a repeated phrase ("holy, holy, holy") matches every slide, and context cannot break ties | The window gives context to the alignment |
+| Character LCS (`partial_ratio`) on tokens joined back into text | Reuses code as is | Short strings score high against anything; a misheard word costs letters, not a word | Word tokens |
+| Unnormalised accumulator (`E ← decay·E + prior·s`) | One fewer multiply | Steady state depends on decay, so the threshold and decay cannot be tuned separately | Normalised: steady state = prior × score |
+| Labels per slide (`slides[].kind`) instead of `sections[]` | Simpler to import | The prompt names `sections[].kind`; a section can span slides | Prompt |
+| A version key (`"v":2`) for setlists with sections | Explicit | Breaks every reader for an optional field | Optional field, ignored by old readers |
+| Edit `manual_step` to notify the tracker | Explicit | Touches code the prompt keeps untouched | The tracker sees the position change itself (Decision 4) |
+| Raise the conductor row instead of a new one | One row | ADR-010: budgets only go down; user decision 3 | New 500 row |
+| Full OLTW/DTW acoustic alignment | Best published accuracy | No library; heavy | ADR-009's escalation path |
+
+## Consequences
+### Positive
+- Repeated choruses, jumps to a verse or bridge, and returns to an earlier verse are ordinary `goto`s, with no change to dispatch, adapters, the GUI or the event schema.
+- Old setlists, session logs and GUI settings load unchanged; replay of an old log uses today's evidence defaults.
+- Every number is one `EvidenceConfig` value, recorded in each session log's start line.
+### Negative
+- More state in the conductor (a 12-word window, one value per slide of the current song, a resume slide and an excluded slide).
+- Two `SmartConfig` fields (`slide_advance_debounce_ms`, `advance_margin`) are kept but unused, for wire compatibility.
+- Labels help only when a setlist carries them; no importer writes `sections` yet, so in the GUI every song is unlabelled (every slide a section start, no chorus prior).
+- The numbers are tuned on five synthetic, spoken fixtures (one voice each, no music). They may not transfer to singing; real recordings (Q5-01) must re-check them.
+### Risks
+- **Latency is still bounded by the recogniser.** The first transcript of a new verse arrives 1-3 s after it starts at file speed and later live (Q4-02); a jump needs two transcripts. p95 ≤ 2.5 s may stay out of reach on these fixtures whatever the conductor does.
+- **The per-fixture latency gate can read a recall gain as a regression.** A fixture whose only hit was fast (jump: one hit at 900 ms) gets slower hits added when the conductor follows the jump; its median and p95 can rise even though nothing got worse for the room. The before/after review must say so per fixture.
+- **Wrong labels mislead the priors.** A setlist that marks a verse as a chorus raises that slide's prior; the word score still has to agree.
+
+## Dependencies
+- Depends on ADR-009 (the design), ADR-013 (replay, fingerprint, `SmartConfig` in the start line), ADR-014 (the stitched transcript cadence), ADR-015 (the eval and the baseline rules), ADR-010 D3 (budget rows).
+- Constrains importers that later read section labels (OpenSong `[V1]`/`[C]`, ChordPro, OpenLyrics) and the GUI if it ever shows them.
+
+## Review trigger
+Re-open when real recordings replace the stand-ins (re-tune the numbers), when an importer starts writing `sections`, if the evidence row needs more than 500 lines, or if the pilot shows more than 1 false advance per 10 songs (then ADR-009's escalation path).
