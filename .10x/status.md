@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q5 (`voxxa-eval` and the first fixtures) implemented on `q5/base` (code head c10e963, 2026-11-13). Verifier B's round-3 survivors that blocked the merge (Q5-08, Q5-09, and Q5-10's M52 and M55) are closed with tests in 5858872, each checked against its mutant by the orchestrator; M57 and M68 deferred with a recorded reason (Q5-10). Next, by the orchestrator: CI + PR + CI-gate proof + merge; then Q6 (conductor against the budget). Q4 merged into `main` (PR #58, 571cf0d).
+**Current Phase:** Q6 in progress (2026-11-13): conductor against the budget (synthetic PD fixtures, then the go/no-go decision, then the deferral ADR or ADR-009's minimum), branch `q6/base`. Q5 complete and merged into `main` (PR #72, 69f7d27).
 **Last Updated:** 2026-11-13 by 10x-team orchestrator
 **Health:** On Track
 
@@ -118,15 +118,15 @@
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
 - [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
 - [x] Q4 close-out (orchestrator): PR #58 CI green (5/5 jobs at 2807ed7); merged into `main` as 571cf0d; 13 Q4 tickets filed as #59–#71 (label `q4`); #46 and #52 closed.
-- [ ] **Q5 close-out (orchestrator). Do not merge before step 2.**
+- [x] **Q5 close-out (orchestrator).**
   1. [x] Tests for Q5-08 (M65), Q5-09 (M66) and Q5-10's M52 and M55 added in 5858872 (test-only); each mutant applied by hand fails `cargo test --test voxxa_eval` (26 tests). M57 and M68 deferred with a reason (Q5-10).
   2. [x] The orchestrator re-ran the four mutants (all killed) and all 7 gates plus the CI eval step.
   3. [x] `q5/base` pushed; draft PR #72; CI green on all 5 jobs at b670607 (run 43468103792), including the eval step's first Linux and macOS run.
   4. [x] Gate proven in real CI: d42e6ce set `total.p95_ms` to 1000; run 43469439549 failed on all three OSes at `cargo test` (`replay_of_the_committed_fixtures_passes_the_baseline`: "FAIL total: p95_ms is 8900, baseline needs <= 1000"; the eval step was skipped after the failed test step); reverted in bdf680f.
-  5. [ ] Merge into `main` when CI is green on the final head. Done already: 9 open Q5 tickets filed as #73–#81 (label `q5`); Q5 numbers added to #61 (Q4-03) and #62 (Q4-04).
+  5. [x] Merged into `main` as 69f7d27 (PR #72; CI green on all 5 jobs at 65b3405, run 43471805675); 9 open Q5 tickets filed as #73–#81 (label `q5`); Q5 numbers added to #61 (Q4-03) and #62 (Q4-04).
 
   The user pre-approved the push, PR, CI fixes, gate proof, merge and filing (handoff, "User decisions for Q5").
-- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 implemented on `q5/base` (c10e963), merge on hold; Q6 (conductor against the budget) next
+- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 (conductor against the budget) in progress
   - [x] 2026-11-13 Q5 verifier fixes on `q5/base`: every surviving mutant named by the verifier is now killed by a test (song not compared, false advance lowering recall, EARLY_MS 999 and `<=`→`<`, the total row's false/double sums, unblank not resetting the blank, a failing `voxxad` read as success); a metric with a value but no threshold now fails the gate (ADR-015 D8 amended); voxxa-eval exits 2 when `voxxad` ran in the wrong mode (a replay that ran Whisper); both session logs re-recorded with the final `--full --record` (only the start line's `log` field changed).
   - [x] 2026-11-13 Q5 second verifier pass on `q5/base`: tests now kill the round-2 survivors: M42 (main.rs checking only the total row; a binary-level test breaks only per-fixture thresholds and needs both FAIL lines and no FAIL total), M25/M26 (one metric's comparison reversed), M37 (the table's count cells) and M47/M48 (the audio recipe's 16 kHz mono 16-bit check and header byte rate). Each test was run against its mutant and fails. No product code changed; voxxa_eval tests 23 to 26.
   - [x] 2026-11-13 Q5 verifier round 3 at c10e963: verifier A passed; verifier B failed on six surviving mutants (Q5-08 … Q5-10). The four that mattered were closed with tests in 5858872 (orchestrator, checked against each mutant); M57 and M68 deferred (Q5-10).

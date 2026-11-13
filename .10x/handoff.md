@@ -1,18 +1,18 @@
 # Current Handoff
 
-## User decisions for Q5 (2026-11-13, before the unattended run)
-- **Fixtures:** there are no founder recordings yet. Q5 builds its two fixtures from the committed public-domain WAVs (spoken, synthetic Amazing Grace v1/v2 and the prayer in `src-tauri/tests/fixtures/voxxad/`). `fixtures/SOURCES.md` labels them as stand-ins; a Q5 ticket tracks replacing them with the founder's two public-domain hymn recordings. No new audio is committed: `fixtures/` holds only JSON, `README.md` and `SOURCES.md`, and each fixture's audio is rebuilt reproducibly from the committed WAVs.
-- **CI gate:** CI has no Whisper model. Each fixture commits a recorded hypothesis log (voxxad session JSONL from a Whisper Tiny run). The CI job replays it (`voxxad --replay`, no recognizer, no audio), scores the actions against `truth.jsonl` and fails when a metric is worse than `fixtures/baseline.json`. The full mode (`voxxad --stdin-audio --shadow`, real model) runs locally and can re-record the logs.
-- **Line budget:** one new recorded row, "voxxa-eval (src/bin/voxxa-eval*)", capped at **600** and excluded from "everything else". No other budget is raised.
-- **Pre-approved:** push `q5/base`, open a draft PR against `main`, add the eval job to `.github/workflows/ci.yml` and fix CI forward; prove the CI gate in real CI with a deliberately broken threshold (then revert); merge into `main` once Q5's exit criteria are met and every CI job is green; file Q5 tickets as GitHub issues (label `q5`); agents may stop processes they started, by PID.
-- **ADR:** ADR-012 is still reserved for the cut list; Q5 writes ADR-015.
-- **QA mode** (as in Q2–Q4): no microphone, no keystroke dispatch; `--shadow`, `--replay` or `--presenter none` only; public-domain WAVs; `ggml-tiny.bin` is present.
+## User decisions for Q6 (2026-11-13, before the unattended run)
+- **ADR:** ADR-011 is taken and ADR-012 is reserved for the cut list; Q6 writes ADR-016 (the next free number after ADR-015).
+- **Evidence:** Q5's two fixtures are spoken stand-ins of one hymn. Q6 first adds 2–3 synthetic fixtures made with offline Windows text-to-speech (System.Speech, voices David and Zira, 16 kHz mono 16-bit, written to WAV files, never played) of public-domain hymns with a refrain or a jump (at least one repeated chorus and one jump), plus a prayer or silence between songs. The WAVs are committed beside the existing test WAVs (`src-tauri/tests/fixtures/voxxad/`), with setlist, `truth.jsonl` and the recorded Whisper Tiny replay log in the Q5 fixture layout, and labelled synthetic in `fixtures/SOURCES.md`.
+- **Line budget:** if ADR-009's minimum is built, its new modules go in one new recorded row, "conductor evidence (ADR-009 minimum)", capped at **500**, for a dedicated directory. The conductor row stays at 1200 (12 lines left): existing aligner files must not grow. No other budget is raised.
+- **Baseline:** `fixtures/baseline.json` may be tightened, never loosened; fixture replay logs may be re-recorded with Whisper Tiny when the change alters what the conductor hears (reason in the commit).
+- **Pre-approved:** push `q6/base`, open a draft PR against `main`, fix CI forward; merge once Q6's exit criteria are met (a decision file and before/after numbers; the eval not worse on any fixture) and every CI job is green; file Q6 tickets as GitHub issues (label `q6`); agents may stop processes they started, by PID.
+- **QA mode** (as in Q2–Q5): no microphone, no keystroke dispatch; `--shadow`, `--replay` or `--presenter none` only; public-domain text only; `ggml-tiny.bin` is present.
 
 ---
 
 ## From: Q5 → To: Q6 (conductor against the budget)
 **Date:** 2026-11-13
-**Phase:** Phase 4 Implementation done on `q5/base` (code head **c10e963**, plus the state commit). **Not merged: verifier B failed in round 3.** The orchestrator first closes Q5-08 and Q5-09 (and Q5-10's M52 and M55) with tests and has a verifier confirm them, then pushes, opens the PR, proves the CI gate in real CI, merges (all pre-approved) and files the tickets. Q6 starts from `main` after that merge.
+**Phase:** Phase 4 Implementation done; merged into `main` (PR #72, 69f7d27) after the orchestrator closed Q5-08, Q5-09 and Q5-10's M52/M55 with tests (5858872) and proved the CI gate in real CI (run 43469439549, reverted in bdf680f). Q5 tickets filed as #73–#81. → Q6
 
 ### What Q5 did
 - Added `voxxa-eval` (`src-tauri/src/bin/voxxa-eval/`: `main.rs`, `score.rs`, `audio.rs`), a third binary that runs the `voxxad` beside it as a subprocess and scores its `action` lines against an operator's `truth.jsonl`. Design: ADR-015 (Accepted; Decision 8 amended at Q5 close).
