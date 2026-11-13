@@ -297,3 +297,35 @@ The verifier found three failures in real runs (Whisper Tiny, `--shadow`, file s
 **Inference per hop (Whisper Tiny, 5 s window, 4-core PC, debug build):** 1777-1896 ms per decode (9 hops of the real-model 10 s WAV test, which passed: monotonic timestamps). Release was not re-measured (Q4-a still applies).
 
 **Known limits, not fixed:** the lyrics stay up for the first 5 s of a prayer (`unrecognized_speech_to_blank_secs`, by design; ADR-014 Risks amended). After a pause shorter than 5 s, a repeat of the words just before it can line up with them and be dropped (the stitcher's existing limit within speech). Q4-h is closed by 065b83f.
+
+## 2026-11-13 — Q4 final: Recognizer trait and streaming hop on `q4/base` (head a4bae0e)
+Process record: `reviews/2026-11-12-ponytail-q4.md`. Tickets: `reviews/2026-11-12-q4-tickets.md` (Q4-01 … Q4-13; they replace the letters Q4-a … Q4-i used above). Design: ADR-014 (Accepted, with dated notes of 2026-11-12 and 2026-11-13); ADR-013 amended.
+
+**What was built.**
+- **Trait** (`src-tauri/src/transcription/recognizer.rs`): `Recognizer { feed(&mut self, &[f32]) -> Vec<Hypothesis>; bias(&mut self, &str); gate(&mut self, bool) {} }` and `Hypothesis { words: Vec<(String, f32, f32)>, end, error }`. Word starts and `end` are absolute stream seconds.
+- **Whisper behind it:** `Rolling<D: Decode>` keeps the last 5 s of audio and decodes it at every 1 s hop while the gate is open. `TranscriptionEngine::words` uses `single_segment`, `no_context` and token timestamps; the word text comes from the whole segment (UTF-8 safe), the start from each word's first token. `initial_prompt` comes from `bias()` only when `bias_enabled` is on (off by default; `voxxad --bias`).
+- **Hop loop** (`src-tauri/src/listen.rs`): the 5 s batch is gone. Per chunk: tick, mic level, VAD, gate, `feed`.
+  - **Gate:** open only when the VAD heard speech in the last second and the loop is at most one hop behind the audio. Behind, hops are skipped, never caught up; at file speed the lag is always 0, so runs are deterministic.
+  - **`window` line:** every decoded hop is logged with its whole text (session log only; replay skips it). At file speed that is one line per 1000 ms of speech.
+  - **Stitcher:** the words a window shares with earlier windows are lined up by text and dropped; new words are held until there are 4 and then go to the conductor as one `hypothesis` line (every 1-3 s of speech). The words heard are kept across a pause shorter than 5 s.
+  - After each goto the loop calls `bias(slide text + next slide text)`.
+- **Conductor** (API unchanged; three behaviour fixes for the faster cadence, all recorded in ADR-014): blank after 5 s of unmatched transcripts instead of after two in a row (2bdd2b9); the same rule also on a tick while speech goes on (b2b8d0b); no goto to the slide still showing after inter-verse silence (613b894, closes Q3-08 / #52).
+- **GUI** (Q3-02 / #46, closed): `commands::gui_event` is a pure mapping and `commands::gui_sink` forwards it through injected `emit` and `send` closures; 10 tests in `tests/gui_events.rs`. The GUI's only visible change is the cadence: a `transcription` event every 1-3 s of speech instead of every 5 s. `src/`, `index.html` and `stage.html` are untouched.
+- **voxxad:** `--bias` (refused with `--replay`); flags moved to `src/bin/voxxad/cli.rs`; the `window` line; the speech line is written before any later line, so session-log `t` never decreases.
+- **Fixtures:** `session-pd-hymns.jsonl` re-recorded (user decision 3; last in 85e57a5); `amazing-grace-v2.wav` (10.3 s, the 10 s WAV test) and `prayer.wav` (8.1 s) added; all public-domain text or synthetic speech.
+- **Tests:** 142 (55 unit, 32 of them aligner; 87 integration: `voxxad_events` 31, `recognizer` 11 including the real-model 10 s WAV test, `dispatch` 12, `gui_events` 10). Only the real-model test needs `ggml-tiny.bin`, and it returns early without it.
+
+**Gates at a4bae0e (Windows 11, rustc 1.99.1):** all 7 pass, checked by the finisher and by both round-3 verifiers. Budgets: everything else 2,286/2,500; recognizer 432/700 (new row); conductor 1,188/1,200; voxxad 548/600; presenters 1,149/2,000; importers 1,362/1,600; GUI 2,951/3,000. No budget was raised.
+
+**Exit demo** (verifier A, Whisper Tiny, debug `voxxad`, file speed, `--shadow`, the 44.4 s service WAV): `window` lines at 4000-8000, 10000-15000, 17000-26000 and 31000-38000 ms; stitched `hypothesis` lines at 6000 8000 10000 11000 14000 18000 20000 23000 25000 32000 35000 36000; goto Amazing Grace/0 at 6000, goto Amazing Grace/1 at 25000, blank at 30600 (0.3 s into the prayer); nothing shown during the prayer; replay byte-identical on the action lines; the run is byte-identical to the committed fixture after the `start` line. Inference per hop: 1.8-1.9 s (debug, idle PC); release builds are unoptimised on Windows (Q4-01).
+
+**Deviations from the prompt.**
+- **Budget (user decision):** `transcription/` and all new recognizer code moved into one new row, "recognizer (transcription/ + recognizer code)", capped at **700** and excluded from "everything else" (which stays at 2,500). It is a recorded deviation from ADR-010 Decision 3, noted in `scripts/loc_budget.py` and ADR-014 Decision 9. The row sits at 432/700.
+- **Trait:** a provided `gate` method and the `end` and `error` fields on top of ADR-004's shape (ADR-014 Decision 1).
+- **Implemented on `Rolling<D>`,** not directly on `TranscriptionEngine`; `TranscriptionEngine` implements `Decode`. `transcribe` and `TranscriptionResult` were removed.
+- **"Hypotheses every second":** met by the `window` line (one per decoded hop); the conductor's `hypothesis` line comes every 1-3 s after stitching. With `--realtime`, `--device` and in the GUI a window is decoded every 2-5 s on the reference PC (the gate skips hops).
+- **Schema:** one new session-log-only type, `window` (7 of ADR-001's 8, additive in v1).
+- **Conductor:** ADR-014 Decision 10 put conductor changes out of scope; three blank and re-show fixes were made (above). The API did not change.
+- **Extras:** `voxxad --bias`; two WAV fixtures.
+
+**Debt (tickets).** Q4-01 release whisper.cpp unoptimised on Windows; Q4-02 a hop costs more than 1 s, so live decodes come every 2-5 s; Q4-03 blank timing unmeasured (lyrics up 5-7 s into a prayer); Q4-04 late advances in a new verse; Q4-05 scoring time per setlist size; Q4-06 stitcher edge cases; Q4-07 word-time clamp tested only with the real model; Q4-08 GUI glue closures untested; Q4-09 no-model path not checkable on Windows; Q4-10 slow debug tests; Q4-11 `--bias` leak and E6 unmeasured; Q4-12 unused VAD utterance buffer; Q4-13 rough word times, not logged.
