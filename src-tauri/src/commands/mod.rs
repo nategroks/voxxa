@@ -79,7 +79,7 @@ pub fn gui_event(event: Event) -> GuiEvent {
         }
         Event::Mic(level) => emit_json("mic-level", level),
         Event::Detection(rows) => emit_json("song-detection", DetectionEvent { rows }),
-        Event::Input(_) | Event::Error(_) => GuiEvent::Nothing,
+        Event::Input(_) | Event::Error(_) | Event::Window(_) => GuiEvent::Nothing,
     }
 }
 

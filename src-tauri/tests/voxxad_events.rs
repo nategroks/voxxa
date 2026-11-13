@@ -104,6 +104,15 @@ fn every_event_type_serialises_as_documented_and_round_trips() {
             Line::new(180, Kind::Speech),
             r#"{"v":1,"t":180,"type":"speech"}"#,
         ),
+        (
+            Line::new(
+                3000,
+                Kind::Window {
+                    text: "Amazing grace how sweet".into(),
+                },
+            ),
+            r#"{"v":1,"t":3000,"type":"window","text":"Amazing grace how sweet"}"#,
+        ),
     ];
     for (line, wire) in cases {
         assert_eq!(line.to_json(), wire);
@@ -116,9 +125,11 @@ fn every_event_type_serialises_as_documented_and_round_trips() {
 }
 
 #[test]
-fn only_tick_and_speech_stay_out_of_stdout() {
+fn only_tick_speech_and_window_stay_out_of_stdout() {
     assert!(!Line::new(0, Kind::Tick).on_stdout());
     assert!(!Line::new(0, Kind::Speech).on_stdout());
+    let text = "amazing grace".to_string();
+    assert!(!Line::new(0, Kind::Window { text }).on_stdout());
     assert!(Line::new(0, Kind::Action(Act::Blank)).on_stdout());
     assert!(Line::new(0, status("start", None)).on_stdout());
     let text = "x".to_string();
@@ -1347,4 +1358,44 @@ fn shadow_never_connects_to_the_presenter() {
     let message = error(args(false));
     assert!(message.starts_with("presenter:"), "{message}");
     assert!(hang_up.join().unwrap());
+}
+
+/// ADR-014 exit criterion: the session log has one `window` line per
+/// decoded hop, at the hop's time, so the log shows what the recogniser
+/// heard every second of speech even while the stitcher holds words back.
+/// Window lines are not conductor inputs: replay gives the same outputs
+/// with or without them.
+#[test]
+fn every_decoded_hop_is_one_window_line_in_the_session_log() {
+    let audio = service();
+    let hops = hops_with_speech(&audio);
+    // Every window hears the same words, so the stitcher hands on only the
+    // first hop after each pause (it is cleared when the gate closes).
+    let same = "Amazing grace how sweet the sound";
+    let heard = listen_with(songs(), &audio, |_| Ok(same.into()), |_, _| {});
+    assert_eq!(heard.windows.len(), hops.len());
+    let lines: Vec<Line> = (heard.log.lines())
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    let window_at: Vec<u64> = (lines.iter())
+        .filter(|l| matches!(&l.kind, Kind::Window { text } if text == same))
+        .map(|l| l.t)
+        .collect();
+    // That is every whole second of audio with VAD speech in the second
+    // before it: 1000 ms apart while the VAD hears speech.
+    assert_eq!(window_at, hops);
+    assert!(hops.len() >= 15, "{hops:?}");
+    let hypotheses = (lines.iter())
+        .filter(|l| matches!(l.kind, Kind::Hypothesis { .. }))
+        .count();
+    let pauses = window_at.windows(2).filter(|w| w[1] - w[0] > 1000).count();
+    assert_eq!(hypotheses, 1 + pauses, "{window_at:?}");
+
+    let without: String = (heard.log.lines())
+        .filter(|l| !l.contains(r#""type":"window""#))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    let out = |log: &str| replay(log, songs()).unwrap();
+    assert_eq!(out(&heard.log), out(&without));
+    replay_agrees(&heard.log, songs());
 }

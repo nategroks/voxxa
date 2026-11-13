@@ -43,6 +43,9 @@ pub enum Event {
     Detection(Vec<DetectionRow>),
     /// The recogniser failed on one hop; the loop goes on.
     Error(String),
+    /// The whole text of one decoded hop's window, before stitching. Not a
+    /// conductor input: the stitched `Input::Heard` that may follow is.
+    Window(String),
 }
 
 const TICK_EVERY: Duration = Duration::from_millis(200);
@@ -165,6 +168,8 @@ pub fn run(
                 sink(now, Event::Error(e));
                 continue;
             }
+            // One line per decoded hop, whatever the stitcher holds back.
+            sink(now, Event::Window(hypothesis.text()));
             // What this hop adds; this text is logged and applied, so
             // replay needs no recogniser.
             let Some(text) = stitcher.next(&hypothesis.words) else {

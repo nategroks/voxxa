@@ -117,6 +117,7 @@ fn inputs_other_than_hypotheses_and_errors_show_nothing() {
         Event::Input(Input::Tick),
         Event::Input(Input::Speech),
         Event::Error("whisper failed".into()),
+        Event::Window("amazing grace how sweet the sound".into()),
     ] {
         assert!(matches!(gui_event(event), GuiEvent::Nothing));
     }
