@@ -175,7 +175,9 @@ impl Tracker {
         if best == current || !may_move || e_best < cfg.threshold || e_best < e_now + cfg.margin {
             return None;
         }
-        log::info!("[EVIDENCE] slide {current} -> {best}: {e_now:.2} -> {e_best:.2}");
+        log::info!(
+            "[EVIDENCE] song {song_index}: slide {current} -> {best}: {e_now:.2} -> {e_best:.2}"
+        );
         self.entered(song, current, best);
         self.at = Some((song_index, best));
         self.left = None;

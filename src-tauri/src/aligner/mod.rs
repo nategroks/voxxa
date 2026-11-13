@@ -584,7 +584,6 @@ impl Conductor {
         self.last_advance = Some(now);
         self.is_blank = false;
         self.transition(MachineState::Singing, now);
-        log::info!("[CONDUCTOR] song {song}: slide {from} -> {to}");
         self.goto_action_for_current().unwrap_or(Action::Noop)
     }
 
