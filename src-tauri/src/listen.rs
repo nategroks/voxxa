@@ -54,6 +54,9 @@ const MIC_EMIT_EVERY: Duration = Duration::from_millis(33);
 /// The recogniser decodes only after speech within this much audio, and not
 /// while the loop is more than this far behind the audio (ADR-014).
 const HOP: Duration = Duration::from_secs(1);
+/// `Rolling`'s window: after this much silence no window holds a word from
+/// before it.
+const WINDOW: Duration = Duration::from_secs(5);
 
 /// Run until `run` clears (a stop: returns false) or the audio channel closes
 /// while `run` is still set (device loss or end of file: returns true).
@@ -155,9 +158,10 @@ pub fn run(
         }
         // Decode only after speech in the last hop, and skip hops (never
         // catch up) while more than a hop behind.
-        let recent = spoke_at.is_some_and(|at| Duration::from_millis((received - at) / 16) < HOP);
+        let silent = Duration::from_millis((received - spoke_at.unwrap_or(0)) / 16);
+        let recent = spoke_at.is_some() && silent < HOP;
         if !recent {
-            stitcher.pause(spoke_at.unwrap_or(0) as f32 / 16000.0);
+            stitcher.pause(spoke_at.is_none() || silent >= WINDOW);
         }
         recognizer.gate(recent && lag.saturating_sub(caught_up) <= HOP);
         for hypothesis in recognizer.feed(&samples) {

@@ -73,16 +73,12 @@ pub struct Stitcher {
     heard: Vec<Word>,
     /// New words not yet handed on.
     held: Vec<Word>,
-    /// Stream seconds of the last speech before the latest pause: words
-    /// that start before it were heard before the pause.
-    after: f32,
 }
 
 impl Stitcher {
     /// The text to hand the conductor for one hypothesis's words, or `None`
     /// while fewer than [`MIN_WORDS`] new words are held.
     pub fn next(&mut self, words: &[Word]) -> Option<String> {
-        let words = &words[words.partition_point(|w| w.1 < self.after)..];
         let new = &words[overlap(&self.heard, words)..];
         self.heard.extend_from_slice(new);
         self.heard.drain(..self.heard.len().saturating_sub(KEEP));
@@ -94,15 +90,16 @@ impl Stitcher {
         Some(text.join(" "))
     }
 
-    /// Forget everything after silence: the next hypothesis is all new but
-    /// for its words that start before `at` (stream seconds, the last
-    /// speech before the pause), which a window still holds and which were
-    /// heard before it. Fewer than [`MIN_WORDS`] held words, which the
-    /// conductor would not read, are dropped.
-    pub fn pause(&mut self, at: f32) {
-        self.heard.clear();
+    /// After silence: fewer than [`MIN_WORDS`] held words, which the
+    /// conductor would not read, are dropped. The words heard are kept
+    /// while the next window may still hold some of them, so they are not
+    /// handed on again; `forget` (the silence outlasted a window) clears
+    /// them too, and a repeat is new again.
+    pub fn pause(&mut self, forget: bool) {
         self.held.clear();
-        self.after = at;
+        if forget {
+            self.heard.clear();
+        }
     }
 }
 

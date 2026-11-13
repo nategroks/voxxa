@@ -172,25 +172,28 @@ fn the_stitcher_hands_on_only_the_words_a_window_adds() {
     // A window with nothing new gives nothing.
     let fourth = timed("sound that saved a wretch like", 2.5, 0.4);
     assert_eq!(s.next(&fourth), None);
-    // After silence the stitcher forgets: a repeat is new again.
-    s.pause(4.5);
-    let repeat = timed("sound that saved a wretch like", 6.0, 0.4);
+    // After a silence longer than a window the stitcher forgets: a repeat
+    // is new again.
+    s.pause(true);
     assert_eq!(
-        s.next(&repeat).as_deref(),
+        s.next(&fourth).as_deref(),
         Some("sound that saved a wretch like")
     );
-    // Held words do not outlive a silence.
-    s.pause(9.5);
+    // Held words do not outlive a silence, short or long.
+    s.pause(false);
     assert_eq!(s.next(&timed("me", 9.0, 0.4)), None);
-    s.pause(10.5);
-    assert_eq!(s.next(&timed("I once was", 11.0, 0.4)), None);
+    s.pause(true);
+    assert_eq!(s.next(&timed("I once was", 10.0, 0.4)), None);
 }
 
-/// Verifier round 2: after a pause the next window still holds words
-/// spoken before it. They were heard (or dropped as too few) before the
-/// pause, so they are not handed on again; only what follows the pause is.
+/// Verifier round 2 (Whisper Tiny, verse 2, a 2 s pause, a prayer): the
+/// first window after the pause still held "hour I first believed." from
+/// before it. After a pause shorter than a window the words heard are
+/// kept, so those are recognised as heard and only what follows is new.
+/// (Word times cannot tell them apart: after a pause Whisper timed new
+/// words seconds early, into the silence.)
 #[test]
-fn words_from_before_a_pause_are_not_handed_on_again() {
+fn words_from_before_a_short_pause_are_not_handed_on_again() {
     let mut s = Stitcher::default();
     let verse = timed(
         "how precious did that grace appear the hour I first",
@@ -198,10 +201,10 @@ fn words_from_before_a_pause_are_not_handed_on_again() {
         0.4,
     );
     assert!(s.next(&verse).is_some());
-    // "believed" ends the verse at 10 s; the VAD last heard speech at 10.3 s.
-    s.pause(10.3);
-    let mut window = timed("hour I first believed", 8.8, 0.4);
-    window.extend(timed("let us bow our heads", 12.0, 0.3));
+    // "believed" ends the verse, and is held: one word.
+    assert_eq!(s.next(&timed("the hour I first believed", 8.0, 0.4)), None);
+    s.pause(false);
+    let window = timed("hour I first believed let us bow our heads", 8.4, 0.3);
     assert_eq!(s.next(&window).as_deref(), Some("let us bow our heads"));
 }
 

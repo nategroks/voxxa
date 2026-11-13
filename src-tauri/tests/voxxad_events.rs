@@ -496,9 +496,7 @@ struct Heard {
 }
 
 /// A decoder told the number (0, 1, ...) of the window it is given; it
-/// hears the answer's words spread over the window's last second, the
-/// audio its hop added (words timed before a pause would be dropped as
-/// heard before it).
+/// hears the answer's words 0.3 s apart from the window's start.
 struct Numbered<F> {
     answer: F,
     windows: Vec<usize>,
@@ -508,12 +506,8 @@ impl<F: FnMut(usize) -> anyhow::Result<String>> Decode for Numbered<F> {
     fn decode(&mut self, window: &[f32], _: Option<&str>) -> anyhow::Result<Vec<Word>> {
         self.windows.push(window.len());
         let text = (self.answer)(self.windows.len() - 1)?;
-        let (secs, n) = (
-            window.len() as f32 / 16000.0,
-            text.split_whitespace().count(),
-        );
         Ok((text.split_whitespace().enumerate())
-            .map(|(i, w)| (w.to_string(), secs - 1.0 + i as f32 / n as f32, 0.9))
+            .map(|(i, w)| (w.to_string(), i as f32 * 0.3, 0.9))
             .collect())
     }
 }
@@ -1041,6 +1035,8 @@ fn a_short_prayer_after_a_pause_blanks_and_no_slide_is_shown_twice() {
         let mut words = spread(&verses()[1], 1.2, 10.2);
         words.extend(spread("Let us bow our heads and pray.", p + 0.1, p + 1.8));
         words.extend(spread("Father, we thank you for this", p + 2.9, p + 4.5));
+        let key = |w: &str| w.to_lowercase().replace(['.', ','], "");
+        let said: Vec<String> = words.iter().map(|(w, _)| key(w)).collect();
         let fed = std::rc::Rc::new(std::cell::Cell::new(0));
         let scripted = Scripted {
             words,
@@ -1051,6 +1047,16 @@ fn a_short_prayer_after_a_pause_blanks_and_no_slide_is_shown_twice() {
             fed,
         };
         let (events, log, _) = listen_with_recognizer(songs(), &audio, &mut recognizer, |_, _| {});
+        // The conductor hears each word once, in order: what it hears is a
+        // subsequence of the script, so no word from before the pause twice.
+        let mut script = said.iter();
+        for (_, e) in &events {
+            if let Event::Input(Input::Heard(text)) = e {
+                for w in text.split_whitespace() {
+                    assert!(script.any(|s| *s == key(w)), "gap {gap}: {w} again");
+                }
+            }
+        }
         let actions = actions_of(&events);
         let names: Vec<&str> = actions.iter().map(|(_, a)| a.as_str()).collect();
         assert_eq!(names, ["goto 0/1", "blank"], "gap {gap}: {actions:?}");
@@ -1493,10 +1499,12 @@ fn shadow_never_connects_to_the_presenter() {
 /// with or without them.
 #[test]
 fn every_decoded_hop_is_one_window_line_in_the_session_log() {
-    let audio = service();
+    // The service, its 12 s of silence, then a third verse.
+    let audio = [service(), wav_16k_mono(SPEECH_WAV)].concat();
     let hops = hops_with_speech(&audio);
-    // Every window hears the same words, so the stitcher hands on only the
-    // first hop after each pause (it is cleared when the gate closes).
+    // Every window hears the same words, so the stitcher hands them on
+    // twice: at the first hop, and after the silence longer than a window
+    // (it forgets what it heard). Across the shorter pauses it keeps them.
     let same = "Amazing grace how sweet the sound";
     let heard = listen_with(songs(), &audio, |_| Ok(same.into()), |_, _| {});
     assert_eq!(heard.windows.len(), hops.len());
@@ -1514,8 +1522,10 @@ fn every_decoded_hop_is_one_window_line_in_the_session_log() {
     let hypotheses = (lines.iter())
         .filter(|l| matches!(l.kind, Kind::Hypothesis { .. }))
         .count();
-    let pauses = window_at.windows(2).filter(|w| w[1] - w[0] > 1000).count();
-    assert_eq!(hypotheses, 1 + pauses, "{window_at:?}");
+    let long = window_at.windows(2).filter(|w| w[1] - w[0] > 5000).count();
+    let short = window_at.windows(2).filter(|w| w[1] - w[0] > 1000).count();
+    assert!(long == 1 && short > long, "{window_at:?}");
+    assert_eq!(hypotheses, 1 + long, "{window_at:?}");
 
     let without: String = (heard.log.lines())
         .filter(|l| !l.contains(r#""type":"window""#))
