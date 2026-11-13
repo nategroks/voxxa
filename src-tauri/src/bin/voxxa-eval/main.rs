@@ -74,8 +74,10 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
         let setlist = dir.join("setlist.json");
         let songs = serde_json::from_str::<Setlist>(&read(&setlist)?)
             .map_err(|e| format!("{}: {e}", setlist.display()))?;
-        let titles: Vec<String> = songs.setlist.into_iter().map(|s| s.title).collect();
-        let truth = score::parse_truth(&read(&dir.join("truth.jsonl"))?, &titles)
+        let songs: Vec<_> = (songs.setlist.into_iter())
+            .map(|s| (s.title, s.slides.len()))
+            .collect();
+        let truth = score::parse_truth(&read(&dir.join("truth.jsonl"))?, &songs)
             .map_err(|e| format!("{name}: {e}"))?;
         let stdout = if full {
             run_full(dir, &setlist, record)?

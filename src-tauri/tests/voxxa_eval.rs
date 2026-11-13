@@ -197,13 +197,16 @@ fn the_baseline_check_names_each_worse_metric_and_refuses_unknown_names() {
 #[test]
 fn truth_reads_indices_titles_and_blanks_and_skips_recorder_metadata() {
     let text = r#"{"t_ms":0,"event":"start","device":"x","song":"Amazing Grace"}
-{"t_ms":1000,"song":"Amazing Grace","slide":0}
+{"t_ms":1000,"song":"amazing grace","slide":0}
 {"t_ms":2000,"song":1,"slide":3}
 
 {"t_ms":3000,"blank":true}
 {"t_ms":4000,"event":"stop"}"#;
-    let titles = ["Be Thou My Vision".to_string(), "Amazing Grace".into()];
-    let rows = parse_truth(text, &titles).unwrap();
+    let songs = [
+        ("Be Thou My Vision".to_string(), 4),
+        ("Amazing Grace".into(), 4),
+    ];
+    let rows = parse_truth(text, &songs).unwrap();
     let want = [
         At {
             t: 1000,
@@ -222,7 +225,22 @@ fn truth_reads_indices_titles_and_blanks_and_skips_recorder_metadata() {
         r#"{"t_ms":1,"blank":false}"#,
         "{\"t_ms\":5,\"blank\":true}\n{\"t_ms\":4,\"blank\":true}",
     ] {
-        assert!(parse_truth(bad, &titles).is_err(), "{bad}");
+        assert!(parse_truth(bad, &songs).is_err(), "{bad}");
+    }
+}
+
+#[test]
+fn a_truth_row_outside_the_setlist_is_an_error_naming_its_line() {
+    let songs = [("Amazing Grace".to_string(), 4)];
+    for (bad, want) in [
+        (
+            "{\"t_ms\":1,\"song\":0,\"slide\":0}\n{\"t_ms\":2,\"song\":0,\"slide\":4}",
+            "truth line 2: {\"t_ms\":2,\"song\":0,\"slide\":4}: no slide 0/4",
+        ),
+        (r#"{"t_ms":1,"song":1,"slide":0}"#, "no slide 1/0"),
+    ] {
+        let e = parse_truth(bad, &songs).unwrap_err();
+        assert!(e.contains(want), "{e}");
     }
 }
 

@@ -238,11 +238,12 @@ pub fn check(row: &str, m: &Metrics, baseline: &Value) -> Vec<String> {
 }
 
 /// `truth.jsonl`: `{"t_ms":…,"song":…,"slide":…}` (the operator shows a
-/// slide; song as a 0-based index or a setlist title) or
+/// slide; song as a 0-based index or a setlist title, any ASCII case) or
 /// `{"t_ms":…,"blank":true}`. The slide row after a blank is the unblank.
 /// Lines with an `event` key are `record-session.ps1` metadata and are
-/// skipped.
-pub fn parse_truth(text: &str, titles: &[String]) -> Result<Vec<At>, String> {
+/// skipped. `songs` is the setlist's (title, slide count) per song; a song
+/// or slide outside it is an error naming the line.
+pub fn parse_truth(text: &str, songs: &[(String, usize)]) -> Result<Vec<At>, String> {
     let mut rows: Vec<At> = Vec::new();
     for (n, line) in text
         .lines()
@@ -262,10 +263,18 @@ pub fn parse_truth(text: &str, titles: &[String]) -> Result<Vec<At>, String> {
                 Cue::Slide(i.as_u64().ok_or_else(bad)? as usize, s)
             }
             (Value::Null, Value::String(title), Some(s)) => {
-                Cue::Slide(titles.iter().position(|x| x == title).ok_or_else(bad)?, s)
+                let song = songs
+                    .iter()
+                    .position(|(x, _)| x.eq_ignore_ascii_case(title));
+                Cue::Slide(song.ok_or_else(bad)?, s)
             }
             _ => return Err(bad()),
         };
+        if let Cue::Slide(song, s) = cue {
+            if songs.get(song).is_none_or(|&(_, n)| s >= n) {
+                return Err(format!("{}: no slide {song}/{s} in the setlist", bad()));
+            }
+        }
         if rows.last().is_some_and(|r| r.t > t) {
             return Err(format!("{}: t_ms goes back", bad()));
         }
