@@ -83,3 +83,10 @@ Full report: `reviews/2026-11-11-qa-report.md`; tickets: `reviews/2026-11-11-q2-
 
 ### Gates at the Q2 head (b09373d)
 All seven pass on Windows: 45 unit + 33 integration tests; budgets GUI 2951/3000, everything else 2489/2500 (11 lines of headroom, the next tight spot).
+
+## 2026-11-13 — Q5: `voxxa-eval` is the QA instrument for auto-advance (ADR-015)
+- **What it measures:** each fixture's `voxxad` actions against the operator's `truth.jsonl`: precision, recall, median/p95 latency, false advances per set, double advances (a goto to the slide already shown: the Q3-08 regression check), missed slides and blanks, false blanks, blank and unblank latency. Definitions: `fixtures/README.md` "Metrics" and ADR-015 Decision 6.
+- **Quality gate:** CI replays the committed session logs on Ubuntu, Windows and macOS and fails when any metric is worse than `fixtures/baseline.json` (exit 1, the failing metric named). It needs no model and no audio, so it measures the conductor; a recogniser change needs the logs re-recorded locally (`voxxa-eval --full --model tiny --record`).
+- **Proved locally:** replay passes the committed baseline; a scratch baseline with `per_set.recall_min` 0.9 and `total.latency_p95_ms_max` 2500 exits 1 with `FAIL standin-prayer-between: recall = 0.500, worse than min 0.9` and `FAIL total: latency_p95_ms = 7380, worse than max 2500`. `tests/eval.rs` holds the same proof (and the metric cases), so `cargo test` also guards the gate.
+- **Limits:** the two fixtures are stand-ins (synthetic speech, not singing; Q5-01). Use them to catch regressions, not to claim accuracy in a church. Latency is measured from action lines, not words (Q4-13). The tolerance (750 ms) assumes a human operator's reaction time.
+- **First numbers** (Whisper Tiny): precision 1.000, recall 0.750, latency median and p95 7.4 s, blank 6.1 s into a prayer, unblank 6.7 s; verse 1 after an opening prayer is never shown (Q5-04). Q6 tunes against these and tightens the baseline.

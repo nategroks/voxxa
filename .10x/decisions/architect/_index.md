@@ -77,3 +77,4 @@ The statements above were checked against the code at `f7b56e6`; the full log is
   - `fixtures/baseline.json` holds `_min`/`_max` thresholds in `per_set` and `total`; exit 1 names the failing metric; CI runs it as a step of the `check` job on all three OSes;
   - budget: a new 600-line "voxxa-eval" row, a recorded deviation from ADR-010 Decision 3.
 - **Boundaries unchanged:** no GUI change, no conductor change, no sockets, no new crates; the eval only ever passes `--shadow` or `--replay`.
+- **Built (Q5, `q5/10x`):** as decided; `voxxa-eval` 593/600; two stand-in fixtures; the CI step in the `check` job. First numbers (recall 0.750, latency p95 7.4 s, blank 6.1 s into a prayer) and the Q5-04 finding (a song after an opening prayer is not shown until its next verse): `decisions/sde/church-autoadvance.md` (Q5), tickets `reviews/2026-11-13-q5-tickets.md`.
