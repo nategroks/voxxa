@@ -8,7 +8,8 @@
         { "id": 2, "text": "Though Satan should buffet, though trials should come\nLet this blest assurance control\nThat Christ has regarded my helpless estate\nAnd hath shed His own blood for my soul" },
         { "id": 3, "text": "My sin, oh, the bliss of this glorious thought\nMy sin, not in part but the whole\nIs nailed to the cross, and I bear it no more\nPraise the Lord, praise the Lord, O my soul" },
         { "id": 4, "text": "And Lord, haste the day when my faith shall be sight\nThe clouds be rolled back as a scroll\nThe trump shall resound, and the Lord shall descend\nEven so, it is well with my soul" }
-      ]
+      ],
+      "sections": [{ "kind": "verse", "slides": [0] }, { "kind": "refrain", "slides": [1] }, { "kind": "verse", "slides": [2] }, { "kind": "verse", "slides": [3] }, { "kind": "verse", "slides": [4] }]
     },
     {
       "title": "Holy, Holy, Holy",

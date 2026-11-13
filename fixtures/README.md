@@ -149,18 +149,19 @@ The gate checks the full set; running on a subset changes the total row.
 
 ## The current fixtures
 
-All five are stand-ins built from committed public-domain WAVs (synthetic
+All six are stand-ins built from committed public-domain WAVs (synthetic
 speech, not singing; see `SOURCES.md`). Truth rows are at the first word of
-each part: for the two Q5 fixtures the start of the part plus 100 ms; for the
-three Q6 fixtures the synthesizer's own first-word position (below), which
-is also 100 ms into each of their WAVs.
+each part: for the Q5 fixtures (and `prayer-before-first-song`) the start of
+the part plus 100 ms; for the three Q6 TTS fixtures the synthesizer's own
+first-word position (below), which is also 100 ms into each of their WAVs.
 
 | Fixture | Shape | What it measures |
 |---|---|---|
 | `prayer-then-reprise` | 2 s silence, Amazing Grace v1, 2 s, v2, 4 s, a prayer, 2 s, v2 again, 4 s; setlist order AG, BTMV, IIW; truth uses indices | blank after a pause (silence rule), unblank on the reprise, a late advance into v2 (Q4-04) |
 | `prayer-without-pause` | 1 s, v1, 1 s, v2, the prayer straight after, 6 s; setlist reordered (AG is song 1); truth uses titles, as the recorder writes them | blank during a prayer with no pause (Q4-03) |
-| `refrain-it-is-well` | Zira; 2 s, It Is Well v1, 1 s, refrain, 1.5 s, v2, 1 s, refrain, 1.5 s, v3, 1 s, refrain, 4 s (73.3 s); setlist IIW (v1, refrain, v2, v3, v4), HHH, BTMV; truth slides 0, 1, 2, 1, 3, 1 | a repeated chorus: the refrain is one slide shown three times, so the operator goes back to it after each verse |
+| `refrain-it-is-well` | Zira; 2 s, It Is Well v1, 1 s, refrain, 1.5 s, v2, 1 s, refrain, 1.5 s, v3, 1 s, refrain, 4 s (73.3 s); setlist IIW (v1, refrain, v2, v3, v4), HHH, BTMV; IIW carries section labels (`sections[].kind`: verse, refrain, verse, verse, verse; ADR-016), so its log was re-recorded in Q6; truth slides 0, 1, 2, 1, 3, 1 | a repeated chorus: the refrain is one slide shown three times, so the operator goes back to it after each verse |
 | `jump-be-thou-my-vision` | David; 2 s, Be Thou My Vision v1, 1.5 s, v3, 1.5 s, v4, 1.5 s, v1 again, 4 s (59.3 s); setlist BTMV, CTF, AG; truth slides 0, 2, 3, 0 | jumps: a skipped verse (v2) and a return to the first verse |
+| `prayer-before-first-song` | 1 s, the prayer, 2 s, Amazing Grace v1, the prayer straight after, 1 s, v2, 3 s (Q5-04's reproduction from the Q5 10x lane, commit 30e8990); setlist AG, BTMV, IIW; truth slide 0 at 11,200, blank at 23,200, slide 1 at 32,290 | an opening prayer before the first song (Q5-04: verse 1 was never shown) and a prayer between two verses |
 | `prayer-between-songs` | 2 s, Holy, Holy, Holy v1, 1.5 s, v2 (David), 1 s, a prayer (Zira), 2 s, Come Thou Fount v1, 1.5 s, v2 (Zira), 4 s (94.0 s); setlist HHH, CTF, IIW; truth song 0 slides 0, 1, blank, song 1 slides 0, 1 | a set: blank in a prayer with only a short breath before it, then the next song after the prayer (Q5-04) |
 
 ### Synthetic TTS fixtures
