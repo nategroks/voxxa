@@ -329,3 +329,41 @@ Process record: `reviews/2026-11-12-ponytail-q4.md`. Tickets: `reviews/2026-11-1
 - **Extras:** `voxxad --bias`; two WAV fixtures.
 
 **Debt (tickets).** Q4-01 release whisper.cpp unoptimised on Windows; Q4-02 a hop costs more than 1 s, so live decodes come every 2-5 s; Q4-03 blank timing unmeasured (lyrics up 5-7 s into a prayer); Q4-04 late advances in a new verse; Q4-05 scoring time per setlist size; Q4-06 stitcher edge cases; Q4-07 word-time clamp tested only with the real model; Q4-08 GUI glue closures untested; Q4-09 no-model path not checkable on Windows; Q4-10 slow debug tests; Q4-11 `--bias` leak and E6 unmeasured; Q4-12 unused VAD utterance buffer; Q4-13 rough word times, not logged.
+
+## 2026-11-13 — Q5: `voxxa-eval` and the first fixtures (ADR-015), merged on `q5/base`
+Two lanes built Q5 independently (`q5/10x`, `q5/ponytail`). The comparator chose the ponytail lane as the base: `q5/base` merges `q5/ponytail` (`--no-ff`), then takes grafts from the 10x lane and the ponytail review's fixes as separate commits. Design: ADR-015 (the 10x lane's ADR, with every Decision rewritten to match the merged code). Tickets: `reviews/2026-11-13-q5-tickets.md` (Q5-01 … Q5-05, Q5-07).
+
+**What was built.**
+- **`voxxa-eval`** (`src-tauri/src/bin/voxxa-eval/`, a third binary; 458/600 code lines):
+  - `main.rs`: flags (`--full`, `--record`, `--baseline`), fixture discovery (every folder in `fixtures/recordings`, or folders given as arguments), the `voxxad` beside it as a subprocess, the table, the gate. Replay (default): `voxxad --replay <fixture>/session.jsonl --setlist …`. `--full`: `audio.wav` rebuilt from `audio.json` into the fixture folder (git-ignored), then `voxxad --stdin-audio … --shadow --model tiny --log-dir .` with a temporary working folder; `--record` copies the session log as `session.jsonl` (its `log` path is relative, no user folder). Exit 0 pass, 1 a metric worse than the baseline, 2 an error.
+  - `score.rs` (pure, `serde_json` only): `score(truth, actions) -> Metrics` with spans `[t_i − 1000, t_{i+1} − 1000)`; precision, recall, nearest-rank median/p95, false and double advances, worst blank/unblank per row; truth parser (rows checked against the setlist's songs and slide counts; titles in any ASCII case) and action parser; the per-row threshold check; the plain-text table.
+  - `audio.rs`: the `audio.json` part list (silences and committed 16 kHz mono 16-bit WAVs, concatenated) and the WAV writer.
+  - Why a subprocess: replay and the WAV reader live in the `voxxad` binary, so the library route would copy them (ADR-015 Decision 1).
+- **Fixtures** (JSON only): `fixtures/recordings/prayer-then-reprise/` and `prayer-without-pause/`, each with `audio.json`, `setlist.json`, `truth.jsonl` (part start + 100 ms; the measured onset is 120-130 ms) and `session.jsonl` (Whisper Tiny, debug, file speed, `--shadow`). `fixtures/baseline.json` (thresholds), `fixtures/README.md` (running, `truth.jsonl`, exact metric definitions, baseline rules, recording a real fixture with the hand-added first slide and blank rows, privacy) and `fixtures/SOURCES.md` (stand-ins labelled as synthetic speech; real recordings replace them, Q5-01).
+- **CI:** step "voxxa-eval (fixtures vs baseline)" in the `check` job (Ubuntu, Windows, macOS), after `cargo test`, `working-directory: src-tauri`, `shell: bash`: `cargo build --bin voxxad --bin voxxa-eval && cargo run --bin voxxa-eval`. No model, no audio. `cargo test` also enforces the gate; the step keeps the table in the CI log.
+- **Budget:** `scripts/loc_budget.py` row "voxxa-eval (src/bin/voxxa-eval*)", cap 600, excluded from "everything else" (recorded deviation, ADR-015 Decision 11). No other row changed.
+- **Tests:** `src-tauri/tests/voxxa_eval.rs`, 19 tests: hand-computed metric cases (perfect run, missed slide, false advance, double advance, late advance, the span boundary at 11,999 vs 12,500 ms, a blank before anything is shown, blank and unblank timing, an unblank mid-prayer pinned as neither false nor double, an empty action list), nearest-rank percentiles, the total row, the table, the gate (failure lines, missing row, unknown name), the truth and action parsers (including a row outside the setlist), the recipe, and the binary on the committed fixtures (exit 0; exit 1 naming `p95_ms` with a broken scratch threshold).
+
+**Grafts and review fixes on `q5/base`** (each its own commit): truth rows checked against the setlist (10x pattern); `--full` in a temporary folder with `--log-dir .` instead of rewriting the absolute log path (10x); `shell: bash` on the CI step (10x); README recording steps (first slide row, blank rows, setlist format; 10x); the match window documented as the code has it (README, doc comment, ADR); replay vs `SmartConfig` documented (Q5-07); `unblank_ms` threshold 1,500 → 2,000 (the next 500 ms step strictly above the measurement); three new tests; ADR-015 and these records.
+
+**Measured (stand-ins, Whisper Tiny; replay gives the same table).**
+
+| Fixture | Precision | Recall | Latency median / p95 | False / double | Blank | Unblank |
+|---|---|---|---|---|---|---|
+| prayer-then-reprise | 1.00 | 1.00 | 2,900 / 8,900 ms | 0 / 0 | 200 ms (after a 4 s pause) | 1,500 ms |
+| prayer-without-pause | 1.00 | 1.00 | 2,900 / 8,900 ms | 0 / 0 | 6,600 ms into the prayer | (none: the prayer ends the set) |
+| total | 1.00 | 1.00 | 2,900 / 8,900 ms | 0 / 0 | 6,600 ms | 1,500 ms |
+
+- Q4-04 measured: the advance into verse 2 comes 8.9 s after it starts (Q6's budget is p95 ≤ 2.5 s).
+- Q4-03 measured: with no pause, the blank comes 6.6 s into a prayer.
+- From the 10x lane (Q5-04, verified by replay there and re-checked on `q5/base`): verse 1 after an opening prayer is never shown; the conductor keeps the prayer's words in its buffer before a song is committed.
+
+**Deviations.**
+- **Budget (user decision):** the new 600-line row, as above.
+- **Fixture folder:** `fixtures/recordings/<name>/`, the recording kit's folder, so a kit recording becomes a fixture in place.
+- **`truth.jsonl`:** the prompt's `{t_ms, song, slide}` plus `{"t_ms":…,"blank":true}`; `song` may be a title (the kit writes titles); the kit's `event` lines are skipped.
+- **`audio.json` recipe** instead of a committed or scripted `audio.wav` (user decision (1)).
+- **`--record` and `--baseline`** beyond the prompt, both optional.
+- **No GUI, conductor, `voxxad` or library change; no new crates.**
+
+**Debt.** Q5-01 stand-ins are synthetic speech; Q5-02 the kit has no blank key and no first-slide row; Q5-03 `voxxa-eval` may be bundled (with Q3-03); Q5-04 a song after an opening prayer is not shown (conductor, Q6; add the shape as a third fixture then); Q5-05 debug replay takes about 27 s per OS; Q5-07 replay cannot see a `SmartConfig` default change. Known gap (documented, tested): explicit `unblank` actions are not scored as false or double advances.
