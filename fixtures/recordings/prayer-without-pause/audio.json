@@ -1,0 +1,8 @@
+[
+  { "silence_ms": 1000 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/amazing-grace-v1.wav" },
+  { "silence_ms": 1000 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/amazing-grace-v2.wav" },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/prayer.wav" },
+  { "silence_ms": 6000 }
+]

@@ -65,6 +65,12 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
+      # Q5 / ADR-015: replay the committed fixture logs (no model, no audio)
+      # and fail when a metric is worse than fixtures/baseline.json.
+      - name: voxxa-eval (fixtures vs baseline)
+        working-directory: src-tauri
+        run: cargo build --bin voxxad --bin voxxa-eval && cargo run --bin voxxa-eval
+
   deny:
     name: cargo deny (licences, advisories)
     runs-on: ubuntu-latest
