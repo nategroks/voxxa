@@ -93,6 +93,10 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
             ];
             voxxad(&args, None)?
         };
+        // Only a recognizer run prints a start line; replay never does.
+        if stdout.contains(r#""state":"start""#) != full {
+            return Err(format!("{name}: voxxad did not run in the mode asked for"));
+        }
         for error in stdout.lines().filter(|l| l.contains(r#""type":"error""#)) {
             eprintln!("voxxa-eval: {name}: voxxad reported {error}");
         }
