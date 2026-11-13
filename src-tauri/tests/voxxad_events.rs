@@ -943,6 +943,140 @@ fn overlapping_windows_show_each_slide_once_and_the_prayer_nothing() {
     assert_eq!(again, live);
 }
 
+/// A decoder that keeps the loop busy for `cost` of wall time on
+/// [`slow_run`]'s clock and hears the verses in turn. It records, for each
+/// decode, the stream time (ms) and how far the loop was behind the audio.
+struct Slow<'a> {
+    cost: Duration,
+    /// Wall time (from the session start) the loop is busy until.
+    busy: &'a std::cell::Cell<Duration>,
+    /// Samples received at the loop's last clock reading.
+    seen: &'a std::cell::Cell<u64>,
+    fed: std::rc::Rc<std::cell::Cell<u64>>,
+    decodes: Vec<(u64, Duration)>,
+}
+
+impl Decode for Slow<'_> {
+    fn decode(&mut self, _: &[f32], _: Option<&str>) -> anyhow::Result<Vec<Word>> {
+        let audio = Duration::from_millis(self.seen.get() / 16);
+        let wall = audio.max(self.busy.get());
+        self.decodes.push((self.fed.get() / 16, wall - audio));
+        self.busy.set(wall + self.cost);
+        let verses = verses();
+        let text = &verses[self.decodes.len() % verses.len()];
+        Ok((text.split_whitespace().enumerate())
+            .map(|(i, w)| (w.to_string(), i as f32 * 0.3, 0.9))
+            .collect())
+    }
+}
+
+struct SlowRun {
+    /// Stream time (ms) of each decode, and how far behind the loop was.
+    decodes: Vec<(u64, Duration)>,
+    fed: Vec<f32>,
+    /// How far behind the audio the loop was when the audio ended.
+    behind_at_end: Duration,
+    actions: usize,
+}
+
+/// The shared loop on a wall clock (the GUI, `--realtime`): audio arrives
+/// in real time and a backlog drains at once, so wall time is the later of
+/// the audio received and the time the loop is busy until. Each decode
+/// keeps the loop busy for `cost`, each dispatched action for `dispatch`.
+fn slow_run(audio: &[f32], cost: Duration, dispatch: Duration) -> SlowRun {
+    let (tx, rx) = mpsc::channel();
+    for chunk in audio.chunks(1600) {
+        tx.send(chunk.to_vec()).unwrap();
+    }
+    drop(tx);
+    let base = Instant::now();
+    let (busy, seen) = (
+        std::cell::Cell::new(Duration::ZERO),
+        std::cell::Cell::new(0),
+    );
+    let clock = |samples: u64| {
+        seen.set(samples);
+        base + Duration::from_millis(samples / 16).max(busy.get())
+    };
+    let fed_count = std::rc::Rc::new(std::cell::Cell::new(0));
+    let slow = Slow {
+        cost,
+        busy: &busy,
+        seen: &seen,
+        fed: fed_count.clone(),
+        decodes: Vec::new(),
+    };
+    let mut fed = Vec::new();
+    let mut spy = Spy {
+        inner: Clocked {
+            inner: Rolling::new(slow),
+            fed: fed_count,
+        },
+        fed: &mut fed,
+    };
+    let mut actions = 0;
+    let sink = |now: Instant, event: Event| {
+        if let Event::Action(action, _) = event {
+            if !matches!(action, Action::Noop) {
+                actions += 1;
+                busy.set(now.duration_since(base) + dispatch);
+            }
+        }
+    };
+    let conductor = Mutex::new(Some(Conductor::new(songs(), SmartConfig::default())));
+    let vad = Mutex::new(VadEngine::new());
+    let run = AtomicBool::new(true);
+    listen::run(rx, &run, &vad, &conductor, &mut spy, clock, sink);
+    let decodes = spy.inner.inner.decoder().decodes.clone();
+    drop(spy);
+    let end = Duration::from_millis(audio.len() as u64 / 16);
+    SlowRun {
+        decodes,
+        fed,
+        behind_at_end: busy.get().saturating_sub(end),
+        actions,
+    }
+}
+
+/// ADR-014 Decision 5 (Q3-06): a recogniser slower than real time must not
+/// let audio queue up without bound on a wall clock. The loop decodes only
+/// while it is at most one hop behind and skips the hops in between, so a
+/// 2.5 s decode gives about one decode per 2.5 s of speech, never one a
+/// second; every sample is still fed once, in order. Time spent in the
+/// conductor and in dispatch counts too: it is wall time like any other.
+/// At file speed every whole second with recent speech is decoded.
+#[test]
+fn a_slow_recogniser_skips_hops_and_the_lag_stays_bounded() {
+    let audio = service();
+    let hops = hops_with_speech(&audio);
+    let (hop, decode) = (Duration::from_secs(1), Duration::from_millis(2500));
+
+    // File speed: one decode at every whole second with recent speech, and
+    // the loop is never behind.
+    let fast = slow_run(&audio, Duration::ZERO, Duration::ZERO);
+    let at: Vec<u64> = fast.decodes.iter().map(|d| d.0).collect();
+    assert_eq!(at, hops);
+    assert!(fast.decodes.iter().all(|d| d.1.is_zero()));
+
+    // 2.5 s a decode, then also 700 ms per dispatched action.
+    let slow = slow_run(&audio, decode, Duration::ZERO);
+    let dispatching = slow_run(&audio, decode, Duration::from_millis(700));
+    assert!(dispatching.actions >= 2, "{} actions", dispatching.actions);
+    for run in [&slow, &dispatching] {
+        assert!(run.fed == audio, "{} of {}", run.fed.len(), audio.len());
+        // No decode starts while the loop is more than a hop behind ...
+        assert!(run.decodes.iter().all(|d| d.1 <= hop), "{:?}", run.decodes);
+        // ... so there are about half as many as at file speed, not one a
+        // second of speech ...
+        let n = run.decodes.len();
+        assert!(n >= 4 && n * 2 <= hops.len() + 1, "{n} of {}", hops.len());
+        // ... and when the audio ends, the loop is less than one decode and
+        // one hop behind.
+        assert!(run.behind_at_end < decode + hop, "{:?}", run.behind_at_end);
+    }
+    assert!(dispatching.decodes.len() <= slow.decodes.len());
+}
+
 /// The GUI's only mic-signal meter: peak and RMS over each window of at
 /// least 33 ms of audio, peak clipped at 1.0, both back to 0 once the
 /// signal goes quiet.
