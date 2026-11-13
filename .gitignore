@@ -25,3 +25,6 @@ models/
 # Signing keys (NEVER commit private keys)
 *.tauri_signing_key
 .tauri_signing_key
+
+# voxxa-eval: fixture audio is rebuilt from audio.json or kept on Drive (fixtures/SOURCES.md)
+fixtures/recordings/*/audio.wav

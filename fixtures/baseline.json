@@ -1,0 +1,25 @@
+{
+  "v": 1,
+  "notes": "Thresholds for voxxa-eval --baseline (ADR-015 Decision 8), not last numbers. Counts and ratios are the worst value measured; latencies are the worst measured rounded up to the next 500 ms. Tighten in the same commit as a change that improves a number; loosen only with the reason in the commit message and in fixtures/README.md (Baseline history). Set 2026-11-13 (Q5) on the two stand-in fixtures, Whisper Tiny logs.",
+  "per_set": {
+    "precision_min": 1.0,
+    "recall_min": 0.5,
+    "false_advances_max": 0,
+    "double_advances_max": 0,
+    "missed_slides_max": 1,
+    "missed_blanks_max": 0,
+    "false_blanks_max": 0,
+    "missed_unblanks_max": 0
+  },
+  "total": {
+    "precision_min": 1.0,
+    "recall_min": 0.75,
+    "latency_median_ms_max": 7500,
+    "latency_p95_ms_max": 7500,
+    "blank_latency_ms_max": 6500,
+    "unblank_latency_ms_max": 7000,
+    "false_advances_max": 0,
+    "double_advances_max": 0,
+    "missed_slides_max": 1
+  }
+}

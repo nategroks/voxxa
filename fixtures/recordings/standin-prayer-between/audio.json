@@ -1,0 +1,10 @@
+{"v": 1, "parts": [
+  {"silence_ms": 1000},
+  {"wav": "../../../src-tauri/tests/fixtures/voxxad/prayer.wav"},
+  {"silence_ms": 2000},
+  {"wav": "../../../src-tauri/tests/fixtures/voxxad/amazing-grace-v1.wav"},
+  {"wav": "../../../src-tauri/tests/fixtures/voxxad/prayer.wav"},
+  {"silence_ms": 1000},
+  {"wav": "../../../src-tauri/tests/fixtures/voxxad/amazing-grace-v2.wav"},
+  {"silence_ms": 3000}
+]}

@@ -65,6 +65,16 @@ jobs:
         working-directory: src-tauri
         run: cargo test
 
+      # ADR-015: replay the committed fixture session logs through voxxad
+      # (no Whisper model, no audio, no presenter) and fail when any metric
+      # is worse than its threshold in fixtures/baseline.json.
+      - name: voxxa-eval (replay gate)
+        working-directory: src-tauri
+        shell: bash
+        run: |
+          cargo build --bin voxxad --bin voxxa-eval
+          cargo run --bin voxxa-eval -- --fixtures ../fixtures/recordings --baseline ../fixtures/baseline.json
+
   deny:
     name: cargo deny (licences, advisories)
     runs-on: ubuntu-latest
