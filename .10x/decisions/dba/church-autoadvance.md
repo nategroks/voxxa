@@ -16,3 +16,18 @@
 - The file is untrusted input. Consider `PRAGMA trusted_schema = OFF`, `SQLITE_DBCONFIG_DEFENSIVE`, and opening with the `immutable=1` URI so SQLite never creates a journal/WAL next to the tempfile.
 - A large library is read fully into memory twice (picked bytes, then rows); no size cap.
 - EW7 (Firebird) is out of scope, as `docs/SETLIST_FORMATS.md` says.
+
+## 2026-11-13 — Q6: section labels in the setlist schema (`sections[].kind`, setlist.json v1; ADR-016 Decision 1)
+
+**Decision: one optional field per song, `sections: [{"kind": "...", "slides": [i, ...]}]`, in `Song` (`src-tauri/src/aligner/mod.rs`); the types `Section` and `SectionKind` and the checks live in `src-tauri/src/aligner/evidence/sections.rs`. No version key, no migration.**
+
+| Question | Answer |
+|---|---|
+| Where the data lives | Voxxa has no database; a setlist is a JSON file (native `.json`, `.voxxa-set`, `voxxad --setlist`, the eval fixtures). The conductor holds it in memory. |
+| Backwards compatibility | `#[serde(default, skip_serializing_if = "Vec::is_empty")]`: a setlist without `sections` loads as before and serialises byte for byte as before, so the replay fingerprint (FNV-1a over the songs' JSON, ADR-013) of every existing setlist and session log is unchanged. Tested: `old_setlists_load_and_serialise_exactly_as_before`. |
+| Forwards compatibility | `kind` is an enum with `#[serde(other)] Other`: an unknown kind ("pre-chorus") loads as `other`, so a newer writer never breaks an older reader. `refrain` is an alias of `chorus`. An older Voxxa reading a setlist with `sections` ignores the field (serde ignores unknown fields; `Song` does not deny them). |
+| Integrity rules (checked when the setlist loads, in `check_setlist`, same error path as an empty song) | each section has at least one slide; its slide indices ascend; every index is inside the song; no slide is in two sections. Unlabelled slides are allowed. Tested: `bad_section_labels_are_refused_when_the_setlist_loads`. |
+| Why indices and not per-slide labels | The prompt names `sections[].kind`; a section may span several slides; indices keep the slide list (and its numbering against the presentation app) untouched. |
+| Fingerprint change when labels are added | Intended: labels change what the conductor does, so a log recorded without them must not replay against a labelled setlist. `refrain-it-is-well` gained labels in Q6 and its `session.jsonl` was re-recorded (`voxxa-eval --full --record`). |
+| Who writes it | Nobody automatically yet: no importer emits `sections` (OpenSong `[V1]`/`[C]`, ChordPro and OpenLyrics carry the information; a follow-up). The GUI passes the field through unchanged (it forwards parsed song objects and shows the songs the backend returns); no GUI change. |
+| Rust API | `Song` gained a public field, so struct literals need `sections: Vec::new()` (10 sites in importers, Hymnary and Planning Center were updated). `Conductor`'s methods, `Action`, `Input` and the event schema are unchanged. |

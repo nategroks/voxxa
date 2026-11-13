@@ -405,3 +405,26 @@ Baseline thresholds: precision and recall 1.0, false and double 0, median 3,000,
 **History note.** 1b0cc5d committed an empty `.10x/status.md` (an edit script failed after opening the file); c10e963 restores it. History was not rewritten; the net change to `status.md` across both commits is one line.
 
 **Debt.** Q5-01 stand-ins are synthetic speech; Q5-02 the kit has no blank key and no first-slide row; Q5-03 `voxxa-eval` may be bundled (#47); Q5-04 a song after an opening prayer is not shown until its next verse (Q6); Q5-05 debug replay time; Q5-07 replay cannot see a `SmartConfig` default change; Q5-08 … Q5-10 verifier B's survivors; Q5-11 scorer edge cases (unblank, equal `t_ms`, stale baseline rows); Q5-12 wording and FAIL-line rounding.
+
+## 2026-11-13 — Q6 (10x lane, `q6/10x`): ADR-009 minimum, measured before and after
+Design: ADR-016 (Accepted, with a measurement amendment). Numbers: `reviews/2026-11-13-q6-before-after.md`. Decision: both lanes measured 733c7e1 at 1.67 false advances per 10 sung songs and p95 11.23 s (stream time at file speed), so the minimum was built.
+
+**What was built**
+- `src-tauri/src/aligner/evidence/` (new, 213 code lines, row "conductor evidence (ADR-009 minimum)" capped at 500):
+  - `sections.rs`: `Section { kind, slides }`, `SectionKind` (`verse`, `chorus`/`refrain`, `bridge`, `tag`, anything else `other`), `check_sections`.
+  - `mod.rs`: `EvidenceConfig` (priors stay 1.0, next 0.9, chorus 0.8, section start 0.6, other 0.4; decay 0.3; threshold 0.35; margin 0.05; `min_dwell_ms` 1500), `tokens`, `score` (the share of the newest words that extend an LCS alignment of the last 12 words with a slide, or, for a slide being entered, that align with its first newest + 4 words) and `Tracker` (window, per-slide evidence, the verse to resume after a chorus, the slide an operator left).
+- `aligner/mod.rs` (conductor row 1,188 → 1,174 of 1,200): `Song.sections` (optional, not serialised when empty), `SmartConfig.evidence` (`#[serde(default)]`), `check_setlist` checks labels, `maybe_advance_within_current` replaced by `follow` (one call to `Tracker::decide`; same buffer clear, unmatched reset, `last_advance`, state and goto as before), `lcs_length` generic over tokens, and (Q5-04) song detection on the newest transcript while the screen is blank.
+- Untouched: `MachineState` and transitions, `tick`, `blank_hold`, the unmatched-speech blank rules, the re-show rule, `manual_step`, `jump_to_song`, `notify_external_blank`, `best_slide`, `voxxad`, `voxxa-eval`, the recogniser, the GUI, `Cargo.toml` (no new crates). The tracker notices operator moves by itself (the position changed under it), so `manual_step` did not change.
+- 10 `Song { .. }` literals in importers, Hymnary and Planning Center gained `sections: Vec::new()` (importers row 1,362 → 1,386).
+- Fixtures: `refrain-it-is-well` labelled and re-recorded; new `prayer-before-first-song` (Q5-04's reproduction); `session-pd-hymns.jsonl` re-recorded. Whisper inputs identical in all three re-recordings; only start lines and recorded actions changed.
+- Docs: `docs/SETLIST_FORMATS.md` (section labels), `fixtures/README.md`, `fixtures/SOURCES.md`.
+
+**Tests:** `tests/conductor_evidence.rs` (13: repeated chorus labelled and unlabelled, the labelled "next" after a refrain, bridge jump and the unlabelled jump shape, dropped and misheard words, an unrelated transcript mid-verse, operator early step / step back / restart, `min_dwell_ms`, schema round trip, kinds, bad labels, old config defaults, tokens, the two score rules); `tests/conductor_unchanged.rs` (1: a 23-step trace of states, blanks and `manual_step`, produced at 733c7e1 and pinned); `tests/voxxa_eval.rs` totals updated for six fixtures. All 55 unit tests unchanged and passing.
+
+**Eval (replay; full mode equals replay on the two re-recorded fixtures):** total precision 0.93 → 1.00, recall 0.68 → 1.00, false 1 → 0, median 4,120 → 2,310 ms, p95 11,230 → 4,870 ms, unblank 8,490 → 2,490 ms; blank and double unchanged. Rule after: 0 false advances per 10 songs (met), p95 4.87 s (not met; bounded mostly by the recogniser's first transcript of each part).
+
+**Not met: jump-be-thou-my-vision median 900 → 1,200 ms and p95 900 → 5,850 ms**, because its three missed slides are now hit (recall 0.25 → 1.00). Its thresholds were not loosened (user decision 4), so the replay gate, the CI eval step and two `voxxa_eval` tests fail on exactly those two cells. Proposed for the user: jump `median_ms` 1500, `p95_ms` 6000 (ADR-015's rule); with them the gate prints OK.
+
+**Tuning record:** decay × threshold sweep in replay (0.4/0.3/0.2/0.1 × 0.35/0.30): no cell lost precision or recall; 0.3/0.35 chosen (ADR-016 amendment 1). Leading-words term only for slides being entered (amendment 2). Operator exclusion lifted once the room sings the operator's slide (amendment 3).
+
+**Debt / follow-ups:** no importer writes `sections` yet (OpenSong, ChordPro, OpenLyrics carry the labels); `slide_advance_debounce_ms` and `advance_margin` are unused but kept for the wire; ADR-009's next-song candidate and adapter `current()` re-sync are still open; numbers tuned on synthetic speech only (Q5-01); a function-word-heavy 12-word window can still hold the current slide for an extra transcript (jump's return to verse 1).
