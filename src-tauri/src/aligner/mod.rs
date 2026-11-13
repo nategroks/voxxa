@@ -177,7 +177,8 @@ pub struct Conductor {
     last_speech: Option<Instant>,
     last_advance: Option<Instant>,
     /// When the first transcript that does not match the current song came
-    /// in (None after a match). A second unmatched transcript in a row blanks.
+    /// in (None after a match). Unmatched transcripts for
+    /// `unrecognized_speech_to_blank_secs` blank.
     unmatched_since: Option<Instant>,
 
     /// Most recent per-song softmax scores. Refreshed on every on_transcript
@@ -434,9 +435,10 @@ impl Conductor {
         }
 
         // Words that do not match the current song never re-show its lyrics.
-        // One such transcript may be a shout-out or a misheard line; a second
-        // in a row means the service moved on (prayer, sermon), so blank,
-        // even though VAD keeps hearing speech.
+        // A few seconds of them may be a shout-out or a misheard line; when
+        // nothing has matched for `unrecognized_speech_to_blank_secs` the
+        // service moved on (prayer, sermon), so blank, even though VAD keeps
+        // hearing speech. Time, not a count: transcripts come every 1-2 s.
         // Keeping lyrics up needs the advance bar; re-showing them, the start bar.
         let bar = if showing {
             self.config.min_advance_match
@@ -444,10 +446,11 @@ impl Conductor {
             self.config.min_start_match
         };
         if !self.matches_song(current, text, bar) {
-            if self.unmatched_since.is_some() && showing {
+            let since = *self.unmatched_since.get_or_insert(now);
+            let limit = Duration::from_secs_f64(self.config.unrecognized_speech_to_blank_secs);
+            if showing && now.saturating_duration_since(since) >= limit {
                 return self.blank_hold(now);
             }
-            self.unmatched_since.get_or_insert(now);
             return Action::Noop;
         }
         self.unmatched_since = None;
@@ -1194,6 +1197,32 @@ mod tests {
             assert!(!matches!(action, Action::Blank), "blanked at {i}");
         }
         assert!(!c.is_blank());
+    }
+
+    #[test]
+    fn a_shout_out_shorter_than_the_blank_limit_does_not_blank() {
+        // Transcripts now come every 1-2 s (ADR-014): a 4.8 s shout-out mid
+        // song is several unmatched transcripts in a row, still no blank.
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        assert!(matches!(c.on_transcript(VERSE_1, t0), Action::Goto { .. }));
+        let shout = [
+            "come on church",
+            "sing it out",
+            "everybody now",
+            "lift it up",
+        ];
+        let shout = shout.map(|s| format!("{s} {s}"));
+        for ms in [2000, 3600, 5200, 6800] {
+            let now = t0 + Duration::from_millis(ms);
+            let line = &shout[(ms as usize - 2000) / 1600];
+            let action = c.on_transcript(line, now);
+            assert!(matches!(action, Action::Noop), "{line}: {action:?}");
+        }
+        assert!(!c.is_blank());
+        // 5 s of them blank.
+        let action = c.on_transcript(&shout[0], t0 + Duration::from_millis(7000));
+        assert!(matches!(action, Action::Blank), "{action:?}");
     }
 
     fn slide_of(action: &Action) -> Option<(usize, usize)> {
