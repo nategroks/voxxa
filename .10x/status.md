@@ -1,8 +1,8 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q3 implemented on `q3/base` (code head 912b978, 2026-11-12). Verifier round 3 left two items: Q3-01 is closed with a test (912b978) and Q3-02 is deferred to Q4 by a recorded decision. Next: push `q3/base`, draft PR against `main`, CI, merge, file the Q3 tickets; then Q4 (Recognizer trait and streaming hop).
-**Last Updated:** 2026-11-12 by 10x-team orchestrator
+**Current Phase:** Q4 (Recognizer trait and streaming hop) implemented on `q4/base` (head a4bae0e plus this state commit); verifier round 3 passed. Next, by the orchestrator: CI, PR and merge into `main`; then Q5 (`voxxa-eval` and the first fixtures). Q3 complete and merged into `main` (PR #45, ec6d85e).
+**Last Updated:** 2026-11-13 by 10x-team orchestrator
 **Health:** On Track
 
 ## Progress
@@ -67,6 +67,16 @@
   - **Close-out by the orchestrator (912b978):** Q3-01 closed with `shadow_never_connects_to_the_presenter` (model-free; the N9 mutation now fails it). Q3-02 deferred to Q4 (recorded in the ticket: no GUI behaviour change, no protection lost against 74f6bd2, not an exit criterion, does not fit the 4 lines left). All 7 gates pass again at 912b978: 109 tests. The change is test-only, so verifier A's exit demo at f2bcea1 still applies.
   - **Tickets:** 12 filed as GitHub issues #46–#57 (label `q3`; 6 medium, 6 low); Q3-01 closed before filing.
 
+- [x] 2026-11-13 **Q4** Recognizer trait and streaming hop (Phase 4: ADR-014), with the ponytail lane: `reviews/2026-11-12-ponytail-q4.md`, `reviews/2026-11-12-q4-tickets.md`, `adrs/014-recognizer-trait-and-streaming-hop.md` (ADR-013 amended), record in `decisions/sde/church-autoadvance.md` ("Q4 final").
+  - **Head:** `q4/base` @ **a4bae0e** (25 commits on a515d4d, including the merge): `q4/10x` merged (0d16b0e), three ponytail grafts and the review fixes (b43151f..4722786), verifier round 1 fixes (9f666f1..bafa0b4) and round 2 fixes (b2b8d0b..a4bae0e). `q4/ponytail` (129d795) stays local for reference.
+  - **Built:** ADR-004's `Recognizer` trait; Whisper behind it as a 5 s window decoded every 1 s (`single_segment`, token timestamps, `initial_prompt` only with `bias_enabled`, off by default); the 5 s batch in `listen::run` replaced by the hop loop. A gate skips hops when the loop falls behind, so work stays bounded and file speed stays deterministic. A stitcher sends the conductor only new words (a `hypothesis` line every 1-3 s of speech); a session-log-only `window` line records every decoded hop (every 1000 ms of speech at file speed). The GUI event mapping is pure and tested (closes #46). Conductor API unchanged; three blank and re-show fixes (closes #52).
+  - **Gates on Windows** (rustc 1.99.1): all 7 pass at a4bae0e.
+  - **Tests:** 142 (55 unit + 87 integration; `voxxad_events` 31, `recognizer` 11, `gui_events` 10). Only the real-model 10 s WAV test needs `ggml-tiny.bin`; it ran locally and passed, and it skips without the model (CI).
+  - **Budgets:** everything else 2,286/2,500; new row recognizer 432/700 (user decision, recorded deviation); conductor 1,188/1,200; voxxad 548/600; GUI 2,951/3,000; presenters and importers unchanged. No budget raised.
+  - **Exit demo** (Whisper Tiny, debug, file speed, `--shadow`, 44.4 s public-domain service): `window` lines every 1000 ms of speech; goto Amazing Grace/0 at 6.0 s (Q3: 8.1 s), goto Amazing Grace/1 at 25.0 s, blank 0.3 s into the prayer, nothing shown during it; replay byte-identical on the action lines. Inference 1.8-1.9 s per hop in debug; release builds are unoptimised on Windows (Q4-01).
+  - **Verifiers:** round 1 failed (exit cadence and test gaps), round 2 failed (prayer not blanked, re-shown slide after a pause, session-log `t` order); all fixed with tests. **Round 3 at a4bae0e: both verifiers passed.**
+  - **Tickets:** 13 open (4 medium, 9 low), filed 2026-11-13 as GitHub issues #59–#71 (label `q4`).
+
 ### Release readiness (2026-11-11, after Q2)
 - **Code:** Q2's exit criteria are met. No open crash, data-loss, freeze or wrong-slide defect from the audit or Q2; no open Critical or High security finding.
 - **Not yet ready for a live service.** The fixes are proven against mocks and synthetic audio only. Before a pilot leaves shadow mode, the founder must pass checklist M1–M14 in the QA report (real mic, unplug, Keystroke driver with PowerPoint/ProPresenter, FreeShow/OpenLP/OpenSong, displays, Stream Deck) and the security checklist.
@@ -75,11 +85,11 @@
 
 ### In Progress
 - [x] 2026-11-12 CI green on PR #1 (head 69b18ce, 5/5 jobs); PR #1 merged into `main` as 7bd84a1; CI green on `main` (5/5). The "Deploy Website" workflow fails because GitHub Pages is not enabled (pre-existing since April; user decision).
-- [ ] Q3 close-out (orchestrator).
+- [x] Q3 close-out (orchestrator).
   1. [x] Q3-01: model-free `--shadow` test added (912b978); the N9 mutation fails it.
   2. [x] Q3-02: deferred to Q4 by a recorded decision (tickets file).
   3. [x] All 7 gates on 912b978 (109 tests); test-only change, so the f2bcea1 exit demo stands.
-  4. [ ] `q3/base` pushed; draft PR #45 against `main` opened; merge when every CI job is green.
+  4. [x] `q3/base` pushed; PR #45 CI green (5/5 jobs at 035d381); merged into `main` as ec6d85e.
   5. [x] Filed the 12 Q3 tickets as GitHub issues #46–#57 (label `q3`).
 
   The user pre-approved the push, PR, merge and filing in steps 4 and 5.
@@ -88,7 +98,8 @@
 ### Pending
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
 - [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
-- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; next is Q4 (Recognizer trait and streaming hop)
+- [ ] Q4 close-out (orchestrator, pre-approved): `q4/base` pushed, draft PR #58 against `main`; 13 Q4 tickets filed as #59–#71 (label `q4`); CI green on every job, merge, close #46 and #52 (the PR body says Closes)
+- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 implemented on `q4/base`; next is Q5 (`voxxa-eval` and the first fixtures)
 - [ ] Founder: record two PD-hymn fixtures; apply to SignPath; open Partner Center; e-mail CCLI; form LLC; start research screener
 - [ ] Phases 4–6 per increment
 
@@ -99,13 +110,14 @@
 - R8 **Closed (Q2).** Unreviewed May-branch code: Q2 ran QA and security over the merged base; all 12 Q0 must-fix defects and every new crash, data-loss and wrong-slide defect are fixed with tests; the rest are 43 tracked tickets (GitHub issues #2–#44).
 - R10 **Closed in code (Q2).** Wrong slide on screen (audit 1–4, plus audit 5, PDF page split, single instance, Q2-44): fixed with dispatcher and conductor tests. Confirmation on real presentation apps moves to R14.
 - R14 (new, Q2) Fixes proven only against mocks and synthetic audio. No real mic, keystroke driver, PowerPoint, ProPresenter, FreeShow, OpenLP or OpenSong was used. Mitigation: founder checklist M1–M14 before any pilot leaves shadow mode; promote Q2-20/Q2-22/Q2-47 if M3/M8 fail.
-- R15 (new, Q2; updated Q3) Tight line budget. After Q3:
-  - "everything else in src-tauri/src" is at 2,496/2,500 (4 lines left; it holds `listen.rs`, the shared loop);
-  - conductor 1,153/1,200 (47 left);
-  - the new `voxxad` row 531/600 (69 left; user decision, a recorded deviation from ADR-010 Decision 3);
+- R15 (new, Q2; updated Q4) Tight line budget. After Q4 (a4bae0e):
+  - "everything else in src-tauri/src" 2,286/2,500 (214 left; `transcription/` moved out to its own row);
+  - conductor 1,188/1,200 (**12 left**; Q4 added the blank and re-show fixes);
+  - the new recognizer row (`transcription/` + recognizer code) 432/700 (268 left; user decision, a recorded deviation from ADR-010 Decision 3);
+  - `voxxad` 548/600 (52 left; Q3 user decision);
   - GUI 2,951/3,000; presenters 1,149/2,000; importers 1,362/1,600.
 
-  Mitigation: keep new tests in `src-tauri/tests/`. Q3-02 (deferred to Q4) must fit by simplifying code in the same bucket. Q4's streaming hop lives in `listen.rs`, so it needs an explicit budget decision before code (move code into a budgeted module or a recorded new row), never a silent raise.
+  Mitigation: keep new tests in `src-tauri/tests/`. Q5's `voxxa-eval` needs its own row (the user chose a new row capped at 600 for Q5, 2026-11-13). The conductor row is nearly full: Q6's conductor work (ADR-009 minimum, Q4-04) needs code removed first or an explicit budget decision before code, never a silent raise.
 - R13 (new, Q1) Fragile CI gates.
   - The GUI fits its budget with 49 lines to spare (2951/3000 after Q2), partly by avoiding a tokei 15 HTML apostrophe miscount.
   - CI installs the latest tokei, the latest stable Rust (new clippy lints under `-D warnings`) and a fresh advisory DB.

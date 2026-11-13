@@ -9,9 +9,10 @@ use crate::planning_center::{PcoClient, PcoPlan, PcoServiceType};
 use crate::presenters::{
     make_controller, Capabilities, KeystrokeProfile, PresenterConfig, PresenterKind, PresenterState,
 };
-use crate::transcription::WhisperModel;
+use crate::transcription::{Rolling, WhisperModel};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -49,14 +50,66 @@ pub struct StateChanged {
     pub is_blank: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TranscriptionEvent {
-    pub text: String,
-}
-
 #[derive(Debug, Serialize, Clone)]
 pub struct DetectionEvent {
     pub rows: Vec<DetectionRow>,
+}
+
+/// What the GUI does with one event of the listening loop.
+#[derive(Debug)]
+pub enum GuiEvent {
+    /// Emit a Tauri event: its name and its JSON payload.
+    Emit(&'static str, String),
+    /// Send a loop action through [`dispatch`]; `operator` is false.
+    Dispatch(Action, Option<usize>, bool),
+    Nothing,
+}
+
+fn emit_json(name: &'static str, payload: impl Serialize) -> GuiEvent {
+    GuiEvent::Emit(name, serde_json::to_string(&payload).unwrap_or_default())
+}
+
+/// The GUI's sink for the shared loop, kept pure so it is tested.
+pub fn gui_event(event: Event) -> GuiEvent {
+    match event {
+        Event::Input(Input::Heard(text)) => emit_json("transcription", json!({ "text": text })),
+        Event::Action(action, total) => GuiEvent::Dispatch(action, total, false),
+        Event::State(state, is_blank) => {
+            emit_json("machine-state", StateChanged { state, is_blank })
+        }
+        Event::Mic(level) => emit_json("mic-level", level),
+        Event::Detection(rows) => emit_json("song-detection", DetectionEvent { rows }),
+        Event::Input(_) | Event::Error(_) | Event::Window(_) => GuiEvent::Nothing,
+    }
+}
+
+/// What the GUI shows when a loop action could not be sent.
+pub fn presenter_error(e: String) -> GuiEvent {
+    emit_json("presenter-error", e)
+}
+
+/// The GUI's sink for one loop event: `emit` sends a Tauri event (name,
+/// JSON payload) and `send` a loop action to [`dispatch`] (action, slide
+/// count, operator). A failed send is shown as `presenter-error`. The
+/// closures are injected so tests can record what the GUI would do.
+pub fn gui_sink(
+    event: Event,
+    emit: &mut impl FnMut(&'static str, String),
+    send: &mut impl FnMut(Action, Option<usize>, bool) -> Result<(), String>,
+) {
+    let shown = match gui_event(event) {
+        GuiEvent::Dispatch(action, total, operator) => match send(action, total, operator) {
+            Ok(()) => GuiEvent::Nothing,
+            Err(e) => {
+                log::warn!("[DISPATCH] {e}");
+                presenter_error(e)
+            }
+        },
+        other => other,
+    };
+    if let GuiEvent::Emit(name, payload) = shown {
+        emit(name, payload);
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -185,29 +238,13 @@ pub async fn start_listening_with_state(
     // without building a fresh runtime each iteration.
     let rt_handle = tokio::runtime::Handle::current();
     tokio::task::spawn_blocking(move || {
-        let sink = |_: Instant, event: Event| match event {
-            Event::Input(Input::Heard(text)) => {
-                let _ = app.emit("transcription", TranscriptionEvent { text });
-            }
-            Event::Action(action, total) => {
-                if let Err(e) = rt_handle.block_on(dispatch(&app, action, total, false)) {
-                    log::warn!("[DISPATCH] {e}");
-                    let _ = app.emit("presenter-error", e);
-                }
-            }
-            Event::State(state, is_blank) => {
-                let _ = app.emit("machine-state", StateChanged { state, is_blank });
-            }
-            Event::Mic(level) => drop(app.emit("mic-level", level)),
-            Event::Detection(rows) => drop(app.emit("song-detection", DetectionEvent { rows })),
-            Event::Input(_) | Event::Error(_) => {}
+        let mut emit = |name: &'static str, payload: String| {
+            let _ = app.emit_str(name, payload);
         };
-        let transcribe = |pcm: &[f32]| {
-            transcription
-                .blocking_lock()
-                .transcribe(pcm)
-                .map(|r| r.text)
-        };
+        // Passes `gui_sink`'s operator flag through unchanged (always false).
+        let mut send =
+            |action, total, operator| rt_handle.block_on(dispatch(&app, action, total, operator));
+        let sink = |_: Instant, event: Event| gui_sink(event, &mut emit, &mut send);
         // `disconnected` distinguishes a clean stop (operator hit stop) from
         // the audio device dropping out underneath us. The frontend listens
         // for `listening-stopped` so it can re-arm the start button either way.
@@ -216,7 +253,7 @@ pub async fn start_listening_with_state(
             &run,
             &vad,
             &conductor,
-            transcribe,
+            &mut Rolling::new(transcription),
             |_| Instant::now(),
             sink,
         );

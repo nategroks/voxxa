@@ -3,9 +3,11 @@
 //! or an input device, prints one JSON object per line on stdout and writes
 //! every line to a session log that `--replay` re-runs without a recogniser.
 
+mod cli;
 mod events;
 
 use chrono::Local;
+use cli::{parse_args, recognizer, Args};
 use events::{fingerprint, status, Kind, Line, Recorder};
 use serde_json::json;
 use std::fs::{self, File, OpenOptions};
@@ -36,52 +38,12 @@ options:
   --model tiny|base|small|medium|large-v3-turbo|distil-large-v3
               (default: the smallest downloaded model)
   --log-dir <dir>  session logs (default <data dir>/voxxa/sessions)
+  --bias      bias Whisper towards the slides around the current one
 The WAV must be 16 kHz mono, 16-bit PCM or 32-bit float. It is read at file
 speed (t is audio time) unless --realtime is given.";
 
 /// 100 ms of 16 kHz audio per chunk.
 const CHUNK: usize = 1600;
-
-#[derive(Default)]
-struct Args {
-    setlist: Option<String>,
-    wav: Option<String>,
-    realtime: bool,
-    device: Option<String>,
-    presenter: Option<String>,
-    host: Option<String>,
-    port: Option<u16>,
-    shadow: bool,
-    replay: Option<String>,
-    list_devices: bool,
-    model: Option<String>,
-    log_dir: Option<String>,
-    help: bool,
-}
-
-fn parse_args(mut it: impl Iterator<Item = String>) -> Result<Args, String> {
-    let mut a = Args::default();
-    while let Some(flag) = it.next() {
-        let mut value = || it.next().ok_or(format!("{flag} needs a value"));
-        match flag.as_str() {
-            "--setlist" => a.setlist = Some(value()?),
-            "--stdin-audio" => a.wav = Some(value()?),
-            "--device" => a.device = Some(value()?),
-            "--presenter" => a.presenter = Some(value()?),
-            "--host" => a.host = Some(value()?),
-            "--port" => a.port = Some(value()?.parse().map_err(|e| format!("--port: {e}"))?),
-            "--replay" => a.replay = Some(value()?),
-            "--model" => a.model = Some(value()?),
-            "--log-dir" => a.log_dir = Some(value()?),
-            "--realtime" => a.realtime = true,
-            "--shadow" => a.shadow = true,
-            "--list-devices" => a.list_devices = true,
-            "--help" | "-h" => a.help = true,
-            _ => return Err(format!("unknown argument {flag}; see voxxad --help")),
-        }
-    }
-    Ok(a)
-}
 
 fn main() {
     if let Err(message) = run(parse_args(std::env::args().skip(1))) {
@@ -110,7 +72,8 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
         &args.model,
         &args.log_dir,
     ];
-    let live = args.shadow || args.port.is_some() || live.iter().any(|o| o.is_some());
+    let flags = args.shadow || args.bias || args.port.is_some();
+    let live = flags || live.iter().any(|o| o.is_some());
     if args.replay.is_some() && live {
         return Err("--replay takes only --setlist; see voxxad --help".into());
     }
@@ -154,6 +117,7 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
     let driving = presenter.as_ref().and(args.presenter.as_deref());
     let info = json!({
         "mode": mode, "shadow": args.shadow, "model": model.filename(), "presenter": driving,
+        "bias": args.bias,
         "setlist": fingerprint(&songs), "config": config,
         "log": path.display().to_string(), "version": env!("CARGO_PKG_VERSION"),
     });
@@ -192,8 +156,8 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
             }
         }
     };
-    let transcribe = |pcm: &[f32]| engine.transcribe(pcm).map(|r| r.text);
-    let lost = listen::run(rx, &running, &vad, &conductor, transcribe, clock, sink);
+    let mut hop = recognizer(&args, engine);
+    let lost = listen::run(rx, &running, &vad, &conductor, &mut hop, clock, sink);
     let reason = match (mode, lost) {
         ("device", true) => "device_lost",
         (_, true) => "end_of_audio",

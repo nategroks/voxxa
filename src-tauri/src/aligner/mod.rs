@@ -131,8 +131,10 @@ pub struct SongScore {
 
 /// Most songs a setlist may hold. Every transcript is scored against every
 /// song (about 70 ms per song in release), so a whole EasyWorship library
-/// would delay slide control by minutes; 50 keeps a transcript well under the
-/// 5 s it takes to hear the next one.
+/// would delay slide control by minutes. 50 songs take about 3.5 s, longer
+/// than the 1-2 s between transcripts with the hop (ADR-014): the bound then
+/// rests on the loop's lag gate, which counts this time and skips hops
+/// instead of queueing audio.
 pub const MAX_SETLIST_SONGS: usize = 50;
 
 /// Reject setlists the conductor cannot follow, before loading them. An
@@ -177,8 +179,11 @@ pub struct Conductor {
     last_speech: Option<Instant>,
     last_advance: Option<Instant>,
     /// When the first transcript that does not match the current song came
-    /// in (None after a match). A second unmatched transcript in a row blanks.
+    /// in (None after a match). Unmatched transcripts for
+    /// `unrecognized_speech_to_blank_secs` blank.
     unmatched_since: Option<Instant>,
+    /// More than one unmatched transcript came since `unmatched_since`.
+    unmatched_again: bool,
 
     /// Most recent per-song softmax scores. Refreshed on every on_transcript
     /// call so the UI can render confidence bars in real time. Empty before
@@ -210,6 +215,7 @@ impl Conductor {
             last_speech: None,
             last_advance: None,
             unmatched_since: None,
+            unmatched_again: false,
             last_scores: Vec::new(),
         }
     }
@@ -316,6 +322,17 @@ impl Conductor {
             Some(t) => now.saturating_duration_since(t),
             None => Duration::from_secs(86_400),
         };
+        // Unmatched speech goes on after a second unmatched transcript: a
+        // short prayer may give no transcript 5 s after its first one.
+        let limit = Duration::from_secs_f64(self.config.unrecognized_speech_to_blank_secs);
+        let unmatched = self.unmatched_since.map_or(Duration::ZERO, |t| now - t);
+        if !self.is_blank
+            && self.unmatched_again
+            && unmatched >= limit
+            && since_speech < Duration::from_secs_f64(self.config.silence_to_blank_secs)
+        {
+            return self.blank_hold(now);
+        }
 
         match self.state {
             MachineState::Singing => {
@@ -324,10 +341,7 @@ impl Conductor {
                 }
             }
             MachineState::InterVerseSilence => {
-                if since_speech
-                    >= Duration::from_secs_f64(self.config.unrecognized_speech_to_blank_secs)
-                    && !self.is_blank
-                {
+                if since_speech >= limit && !self.is_blank {
                     return self.blank_hold(now);
                 }
             }
@@ -434,9 +448,11 @@ impl Conductor {
         }
 
         // Words that do not match the current song never re-show its lyrics.
-        // One such transcript may be a shout-out or a misheard line; a second
-        // in a row means the service moved on (prayer, sermon), so blank,
-        // even though VAD keeps hearing speech.
+        // A few seconds of them may be a shout-out or a misheard line; when
+        // nothing has matched for `unrecognized_speech_to_blank_secs` the
+        // service moved on (prayer, sermon), so blank, even though VAD keeps
+        // hearing speech: here, or on a tick after a second unmatched one.
+        // Time, not a count: transcripts come every 1-3 s.
         // Keeping lyrics up needs the advance bar; re-showing them, the start bar.
         let bar = if showing {
             self.config.min_advance_match
@@ -444,19 +460,25 @@ impl Conductor {
             self.config.min_start_match
         };
         if !self.matches_song(current, text, bar) {
-            if self.unmatched_since.is_some() && showing {
+            self.unmatched_again = self.unmatched_since.is_some();
+            let since = *self.unmatched_since.get_or_insert(now);
+            let limit = Duration::from_secs_f64(self.config.unrecognized_speech_to_blank_secs);
+            if showing && now.saturating_duration_since(since) >= limit {
                 return self.blank_hold(now);
             }
-            self.unmatched_since.get_or_insert(now);
             return Action::Noop;
         }
         self.unmatched_since = None;
 
-        // We matched the current song but didn't advance — ensure output is unblanked
-        // and showing the current slide (recovers from BlankHold/InterVerseSilence).
+        // We matched the current song but didn't advance: singing again. After
+        // a blank, show the current slide; after inter-verse silence it is
+        // still up, so a goto would only show it twice.
         if self.is_blank || self.state != MachineState::Singing {
-            self.is_blank = false;
+            let was_blank = std::mem::replace(&mut self.is_blank, false);
             self.transition(MachineState::Singing, now);
+            if !was_blank {
+                return Action::Noop;
+            }
             if let Some(g) = self.goto_action_for_current() {
                 return g;
             }
@@ -1194,6 +1216,32 @@ mod tests {
             assert!(!matches!(action, Action::Blank), "blanked at {i}");
         }
         assert!(!c.is_blank());
+    }
+
+    #[test]
+    fn a_shout_out_shorter_than_the_blank_limit_does_not_blank() {
+        // Transcripts now come every 1-2 s (ADR-014): a 4.8 s shout-out mid
+        // song is several unmatched transcripts in a row, still no blank.
+        let mut c = Conductor::new(example_setlist(), SmartConfig::default());
+        let t0 = Instant::now();
+        assert!(matches!(c.on_transcript(VERSE_1, t0), Action::Goto { .. }));
+        let shout = [
+            "come on church",
+            "sing it out",
+            "everybody now",
+            "lift it up",
+        ];
+        let shout = shout.map(|s| format!("{s} {s}"));
+        for ms in [2000, 3600, 5200, 6800] {
+            let now = t0 + Duration::from_millis(ms);
+            let line = &shout[(ms as usize - 2000) / 1600];
+            let action = c.on_transcript(line, now);
+            assert!(matches!(action, Action::Noop), "{line}: {action:?}");
+        }
+        assert!(!c.is_blank());
+        // 5 s of them blank.
+        let action = c.on_transcript(&shout[0], t0 + Duration::from_millis(7000));
+        assert!(matches!(action, Action::Blank), "{action:?}");
     }
 
     fn slide_of(action: &Action) -> Option<(usize, usize)> {
