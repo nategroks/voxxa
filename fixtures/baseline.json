@@ -7,7 +7,7 @@
     "false_advances": 0,
     "double_advances": 0,
     "blank_ms": 500,
-    "unblank_ms": 1500
+    "unblank_ms": 2000
   },
   "prayer-without-pause": {
     "precision": 1.0,
@@ -26,6 +26,6 @@
     "false_advances": 0,
     "double_advances": 0,
     "blank_ms": 7000,
-    "unblank_ms": 1500
+    "unblank_ms": 2000
   }
 }
