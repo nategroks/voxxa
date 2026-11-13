@@ -121,9 +121,9 @@
 - [ ] **Q5 close-out (orchestrator). Do not merge before step 2.**
   1. [x] Tests for Q5-08 (M65), Q5-09 (M66) and Q5-10's M52 and M55 added in 5858872 (test-only); each mutant applied by hand fails `cargo test --test voxxa_eval` (26 tests). M57 and M68 deferred with a reason (Q5-10).
   2. [x] The orchestrator re-ran the four mutants (all killed) and all 7 gates plus the CI eval step.
-  3. [ ] Push `q5/base`, draft PR against `main`, CI green on all three OSes (the eval step's first Linux and macOS run).
-  4. [ ] Prove the gate in real CI: a deliberately broken threshold (e.g. `total.p95_ms` 1000) makes the "voxxa-eval (fixtures vs baseline)" step fail and name the metric; then revert it.
-  5. [ ] Merge into `main`; file the open Q5 tickets as GitHub issues (label `q5`), dropping any closed in step 1; add the Q5 numbers to #61 (Q4-03) and #62 (Q4-04).
+  3. [x] `q5/base` pushed; draft PR #72; CI green on all 5 jobs at b670607 (run 43468103792), including the eval step's first Linux and macOS run.
+  4. [x] Gate proven in real CI: d42e6ce set `total.p95_ms` to 1000; run 43469439549 failed on all three OSes at `cargo test` (`replay_of_the_committed_fixtures_passes_the_baseline`: "FAIL total: p95_ms is 8900, baseline needs <= 1000"; the eval step was skipped after the failed test step); reverted in bdf680f.
+  5. [ ] Merge into `main` when CI is green on the final head. Done already: 9 open Q5 tickets filed as #73–#81 (label `q5`); Q5 numbers added to #61 (Q4-03) and #62 (Q4-04).
 
   The user pre-approved the push, PR, CI fixes, gate proof, merge and filing (handoff, "User decisions for Q5").
 - [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 implemented on `q5/base` (c10e963), merge on hold; Q6 (conductor against the budget) next
