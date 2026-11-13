@@ -216,7 +216,7 @@ Design: ADR-014 (Accepted on the user's pre-approved Q4 decisions), committed be
 ## 2026-11-12 — Q4 finish on `q4/base` (10x base + comparator's grafts and review fixes)
 `q4/10x` merged with `--no-ff` (0d16b0e), then one commit per change: b43151f backpressure test (ponytail graft), b4e9a28 `shortcut:` comment at `set_initial_prompt` (graft), 0165be8 stitcher (must-fix), 84c260d UTF-8 word text, 2bdd2b9 time-based blank rule, 68e403a fixture re-record, 729a515 ADR-014 note. ADR-014 carries a dated note and amended Decisions 2, 3, 7, 8 and the alternatives row.
 
-**Stitcher.** Padding short hops to 4 words (the comparator's first option) failed the new test (Amazing Grace at 2 words/s stopped after slide 1), so new words are held until there are 4: lines every 1 to 2 s of speech. With the stitcher bypassed (the 10x first version) Amazing Grace at 2 words/s never left slide 0.
+**Stitcher.** Padding short hops to 4 words (the comparator's first option) failed the new test (Amazing Grace at 2 words/s stopped after slide 1), so new words are held until there are 4: lines every 1 to 3 s of speech (corrected in the verifier round below; "1 to 2 s" was not the measured cadence). With the stitcher bypassed (the 10x first version) Amazing Grace at 2 words/s never left slide 0.
 
 **Gates at 729a515 (Windows 11, rustc 1.99.1):** all 7 pass. 130 tests (55 unit + 75 integration; `voxxad_events` 23, `recognizer` 10). Budgets: conductor 1,176/1,200, recognizer 430/700, everything else 2,271/2,500, voxxad 538/600, GUI 2,951/3,000.
 
@@ -236,3 +236,39 @@ Design: ADR-014 (Accepted on the user's pre-approved Q4 decisions), committed be
 - Q4-e: closed by the stitcher (0165be8). New: advances come late in a verse (the 40-word buffer holds the previous verse); conductor tuning for `voxxa-eval`.
 - Q4-h (new): after a pause of over 1 s the stitcher is cleared (comparator's rule), so the next window's old words (up to 4 s) are sent once more. Bounded; revisit with `voxxa-eval`.
 - Q4-i (new): `voxxad_events` takes about 150 s in debug (not profiled; the conductor's scoring and the VAD run on minutes of audio); adds to Q3-13.
+
+## 2026-11-12 — Q4 verifier round on `q4/base`
+The verifier failed the exit criterion and found five test gaps. Fixed in new commits:
+- 9f666f1 `feat(listen)`: one `window` line per decoded hop (session log only; replay skips it). This meets the exit criterion literally: one log line per second of speech.
+- 10bc9b5 `test(gui)`: `commands::gui_sink` with injected `emit` and `send` closures, plus 3 tests (E4c, E4, E5, E6).
+- 63532bc `test(listen)`: device-stall test for the backpressure floor (F2).
+- 1a766f7 `test(voxxad)`: `cli.rs` (`Args`, `parse_args`, `recognizer`), the `--bias` test (D3) and the loop's `bias()` test (D4).
+- ADR-014 (dated note; Decisions 4, 6, 7 and 8 amended in place), ADR-013 (amendment line) and this record: the cadence wording is corrected to the measured 1 to 3 s.
+
+**Mutation checks (each applied by hand, the test run, the file restored):**
+- `send(action, total, !operator)` in `gui_sink`: killed by `the_gui_sink_sends_every_loop_action_with_operator_false`.
+- `presenter_error(e)` dropped: killed by `a_failed_send_shows_exactly_one_presenter_error_per_action`.
+- `other => GuiEvent::Nothing`: killed by `the_gui_sink_emits_what_gui_event_maps_and_nothing_else`.
+- F2 (gate on `lag <= HOP`), and separately `caught_up = lag` removed: both killed by `a_device_stall_does_not_close_the_gate_for_the_rest_of_the_session`.
+- D3 (`bias_enabled = true` in `cli::recognizer`): killed by `voxxad_biases_whisper_only_with_the_bias_flag`.
+- D4 (the loop's `bias()` call removed): killed by `after_every_goto_the_loop_biases_towards_that_slide_and_the_next`.
+- The `Event::Window` sink call removed: killed by `every_decoded_hop_is_one_window_line_in_the_session_log`.
+
+**Not done, with reasons:**
+- Held words are not flushed to the conductor when the gate closes on silence. There are at most 3 of them, which the conductor drops (its 4-word floor). Handing them on would also move `last_speech` up to 1 s after the room went quiet. They do reach the session log in the `window` line.
+- Q4-g, narrowed: the closure in `start_listening_with_state` passes `gui_sink`'s operator flag to `commands::dispatch`. That needs a Tauri `AppHandle`, so a mutation of that single pass-through argument is still not caught by a test.
+- The committed fixture `session-pd-hymns.jsonl` is not re-recorded: the conductor's inputs did not change. The exit demo's new session is identical to the fixture on every `hypothesis`, `tick`, `speech` and `action` line; the only addition is the `window` lines.
+
+**Gates (Windows 11, rustc 1.99.1), at 1a766f7 and again on the docs commit that ends this round** (it also corrects "1 to 2 s" to "1 to 3 s" in a `recognizer.rs` comment and a test message): all 7 pass. 137 tests (55 unit + 82 integration; `voxxad_events` 27, `gui_events` 10, `recognizer` 10 including the real-model test, which ran because the model is present). Budgets: everything else 2,284/2,500, voxxad 548/600, recognizer 430/700, conductor 1,176/1,200, GUI 2,951/3,000.
+
+**Exit demo (Whisper Tiny, debug `voxxad`, file speed, `--shadow`, 44.4 s PD WAV: 3 s silence, ag-v1 3.0-15.0 s, 1 s, ag-v2 16.0-26.3 s, 4 s, prayer 30.3-38.4 s, 6 s):**
+- `window` `t` (ms): 4000 5000 6000 7000 8000, 10000 … 15000, 17000 … 26000, 31000 … 38000. That is 29 lines, every 1000 ms while the VAD heard speech; the gaps are VAD silence (about 8.0-9.0 s, 14.4-16.6 s, 26.0-30.6 s).
+- Stitched `hypothesis` `t`: 6000 8000 10000 11000 14000 17000 18000 20000 22000 23000 25000 32000 34000 35000 36000.
+- Actions: goto Amazing Grace/0 at 6.0 s, goto Amazing Grace/1 at 23.0 s, blank at 30.6 s (0.3 s into the prayer). Nothing is shown during the prayer.
+- Replay `cmp` is byte-identical on the action lines, and so are the `hypothesis` lines. A second run gave a byte-identical session log apart from the `start` line.
+- Wall time: 69 s for 44.4 s of audio.
+
+**Inference per hop (Whisper Tiny, 5 s window, 4-core PC, debug build):**
+- Decode alone, from the real-model test: 1.76-1.91 s.
+- In `voxxad`, including VAD and conductor time: 1.85-3.97 s, median 2.48 s, over 29 decodes.
+- Release builds were not re-measured in this round (see Q4-a).

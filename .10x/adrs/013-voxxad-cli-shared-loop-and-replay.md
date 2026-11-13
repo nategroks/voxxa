@@ -74,3 +74,5 @@ Re-open if the protocol needs more than 8 event types, if a second recogniser la
 
 ## Amendment 2026-11-12 (Q4): recogniser seam
 The review trigger "a second recogniser lands" fired with Q4. Decision 1's recogniser closure (`FnMut(&[f32]) -> Result<String>`) and the 5 s batch in `listen::run` are replaced by ADR-004's `Recognizer` trait and a 1 s hop over a 5 s window: see **ADR-014**. Schema v1, the clock, replay and the `voxxad` row are unchanged; only the `hypothesis` cadence changes (about one a second of speech).
+
+**2026-11-12 (Q4 verifier round):** one session-log-only type, `window` (the whole text of each decoded hop), is added within v1: 7 of ADR-001's 8 types. Replay skips it. The stitched `hypothesis` line (every 1 to 3 s of speech) stays the conductor input, so replay is unchanged. See ADR-014, note of the verifier round.

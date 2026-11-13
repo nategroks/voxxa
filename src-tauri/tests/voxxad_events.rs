@@ -921,7 +921,7 @@ fn overlapping_windows_show_each_slide_once_and_the_prayer_nothing() {
         .count();
     assert!(
         hypotheses >= 12,
-        "{hypotheses} hypotheses: one every 1 to 2 s of speech"
+        "{hypotheses} hypotheses: one every 1 to 3 s of speech"
     );
 
     let actions = actions_of(&events);

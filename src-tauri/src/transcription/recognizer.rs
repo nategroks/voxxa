@@ -66,7 +66,7 @@ const KEEP: usize = 32;
 /// Decision 7). Consecutive windows share about 4 s of audio, so each
 /// hypothesis starts with words already heard; only the words after them
 /// are new. New words are held until there are [`MIN_WORDS`] of them, so
-/// the conductor gets each word once, in order, every 1 to 2 s of singing.
+/// the conductor gets each word once, in order, every 1 to 3 s of singing.
 #[derive(Debug, Default)]
 pub struct Stitcher {
     /// The words taken from hypotheses so far (the latest [`KEEP`]).
