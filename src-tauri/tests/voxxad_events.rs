@@ -465,7 +465,9 @@ struct Heard {
 }
 
 /// A decoder told the number (0, 1, ...) of the window it is given; it
-/// hears the answer's words 0.3 s apart from the window's start.
+/// hears the answer's words spread over the window's last second, the
+/// audio its hop added (words timed before a pause would be dropped as
+/// heard before it).
 struct Numbered<F> {
     answer: F,
     windows: Vec<usize>,
@@ -475,8 +477,12 @@ impl<F: FnMut(usize) -> anyhow::Result<String>> Decode for Numbered<F> {
     fn decode(&mut self, window: &[f32], _: Option<&str>) -> anyhow::Result<Vec<Word>> {
         self.windows.push(window.len());
         let text = (self.answer)(self.windows.len() - 1)?;
+        let (secs, n) = (
+            window.len() as f32 / 16000.0,
+            text.split_whitespace().count(),
+        );
         Ok((text.split_whitespace().enumerate())
-            .map(|(i, w)| (w.to_string(), i as f32 * 0.3, 0.9))
+            .map(|(i, w)| (w.to_string(), secs - 1.0 + i as f32 / n as f32, 0.9))
             .collect())
     }
 }
@@ -971,6 +977,59 @@ fn a_short_prayer_blanks_on_a_tick_while_it_is_spoken() {
         }
     }
     assert_eq!(blanked, Some(21000));
+}
+
+/// A spoken prayer (written for Q2, not a song) read by the Windows SAPI
+/// voice the same way: 8.1 s, about 7 s of speech with a 1 s pause after
+/// its first sentence.
+const PRAYER_WAV: &str = "tests/fixtures/voxxad/prayer.wav";
+
+/// Verifier round 2 on `q4/base`, Whisper Tiny on verse 2, a 2 s pause and
+/// this prayer: the stitched transcripts of the prayer spanned only 4 s
+/// (16000 to 20000 ms), so none came 5 s after the first unmatched one and
+/// slide 1 stayed up for the whole prayer; and the first window after the
+/// pause still held the verse's last words, which sent goto 0/1 again. The
+/// script hears verse 2 and the words Whisper made out in the prayer's
+/// first 4.5 s; the VAD hears the whole prayer. After a 2 s or a 4 s pause
+/// (neither long enough for the silence blank), the prayer blanks while it
+/// is spoken, and no slide is shown twice or during the prayer.
+#[test]
+fn a_short_prayer_after_a_pause_blanks_and_no_slide_is_shown_twice() {
+    let (verse, prayer) = (wav_16k_mono(SPEECH_WAV_2), wav_16k_mono(PRAYER_WAV));
+    for gap in [2, 4] {
+        let audio = [
+            quiet(1),
+            verse.clone(),
+            quiet(gap),
+            prayer.clone(),
+            quiet(1),
+        ]
+        .concat();
+        // The prayer's speech, in stream seconds.
+        let p = 1.0 + verse.len() as f32 / 16000.0 + gap as f32;
+        let mut words = spread(&verses()[1], 1.2, 10.2);
+        words.extend(spread("Let us bow our heads and pray.", p + 0.1, p + 1.8));
+        words.extend(spread("Father, we thank you for this", p + 2.9, p + 4.5));
+        let fed = std::rc::Rc::new(std::cell::Cell::new(0));
+        let scripted = Scripted {
+            words,
+            fed: fed.clone(),
+        };
+        let mut recognizer = Clocked {
+            inner: Rolling::new(scripted),
+            fed,
+        };
+        let (events, log, _) = listen_with_recognizer(songs(), &audio, &mut recognizer, |_, _| {});
+        let actions = actions_of(&events);
+        let names: Vec<&str> = actions.iter().map(|(_, a)| a.as_str()).collect();
+        assert_eq!(names, ["goto 0/1", "blank"], "gap {gap}: {actions:?}");
+        let ms = |s: f32| (s * 1000.0) as u64;
+        assert!(
+            actions[1].0 > ms(p) && actions[1].0 < ms(p + 7.2),
+            "gap {gap}: {actions:?}"
+        );
+        replay_agrees(&log, songs());
+    }
 }
 
 /// The conductor's actions, with their audio times (ms), as "goto

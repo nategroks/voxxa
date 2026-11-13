@@ -157,7 +157,7 @@ pub fn run(
         // catch up) while more than a hop behind.
         let recent = spoke_at.is_some_and(|at| Duration::from_millis((received - at) / 16) < HOP);
         if !recent {
-            stitcher.clear();
+            stitcher.pause(spoke_at.unwrap_or(0) as f32 / 16000.0);
         }
         recognizer.gate(recent && lag.saturating_sub(caught_up) <= HOP);
         for hypothesis in recognizer.feed(&samples) {
