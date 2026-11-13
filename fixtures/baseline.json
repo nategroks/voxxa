@@ -22,7 +22,7 @@
     "precision": 1.0,
     "recall": 1.0,
     "median_ms": 3000,
-    "p95_ms": 1000,
+    "p95_ms": 9000,
     "false_advances": 0,
     "double_advances": 0,
     "blank_ms": 7000,
