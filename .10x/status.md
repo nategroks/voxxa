@@ -75,7 +75,7 @@
   - **Budgets:** everything else 2,286/2,500; new row recognizer 432/700 (user decision, recorded deviation); conductor 1,188/1,200; voxxad 548/600; GUI 2,951/3,000; presenters and importers unchanged. No budget raised.
   - **Exit demo** (Whisper Tiny, debug, file speed, `--shadow`, 44.4 s public-domain service): `window` lines every 1000 ms of speech; goto Amazing Grace/0 at 6.0 s (Q3: 8.1 s), goto Amazing Grace/1 at 25.0 s, blank 0.3 s into the prayer, nothing shown during it; replay byte-identical on the action lines. Inference 1.8-1.9 s per hop in debug; release builds are unoptimised on Windows (Q4-01).
   - **Verifiers:** round 1 failed (exit cadence and test gaps), round 2 failed (prayer not blanked, re-shown slide after a pause, session-log `t` order); all fixed with tests. **Round 3 at a4bae0e: both verifiers passed.**
-  - **Tickets:** 13 open (4 medium, 9 low), to be filed as GitHub issues (label `q4`).
+  - **Tickets:** 13 open (4 medium, 9 low), filed 2026-11-13 as GitHub issues #59–#71 (label `q4`).
 
 ### Release readiness (2026-11-11, after Q2)
 - **Code:** Q2's exit criteria are met. No open crash, data-loss, freeze or wrong-slide defect from the audit or Q2; no open Critical or High security finding.
@@ -98,7 +98,7 @@
 ### Pending
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
 - [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
-- [ ] Q4 close-out (orchestrator, pre-approved): push `q4/base`, draft PR against `main`, CI green on every job, merge; file the 13 Q4 tickets (label `q4`); close #46 and #52 with their commits
+- [ ] Q4 close-out (orchestrator, pre-approved): `q4/base` pushed, draft PR #58 against `main`; 13 Q4 tickets filed as #59–#71 (label `q4`); CI green on every job, merge, close #46 and #52 (the PR body says Closes)
 - [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 implemented on `q4/base`; next is Q5 (`voxxa-eval` and the first fixtures)
 - [ ] Founder: record two PD-hymn fixtures; apply to SignPath; open Partner Center; e-mail CCLI; form LLC; start research screener
 - [ ] Phases 4–6 per increment
