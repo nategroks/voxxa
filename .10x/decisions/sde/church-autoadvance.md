@@ -212,3 +212,27 @@ Design: ADR-014 (Accepted on the user's pre-approved Q4 decisions), committed be
 - Q4-e: the conductor's word buffer holds overlapping text. This is fine on the PD WAVs and unmeasured on real singing.
 - Q4-f: the real-model test takes about 17 s in debug when it runs alone (more under load). CI skips it (no model).
 - Q4-g: the GUI sink still forwards `operator` from `gui_event`; a mutation inside the forwarding closure, such as hard-coding `true`, is not caught by a test. The mapping itself is pure and tested.
+
+## 2026-11-12 — Q4 finish on `q4/base` (10x base + comparator's grafts and review fixes)
+`q4/10x` merged with `--no-ff` (0d16b0e), then one commit per change: b43151f backpressure test (ponytail graft), b4e9a28 `shortcut:` comment at `set_initial_prompt` (graft), 0165be8 stitcher (must-fix), 84c260d UTF-8 word text, 2bdd2b9 time-based blank rule, 68e403a fixture re-record, 729a515 ADR-014 note. ADR-014 carries a dated note and amended Decisions 2, 3, 7, 8 and the alternatives row.
+
+**Stitcher.** Padding short hops to 4 words (the comparator's first option) failed the new test (Amazing Grace at 2 words/s stopped after slide 1), so new words are held until there are 4: lines every 1 to 2 s of speech. With the stitcher bypassed (the 10x first version) Amazing Grace at 2 words/s never left slide 0.
+
+**Gates at 729a515 (Windows 11, rustc 1.99.1):** all 7 pass. 130 tests (55 unit + 75 integration; `voxxad_events` 23, `recognizer` 10). Budgets: conductor 1,176/1,200, recognizer 430/700, everything else 2,271/2,500, voxxad 538/600, GUI 2,951/3,000.
+
+**Exit demo (Whisper Tiny, debug `voxxad`, file speed, `--shadow`, 44.4 s PD WAV: 3 s silence, ag-v1, 1 s, ag-v2, 4 s, prayer 30.3-38.4 s, 6 s):** hypothesis `t` (ms) 6000 8000 10000 11000 14000 17000 18000 20000 22000 23000 25000 32000 34000 35000 36000; actions goto Amazing Grace/0 at 6.0 s, goto Amazing Grace/1 at 23.0 s, blank at 30.6 s (silence rule, 0.3 s into the prayer); nothing shown during the prayer; replay `cmp` byte-identical on action lines. 68 s wall for 44.4 s of audio.
+
+**Inference per hop (Whisper Tiny, 5 s window, 4-core PC):** debug 1.76-1.92 s; release as committed 6.4-6.7 s (whisper.cpp built without optimisation, see ADR-014 note); release with `CMAKE_C/CXX_FLAGS_RELEASE` set 1.79-1.94 s (measured, not committed).
+
+**Mutation checks (by hand, each reverted):**
+- (a) gate without the lag condition (`recognizer.gate(recent)`): `a_slow_recogniser_skips_hops_and_the_lag_stays_bounded` fails (a decode starts more than a hop behind). Nothing else catches it.
+- (b) gate without the VAD condition: 4 tests fail (`the_shared_loop_ticks_every_200_ms...`, `the_shared_loop_on_real_speech...`, `a_stop_that_closes_the_channel...`, `a_slow_recogniser...`).
+- (c) `operator = true` in `gui_event`: `every_loop_action_is_dispatched_as_not_from_the_operator` fails. Q4-g (the forwarding closure in `start_listening_with_state`) stays a known gap.
+- Stitcher bypassed: `stitched_hops_show_every_slide_once_in_order_at_any_singing_speed` fails.
+
+**Tickets (update of the 10x list).**
+- Q4-a (updated): release whisper.cpp is unoptimised on MSVC. `whisper-rs-sys` 0.11 always builds the cmake `Release` config, and the `cmake` crate replaces `CMAKE_C/CXX_FLAGS_RELEASE` with the `cc` flags minus `/O`. `opt-level = 3` for the package does not help (measured, reverted). Fix candidates: set `CMAKE_C_FLAGS_RELEASE`/`CMAKE_CXX_FLAGS_RELEASE` (`-nologo -MD -Brepro -W0 -O2 -Ob2 -DNDEBUG`) for Windows release builds in CI and packaging (measured 1.8-1.9 s per hop); `set_audio_ctx` for 5 s windows; one reused `WhisperState`.
+- Q4-c: closed by the time-based blank rule (2bdd2b9). New risk recorded in ADR-014: a prayer under about 7 s straight after a song may blank only through the silence rule.
+- Q4-e: closed by the stitcher (0165be8). New: advances come late in a verse (the 40-word buffer holds the previous verse); conductor tuning for `voxxa-eval`.
+- Q4-h (new): after a pause of over 1 s the stitcher is cleared (comparator's rule), so the next window's old words (up to 4 s) are sent once more. Bounded; revisit with `voxxa-eval`.
+- Q4-i (new): `voxxad_events` takes about 150 s in debug (not profiled; the conductor's scoring and the VAD run on minutes of audio); adds to Q3-13.
