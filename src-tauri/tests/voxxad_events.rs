@@ -400,6 +400,8 @@ fn a_stop_that_closes_the_channel_mid_loop_is_not_a_device_loss() {
 /// voice, 16 kHz mono 16-bit PCM, 12 s. Real speech for the real VAD; the
 /// recogniser is faked, so no Whisper model is needed.
 const SPEECH_WAV: &str = "tests/fixtures/voxxad/amazing-grace-v1.wav";
+/// Verse 2 the same way (10.3 s).
+const SPEECH_WAV_2: &str = "tests/fixtures/voxxad/amazing-grace-v2.wav";
 
 fn wav_16k_mono(path: &str) -> Vec<f32> {
     let bytes = std::fs::read(path).unwrap();
@@ -904,11 +906,30 @@ fn overlapping_windows_show_each_slide_once_and_the_prayer_nothing() {
         .filter(|(_, e)| matches!(e, Event::Input(Input::Heard(_))))
         .count();
     assert!(
-        hypotheses >= 25,
-        "{hypotheses} hypotheses: about one a second of speech"
+        hypotheses >= 12,
+        "{hypotheses} hypotheses: one every 1 to 2 s of speech"
     );
 
-    let actions: Vec<(u64, String)> = (events.iter())
+    let actions = actions_of(&events);
+    let names: Vec<&str> = actions.iter().map(|(_, a)| a.as_str()).collect();
+    assert_eq!(names, ["goto 0/0", "goto 0/1", "blank"], "{actions:?}");
+    // Slide 1 comes while verse 2 is heard, the blank during the prayer,
+    // and nothing after it.
+    let (ms, at) = (|s: f32| (s * 1000.0) as u64, |i: usize| actions[i].0);
+    assert!(at(0) < ms(v2), "{actions:?}");
+    assert!(at(1) > ms(v2) && at(1) < ms(v2 + secs), "{actions:?}");
+    assert!(
+        at(2) > ms(prayer) && at(2) < ms(prayer + secs),
+        "{actions:?}"
+    );
+    // Replay of this session agrees.
+    replay_agrees(&log, songs());
+}
+
+/// The conductor's actions, with their audio times (ms), as "goto
+/// song/slide", "blank" or "unblank".
+fn actions_of(events: &[(u64, Event)]) -> Vec<(u64, String)> {
+    (events.iter())
         .filter_map(|(t, e)| match e {
             Event::Action(
                 Action::Goto {
@@ -922,25 +943,95 @@ fn overlapping_windows_show_each_slide_once_and_the_prayer_nothing() {
             Event::Action(Action::Unblank, _) => Some((*t, "unblank".into())),
             _ => None,
         })
-        .collect();
-    let names: Vec<&str> = actions.iter().map(|(_, a)| a.as_str()).collect();
-    assert_eq!(names, ["goto 0/0", "goto 0/1", "blank"], "{actions:?}");
-    // Slide 1 comes while verse 2 is heard, the blank during the prayer,
-    // and nothing after it.
-    let (ms, at) = (|s: f32| (s * 1000.0) as u64, |i: usize| actions[i].0);
-    assert!(at(0) < ms(v2), "{actions:?}");
-    assert!(at(1) > ms(v2) && at(1) < ms(v2 + secs), "{actions:?}");
-    assert!(
-        at(2) > ms(prayer) && at(2) < ms(prayer + secs),
-        "{actions:?}"
-    );
-    // Replay of this session agrees.
+        .collect()
+}
+
+/// Replay of a session log computes the same outputs from its inputs.
+fn replay_agrees(log: &str, setlist: Vec<Song>) {
     let live: Vec<&str> = log.lines().filter(outputs).collect();
-    let again: Vec<String> = (replay(&log, songs()).unwrap().iter())
+    let again: Vec<String> = (replay(log, setlist).unwrap().iter())
         .map(Line::to_json)
         .filter(|l| outputs(&l.as_str()))
         .collect();
     assert_eq!(again, live);
+}
+
+/// Real speech for the VAD, `secs` long: the two verse fixtures back to
+/// back, repeated. What was said is scripted separately.
+fn speech(secs: f32) -> Vec<f32> {
+    let two = [wav_16k_mono(SPEECH_WAV), wav_16k_mono(SPEECH_WAV_2)].concat();
+    let len = (secs * 16000.0) as usize;
+    two.iter().cycle().take(len).copied().collect()
+}
+
+/// `slides` sung straight through at `rate` words a second over real
+/// speech, heard by Whisper-like overlapping windows; then 8 s of silence.
+/// Returns the conductor's actions, after checking that replay agrees.
+fn sing(setlist: Vec<Song>, slides: &[String], rate: f32) -> Vec<(u64, String)> {
+    let text = slides.join(" ");
+    let secs = text.split_whitespace().count() as f32 / rate;
+    let audio = [quiet(1), speech(secs + 1.0), quiet(8)].concat();
+    let fed = std::rc::Rc::new(std::cell::Cell::new(0));
+    let scripted = Scripted {
+        words: spread(&text, 1.0, 1.0 + secs),
+        fed: fed.clone(),
+    };
+    let mut recognizer = Clocked {
+        inner: Rolling::new(scripted),
+        fed,
+    };
+    let run = listen_with_recognizer(setlist.clone(), &audio, &mut recognizer, |_, _| {});
+    replay_agrees(&run.1, setlist);
+    actions_of(&run.0)
+}
+
+/// ADR-014 Decision 7 (the stitcher): each hop hands the conductor only
+/// the words its window adds, padded to the conductor's 4-word floor. It
+/// Is Well arranged V1 C V2 C V3 C (the chorus three times) and the four
+/// verses of Amazing Grace, sung at 2, 2.5 and 3 words a second: every
+/// slide is shown once, in order, with no skip, no repeat and no blank
+/// before the last one.
+#[test]
+fn stitched_hops_show_every_slide_once_in_order_at_any_singing_speed() {
+    let mut setlist = songs();
+    let well = setlist[2].slides.clone();
+    let arranged: Vec<_> = [0, 1, 2, 1, 3, 1]
+        .iter()
+        .enumerate()
+        .map(|(id, &v)| json!({ "id": 20 + id, "text": well[v].text }))
+        .collect();
+    let song = json!({ "title": "It Is Well (V1 C V2 C V3 C)", "slides": arranged });
+    setlist[2] = serde_json::from_value(song).unwrap();
+    let text = |song: usize| -> Vec<String> {
+        (setlist[song].slides.iter())
+            .map(|s| s.text.clone())
+            .collect()
+    };
+    let songs = [(0, text(0)), (2, text(2))];
+    std::thread::scope(|scope| {
+        let runs: Vec<_> = (songs.iter())
+            .flat_map(|song| [2.0, 2.5, 3.0].map(|rate| (song, rate)))
+            .map(|((song, slides), rate)| {
+                let setlist = setlist.clone();
+                let run = scope.spawn(move || sing(setlist, slides, rate));
+                (*song, slides.len(), rate, run)
+            })
+            .collect();
+        for (song, slides, rate, run) in runs {
+            let actions = run.join().unwrap();
+            let names: Vec<&str> = actions.iter().map(|(_, a)| a.as_str()).collect();
+            let gotos: Vec<&str> = (names.iter().copied())
+                .filter(|a| a.starts_with("goto"))
+                .collect();
+            let want: Vec<String> = (0..slides).map(|i| format!("goto {song}/{i}")).collect();
+            assert_eq!(gotos, want, "song {song} at {rate} words/s: {actions:?}");
+            let last = names.iter().rposition(|a| a.starts_with("goto")).unwrap();
+            assert!(
+                !names[..last].contains(&"blank"),
+                "song {song} at {rate} words/s: {actions:?}"
+            );
+        }
+    });
 }
 
 /// A decoder that keeps the loop busy for `cost` of wall time on

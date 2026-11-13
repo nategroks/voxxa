@@ -6,7 +6,7 @@
 
 use anyhow::anyhow;
 use std::time::Instant;
-use voxxa_lib::transcription::{Decode, Hypothesis, Recognizer, Rolling, Word};
+use voxxa_lib::transcription::{Decode, Hypothesis, Recognizer, Rolling, Stitcher, Word};
 use voxxa_lib::{TranscriptionEngine, WhisperModel};
 
 /// Public-domain text (Amazing Grace, verse 2) read by the Windows SAPI
@@ -140,6 +140,60 @@ fn a_failed_decode_is_one_hypothesis_with_an_error_and_an_empty_one_is_none() {
     let hyps = feed_secs(&mut r, 1);
     assert_eq!(r.decoder().windows, [8000, 16000]);
     assert_eq!(hyps.iter().map(|h| h.end).collect::<Vec<_>>(), [1.0]);
+}
+
+/// `text`'s words, one every `step` seconds from `from`.
+fn timed(text: &str, from: f32, step: f32) -> Vec<Word> {
+    (text.split_whitespace().enumerate())
+        .map(|(i, w)| (w.to_string(), from + i as f32 * step, 0.9))
+        .collect()
+}
+
+#[test]
+fn the_stitcher_hands_on_only_the_words_a_window_adds() {
+    let mut s = Stitcher::default();
+    // The first window is all new.
+    let first = timed("Amazing grace, how sweet the sound that", 0.5, 0.4);
+    assert_eq!(
+        s.next(&first).as_deref(),
+        Some("Amazing grace, how sweet the sound that")
+    );
+    // One second later: the window lost two words at its start and gained
+    // three at its end; Whisper heard the cut-off "grace" as "race" and the
+    // case and commas differ. Three new words are under the conductor's 4,
+    // so they are held ...
+    let mut second = timed("race how sweet the Sound, that saved a wretch", 0.9, 0.4);
+    second[0].1 = 0.95;
+    assert_eq!(s.next(&second), None);
+    // ... until the next hop brings a fourth.
+    let third = timed("the sound that saved a wretch like", 2.1, 0.4);
+    assert_eq!(s.next(&third).as_deref(), Some("saved a wretch like"));
+    // A window with nothing new gives nothing.
+    let fourth = timed("sound that saved a wretch like", 2.5, 0.4);
+    assert_eq!(s.next(&fourth), None);
+    // After silence the stitcher forgets: a repeat is new again.
+    s.clear();
+    assert_eq!(
+        s.next(&fourth).as_deref(),
+        Some("sound that saved a wretch like")
+    );
+    // Held words do not outlive a silence.
+    s.clear();
+    assert_eq!(s.next(&timed("me", 9.0, 0.4)), None);
+    s.clear();
+    assert_eq!(s.next(&timed("I once was", 10.0, 0.4)), None);
+}
+
+#[test]
+fn a_repeated_phrase_lines_up_by_word_time() {
+    // "it is well, it is well": the new window's start lines up with either
+    // "it is well" equally well by the words alone; times decide.
+    let mut s = Stitcher::default();
+    let sent = timed("with my soul it is well it is well", 10.0, 0.5);
+    s.next(&sent).unwrap();
+    // Starts at the second "it" (13 s) and adds "with my soul" and more.
+    let new = timed("it is well with my soul it", 13.0, 0.5);
+    assert_eq!(s.next(&new).as_deref(), Some("with my soul it"));
 }
 
 /// The Q4 exit test: Whisper Tiny on the 10 s fixture, fed in 100 ms chunks

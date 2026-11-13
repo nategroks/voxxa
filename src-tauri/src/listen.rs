@@ -4,7 +4,7 @@
 
 pub use crate::aligner::{check_setlist, Input};
 use crate::aligner::{Action, Conductor, MachineState};
-use crate::transcription::Recognizer;
+use crate::transcription::{Recognizer, Stitcher};
 use crate::vad::VadEngine;
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -72,6 +72,8 @@ pub fn run(
     // Audio received at the last speech, and the lag behind the audio the
     // last time the queue was empty (device latency, dropped samples).
     let (mut spoke_at, mut caught_up) = (None, Duration::ZERO);
+    // Windows overlap: the conductor hears only what each hop adds.
+    let mut stitcher = Stitcher::default();
     let (mut peak_window, mut sumsq_window, mut samples_window) = (0.0f32, 0.0f64, 0usize);
     // Apply one input under the conductor lock; `extra` reads more state
     // under the same lock (the detection rows).
@@ -151,21 +153,23 @@ pub fn run(
         // Decode only after speech in the last hop, and skip hops (never
         // catch up) while more than a hop behind.
         let recent = spoke_at.is_some_and(|at| Duration::from_millis((received - at) / 16) < HOP);
+        if !recent {
+            stitcher.clear();
+        }
         recognizer.gate(recent && lag.saturating_sub(caught_up) <= HOP);
         for hypothesis in recognizer.feed(&samples) {
             // The end of the hop's audio; on a wall clock, when its text is ready.
             let now = clock(received);
-            let text = match hypothesis.error {
-                Some(e) => {
-                    log::error!("Transcription error: {e}");
-                    sink(now, Event::Error(e));
-                    continue;
-                }
-                None => hypothesis.text(),
-            };
-            if text.is_empty() {
+            if let Some(e) = hypothesis.error {
+                log::error!("Transcription error: {e}");
+                sink(now, Event::Error(e));
                 continue;
             }
+            // What this hop adds; this text is logged and applied, so
+            // replay needs no recogniser.
+            let Some(text) = stitcher.next(&hypothesis.words) else {
+                continue;
+            };
             log::info!("Heard: {}", text);
             sink(now, Event::Input(Input::Heard(text.clone())));
             let mut rows = Vec::new();

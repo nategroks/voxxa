@@ -1,7 +1,7 @@
 pub mod recognizer;
 
 use anyhow::{Context, Result};
-pub use recognizer::{Decode, Hypothesis, Recognizer, Rolling, Word};
+pub use recognizer::{Decode, Hypothesis, Recognizer, Rolling, Stitcher, Word};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 

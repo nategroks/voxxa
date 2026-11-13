@@ -25,11 +25,84 @@ pub struct Hypothesis {
 }
 
 impl Hypothesis {
-    /// The words joined by spaces: what the conductor hears.
+    /// The words joined by spaces.
     pub fn text(&self) -> String {
         let words: Vec<&str> = self.words.iter().map(|w| w.0.as_str()).collect();
         words.join(" ")
     }
+}
+
+/// The fewest words the conductor reads in a transcript
+/// (`Conductor::on_transcript` drops shorter ones).
+pub const MIN_WORDS: usize = 4;
+/// Words the stitcher remembers: more than a 5 s window holds.
+const KEEP: usize = 32;
+
+/// Turns overlapping hypotheses into what the conductor hears (ADR-014
+/// Decision 7). Consecutive windows share about 4 s of audio, so each
+/// hypothesis starts with words already heard; only the words after them
+/// are new. New words are held until there are [`MIN_WORDS`] of them, so
+/// the conductor gets each word once, in order, every 1 to 2 s of singing.
+#[derive(Debug, Default)]
+pub struct Stitcher {
+    /// The words taken from hypotheses so far (the latest [`KEEP`]).
+    heard: Vec<Word>,
+    /// New words not yet handed on.
+    held: Vec<Word>,
+}
+
+impl Stitcher {
+    /// The text to hand the conductor for one hypothesis's words, or `None`
+    /// while fewer than [`MIN_WORDS`] new words are held.
+    pub fn next(&mut self, words: &[Word]) -> Option<String> {
+        let new = &words[overlap(&self.heard, words)..];
+        self.heard.extend_from_slice(new);
+        self.heard.drain(..self.heard.len().saturating_sub(KEEP));
+        self.held.extend_from_slice(new);
+        if self.held.len() < MIN_WORDS {
+            return None;
+        }
+        let text: Vec<String> = self.held.drain(..).map(|w| w.0).collect();
+        Some(text.join(" "))
+    }
+
+    /// Forget everything (after silence): the next hypothesis is all new,
+    /// and fewer than [`MIN_WORDS`] held words, which the conductor would
+    /// not read, are dropped.
+    pub fn clear(&mut self) {
+        self.heard.clear();
+        self.held.clear();
+    }
+}
+
+/// How many leading words of `new` repeat the end of `sent`. `new[0]` is
+/// lined up with each word of `sent` in turn; the line-up where the most
+/// words agree (ignoring case and punctuation, and at least half of those
+/// compared) wins, and of equal ones the line-up whose word times agree
+/// best. Whisper may mishear a word cut by the window edge, so not every
+/// word has to agree.
+pub fn overlap(sent: &[Word], new: &[Word]) -> usize {
+    let key = |w: &Word| -> String {
+        (w.0.chars().filter(|c| c.is_alphanumeric()))
+            .flat_map(char::to_lowercase)
+            .collect()
+    };
+    let (sent_keys, new_keys): (Vec<_>, Vec<_>) = (
+        sent.iter().map(key).collect(),
+        new.iter().map(key).collect(),
+    );
+    let mut best = (0, f32::MAX, 0); // words that agree, time gap, overlap
+    for (i, at) in sent.iter().enumerate() {
+        let len = (sent.len() - i).min(new.len());
+        let agree = (0..len)
+            .filter(|&k| sent_keys[i + k] == new_keys[k])
+            .count();
+        let gap = new.first().map_or(0.0, |w| (at.1 - w.1).abs());
+        if agree > 0 && agree * 2 >= len && (agree > best.0 || agree == best.0 && gap < best.1) {
+            best = (agree, gap, len);
+        }
+    }
+    best.2
 }
 
 /// ADR-004's recogniser. `feed` gets every sample of the stream once, in
