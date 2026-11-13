@@ -6,7 +6,7 @@
 use std::time::{Duration, Instant};
 use voxxa_lib::evidence::{score, tokens, EvidenceConfig, Section, SectionKind};
 use voxxa_lib::listen::{check_setlist, Input};
-use voxxa_lib::{Action, Conductor, Setlist, SmartConfig, Song};
+use voxxa_lib::{Action, Conductor, Setlist, Slide, SmartConfig, Song};
 
 /// It Is Well (song 0): verse, refrain, verse, verse, verse (labelled).
 const REFRAIN: &str = "../fixtures/recordings/refrain-it-is-well/setlist.json";
@@ -115,6 +115,36 @@ fn a_repeated_chorus_is_followed_back_and_on_to_the_next_verse() {
         }
         assert_eq!(run.gotos, [(0, 0), (0, 1), (0, 2), (0, 1), (0, 3), (0, 1)]);
     }
+}
+
+#[test]
+fn a_chorus_of_two_slides_is_followed_through_both_and_on_to_the_next_verse() {
+    // It Is Well with its refrain split over two slides: verse 0, chorus
+    // 1-2, verse 3, verse 4. Covers `same_section` and `is_start` on a
+    // section of more than one slide.
+    let mut songs = setlist(REFRAIN);
+    let old: Vec<String> = songs[0].slides.iter().map(|s| s.text.clone()).collect();
+    let refrain: Vec<&str> = old[1].lines().collect();
+    let parts = [&old[0], &refrain[..2].join("\n"), &refrain[2..].join("\n")];
+    let texts = parts.into_iter().chain([&old[2], &old[3]]).cloned();
+    songs[0].slides = (texts.enumerate())
+        .map(|(id, text)| Slide { id, text })
+        .collect();
+    let section = |kind, slides: &[usize]| Section {
+        kind,
+        slides: slides.to_vec(),
+    };
+    let (verse, chorus) = (SectionKind::Verse, SectionKind::Chorus);
+    songs[0].sections = vec![section(verse, &[0]), section(chorus, &[1, 2])];
+    songs[0]
+        .sections
+        .extend([section(verse, &[3]), section(verse, &[4])]);
+    let mut run = Run::new(songs);
+    for slide in [0, 1, 2, 3, 1, 2, 4] {
+        run.sing(slide);
+    }
+    let want = [(0, 0), (0, 1), (0, 2), (0, 3), (0, 1), (0, 2), (0, 4)];
+    assert_eq!(run.gotos, want);
 }
 
 #[test]
