@@ -80,7 +80,7 @@ Text comes from the committed public-domain fixture setlists; transcripts are 5-
 ## Finish on `q6/base` (after the merge d92800c and the review fixes)
 **Before, measured again.** The finisher re-measured 733c7e1 on a `git archive` export of that commit, in replay. Every cell of the "Before" table above came out the same. The finisher also replayed `prayer-before-first-song`'s committed log with the 733c7e1 conductor: 2 slides, 1 goto, 1 hit, 1 missed, recall 0.50, latency 6,710 ms, blank and unblank `miss`. That matches the Q5 ticket's number.
 
-**After, on the `q6/base` head, in replay.** Every cell equals the "After (`q6/10x`)" table above. Neither review fix changes behaviour: one is a test, and the other removes a log line and adds the song index to another.
+**After, on the `q6/base` head, in replay.** Every cell equals the "After (`q6/10x`)" table above. Full mode (Whisper Tiny, `--shadow`, debug, file speed, 10 min 26 s for the six fixtures) printed the same table, cell for cell, and the same two FAIL lines. Neither review fix changes behaviour: one is a test, and the other removes a log line and adds the song index to another.
 
 | fixture | before (733c7e1) median / p95 ms | after median / p95 ms | before → after recall | false before → after |
 |---|---|---|---|---|
