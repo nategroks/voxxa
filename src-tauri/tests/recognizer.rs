@@ -6,6 +6,7 @@
 
 use anyhow::anyhow;
 use std::time::Instant;
+use voxxa_lib::transcription::recognizer::words_from_tokens;
 use voxxa_lib::transcription::{Decode, Hypothesis, Recognizer, Rolling, Stitcher, Word};
 use voxxa_lib::{TranscriptionEngine, WhisperModel};
 
@@ -194,6 +195,39 @@ fn a_repeated_phrase_lines_up_by_word_time() {
     // Starts at the second "it" (13 s) and adds "with my soul" and more.
     let new = timed("it is well with my soul it", 13.0, 0.5);
     assert_eq!(s.next(&new).as_deref(), Some("with my soul it"));
+}
+
+#[test]
+fn word_text_comes_from_the_segment_and_times_from_space_led_tokens() {
+    let tok = |text: &str, t: f32, p: f32| (text.to_string(), t, p);
+    // U+FFFD is what a token cut inside a UTF-8 letter decodes to on its
+    // own; the segment's text has the whole letter.
+    let tokens = [
+        tok(" Thou", 0.0, 0.9),
+        tok(" art", 0.5, 0.8),
+        tok(",", 0.8, 0.6),
+        tok(" na", 1.0, 0.6),
+        tok("\u{fffd}", 1.2, 0.4),
+        tok("\u{fffd}ve", 1.3, 0.5),
+        tok(" ", 1.5, 0.1),
+        tok(" Lord", 1.6, 0.7),
+    ];
+    let words = words_from_tokens(" Thou art, na\u{ef}ve Lord", &tokens);
+    let want: Vec<Word> = vec![
+        ("Thou".into(), 0.0, 0.9),
+        ("art,".into(), 0.5, 0.7),
+        ("na\u{ef}ve".into(), 1.0, 0.5),
+        ("Lord".into(), 1.6, 0.7),
+    ];
+    assert_eq!(words.len(), want.len(), "{words:?}");
+    for (got, want) in words.iter().zip(&want) {
+        assert_eq!((&got.0, got.1), (&want.0, want.1), "{words:?}");
+        assert!((got.2 - want.2).abs() < 1e-6, "{words:?}");
+    }
+    // More words than space-led tokens: the rest take the last known start.
+    let words = words_from_tokens("my soul", &[tok(" my", 2.0, 0.8)]);
+    assert_eq!(words, [("my".into(), 2.0, 0.8), ("soul".into(), 2.0, 0.8)]);
+    assert!(words_from_tokens("", &[]).is_empty());
 }
 
 /// The Q4 exit test: Whisper Tiny on the 10 s fixture, fed in 100 ms chunks

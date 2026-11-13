@@ -32,6 +32,30 @@ impl Hypothesis {
     }
 }
 
+/// One segment's words: `text` (the segment's whole text) split on
+/// whitespace, timed by `tokens` (text, start in seconds, probability).
+/// A token led by a space, and the first token, starts a word: the word
+/// takes its start and the mean probability of the word's tokens. Token
+/// text can be cut inside a UTF-8 character, so only its leading space is
+/// trusted. If the counts differ, the words left over take the last known
+/// start and probability.
+pub fn words_from_tokens(text: &str, tokens: &[(String, f32, f32)]) -> Vec<Word> {
+    let mut starts: Vec<(f32, f32, f32)> = Vec::new(); // start, sum of p, tokens
+    for (piece, t0, p) in tokens.iter().filter(|t| !t.0.trim().is_empty()) {
+        match starts.last_mut() {
+            Some(w) if !piece.starts_with(' ') => (w.1, w.2) = (w.1 + p, w.2 + 1.0),
+            _ => starts.push((*t0, *p, 1.0)),
+        }
+    }
+    (text.split_whitespace().enumerate())
+        .map(|(i, word)| {
+            let last = starts.last().copied().unwrap_or((0.0, 0.0, 1.0));
+            let (t, p, n) = starts.get(i).copied().unwrap_or(last);
+            (word.to_string(), t, p / n)
+        })
+        .collect()
+}
+
 /// The fewest words the conductor reads in a transcript
 /// (`Conductor::on_transcript` drops shorter ones).
 pub const MIN_WORDS: usize = 4;

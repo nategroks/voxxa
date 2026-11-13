@@ -209,27 +209,22 @@ impl TranscriptionEngine {
 
         // Tokens at or above end-of-text are timestamps and other specials.
         let eot = ctx.token_eot();
-        let mut words: Vec<(String, f32, f32, usize)> = Vec::new();
+        let mut words = Vec::new();
         for seg in 0..state.full_n_segments().context("Failed to get segments")? {
+            let mut tokens = Vec::new();
             for tok in 0..state.full_n_tokens(seg).context("Failed to get tokens")? {
                 let data = state.full_get_token_data(seg, tok)?;
-                if data.id >= eot {
-                    continue;
-                }
-                let piece = state.full_get_token_text_lossy(seg, tok)?;
-                match words.last_mut() {
-                    Some(w) if !piece.starts_with(' ') => {
-                        w.0.push_str(&piece);
-                        (w.2, w.3) = (w.2 + data.p, w.3 + 1);
-                    }
-                    _ => words.push((piece.trim().into(), data.t0 as f32 / 100.0, data.p, 1)),
+                if data.id < eot {
+                    let piece = state.full_get_token_text_lossy(seg, tok)?;
+                    tokens.push((piece, data.t0 as f32 / 100.0, data.p));
                 }
             }
+            // The segment's text decodes all its bytes at once, so a letter
+            // split across two tokens is not lost.
+            let text = state.full_get_segment_text_lossy(seg)?;
+            words.extend(recognizer::words_from_tokens(&text, &tokens));
         }
-        Ok((words.into_iter())
-            .filter(|w| !w.0.trim().is_empty())
-            .map(|(w, t, p, n)| (w.trim().to_string(), t, p / n as f32))
-            .collect())
+        Ok(words)
     }
 }
 
