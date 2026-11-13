@@ -11,8 +11,8 @@ use chrono::NaiveDate;
 use events::{expired, fingerprint, replay, status, Act, Kind, Line, Recorder};
 use serde_json::json;
 use std::process::Command;
-use std::sync::atomic::AtomicBool;
-use std::sync::mpsc;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering::SeqCst};
+use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use voxxa_lib::listen::{self, Event, Input};
@@ -1398,4 +1398,96 @@ fn every_decoded_hop_is_one_window_line_in_the_session_log() {
     let out = |log: &str| replay(log, songs()).unwrap();
     assert_eq!(out(&heard.log), out(&without));
     replay_agrees(&heard.log, songs());
+}
+
+/// Records the stream time (ms) of every decode; hears one word.
+struct Times {
+    fed: std::rc::Rc<std::cell::Cell<u64>>,
+    at: Vec<u64>,
+}
+
+impl Decode for Times {
+    fn decode(&mut self, _: &[f32], _: Option<&str>) -> anyhow::Result<Vec<Word>> {
+        self.at.push(self.fed.get() / 16);
+        Ok(vec![("amen".into(), 0.0, 0.9)])
+    }
+}
+
+/// ADR-014 Decision 5: the lag is measured from the last time the loop
+/// found the queue empty, not from the session start. A device stall (no
+/// audio for 3 s while the wall clock runs on, as after a driver hiccup or
+/// dropped samples) must not close the gate for the rest of the session:
+/// once audio flows again, every hop with speech is decoded.
+#[test]
+fn a_device_stall_does_not_close_the_gate_for_the_rest_of_the_session() {
+    let verse = wav_16k_mono(SPEECH_WAV);
+    let audio = [quiet(1), verse.clone(), verse, quiet(2)].concat();
+    let chunks: Vec<Vec<f32>> = audio.chunks(1600).map(<[f32]>::to_vec).collect();
+    // The stall comes after 1 s of silence and 10 s of the first verse.
+    let split = 110;
+    let stalled_at = split as u64 * 100;
+    // How far the wall clock is ahead of the audio (ms), and the clock
+    // readings since the stall began.
+    let ahead = Arc::new(AtomicU64::new(0));
+    let readings = Arc::new(AtomicUsize::new(0));
+    let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(0);
+    let feeder = {
+        let (ahead, readings) = (ahead.clone(), readings.clone());
+        std::thread::spawn(move || {
+            for chunk in &chunks[..split] {
+                tx.send(chunk.clone()).unwrap();
+            }
+            // The device stalls: 3 s of wall time pass with no audio, while
+            // the loop reads the clock and finds the queue empty ...
+            ahead.store(3000, SeqCst);
+            while readings.load(SeqCst) < 3 {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            // ... then audio flows again, 3 s behind the wall clock.
+            for chunk in &chunks[split..] {
+                tx.send(chunk.clone()).unwrap();
+            }
+        })
+    };
+    let base = Instant::now();
+    let clock = |samples: u64| {
+        let ahead = ahead.load(SeqCst);
+        if ahead > 0 {
+            readings.fetch_add(1, SeqCst);
+        }
+        base + Duration::from_millis(samples / 16 + ahead)
+    };
+    let fed = std::rc::Rc::new(std::cell::Cell::new(0));
+    let times = Times {
+        fed: fed.clone(),
+        at: Vec::new(),
+    };
+    let mut recognizer = Clocked {
+        inner: Rolling::new(times),
+        fed,
+    };
+    let conductor = Mutex::new(Some(Conductor::new(songs(), SmartConfig::default())));
+    let vad = Mutex::new(VadEngine::new());
+    let run = AtomicBool::new(true);
+    listen::run(
+        rx,
+        &run,
+        &vad,
+        &conductor,
+        &mut recognizer,
+        clock,
+        |_, _| {},
+    );
+    feeder.join().unwrap();
+
+    let decoded = &recognizer.inner.decoder().at;
+    let hops = hops_with_speech(&audio);
+    let after: Vec<u64> = hops.iter().copied().filter(|&t| t > stalled_at).collect();
+    assert!(after.len() >= 8, "{hops:?}");
+    let decoded_after: Vec<u64> = (decoded.iter().copied())
+        .filter(|&t| t > stalled_at)
+        .collect();
+    assert_eq!(decoded_after, after, "decodes after the stall");
+    // Before the stall the loop was never behind: every hop with speech.
+    assert_eq!(decoded, &hops, "{decoded:?}");
 }
