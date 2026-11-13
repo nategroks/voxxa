@@ -238,6 +238,12 @@ fn replay_reproduces_the_recorded_actions_byte_for_byte() {
         .filter(|l| l.contains(r#""type":"action""#))
         .collect();
     assert_eq!(replayed, recorded);
+    // A live session log: window lines, and t never goes back.
+    let t: Vec<u64> = (log.lines())
+        .map(|l| serde_json::from_str::<Line>(l).unwrap().t)
+        .collect();
+    assert!(t.windows(2).all(|w| w[0] <= w[1]), "{t:?}");
+    assert!(log.contains(r#""type":"window""#));
 }
 
 /// The live run's outputs: action lines and conductor status lines.
