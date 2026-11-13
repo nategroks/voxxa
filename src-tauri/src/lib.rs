@@ -18,6 +18,7 @@ mod vad;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+pub use aligner::evidence;
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::{choose_config, AudioEngine, Resampler};
 pub use commands::{gui_event, gui_sink, presenter_error, GuiEvent, Sessions};

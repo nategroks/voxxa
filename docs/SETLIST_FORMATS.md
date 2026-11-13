@@ -45,6 +45,23 @@ The simplest format. Drop a `.json` file shaped like this:
 Slide IDs are re-numbered on load; you can leave them as `0` or omit
 them entirely (in the JS path they get reassigned).
 
+**Optional section labels (ADR-016).** A song may say which slides are a
+verse, a chorus, a bridge or a tag, so the conductor expects a repeated
+chorus and returns to the right verse after it:
+
+```json
+"sections": [
+  { "kind": "verse", "slides": [0] },
+  { "kind": "chorus", "slides": [1] },
+  { "kind": "verse", "slides": [2] }
+]
+```
+
+`slides` are 0-based indices within the song, in ascending order; a slide
+may be in at most one section, and unlabelled slides are fine. `kind` is
+`verse`, `chorus` (`refrain` means the same), `bridge` or `tag`; any other
+word is read as `other`. Setlists without `sections` load exactly as before.
+
 ## `.voxxa-set` envelope
 
 Exported via the **Export** link in the song-title row. Same JSON as

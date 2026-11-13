@@ -125,6 +125,7 @@ fn song_from_text(title: &str, text: &str) -> Result<Song> {
     Ok(Song {
         title: title.to_string(),
         slides,
+        sections: Vec::new(),
     })
 }
 
