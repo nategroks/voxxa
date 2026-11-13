@@ -9,6 +9,9 @@
 //! [`crate::presenters::PresentationController`]: `Goto` (move to a specific
 //! global slide), `Blank`, `Unblank`, or `Noop`.
 
+pub mod evidence;
+
+use evidence::{EvidenceConfig, Section, Tracker};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
@@ -22,6 +25,10 @@ pub struct Slide {
 pub struct Song {
     pub title: String,
     pub slides: Vec<Slide>,
+    /// Optional section labels (ADR-016); absent in older setlists and
+    /// then not written, so their JSON and replay fingerprint are unchanged.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sections: Vec<Section>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +72,11 @@ pub struct SmartConfig {
     pub advance_margin: f64,
     pub max_buffer_words: usize,
     pub softmax_temperature: f64,
+    /// Position tracking within a song (ADR-016). `slide_advance_debounce_ms`
+    /// and `advance_margin` are kept for old logs and settings but unused:
+    /// `evidence.min_dwell_ms` and `evidence.margin` replace them.
+    #[serde(default)]
+    pub evidence: EvidenceConfig,
 }
 
 impl Default for SmartConfig {
@@ -82,6 +94,7 @@ impl Default for SmartConfig {
             advance_margin: 10.0,
             max_buffer_words: 40,
             softmax_temperature: 12.0,
+            evidence: EvidenceConfig::default(),
         }
     }
 }
@@ -150,6 +163,7 @@ pub fn check_setlist(songs: &[Song]) -> Result<(), String> {
             songs.len()
         ));
     }
+    songs.iter().try_for_each(evidence::check_sections)?;
     match songs.iter().find(|s| s.slides.is_empty()) {
         Some(bad) => Err(format!(
             "Song \"{}\" has no slides — every song needs at least one.",
@@ -189,6 +203,8 @@ pub struct Conductor {
     /// call so the UI can render confidence bars in real time. Empty before
     /// the first transcript arrives.
     last_scores: Vec<SongScore>,
+    /// Where in the current song the room is (ADR-016).
+    tracker: Tracker,
 }
 
 impl Conductor {
@@ -217,6 +233,7 @@ impl Conductor {
             unmatched_since: None,
             unmatched_again: false,
             last_scores: Vec::new(),
+            tracker: Tracker::default(),
         }
     }
 
@@ -370,11 +387,16 @@ impl Conductor {
         for w in text.split_whitespace() {
             self.buffer_words.push(w.to_lowercase());
         }
+        self.tracker.hear(text);
         if self.buffer_words.len() > self.config.max_buffer_words {
             let drop = self.buffer_words.len() - self.config.max_buffer_words;
             self.buffer_words.drain(..drop);
         }
-        let buffer_text = self.buffer_words.join(" ");
+        // While nothing is shown, only the newest words may start a song: a
+        // prayer before it must not dilute the buffer (Q5-04, ADR-016).
+        let words = &self.buffer_words;
+        let from = words.len().saturating_sub(text.split_whitespace().count());
+        let buffer_text = words[if self.is_blank { from } else { 0 }..].join(" ");
 
         let scores = self.score_all_songs(&buffer_text);
         self.last_scores = scores.clone();
@@ -432,16 +454,12 @@ impl Conductor {
             MachineState::Singing | MachineState::InterVerseSilence
         ) && !self.is_blank;
 
-        // Try to advance within the current song. While the lyrics are off,
-        // an advance re-shows them, so it needs the start bar too, and only
-        // the latest words count: speech heard during the blank is not lyrics.
-        let words = if showing {
-            buffer_text
-        } else {
-            text.to_lowercase()
-        };
+        // Follow the position within the current song. While the lyrics are
+        // off, a move re-shows them, so it needs the start bar too; the
+        // tracker scores only the newest words, so speech heard during the
+        // blank is not taken as lyrics.
         if showing || self.matches_song(current, text, self.config.min_start_match) {
-            let advance = self.maybe_advance_within_current(&words, now);
+            let advance = self.follow(now);
             if !matches!(advance, Action::Noop) {
                 return advance;
             }
@@ -548,54 +566,26 @@ impl Conductor {
             .collect()
     }
 
-    fn maybe_advance_within_current(&mut self, buffer_text: &str, now: Instant) -> Action {
-        let Some(current) = self.current_song else {
+    /// Ask the tracker where in the song the newest words are (ADR-016);
+    /// a move is a goto, at most one per `evidence.min_dwell_ms`.
+    fn follow(&mut self, now: Instant) -> Action {
+        let Some(song) = self.current_song else {
             return Action::Noop;
         };
-        if let Some(last) = self.last_advance {
-            if now.saturating_duration_since(last)
-                < Duration::from_millis(self.config.slide_advance_debounce_ms)
-            {
-                return Action::Noop;
-            }
-        }
-
-        let song = &self.songs[current];
-        let curr_idx = self.current_slide_in_song;
-        let curr = song.slides.get(curr_idx);
-        // Empty slides (blank pptx slides, empty PDF pages) are kept so slide
-        // numbers match the presentation app, but are never matched.
-        let Some(next_idx) =
-            (curr_idx + 1..song.slides.len()).find(|&i| !song.slides[i].text.trim().is_empty())
-        else {
+        let (cfg, from) = (&self.config.evidence, self.current_slide_in_song);
+        let dwell = Duration::from_millis(cfg.min_dwell_ms);
+        let dwelled = (self.last_advance).is_none_or(|t| now.saturating_duration_since(t) >= dwell);
+        let Some(to) = (self.tracker).decide(song, &self.songs[song], from, cfg, dwelled) else {
             return Action::Noop;
         };
-        let next = song.slides.get(next_idx);
-
-        let score_curr = curr
-            .map(|s| partial_ratio(buffer_text, &s.text.to_lowercase()))
-            .unwrap_or(0.0);
-        let score_next = next
-            .map(|s| partial_ratio(buffer_text, &s.text.to_lowercase()))
-            .unwrap_or(0.0);
-
-        if next.is_some()
-            && score_next >= self.config.min_advance_match
-            && score_next > (score_curr + self.config.advance_margin)
-        {
-            self.current_slide_in_song = next_idx;
-            self.buffer_words.clear();
-            self.unmatched_since = None;
-            self.last_advance = Some(now);
-            self.is_blank = false;
-            self.transition(MachineState::Singing, now);
-            log::info!(
-                "[CONDUCTOR] advance within song {current} to slide {}",
-                self.current_slide_in_song
-            );
-            return self.goto_action_for_current().unwrap_or(Action::Noop);
-        }
-        Action::Noop
+        self.current_slide_in_song = to;
+        self.buffer_words.clear();
+        self.unmatched_since = None;
+        self.last_advance = Some(now);
+        self.is_blank = false;
+        self.transition(MachineState::Singing, now);
+        log::info!("[CONDUCTOR] song {song}: slide {from} -> {to}");
+        self.goto_action_for_current().unwrap_or(Action::Noop)
     }
 
     /// The slide of `song_idx` that best matches the recent words, so a song
@@ -745,7 +735,7 @@ fn simple_ratio(a: &[char], b: &[char]) -> f64 {
     (2.0 * matches as f64 / total as f64) * 100.0
 }
 
-fn lcs_length(a: &[char], b: &[char]) -> usize {
+fn lcs_length<T: PartialEq>(a: &[T], b: &[T]) -> usize {
     let m = a.len();
     let n = b.len();
     let mut prev = vec![0usize; n + 1];
@@ -788,6 +778,7 @@ mod tests {
                             .into(),
                     },
                 ],
+                sections: Vec::new(),
             },
             Song {
                 title: "Holy, Holy, Holy".into(),
@@ -801,6 +792,7 @@ mod tests {
                         text: "Early in the morning our song shall rise to Thee".into(),
                     },
                 ],
+                sections: Vec::new(),
             },
             Song {
                 title: "Come, Thou Fount".into(),
@@ -816,6 +808,7 @@ mod tests {
                             .into(),
                     },
                 ],
+                sections: Vec::new(),
             },
         ]
     }

@@ -1,4 +1,4 @@
-{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261113-1143.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"3707ada947771770","slides":13,"songs":3},"shadow":true,"version":"0.1.0"}}
+{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"evidence":{"decay":0.3,"margin":0.05,"min_dwell_ms":1500,"prior_chorus":0.8,"prior_next":0.9,"prior_other":0.4,"prior_section":0.6,"prior_stay":1.0,"threshold":0.35},"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261113-1352.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"a3c89c5c15c77e3c","slides":13,"songs":3},"shadow":true,"version":"0.1.0"}}
 {"v":1,"t":200,"type":"tick"}
 {"v":1,"t":400,"type":"tick"}
 {"v":1,"t":600,"type":"tick"}
@@ -159,6 +159,7 @@
 {"v":1,"t":15800,"type":"tick"}
 {"v":1,"t":16000,"type":"window","text":"well, it is well with my soul. It is well, it is"}
 {"v":1,"t":16000,"type":"hypothesis","text":"It is well, it is"}
+{"v":1,"t":16000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"It Is Well with My Soul"}
 {"v":1,"t":16000,"type":"tick"}
 {"v":1,"t":16100,"type":"speech"}
 {"v":1,"t":16200,"type":"tick"}
@@ -265,7 +266,7 @@
 {"v":1,"t":26900,"type":"speech"}
 {"v":1,"t":27000,"type":"window","text":"saw. Though Satan should buffet, though trial"}
 {"v":1,"t":27000,"type":"hypothesis","text":"saw. Though Satan should buffet, though trial"}
-{"v":1,"t":27000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"It Is Well with My Soul"}
+{"v":1,"t":27000,"type":"action","action":"goto","song":0,"slide":2,"global":2,"title":"It Is Well with My Soul"}
 {"v":1,"t":27000,"type":"tick"}
 {"v":1,"t":27100,"type":"speech"}
 {"v":1,"t":27200,"type":"tick"}
@@ -289,7 +290,6 @@
 {"v":1,"t":28900,"type":"speech"}
 {"v":1,"t":29000,"type":"window","text":"Though Satan should buffet, though trials should come, let this blessed assure"}
 {"v":1,"t":29000,"type":"hypothesis","text":"should come let this blessed assure"}
-{"v":1,"t":29000,"type":"action","action":"goto","song":0,"slide":2,"global":2,"title":"It Is Well with My Soul"}
 {"v":1,"t":29000,"type":"tick"}
 {"v":1,"t":29100,"type":"speech"}
 {"v":1,"t":29200,"type":"tick"}
@@ -386,6 +386,7 @@
 {"v":1,"t":37900,"type":"speech"}
 {"v":1,"t":38000,"type":"window","text":"shed his own blood for my soul. It is well, it is well."}
 {"v":1,"t":38000,"type":"hypothesis","text":"It is well, it is well."}
+{"v":1,"t":38000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"It Is Well with My Soul"}
 {"v":1,"t":38000,"type":"tick"}
 {"v":1,"t":38100,"type":"speech"}
 {"v":1,"t":38200,"type":"tick"}
@@ -494,6 +495,7 @@
 {"v":1,"t":48900,"type":"speech"}
 {"v":1,"t":49000,"type":"window","text":"So, my sin, oh, the bliss of this God."}
 {"v":1,"t":49000,"type":"hypothesis","text":"So, my sin, oh, the bliss of this God."}
+{"v":1,"t":49000,"type":"action","action":"goto","song":0,"slide":3,"global":3,"title":"It Is Well with My Soul"}
 {"v":1,"t":49000,"type":"tick"}
 {"v":1,"t":49100,"type":"speech"}
 {"v":1,"t":49200,"type":"tick"}
@@ -586,7 +588,6 @@
 {"v":1,"t":56900,"type":"speech"}
 {"v":1,"t":57000,"type":"window","text":"the whole, is nailed to the cross, and I bear it no more, praise the Lord."}
 {"v":1,"t":57000,"type":"hypothesis","text":"more. praise the Lord."}
-{"v":1,"t":57000,"type":"action","action":"goto","song":0,"slide":3,"global":3,"title":"It Is Well with My Soul"}
 {"v":1,"t":57000,"type":"tick"}
 {"v":1,"t":57200,"type":"tick"}
 {"v":1,"t":57300,"type":"speech"}
@@ -645,6 +646,7 @@
 {"v":1,"t":62800,"type":"speech"}
 {"v":1,"t":63000,"type":"window","text":"Oh my soul. It is well, it is well."}
 {"v":1,"t":63000,"type":"hypothesis","text":"It is well. it is well."}
+{"v":1,"t":63000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"It Is Well with My Soul"}
 {"v":1,"t":63000,"type":"tick"}
 {"v":1,"t":63200,"type":"tick"}
 {"v":1,"t":63400,"type":"tick"}
