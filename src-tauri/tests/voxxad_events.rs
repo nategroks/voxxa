@@ -1004,6 +1004,33 @@ fn a_short_prayer_blanks_on_a_tick_while_it_is_spoken() {
     assert_eq!(blanked, Some(21000));
 }
 
+/// Verifier round 2: after inter-verse silence the slide is still up, so
+/// the next line of it sings on without a second goto to the same slide
+/// (that would be a re-shown slide on the action lines). After a blank it
+/// is shown again.
+#[test]
+fn singing_on_after_inter_verse_silence_does_not_show_the_slide_again() {
+    let mut c = Conductor::new(songs(), SmartConfig::default());
+    let t0 = Instant::now();
+    let at = |ms: u64| t0 + Duration::from_millis(ms);
+    let verse = &verses()[1];
+    assert!(matches!(c.on_transcript(verse, at(0)), Action::Goto { .. }));
+    c.on_speech(at(0));
+    for ms in (200..=3400).step_by(200) {
+        assert!(matches!(c.tick(at(ms)), Action::Noop));
+    }
+    assert_eq!(c.state(), MachineState::InterVerseSilence);
+    let again = c.on_transcript(verse, at(3600));
+    assert!(matches!(again, Action::Noop), "{again:?}");
+    assert_eq!((c.state(), c.is_blank()), (MachineState::Singing, false));
+    // After a blank the same words show it again.
+    c.on_speech(at(3600));
+    let blank = (3800..=12000).step_by(200).map(|ms| c.tick(at(ms)));
+    assert!(blank.into_iter().any(|a| matches!(a, Action::Blank)));
+    let back = c.on_transcript(verse, at(12200));
+    assert!(matches!(back, Action::Goto { .. }), "{back:?}");
+}
+
 /// A spoken prayer (written for Q2, not a song) read by the Windows SAPI
 /// voice the same way: 8.1 s, about 7 s of speech with a 1 s pause after
 /// its first sentence.

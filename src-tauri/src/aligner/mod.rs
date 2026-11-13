@@ -470,11 +470,15 @@ impl Conductor {
         }
         self.unmatched_since = None;
 
-        // We matched the current song but didn't advance — ensure output is unblanked
-        // and showing the current slide (recovers from BlankHold/InterVerseSilence).
+        // We matched the current song but didn't advance: singing again. After
+        // a blank, show the current slide; after inter-verse silence it is
+        // still up, so a goto would only show it twice.
         if self.is_blank || self.state != MachineState::Singing {
-            self.is_blank = false;
+            let was_blank = std::mem::replace(&mut self.is_blank, false);
             self.transition(MachineState::Singing, now);
+            if !was_blank {
+                return Action::Noop;
+            }
             if let Some(g) = self.goto_action_for_current() {
                 return g;
             }
