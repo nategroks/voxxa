@@ -131,8 +131,10 @@ pub struct SongScore {
 
 /// Most songs a setlist may hold. Every transcript is scored against every
 /// song (about 70 ms per song in release), so a whole EasyWorship library
-/// would delay slide control by minutes; 50 keeps a transcript well under the
-/// 5 s it takes to hear the next one.
+/// would delay slide control by minutes. 50 songs take about 3.5 s, longer
+/// than the 1-2 s between transcripts with the hop (ADR-014): the bound then
+/// rests on the loop's lag gate, which counts this time and skips hops
+/// instead of queueing audio.
 pub const MAX_SETLIST_SONGS: usize = 50;
 
 /// Reject setlists the conductor cannot follow, before loading them. An
