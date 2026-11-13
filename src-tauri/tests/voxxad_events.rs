@@ -4,6 +4,9 @@
 //! device (the recogniser's decoder is faked), so they run in CI.
 
 #[allow(dead_code)]
+#[path = "../src/bin/voxxad/cli.rs"]
+mod cli;
+#[allow(dead_code)]
 #[path = "../src/bin/voxxad/events.rs"]
 mod events;
 
@@ -1490,4 +1493,77 @@ fn a_device_stall_does_not_close_the_gate_for_the_rest_of_the_session() {
     assert_eq!(decoded_after, after, "decodes after the stall");
     // Before the stall the loop was never behind: every hop with speech.
     assert_eq!(decoded, &hops, "{decoded:?}");
+}
+
+/// Records every text the loop asks the recogniser to bias towards.
+struct Biased<R> {
+    inner: R,
+    asked: Vec<String>,
+}
+
+impl<R: Recognizer> Recognizer for Biased<R> {
+    fn feed(&mut self, pcm16k: &[f32]) -> Vec<Hypothesis> {
+        self.inner.feed(pcm16k)
+    }
+    fn bias(&mut self, text: &str) {
+        self.asked.push(text.to_string());
+        self.inner.bias(text)
+    }
+    fn gate(&mut self, open: bool) {
+        self.inner.gate(open)
+    }
+}
+
+/// ADR-014 Decision 3: after each goto the loop biases the recogniser
+/// towards the slide it shows and the slide after it (`voxxad --bias`
+/// then passes that text to Whisper), and at no other time.
+#[test]
+fn after_every_goto_the_loop_biases_towards_that_slide_and_the_next() {
+    let v = verses();
+    let answer = |n: usize| {
+        Ok(match n {
+            0 => v[0].clone(),
+            2 => v[1].clone(),
+            _ => String::new(),
+        })
+    };
+    let mut recognizer = Biased {
+        inner: Rolling::new(Numbered {
+            answer,
+            windows: Vec::new(),
+        }),
+        asked: Vec::new(),
+    };
+    let (events, _, _) = listen_with_recognizer(songs(), &service(), &mut recognizer, |_, _| {});
+    let want: Vec<String> = (events.iter())
+        .filter_map(|(_, e)| match e {
+            Event::Action(
+                Action::Goto {
+                    slide_text,
+                    next_slide_text,
+                    ..
+                },
+                _,
+            ) => Some(format!(
+                "{slide_text} {}",
+                next_slide_text.as_deref().unwrap_or_default()
+            )),
+            _ => None,
+        })
+        .collect();
+    assert!(want.len() >= 2, "{want:?}");
+    assert!(want[0].starts_with(&v[0]), "{want:?}");
+    assert!(want[0].ends_with(&v[1]), "{want:?}");
+    assert_eq!(recognizer.asked, want);
+}
+
+/// `voxxad --bias` turns biasing on, and nothing else does (ADR-004 E6:
+/// Whisper may echo its prompt, so it is off by default).
+#[test]
+fn voxxad_biases_whisper_only_with_the_bias_flag() {
+    let args = |flags: &[&str]| cli::parse_args(flags.iter().map(|f| f.to_string())).unwrap();
+    let plain = args(&["--setlist", SETLIST, "--stdin-audio", "x.wav", "--shadow"]);
+    assert!(!cli::recognizer(&plain, Silent).bias_enabled);
+    let biased = args(&["--setlist", SETLIST, "--bias"]);
+    assert!(cli::recognizer(&biased, Silent).bias_enabled);
 }

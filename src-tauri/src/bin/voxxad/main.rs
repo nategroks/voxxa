@@ -3,9 +3,11 @@
 //! or an input device, prints one JSON object per line on stdout and writes
 //! every line to a session log that `--replay` re-runs without a recogniser.
 
+mod cli;
 mod events;
 
 use chrono::Local;
+use cli::{parse_args, recognizer, Args};
 use events::{fingerprint, status, Kind, Line, Recorder};
 use serde_json::json;
 use std::fs::{self, File, OpenOptions};
@@ -17,7 +19,6 @@ use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 use voxxa_lib::listen::{self, check_setlist, Event};
-use voxxa_lib::transcription::Rolling;
 use voxxa_lib::{
     drive, make_controller, AudioEngine, Conductor, KeystrokeProfile, PresentationController,
     PresenterConfig, PresenterKind, Sent, Setlist, SmartConfig, Song, TranscriptionEngine,
@@ -43,49 +44,6 @@ speed (t is audio time) unless --realtime is given.";
 
 /// 100 ms of 16 kHz audio per chunk.
 const CHUNK: usize = 1600;
-
-#[derive(Default)]
-struct Args {
-    setlist: Option<String>,
-    wav: Option<String>,
-    realtime: bool,
-    device: Option<String>,
-    presenter: Option<String>,
-    host: Option<String>,
-    port: Option<u16>,
-    shadow: bool,
-    replay: Option<String>,
-    list_devices: bool,
-    model: Option<String>,
-    log_dir: Option<String>,
-    bias: bool,
-    help: bool,
-}
-
-fn parse_args(mut it: impl Iterator<Item = String>) -> Result<Args, String> {
-    let mut a = Args::default();
-    while let Some(flag) = it.next() {
-        let mut value = || it.next().ok_or(format!("{flag} needs a value"));
-        match flag.as_str() {
-            "--setlist" => a.setlist = Some(value()?),
-            "--stdin-audio" => a.wav = Some(value()?),
-            "--device" => a.device = Some(value()?),
-            "--presenter" => a.presenter = Some(value()?),
-            "--host" => a.host = Some(value()?),
-            "--port" => a.port = Some(value()?.parse().map_err(|e| format!("--port: {e}"))?),
-            "--replay" => a.replay = Some(value()?),
-            "--model" => a.model = Some(value()?),
-            "--log-dir" => a.log_dir = Some(value()?),
-            "--realtime" => a.realtime = true,
-            "--shadow" => a.shadow = true,
-            "--bias" => a.bias = true,
-            "--list-devices" => a.list_devices = true,
-            "--help" | "-h" => a.help = true,
-            _ => return Err(format!("unknown argument {flag}; see voxxad --help")),
-        }
-    }
-    Ok(a)
-}
 
 fn main() {
     if let Err(message) = run(parse_args(std::env::args().skip(1))) {
@@ -198,9 +156,8 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
             }
         }
     };
-    let mut recognizer = Rolling::new(engine);
-    recognizer.bias_enabled = args.bias;
-    let lost = listen::run(rx, &running, &vad, &conductor, &mut recognizer, clock, sink);
+    let mut hop = recognizer(&args, engine);
+    let lost = listen::run(rx, &running, &vad, &conductor, &mut hop, clock, sink);
     let reason = match (mode, lost) {
         ("device", true) => "device_lost",
         (_, true) => "end_of_audio",
