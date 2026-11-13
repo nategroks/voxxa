@@ -71,3 +71,6 @@ Q3 adds a second binary, `voxxad`, that runs Voxxa's pipeline headlessly. Phase 
 
 ## Review trigger
 Re-open if the protocol needs more than 8 event types, if a second recogniser lands (turn the closure into ADR-004's trait), or if the `voxxad` row needs more than 600 lines.
+
+## Amendment 2026-11-12 (Q4): recogniser seam
+The review trigger "a second recogniser lands" fired with Q4. Decision 1's recogniser closure (`FnMut(&[f32]) -> Result<String>`) and the 5 s batch in `listen::run` are replaced by ADR-004's `Recognizer` trait and a 1 s hop over a 5 s window: see **ADR-014**. Schema v1, the clock, replay and the `voxxad` row are unchanged; only the `hypothesis` cadence changes (about one a second of speech).

@@ -1,4 +1,7 @@
+pub mod recognizer;
+
 use anyhow::{Context, Result};
+pub use recognizer::{Decode, Hypothesis, Recognizer, Rolling, Word};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -47,15 +50,6 @@ impl WhisperModel {
             Self::DistilLargeV3 => "Distil Large V3 (756MB)",
         }
     }
-}
-
-/// Transcription result from Whisper.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TranscriptionResult {
-    pub text: String,
-    pub language: Option<String>,
-    pub duration_ms: u64,
-    pub is_partial: bool,
 }
 
 /// Manages Whisper model loading and transcription.
@@ -173,15 +167,15 @@ impl TranscriptionEngine {
         self.language = lang;
     }
 
-    /// Transcribe an audio buffer (16kHz mono f32 samples).
-    pub fn transcribe(&self, samples: &[f32]) -> Result<TranscriptionResult> {
+    /// Decode one window of 16 kHz mono audio into words, each with its
+    /// start in seconds from the window's start (token timestamps) and the
+    /// mean probability of its tokens. `prompt` becomes Whisper's
+    /// `initial_prompt`.
+    pub fn words(&self, samples: &[f32], prompt: Option<&str>) -> Result<Vec<Word>> {
         let ctx = self
             .ctx
             .as_ref()
             .context("No model loaded. Call load_model first.")?;
-
-        let start = std::time::Instant::now();
-
         let mut state = ctx
             .create_state()
             .context("Failed to create Whisper state")?;
@@ -194,35 +188,47 @@ impl TranscriptionEngine {
         params.set_print_timestamps(false);
         params.set_suppress_blank(true);
         params.set_suppress_non_speech_tokens(true);
-
         if let Some(ref lang) = self.language {
             params.set_language(Some(lang));
         }
-
-        // Single-segment mode for low latency
+        // One segment per window, nothing carried over between windows
+        // (they overlap), and a time for every token.
         params.set_single_segment(true);
         params.set_no_context(true);
+        params.set_token_timestamps(true);
+        // A NUL would panic in whisper-rs; slide text never needs one.
+        let prompt = prompt.map(|p| p.replace('\0', ""));
+        if let Some(prompt) = &prompt {
+            params.set_initial_prompt(prompt);
+        }
 
         state
             .full(params, samples)
             .context("Whisper transcription failed")?;
 
-        let num_segments = state.full_n_segments().context("Failed to get segments")?;
-        let mut text = String::new();
-        for i in 0..num_segments {
-            if let Ok(segment) = state.full_get_segment_text(i) {
-                text.push_str(&segment);
+        // Tokens at or above end-of-text are timestamps and other specials.
+        let eot = ctx.token_eot();
+        let mut words: Vec<(String, f32, f32, usize)> = Vec::new();
+        for seg in 0..state.full_n_segments().context("Failed to get segments")? {
+            for tok in 0..state.full_n_tokens(seg).context("Failed to get tokens")? {
+                let data = state.full_get_token_data(seg, tok)?;
+                if data.id >= eot {
+                    continue;
+                }
+                let piece = state.full_get_token_text_lossy(seg, tok)?;
+                match words.last_mut() {
+                    Some(w) if !piece.starts_with(' ') => {
+                        w.0.push_str(&piece);
+                        (w.2, w.3) = (w.2 + data.p, w.3 + 1);
+                    }
+                    _ => words.push((piece.trim().into(), data.t0 as f32 / 100.0, data.p, 1)),
+                }
             }
         }
-
-        let duration_ms = start.elapsed().as_millis() as u64;
-
-        Ok(TranscriptionResult {
-            text: text.trim().to_string(),
-            language: self.language.clone(),
-            duration_ms,
-            is_partial: false,
-        })
+        Ok((words.into_iter())
+            .filter(|w| !w.0.trim().is_empty())
+            .map(|(w, t, p, n)| (w.trim().to_string(), t, p / n as f32))
+            .collect())
     }
 }
 

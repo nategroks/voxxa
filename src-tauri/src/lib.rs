@@ -11,7 +11,7 @@ pub mod listen;
 mod net_stats;
 mod planning_center;
 mod presenters;
-mod transcription;
+pub mod transcription;
 mod tray;
 mod vad;
 
@@ -20,7 +20,7 @@ use tokio::sync::Mutex;
 
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::{choose_config, AudioEngine, Resampler};
-pub use commands::Sessions;
+pub use commands::{gui_event, presenter_error, GuiEvent, Sessions};
 pub use dispatch::{drive, step, Sent};
 pub use http_api::{authorize, resolve_token};
 pub use presenters::{
