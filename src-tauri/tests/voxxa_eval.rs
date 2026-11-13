@@ -241,9 +241,15 @@ fn an_empty_action_list_has_no_hits_and_nothing_to_time() {
     assert_eq!((m.gotos, m.hits, m.false_advances), (0, 0, 0));
     let v = m.values();
     assert_eq!(v[..4], [Some(1.0), Some(0.0), None, None]);
-    let limits = json!({ "x": { "recall": 0.5, "p95_ms": 9000 } });
+    let limits = json!({ "x": {
+        "precision": 1.0, "recall": 0.5, "p95_ms": 9000, "false_advances": 0,
+        "double_advances": 0, "blank_ms": 9000
+    } });
     let fails = check("x", &m, &limits);
-    assert_eq!(fails.len(), 2, "{fails:?}");
+    assert_eq!(fails.len(), 3, "{fails:?}");
+    for want in ["recall is 0.00", "p95_ms is -", "blank_ms is miss"] {
+        assert!(fails.iter().any(|f| f.contains(want)), "{want}: {fails:?}");
+    }
 }
 
 #[test]
@@ -294,10 +300,19 @@ fn the_total_row_sums_counts_and_pools_latencies() {
 #[test]
 fn the_baseline_check_names_each_worse_metric_and_refuses_unknown_names() {
     let m = score(&truth(), &[slide(1500, 0), slide(13400, 1), blank(25300)]);
-    let ok =
-        json!({ "a": { "precision": 1.0, "p95_ms": 500, "blank_ms": 300, "false_advances": 0 } });
+    let mut ok = json!({ "a": {
+        "precision": 1.0, "recall": 1.0, "median_ms": 400, "p95_ms": 500,
+        "false_advances": 0, "double_advances": 0, "blank_ms": 300
+    } });
+    // unblank_ms is `-` here (nothing follows the blank), so it may be left out.
     assert_eq!(check("a", &m, &ok), Vec::<String>::new());
-    let bad = json!({ "a": { "p95_ms": 499, "recal": 1.0 } });
+    ok["a"]["unblank_ms"] = json!(0);
+    let fails = check("a", &m, &ok);
+    assert!(fails[0].contains("unblank_ms is -"), "{fails:?}");
+    let mut bad = ok.clone();
+    bad["a"]["p95_ms"] = json!(499);
+    bad["a"]["recal"] = json!(1.0);
+    bad["a"].as_object_mut().unwrap().remove("unblank_ms");
     let fails = check("a", &m, &bad);
     assert_eq!(fails.len(), 2, "{fails:?}");
     assert!(
@@ -305,6 +320,19 @@ fn the_baseline_check_names_each_worse_metric_and_refuses_unknown_names() {
         "{fails:?}"
     );
     assert!(fails.iter().any(|f| f.contains("recal")), "{fails:?}");
+    // A metric with a value but no threshold fails: dropping one cannot
+    // switch its gate off.
+    for name in ["recall", "false_advances", "double_advances", "p95_ms"] {
+        let mut dropped = ok.clone();
+        dropped["a"].as_object_mut().unwrap().remove(name);
+        dropped["a"].as_object_mut().unwrap().remove("unblank_ms");
+        let fails = check("a", &m, &dropped);
+        let want = format!("a: {name} is");
+        assert!(
+            fails.len() == 1 && fails[0].contains(&want) && fails[0].contains("no threshold"),
+            "{name}: {fails:?}"
+        );
+    }
     assert_eq!(
         check("b", &m, &ok).len(),
         1,

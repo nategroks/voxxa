@@ -216,14 +216,23 @@ pub fn table(rows: &[(String, Metrics)]) -> String {
 
 /// Every way `row`'s metrics are worse than its thresholds in `baseline`
 /// (`{"<fixture or total>": {"<metric>": <worst accepted value>}}`). A row
-/// without thresholds, or an unknown metric name, is a failure too, so a
-/// new fixture or a typo cannot pass unchecked.
+/// without thresholds, an unknown metric name, or a metric with a value
+/// (not `-`) but no threshold is a failure too, so a new fixture, a typo or
+/// a dropped threshold cannot pass unchecked.
 pub fn check(row: &str, m: &Metrics, baseline: &Value) -> Vec<String> {
     let Some(limits) = baseline.get(row).and_then(Value::as_object) else {
         return vec![format!("{row}: no thresholds in the baseline")];
     };
     let values = m.values();
-    let mut fails = Vec::new();
+    let mut fails: Vec<String> = (NAMES.iter().zip(values))
+        .filter(|(name, v)| v.is_some() && !limits.contains_key(**name))
+        .map(|(name, v)| {
+            format!(
+                "{row}: {name} is {}, baseline has no threshold",
+                show(name, v)
+            )
+        })
+        .collect();
     for (name, limit) in limits {
         let (Some(i), Some(limit)) = (NAMES.iter().position(|n| n == name), limit.as_f64()) else {
             fails.push(format!(

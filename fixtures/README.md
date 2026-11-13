@@ -117,10 +117,13 @@ Word timing is not measured: word times are rough and not logged (Q4-13).
 
 `{"<fixture or total>": {"<metric>": <worst accepted value>}}`. Metric names:
 `precision`, `recall` (minimums), `median_ms`, `p95_ms`, `false_advances`,
-`double_advances`, `blank_ms`, `unblank_ms` (maximums). Leave a metric out
-to not gate it. Every row needs an entry: a new fixture without thresholds
-fails, and so does an unknown metric name. A `miss` or `-` fails any
-threshold set for that metric.
+`double_advances`, `blank_ms`, `unblank_ms` (maximums). Every row needs an
+entry: a new fixture without thresholds fails, and so does an unknown metric
+name. Every metric that has a value in a row needs a threshold there; only a
+metric shown as `-` (nothing to measure, such as `unblank_ms` when no slide
+follows the blank) may be left out, so dropping a threshold fails instead of
+switching its gate off. A `miss` or `-` fails any threshold set for that
+metric.
 
 These are thresholds, not the last numbers. They start at the first replay's
 values: each latency (median, p95, blank, unblank) is the next multiple of
