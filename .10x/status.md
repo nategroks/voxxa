@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q4 (Recognizer trait and streaming hop) implemented on `q4/base` (head a4bae0e plus this state commit); verifier round 3 passed. Next, by the orchestrator: CI, PR and merge into `main`; then Q5 (`voxxa-eval` and the first fixtures). Q3 complete and merged into `main` (PR #45, ec6d85e).
+**Current Phase:** Q5 in progress (2026-11-13): `voxxa-eval` and the first fixtures, branch `q5/base`, two lanes `q5/10x` and `q5/ponytail`. Q4 complete and merged into `main` (PR #58, 571cf0d).
 **Last Updated:** 2026-11-13 by 10x-team orchestrator
 **Health:** On Track
 
@@ -98,8 +98,8 @@
 ### Pending
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
 - [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
-- [ ] Q4 close-out (orchestrator, pre-approved): `q4/base` pushed, draft PR #58 against `main`; 13 Q4 tickets filed as #59–#71 (label `q4`); CI green on every job, merge, close #46 and #52 (the PR body says Closes)
-- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 implemented on `q4/base`; next is Q5 (`voxxa-eval` and the first fixtures)
+- [x] Q4 close-out (orchestrator): PR #58 CI green (5/5 jobs at 2807ed7); merged into `main` as 571cf0d; 13 Q4 tickets filed as #59–#71 (label `q4`); #46 and #52 closed.
+- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 (`voxxa-eval` and the first fixtures) in progress
 - [ ] Founder: record two PD-hymn fixtures; apply to SignPath; open Partner Center; e-mail CCLI; form LLC; start research screener
 - [ ] Phases 4–6 per increment
 

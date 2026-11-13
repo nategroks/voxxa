@@ -1,17 +1,18 @@
 # Current Handoff
 
-## User decisions for Q4 (2026-11-12, before the unattended run)
-- **Line budget:** move `src-tauri/src/transcription/` (316 lines) and all new recognizer code (trait, rolling window, `Hypothesis`) into one new row, "recognizer (transcription/ + recognizer code)", capped at **700** lines and excluded from "everything else". Record it as a deviation in the ADR and in `scripts/loc_budget.py`. "Everything else in src-tauri/src" stays at 2500; no other budget is raised.
-- **Pre-approved:** push `q4/base` and open a draft PR against `main`; fix CI forward; merge that PR into `main` once Q4's exit criteria are met and every CI job is green; file Q4 tickets as GitHub issues (label `q4`); re-record `src-tauri/tests/fixtures/voxxad/session-pd-hymns.jsonl` with Whisper Tiny on the public-domain WAVs if the hop changes what the conductor hears (the reason goes in the commit).
-- **Q4 owns Q3-02 (#46):** the GUI event mapping becomes pure and tested when the hop rewrites the shared loop.
-- **ADR:** ADR-012 is still reserved for the cut list. Q4 amends ADR-013 or writes ADR-014.
-- **QA mode** (as in Q2 and Q3): no microphone, no keystroke dispatch; `--shadow`, `--presenter none` or a local mock only; public-domain WAVs; `ggml-tiny.bin` is present.
+## User decisions for Q5 (2026-11-13, before the unattended run)
+- **Fixtures:** there are no founder recordings yet. Q5 builds its two fixtures from the committed public-domain WAVs (spoken, synthetic Amazing Grace v1/v2 and the prayer in `src-tauri/tests/fixtures/voxxad/`). `fixtures/SOURCES.md` labels them as stand-ins; a Q5 ticket tracks replacing them with the founder's two public-domain hymn recordings. No new audio is committed: `fixtures/` holds only JSON, `README.md` and `SOURCES.md`, and each fixture's audio is rebuilt reproducibly from the committed WAVs.
+- **CI gate:** CI has no Whisper model. Each fixture commits a recorded hypothesis log (voxxad session JSONL from a Whisper Tiny run). The CI job replays it (`voxxad --replay`, no recognizer, no audio), scores the actions against `truth.jsonl` and fails when a metric is worse than `fixtures/baseline.json`. The full mode (`voxxad --stdin-audio --shadow`, real model) runs locally and can re-record the logs.
+- **Line budget:** one new recorded row, "voxxa-eval (src/bin/voxxa-eval*)", capped at **600** and excluded from "everything else". No other budget is raised.
+- **Pre-approved:** push `q5/base`, open a draft PR against `main`, add the eval job to `.github/workflows/ci.yml` and fix CI forward; prove the CI gate in real CI with a deliberately broken threshold (then revert); merge into `main` once Q5's exit criteria are met and every CI job is green; file Q5 tickets as GitHub issues (label `q5`); agents may stop processes they started, by PID.
+- **ADR:** ADR-012 is still reserved for the cut list; Q5 writes ADR-015.
+- **QA mode** (as in Q2–Q4): no microphone, no keystroke dispatch; `--shadow`, `--replay` or `--presenter none` only; public-domain WAVs; `ggml-tiny.bin` is present.
 
 ---
 
 ## From: Q4 → To: Q5 (voxxa-eval and the first fixtures)
 **Date:** 2026-11-13
-**Phase:** Phase 4 Implementation done on `q4/base` (head a4bae0e plus the state commit); CI, PR and merge into `main` by the orchestrator (pre-approved) → Q5
+**Phase:** Phase 4 Implementation done; merged into `main` (PR #58, 571cf0d) (head a4bae0e plus the state commit); CI, PR and merge into `main` by the orchestrator (pre-approved) → Q5
 
 ### What Q4 did
 - Replaced the recogniser closure and the 5 s speech batch in the shared loop (`listen::run`) with ADR-004's `Recognizer` trait: Whisper Tiny over a 5 s window, decoded every 1 s (hop). ADR-014 (Accepted, with dated notes) records the design; ADR-013 has a dated amendment.
