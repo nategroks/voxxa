@@ -65,3 +65,15 @@ The statements above were checked against the code at `f7b56e6`; the full log is
   - three conductor behaviour fixes, API unchanged: blank after 5 s of unmatched transcripts, also on a tick; no goto to the slide still showing after inter-verse silence (closes Q3-08 / #52);
   - word text decoded per segment (UTF-8 safe).
   - Budgets: everything else 2,286/2,500, recognizer 432/700, conductor 1,188/1,200 (12 left), voxxad 548/600. Root cause of the slow release build found (whisper.cpp built without `/O2` on MSVC, ticket Q4-01). Process: `reviews/2026-11-12-ponytail-q4.md`.
+
+## Q5 Phase 2 check (2026-11-13): `voxxa-eval` and the first fixtures → ADR-015
+- **Covered by ADR-013/014:** file-speed `t` is audio time; schema v1; `--replay` re-runs the conductor without a model, byte-identical on actions; a recogniser change needs logs re-recorded.
+- **Not covered, decided in ADR-015 (Accepted on the user's pre-approved Q5 decisions):**
+  - a third binary, `src/bin/voxxa-eval/`, runs `voxxad` as a subprocess (replay and the WAV reader live in the `voxxad` binary, so in-process would mean copying them) and scores only its `action` lines;
+  - two modes: `--replay` on a committed `session.jsonl` (default, CI, no model) and `--full` (`--stdin-audio --shadow` in a temp folder; `--record` re-records the log);
+  - fixtures in `fixtures/recordings/<name>/` (the kit's folder): `setlist.json`, `truth.jsonl`, `session.jsonl`, and `audio.json` (a recipe over the committed WAVs) or an uncommitted `audio.wav`;
+  - `truth.jsonl`: `{t_ms, song (index or title), slide}` and `{t_ms, kind:"blank"}`; `event` lines skipped;
+  - metrics on the screen state: each truth row owns `[t_i − 750, t_{i+1} − 750)`; matches, false advances, double advances (a goto to the slide already shown), missed slides, blank/unblank latency; nearest-rank median and p95;
+  - `fixtures/baseline.json` holds `_min`/`_max` thresholds in `per_set` and `total`; exit 1 names the failing metric; CI runs it as a step of the `check` job on all three OSes;
+  - budget: a new 600-line "voxxa-eval" row, a recorded deviation from ADR-010 Decision 3.
+- **Boundaries unchanged:** no GUI change, no conductor change, no sockets, no new crates; the eval only ever passes `--shadow` or `--replay`.
