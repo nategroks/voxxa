@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q4 in progress (2026-11-12): Recognizer trait and streaming hop, branch `q4/base`, two lanes `q4/10x` and `q4/ponytail`. Q3 complete and merged into `main` (PR #45, ec6d85e).
+**Current Phase:** Q4 in progress (2026-11-12): Recognizer trait and streaming hop, branch `q4/base`, two lanes `q4/10x` and `q4/ponytail`. 2026-11-13: verifier round 2 fixes on `q4/base` (prayer blank, re-shown slide after a pause, session-log `t` order; record in `decisions/sde/church-autoadvance.md`). Q3 complete and merged into `main` (PR #45, ec6d85e).
 **Last Updated:** 2026-11-12 by 10x-team orchestrator
 **Health:** On Track
 

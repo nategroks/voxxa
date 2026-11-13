@@ -272,3 +272,28 @@ The verifier failed the exit criterion and found five test gaps. Fixed in new co
 - Decode alone, from the real-model test: 1.76-1.91 s.
 - In `voxxad`, including VAD and conductor time: 1.85-3.97 s, median 2.48 s, over 29 decodes.
 - Release builds were not re-measured in this round (see Q4-a).
+
+## 2026-11-13 — Q4 verifier round 2 on `q4/base`
+The verifier found three failures in real runs (Whisper Tiny, `--shadow`, file speed). Fixed in new commits, each with a test that fails without it:
+- b2b8d0b `fix(conductor)`: the prayer was not blanked after a 2-4 s pause (transcripts spanned only 4 s; the 5 s rule needed a transcript 5 s after the first unmatched one). `Conductor::tick` now blanks when lyrics are showing, a second unmatched transcript came, the first is 5 s old and the VAD still hears speech. Test: `a_short_prayer_blanks_on_a_tick_while_it_is_spoken` (the gap2 transcript times; no blank without the fix).
+- c288ef7 `fix(listen)`, then 065b83f: stale words after a pause re-sent goto 0/1. c288ef7 dropped words timed before the pause; the exit-demo re-run showed Whisper Tiny's word times cannot carry that (first word of a window is timed at the window start; new words after a pause were timed seconds early and dropped, an old word timed late slipped through). 065b83f replaces it: the stitcher keeps the words heard across a pause shorter than a window (5 s) and lines the window's old words up by text. Tests: `words_from_before_a_short_pause_are_not_handed_on_again`; `a_short_prayer_after_a_pause_blanks_and_no_slide_is_shown_twice` (real VAD speech: verse 2, 2 s or 4 s, `prayer.wav`; scripted recogniser; exactly goto 0/1 then a blank while the prayer is spoken; the conductor hears a subsequence of the script; replay agrees); `every_decoded_hop_is_one_window_line_in_the_session_log` now ends with a verse after 12 s of silence.
+- 613b894 `fix(conductor)`: a matched transcript in `inter_verse_silence` returned a goto to the slide still showing; it now returns `Noop`. A blank still leads to a goto. Test: `singing_on_after_inter_verse_silence_does_not_show_the_slide_again`.
+- fcd2934 `fix(voxxad)`: session-log `t` went back after window (and error) lines; the pending speech line is now written before any later line. Test: `the_session_log_t_never_goes_back_across_a_window_or_error_line`.
+- 85e57a5 `test(fixtures)`: `session-pd-hymns.jsonl` re-recorded (user decision 3: the stitcher no longer re-sends words after a short pause). It holds window lines; the replay test checks non-decreasing `t`.
+- `tests/fixtures/voxxad/prayer.wav` added (the Q2 synthetic-speech prayer, 8.1 s).
+
+**Mutation checks (applied by hand, test run, file restored):** tick rule off: both prayer tests fail. Stitcher always forgets (the old rule): the loop prayer test and the window-line test fail. Stitcher never forgets: the window-line test fails. `Noop` after inter-verse silence removed: the re-show test fails. Old recorder flush rule: the recorder test fails.
+
+**Gates (Windows 11, rustc 1.99.1), at 85e57a5 plus this docs commit:** all 7 pass. 142 tests (55 unit, of them 32 aligner; 87 integration: `voxxad_events` 31, `recognizer` 11 including the real-model test, `dispatch` 12, `gui_events` 10). Budgets: conductor 1,188/1,200, recognizer 432/700, everything else 2,286/2,500, voxxad 548/600, GUI 2,951/3,000. No budget raised.
+
+**Exit demo (Whisper Tiny, debug `voxxad`, file speed, `--shadow`, setlist `tests/fixtures/voxxad/pd-hymns-setlist.json`).** WAVs built from the Q2 PD media:
+- service4 (44.4 s: 3 s, ag-v1, 1 s, ag-v2, 4 s, prayer 30.3-38.4 s, 6 s). Window `t`: 4000-8000, 10000-15000, 17000-26000, 31000-38000, every 1000 ms while the VAD heard speech. Stitched hypothesis `t`: 6000 8000 10000 11000 14000 18000 20000 23000 25000 32000 35000 36000. Actions: goto Amazing Grace/0 at 6000, goto Amazing Grace/1 at 25000, blank at 30600 (silence rule, 0.3 s into the prayer).
+- service2 (42.4 s, 2 s before the prayer at 28.3 s): the same gotos; blank at 35000 (tick rule, 5 s after the first unmatched transcript at 30000; the prayer's speech runs to about 35.5 s).
+- gap2 (verse 2, 2 s, prayer at 13.3 s): goto 0/1 at 3000, blank at 20000 (tick rule; speech to about 20.5 s). The verifier's gap2 run before the fixes had a second goto 0/1 at 15000 and no blank.
+- gap4 (verse 2, 4 s, prayer at 15.3 s): goto 0/1 at 3000, blank at 15600 (silence rule).
+- In all four: no goto during or after the prayer, no slide shown twice, no word from before a pause handed on again, session-log `t` never decreases, `voxxad --replay` gives byte-identical action lines (`cmp`), and stdout's action lines equal the session log's. A second recording of service4 was identical apart from the `start` line.
+- Wall time (debug): 63-67 s for the 44 s services, 36-44 s for the 24-26 s WAVs.
+
+**Inference per hop (Whisper Tiny, 5 s window, 4-core PC, debug build):** 1777-1896 ms per decode (9 hops of the real-model 10 s WAV test, which passed: monotonic timestamps). Release was not re-measured (Q4-a still applies).
+
+**Known limits, not fixed:** the lyrics stay up for the first 5 s of a prayer (`unrecognized_speech_to_blank_secs`, by design; ADR-014 Risks amended). After a pause shorter than 5 s, a repeat of the words just before it can line up with them and be dropped (the stitcher's existing limit within speech). Q4-h is closed by 065b83f.
