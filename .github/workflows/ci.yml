@@ -67,8 +67,13 @@ jobs:
 
       # Q5 / ADR-015: replay the committed fixture logs (no model, no audio)
       # and fail when a metric is worse than fixtures/baseline.json.
+      # cargo test above already enforces the same gate
+      # (replay_of_the_committed_fixtures_passes_the_baseline); this step
+      # stays so the eval table appears in the CI log. bash on every OS so
+      # the && chain behaves the same everywhere.
       - name: voxxa-eval (fixtures vs baseline)
         working-directory: src-tauri
+        shell: bash
         run: cargo build --bin voxxad --bin voxxa-eval && cargo run --bin voxxa-eval
 
   deny:
