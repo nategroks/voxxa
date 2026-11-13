@@ -199,6 +199,7 @@ impl TranscriptionEngine {
         // A NUL would panic in whisper-rs; slide text never needs one.
         let prompt = prompt.map(|p| p.replace('\0', ""));
         if let Some(prompt) = &prompt {
+            // shortcut: whisper-rs 0.13 leaks this CString on every call while biasing is on; recheck when whisper-rs is bumped.
             params.set_initial_prompt(prompt);
         }
 
