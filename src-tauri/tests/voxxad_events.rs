@@ -940,6 +940,39 @@ fn overlapping_windows_show_each_slide_once_and_the_prayer_nothing() {
     replay_agrees(&log, songs());
 }
 
+/// Verifier round 2 on `q4/base`, the conductor alone (Whisper Tiny on
+/// verse 2, a 2 s pause and the prayer): the prayer's transcripts came at
+/// 16, 18, 19 and 20 s, at most 4 s after the first, while the VAD heard
+/// it until 22 s. No transcript came 5 s after the first unmatched one; a
+/// tick 5 s after it, with speech going on, blanks.
+#[test]
+fn a_short_prayer_blanks_on_a_tick_while_it_is_spoken() {
+    let mut c = Conductor::new(songs(), SmartConfig::default());
+    let t0 = Instant::now();
+    let at = |ms: u64| t0 + Duration::from_millis(ms);
+    let verse = c.on_transcript(&verses()[1], at(4000));
+    assert!(matches!(verse, Action::Goto { .. }), "{verse:?}");
+    let prayer = [
+        (16000, "left. Let us bow our heads and pray."),
+        (18000, "Let us bow our heads and pray."),
+        (19000, "Father, we thank you for this"),
+        (20000, "morning and for everything."),
+    ];
+    let mut blanked = None;
+    for ms in (4200..=25000).step_by(200) {
+        if (4000..11600).contains(&ms) || (14800..22000).contains(&ms) {
+            c.on_speech(at(ms));
+        }
+        let heard = prayer.iter().find(|p| p.0 == ms);
+        let action = heard.map_or(Action::Noop, |p| c.on_transcript(p.1, at(ms)));
+        if matches!(action, Action::Blank) || matches!(c.tick(at(ms)), Action::Blank) {
+            blanked = Some(ms);
+            break;
+        }
+    }
+    assert_eq!(blanked, Some(21000));
+}
+
 /// The conductor's actions, with their audio times (ms), as "goto
 /// song/slide", "blank" or "unblank".
 fn actions_of(events: &[(u64, Event)]) -> Vec<(u64, String)> {
