@@ -7,6 +7,7 @@ mod score;
 
 use score::Metrics;
 use serde_json::Value;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -84,12 +85,13 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
         } else {
             let session = dir.join("session.jsonl");
             let replay = "--replay".as_ref();
-            voxxad(&[
+            let args = [
                 replay,
                 session.as_os_str(),
                 "--setlist".as_ref(),
                 setlist.as_os_str(),
-            ])?
+            ];
+            voxxad(&args, None)?
         };
         for error in stdout.lines().filter(|l| l.contains(r#""type":"error""#)) {
             eprintln!("voxxa-eval: {name}: voxxad reported {error}");
@@ -123,15 +125,17 @@ fn read(path: &Path) -> Result<String, String> {
     fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// Runs the `voxxad` built beside this binary and returns its stdout.
-fn voxxad(args: &[&std::ffi::OsStr]) -> Result<String, String> {
+/// Runs the `voxxad` built beside this binary (in `cwd` if given) and
+/// returns its stdout.
+fn voxxad(args: &[&OsStr], cwd: Option<&Path>) -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let exe = exe.with_file_name(format!("voxxad{}", std::env::consts::EXE_SUFFIX));
-    let out = (Command::new(&exe)
-        .args(args)
-        .stderr(Stdio::inherit())
-        .output())
-    .map_err(|e| format!("{}: {e} (build it: cargo build --bins)", exe.display()))?;
+    let mut cmd = Command::new(&exe);
+    if let Some(dir) = cwd {
+        cmd.current_dir(dir);
+    }
+    let out = (cmd.args(args).stderr(Stdio::inherit()).output())
+        .map_err(|e| format!("{}: {e} (build it: cargo build --bins)", exe.display()))?;
     let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
     match out.status.success() {
         true => Ok(stdout),
@@ -140,38 +144,32 @@ fn voxxad(args: &[&std::ffi::OsStr]) -> Result<String, String> {
 }
 
 /// `voxxad` on the fixture's audio with Whisper Tiny, in shadow mode at
-/// file speed. With `record`, its session log becomes `session.jsonl`.
+/// file speed. It runs in a temporary folder with `--log-dir .`, so the
+/// session log's `log` path is relative and names no user folder. With
+/// `record`, that log is copied to `session.jsonl`.
 fn run_full(dir: &Path, setlist: &Path, record: bool) -> Result<String, String> {
+    let abs = |p: &Path| std::path::absolute(p).map_err(|e| format!("{}: {e}", p.display()));
+    let (dir, setlist) = (abs(dir)?, abs(setlist)?);
     let wav = dir.join("audio.wav");
     let recipe = dir.join("audio.json");
     if recipe.exists() {
-        let bytes = audio::build(dir, &read(&recipe)?)?;
+        let bytes = audio::build(&dir, &read(&recipe)?)?;
         fs::write(&wav, bytes).map_err(|e| format!("{}: {e}", wav.display()))?;
     }
     let logs = tempfile::tempdir().map_err(|e| e.to_string())?;
-    let stdout = voxxad(&[
-        "--stdin-audio".as_ref(),
-        wav.as_os_str(),
-        "--setlist".as_ref(),
-        setlist.as_os_str(),
-        "--shadow".as_ref(),
-        "--model".as_ref(),
-        "tiny".as_ref(),
-        "--log-dir".as_ref(),
-        logs.path().as_os_str(),
-    ])?;
+    let mut args: Vec<&OsStr> = vec!["--stdin-audio".as_ref(), wav.as_ref()];
+    args.extend(["--setlist".as_ref(), setlist.as_os_str()]);
+    args.extend(["--shadow", "--model", "tiny", "--log-dir", "."].map(OsStr::new));
+    let stdout = voxxad(&args, Some(logs.path()))?;
     if record {
         let log = (fs::read_dir(logs.path())
             .map_err(|e| e.to_string())?
             .flatten())
         .map(|e| e.path())
-        .next()
+        .find(|p| p.extension().is_some_and(|x| x == "jsonl"))
         .ok_or("voxxad wrote no session log")?;
-        // The start line names the log's path; keep only a stable file name.
-        let path = serde_json::to_string(&log.display().to_string()).unwrap_or_default();
-        let text = read(&log)?.replacen(&path, r#""session.jsonl""#, 1);
         let out = dir.join("session.jsonl");
-        fs::write(&out, text).map_err(|e| format!("{}: {e}", out.display()))?;
+        fs::copy(&log, &out).map_err(|e| format!("{}: {e}", out.display()))?;
     }
     Ok(stdout)
 }
