@@ -143,6 +143,10 @@ fn the_span_boundaries_are_exact_to_the_millisecond() {
         (m.hits, m.false_advances, m.latency.clone()),
         (1, 0, vec![-1000])
     );
+    // More than 1 s before the first row (an opening prayer, Q5-04) belongs
+    // to no row: it is a false advance, never a hit with negative latency.
+    let m = score(&[slide(2100, 0)], &[slide(1000, 0)]);
+    assert_eq!((m.hits, m.false_advances), (0, 1));
 }
 
 #[test]
@@ -216,6 +220,10 @@ fn blank_and_unblank_are_timed_from_the_operator_rows() {
         (vec![Some(6000)], vec![Some(2500)])
     );
     assert_eq!((m.hits, m.false_advances, m.double_advances), (3, 0, 0));
+    // A second blank is a double, not the unblank: the unblank is the goto.
+    let m = score(&t, &[blank(25500), blank(30000), slide(42500, 1)]);
+    assert_eq!(m.unblank.clone(), vec![Some(2500)]);
+    assert_eq!(m.double_advances, 1);
     // An explicit unblank also ends the blank.
     let unblank = At {
         t: 41000,
@@ -454,6 +462,8 @@ fn actions_are_read_from_voxxad_stdout_and_other_lines_are_skipped() {
     };
     assert_eq!(acts, [slide(5000, 0), blank(30600), unblank]);
     assert!(parse_actions(r#"{"v":1,"t":1,"type":"action","action":"goto"}"#).is_err());
+    // An action kind the scorer does not know is an error, not silently dropped.
+    assert!(parse_actions(r#"{"v":1,"t":1,"type":"action","action":"bogus"}"#).is_err());
 }
 
 #[test]
@@ -538,6 +548,16 @@ fn replay_of_the_committed_fixtures_passes_the_baseline() {
     for row in ["prayer-then-reprise", "prayer-without-pause", "total"] {
         assert!(out.lines().any(|l| l.starts_with(row)), "{row}: {out}");
     }
+    // The total row adds up every fixture (3 + 2 slides) and takes the worst
+    // blank (6600 ms, from prayer-without-pause) and unblank (1500 ms).
+    let total: Vec<&str> = out
+        .lines()
+        .find(|l| l.starts_with("total"))
+        .unwrap()
+        .split_whitespace()
+        .collect();
+    assert_eq!(total[1..4], ["5", "5", "5"], "{out}");
+    assert_eq!(total[11..13], ["6600", "1500"], "{out}");
 }
 
 #[test]
