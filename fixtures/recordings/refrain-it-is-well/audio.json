@@ -1,0 +1,15 @@
+[
+  { "silence_ms": 2000 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-it-is-well-v1-zira.wav" },
+  { "silence_ms": 1000 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-it-is-well-refrain-zira.wav" },
+  { "silence_ms": 1500 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-it-is-well-v2-zira.wav" },
+  { "silence_ms": 1000 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-it-is-well-refrain-zira.wav" },
+  { "silence_ms": 1500 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-it-is-well-v3-zira.wav" },
+  { "silence_ms": 1000 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-it-is-well-refrain-zira.wav" },
+  { "silence_ms": 4000 }
+]

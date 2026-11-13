@@ -1,0 +1,11 @@
+[
+  { "silence_ms": 2000 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-be-thou-my-vision-v1-david.wav" },
+  { "silence_ms": 1500 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-be-thou-my-vision-v3-david.wav" },
+  { "silence_ms": 1500 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-be-thou-my-vision-v4-david.wav" },
+  { "silence_ms": 1500 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-be-thou-my-vision-v1-david.wav" },
+  { "silence_ms": 4000 }
+]

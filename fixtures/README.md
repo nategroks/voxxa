@@ -19,7 +19,10 @@ fixtures/
   SOURCES.md                 where each fixture's audio comes from
 ```
 
-`fixtures/` commits no audio: a fixture is JSON only.
+`fixtures/` commits no audio: a fixture is JSON only. The WAVs an
+`audio.json` joins are committed test audio in `src-tauri/tests/fixtures/voxxad/`
+(the Q2 WAVs, and Q6's `tts-*.wav` made by
+`scripts/fixtures/make_tts_fixture.ps1`; see "Synthetic TTS fixtures" below).
 
 ## Running the eval
 
@@ -129,26 +132,66 @@ These are thresholds, not the last numbers. They start at the first replay's
 values: each latency (median, p95, blank, unblank) is the next multiple of
 500 ms strictly above the measured worst (1,500 becomes 2,000; 2,900
 becomes 3,000), headroom for hop jitter when a log is re-recorded; counts
-and ratios are exact. Update them:
+and ratios are exact (a ratio with no short decimal form, such as 13/14, is
+cut to three decimals: 0.928). Update them:
 
 - **Tighten** in the same commit as a change that improves a metric (Q6 aims
   at p95 latency of at most 2,500 ms).
 - **Loosen** only with the reason in the commit message (a re-recorded log,
   a new fixture shape), never to make an unexplained regression pass.
 - Adding a fixture: run the eval, then add its row and update `total`.
+  The rows of the fixtures already there are never loosened. `total` is a
+  different measurement once the set changes, so it is set from the new
+  set's numbers by the same rule; say each changed total threshold in the
+  commit message (Q6 did this when it added the three TTS fixtures).
 
 The gate checks the full set; running on a subset changes the total row.
 
 ## The current fixtures
 
-Both are stand-ins built from the committed public-domain WAVs (synthetic
+All five are stand-ins built from committed public-domain WAVs (synthetic
 speech, not singing; see `SOURCES.md`). Truth rows are at the first word of
-each part (the start of the part plus 100 ms).
+each part: for the two Q5 fixtures the start of the part plus 100 ms; for the
+three Q6 fixtures the synthesizer's own first-word position (below), which
+is also 100 ms into each of their WAVs.
 
 | Fixture | Shape | What it measures |
 |---|---|---|
 | `prayer-then-reprise` | 2 s silence, Amazing Grace v1, 2 s, v2, 4 s, a prayer, 2 s, v2 again, 4 s; setlist order AG, BTMV, IIW; truth uses indices | blank after a pause (silence rule), unblank on the reprise, a late advance into v2 (Q4-04) |
 | `prayer-without-pause` | 1 s, v1, 1 s, v2, the prayer straight after, 6 s; setlist reordered (AG is song 1); truth uses titles, as the recorder writes them | blank during a prayer with no pause (Q4-03) |
+| `refrain-it-is-well` | Zira; 2 s, It Is Well v1, 1 s, refrain, 1.5 s, v2, 1 s, refrain, 1.5 s, v3, 1 s, refrain, 4 s (73.3 s); setlist IIW (v1, refrain, v2, v3, v4), HHH, BTMV; truth slides 0, 1, 2, 1, 3, 1 | a repeated chorus: the refrain is one slide shown three times, so the operator goes back to it after each verse |
+| `jump-be-thou-my-vision` | David; 2 s, Be Thou My Vision v1, 1.5 s, v3, 1.5 s, v4, 1.5 s, v1 again, 4 s (59.3 s); setlist BTMV, CTF, AG; truth slides 0, 2, 3, 0 | jumps: a skipped verse (v2) and a return to the first verse |
+| `prayer-between-songs` | 2 s, Holy, Holy, Holy v1, 1.5 s, v2 (David), 1 s, a prayer (Zira), 2 s, Come Thou Fount v1, 1.5 s, v2 (Zira), 4 s (94.0 s); setlist HHH, CTF, IIW; truth song 0 slides 0, 1, blank, song 1 slides 0, 1 | a set: blank in a prayer with only a short breath before it, then the next song after the prayer (Q5-04) |
+
+### Synthetic TTS fixtures
+
+`scripts/fixtures/make_tts_fixture.ps1` (Windows PowerShell 5.1, offline
+`System.Speech`, voices "Microsoft David Desktop" and "Microsoft Zira
+Desktop") makes the three Q6 fixtures. It reads each slide's text from the
+fixture's `setlist.json`, speaks it line by line (a 300 ms break between
+lines) into `src-tauri/tests/fixtures/voxxad/tts-<song>-<part>-<voice>.wav`
+at 16 kHz mono 16-bit (the output is a WAV file, never the speakers), and
+writes the fixture's `audio.json` and `truth.jsonl`. A part repeated in a
+fixture (the refrain, the return to v1) reuses its WAV. Re-run it with
+`powershell -ExecutionPolicy Bypass -File scripts/fixtures/make_tts_fixture.ps1`
+(add `-Fixture <name>` for one); on the same PC it writes the same bytes.
+
+**Truth times come from the synthesizer, not from listening:**
+
+- A slide row's `t_ms` is the part's offset in `audio.wav` (the silences and
+  WAV data chunks before it, in samples, exactly as `voxxa-eval` joins them)
+  plus the audio position of the part's first word: the earliest
+  `SpeakProgress` event's `AudioPosition`. Rounded to the nearest ms.
+- A blank row is at the first word of a prayer (the same rule). For a silence
+  between songs with no prayer (a silence step marked `blank`), the row is
+  where that silence starts: the end of the previous part's WAV.
+- No other rows: the operator does nothing during the 4 s at the end.
+
+The synthesizer's first-word position (100 ms into every Q6 WAV) agrees with
+the WAVs' energy onset (100-130 ms above an amplitude of 300) to within 30 ms.
+After running the script, record each fixture's `session.jsonl` with
+`voxxa-eval --full --record fixtures/recordings/<name>` and add its
+`baseline.json` row.
 
 ## Recording a real fixture
 

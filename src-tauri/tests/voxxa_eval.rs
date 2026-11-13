@@ -545,19 +545,27 @@ fn replay_of_the_committed_fixtures_passes_the_baseline() {
     let (out, code) = eval(&[]);
     assert_eq!(code, 0, "{out}");
     assert!(out.contains("mode: replay"), "{out}");
-    for row in ["prayer-then-reprise", "prayer-without-pause", "total"] {
+    for row in [
+        "jump-be-thou-my-vision",
+        "prayer-between-songs",
+        "prayer-then-reprise",
+        "prayer-without-pause",
+        "refrain-it-is-well",
+        "total",
+    ] {
         assert!(out.lines().any(|l| l.starts_with(row)), "{row}: {out}");
     }
-    // The total row adds up every fixture (3 + 2 slides) and takes the worst
-    // blank (6600 ms, from prayer-without-pause) and unblank (1500 ms).
+    // The total row adds up every fixture (slides 4 + 4 + 3 + 2 + 6, gotos
+    // 1 + 4 + 3 + 2 + 4, hits 1 + 4 + 3 + 2 + 3) and takes the worst blank
+    // and unblank (7280 and 8490 ms, both from prayer-between-songs).
     let total: Vec<&str> = out
         .lines()
         .find(|l| l.starts_with("total"))
         .unwrap()
         .split_whitespace()
         .collect();
-    assert_eq!(total[1..4], ["5", "5", "5"], "{out}");
-    assert_eq!(total[11..13], ["6600", "1500"], "{out}");
+    assert_eq!(total[1..4], ["19", "14", "13"], "{out}");
+    assert_eq!(total[11..13], ["7280", "8490"], "{out}");
 }
 
 #[test]
@@ -579,7 +587,7 @@ fn a_broken_per_fixture_threshold_fails_the_gate_while_total_passes() {
     // Each fixture row is checked on its own: a fixture that regresses
     // while staying under the looser total thresholds still fails.
     // Measured: prayer-then-reprise blank 200 ms, prayer-without-pause p95
-    // 8900 ms; total allows 7000 and 9000.
+    // 8900 ms; total allows 7500 and 11500.
     let text = std::fs::read_to_string("../fixtures/baseline.json").unwrap();
     let mut limits: serde_json::Value = serde_json::from_str(&text).unwrap();
     limits["prayer-then-reprise"]["blank_ms"] = json!(100);
