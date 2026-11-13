@@ -1,9 +1,9 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q5 in progress (2026-11-13): `voxxa-eval` and the first fixtures, branch `q5/base`, two lanes `q5/10x` and `q5/ponytail`. Q4 complete and merged into `main` (PR #58, 571cf0d).
+**Current Phase:** Q5 (`voxxa-eval` and the first fixtures) implemented on `q5/base` (code head c10e963, 2026-11-13). **Verifier B failed in round 3; the PR must not be merged yet** (open: Q5-08 and Q5-09, plus Q5-10's M52 and M55, all test-only). Next, by the orchestrator: close those with tests and re-verify, then CI + PR + CI-gate proof + merge; then Q6 (conductor against the budget). Q4 merged into `main` (PR #58, 571cf0d).
 **Last Updated:** 2026-11-13 by 10x-team orchestrator
-**Health:** On Track
+**Health:** On Track (Q5 merge on hold for verifier B's test gaps)
 
 ## Progress
 
@@ -77,6 +77,25 @@
   - **Verifiers:** round 1 failed (exit cadence and test gaps), round 2 failed (prayer not blanked, re-shown slide after a pause, session-log `t` order); all fixed with tests. **Round 3 at a4bae0e: both verifiers passed.**
   - **Tickets:** 13 open (4 medium, 9 low), filed 2026-11-13 as GitHub issues #59–#71 (label `q4`).
 
+- [x] 2026-11-13 **Q5** `voxxa-eval` and the first fixtures (Phase 4: ADR-015), with the ponytail lane: `reviews/2026-11-13-ponytail-q5.md`, `reviews/2026-11-13-q5-tickets.md`, `adrs/015-voxxa-eval-fixtures-and-replay-gate.md`, record in `decisions/sde/church-autoadvance.md` ("Q5 final"). **Implemented; not merged** (see the verifiers below).
+  - **Head:** `q5/base` @ **c10e963** (19 commits on 3af8a1a, including the merge): `q5/ponytail` merged as the comparator's base (6f2314d), seven 10x grafts and the ponytail review's fixes (7736464..a0da74d), verifier round 1 fixes (7660b26..e31ddb8) and round 2 fixes (624acad..c10e963). `q5/10x` (b6650a2) and `q5/ponytail` (c9da97c) stay local for reference. 1b0cc5d committed an empty `status.md` by mistake; c10e963 restores it (no history rewritten).
+  - **Built:** a third binary, `voxxa-eval` (`src-tauri/src/bin/voxxa-eval/`), that runs the `voxxad` beside it as a subprocess and scores its `action` lines against `truth.jsonl`. Replay of the committed session logs by default (CI, no model); `--full` runs Whisper Tiny with `--shadow` on audio rebuilt from an `audio.json` recipe; `--record` re-records the logs. Two stand-in fixtures (`fixtures/recordings/prayer-then-reprise`, `prayer-without-pause`; JSON only), `fixtures/baseline.json` (per-row thresholds), `fixtures/README.md` (metric definitions, baseline rules, recording), `fixtures/SOURCES.md` (stand-ins labelled). A CI step in the `check` job on all three OSes. No GUI, conductor, `voxxad`, library or `Cargo.toml` change; no new crates.
+  - **Gates on Windows** (rustc 1.99.1): all 7 pass at c10e963 (finisher and both round-3 verifiers); the CI eval step exactly as `ci.yml` runs it exits 0.
+  - **Tests:** 168 (55 unit + 113 integration; `voxxa_eval` 26, `voxxad_events` 31, `recognizer` 11, `dispatch` 12, `gui_events` 10). None needs the model except the Q4 real-model test, which skips without it.
+  - **Budgets:** new row voxxa-eval 469/600 (user decision, recorded deviation, ADR-015 D11); everything else 2,286/2,500; conductor 1,188/1,200; voxxad 548/600; recognizer 432/700; GUI 2,951/3,000; presenters 1,149/2,000; importers 1,362/1,600. No budget raised.
+  - **Eval table** (Whisper Tiny full mode; replay prints the same):
+
+    | Fixture | Slides / gotos / hits / missed | Precision | Recall | Median / p95 | False / double | Blank | Unblank |
+    |---|---|---|---|---|---|---|---|
+    | prayer-then-reprise | 3 / 3 / 3 / 0 | 1.00 | 1.00 | 2,900 / 8,900 ms | 0 / 0 | 200 ms | 1,500 ms |
+    | prayer-without-pause | 2 / 2 / 2 / 0 | 1.00 | 1.00 | 2,900 / 8,900 ms | 0 / 0 | 6,600 ms | - |
+    | total | 5 / 5 / 5 / 0 | 1.00 | 1.00 | 2,900 / 8,900 ms | 0 / 0 | 6,600 ms | 1,500 ms |
+
+    Q4-04 measured (p95 8.9 s against Q6's 2.5 s budget); Q4-03 measured (blank 6.6 s into a prayer with no pause). The 10x lane also found Q5-04: verse 1 after an opening prayer is never shown.
+  - **Exit demo:** (a) full mode prints the table (2m35s at c10e963; verifier A reproduced it on a fresh clone); (b) replay prints the same table and exits 0 against `baseline.json`; (c) a scratch baseline with `total.p95_ms` 1000 exits 1 with `FAIL total: p95_ms is 8900, baseline needs <= 1000`; (d) `cargo test` covers the metric code with hand-computed cases.
+  - **Verifiers:** rounds 1 and 2 found surviving mutants and two gate gaps (a dropped threshold switched its gate off; a replay that ran Whisper passed locally); all fixed with tests and two small code fixes. **Round 3 at c10e963: verifier A passed; verifier B failed** (63 of 70 mutants killed). **Open:** Q5-08 (M65: an action before the first truth row's window could be scored as a hit; important), Q5-09 (M66: a total row built from one fixture passes), and Q5-10 (M52 unknown action kind skipped, M55 unblank timed at a double blank, M57 mode check unpinned, M68 cosmetic). **The PR must not be merged until Q5-08 and Q5-09 (and M52, M55) have tests that fail under their mutants and a verifier confirms it.** M57 and M68 may be deferred with a recorded reason.
+  - **Tickets:** 11 open (4 medium, 7 low), not filed yet (label `q5`). No earlier issue is closed by Q5.
+
 ### Release readiness (2026-11-11, after Q2)
 - **Code:** Q2's exit criteria are met. No open crash, data-loss, freeze or wrong-slide defect from the audit or Q2; no open Critical or High security finding.
 - **Not yet ready for a live service.** The fixes are proven against mocks and synthetic audio only. Before a pilot leaves shadow mode, the founder must pass checklist M1–M14 in the QA report (real mic, unplug, Keystroke driver with PowerPoint/ProPresenter, FreeShow/OpenLP/OpenSong, displays, Stream Deck) and the security checklist.
@@ -99,9 +118,18 @@
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
 - [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
 - [x] Q4 close-out (orchestrator): PR #58 CI green (5/5 jobs at 2807ed7); merged into `main` as 571cf0d; 13 Q4 tickets filed as #59–#71 (label `q4`); #46 and #52 closed.
-- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 (`voxxa-eval` and the first fixtures) in progress
+- [ ] **Q5 close-out (orchestrator). Do not merge before step 2.**
+  1. [ ] Add the tests for Q5-08 (M65) and Q5-09 (M66), and for Q5-10's M52 and M55, in `src-tauri/tests/voxxa_eval.rs` (test-only; the ticket gives each one); run each against its mutant; record M57 and M68 as closed or deferred with a reason.
+  2. [ ] All 7 gates and the CI step again; a verifier confirms the survivors are dead.
+  3. [ ] Push `q5/base`, draft PR against `main`, CI green on all three OSes (the eval step's first Linux and macOS run).
+  4. [ ] Prove the gate in real CI: a deliberately broken threshold (e.g. `total.p95_ms` 1000) makes the "voxxa-eval (fixtures vs baseline)" step fail and name the metric; then revert it.
+  5. [ ] Merge into `main`; file the open Q5 tickets as GitHub issues (label `q5`), dropping any closed in step 1; add the Q5 numbers to #61 (Q4-03) and #62 (Q4-04).
+
+  The user pre-approved the push, PR, CI fixes, gate proof, merge and filing (handoff, "User decisions for Q5").
+- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 implemented on `q5/base` (c10e963), merge on hold; Q6 (conductor against the budget) next
   - [x] 2026-11-13 Q5 verifier fixes on `q5/base`: every surviving mutant named by the verifier is now killed by a test (song not compared, false advance lowering recall, EARLY_MS 999 and `<=`→`<`, the total row's false/double sums, unblank not resetting the blank, a failing `voxxad` read as success); a metric with a value but no threshold now fails the gate (ADR-015 D8 amended); voxxa-eval exits 2 when `voxxad` ran in the wrong mode (a replay that ran Whisper); both session logs re-recorded with the final `--full --record` (only the start line's `log` field changed).
-  - [x] 2026-11-13 Q5 second verifier pass on `q5/base`: tests now kill the last survivors: M42 (main.rs checking only the total row; a binary-level test breaks only per-fixture thresholds and needs both FAIL lines and no FAIL total), M25/M26 (one metric's comparison reversed), M37 (the table's count cells) and M47/M48 (the audio recipe's 16 kHz mono 16-bit check and header byte rate). Each test was run against its mutant and fails. No product code changed; voxxa_eval tests 23 to 26.
+  - [x] 2026-11-13 Q5 second verifier pass on `q5/base`: tests now kill the round-2 survivors: M42 (main.rs checking only the total row; a binary-level test breaks only per-fixture thresholds and needs both FAIL lines and no FAIL total), M25/M26 (one metric's comparison reversed), M37 (the table's count cells) and M47/M48 (the audio recipe's 16 kHz mono 16-bit check and header byte rate). Each test was run against its mutant and fails. No product code changed; voxxa_eval tests 23 to 26.
+  - [ ] 2026-11-13 Q5 verifier round 3 at c10e963: verifier A passed; **verifier B failed** on six surviving mutants (Q5-08 … Q5-10). Merge on hold; see "Q5 close-out" above.
 - [ ] Founder: record two PD-hymn fixtures; apply to SignPath; open Partner Center; e-mail CCLI; form LLC; start research screener
 - [ ] Phases 4–6 per increment
 
@@ -112,14 +140,15 @@
 - R8 **Closed (Q2).** Unreviewed May-branch code: Q2 ran QA and security over the merged base; all 12 Q0 must-fix defects and every new crash, data-loss and wrong-slide defect are fixed with tests; the rest are 43 tracked tickets (GitHub issues #2–#44).
 - R10 **Closed in code (Q2).** Wrong slide on screen (audit 1–4, plus audit 5, PDF page split, single instance, Q2-44): fixed with dispatcher and conductor tests. Confirmation on real presentation apps moves to R14.
 - R14 (new, Q2) Fixes proven only against mocks and synthetic audio. No real mic, keystroke driver, PowerPoint, ProPresenter, FreeShow, OpenLP or OpenSong was used. Mitigation: founder checklist M1–M14 before any pilot leaves shadow mode; promote Q2-20/Q2-22/Q2-47 if M3/M8 fail.
-- R15 (new, Q2; updated Q4) Tight line budget. After Q4 (a4bae0e):
-  - "everything else in src-tauri/src" 2,286/2,500 (214 left; `transcription/` moved out to its own row);
-  - conductor 1,188/1,200 (**12 left**; Q4 added the blank and re-show fixes);
-  - the new recognizer row (`transcription/` + recognizer code) 432/700 (268 left; user decision, a recorded deviation from ADR-010 Decision 3);
+- R15 (new, Q2; updated Q5) Tight line budget. After Q5 (c10e963):
+  - "everything else in src-tauri/src" 2,286/2,500 (214 left; unchanged by Q5);
+  - conductor 1,188/1,200 (**12 left**; unchanged by Q5);
+  - the new voxxa-eval row (`src/bin/voxxa-eval*`) 469/600 (131 left; Q5 user decision, a recorded deviation from ADR-010 Decision 3, ADR-015 D11);
+  - recognizer (`transcription/` + recognizer code) 432/700 (268 left; Q4 user decision);
   - `voxxad` 548/600 (52 left; Q3 user decision);
-  - GUI 2,951/3,000; presenters 1,149/2,000; importers 1,362/1,600.
+  - GUI 2,951/3,000 (49 left); presenters 1,149/2,000; importers 1,362/1,600.
 
-  Mitigation: keep new tests in `src-tauri/tests/`. Q5's `voxxa-eval` needs its own row (the user chose a new row capped at 600 for Q5, 2026-11-13). The conductor row is nearly full: Q6's conductor work (ADR-009 minimum, Q4-04) needs code removed first or an explicit budget decision before code, never a silent raise.
+  Mitigation: keep new tests in `src-tauri/tests/` (Q5's eval tests are there, uncounted). The conductor row is nearly full: Q6's conductor work (ADR-009 minimum, Q4-04, Q5-04) needs code removed first or an explicit budget decision before code, never a silent raise. The orchestrator's notes record a user choice for Q6 (2026-11-13): a new "conductor evidence (ADR-009 minimum)" row capped at 500, with the conductor row kept at 1,200; confirm it at the start of Q6.
 - R13 (new, Q1) Fragile CI gates.
   - The GUI fits its budget with 49 lines to spare (2951/3000 after Q2), partly by avoiding a tokei 15 HTML apostrophe miscount.
   - CI installs the latest tokei, the latest stable Rust (new clippy lints under `-D warnings`) and a fresh advisory DB.
@@ -127,7 +156,7 @@
 - R11 (new, Q0) ADR-007/005 content in the May branch: copyrighted lyrics in `setlist.example.json`, a mislabelled "Public Domain" example, an MIT tag in the Flatpak metainfo. Mitigation: amendments A9/A10 in the Q1 merge.
 - R12 (new, Q0) Toolchain-dependent clippy: 8 `double_must_use` errors from `async_trait` on rustc 1.99, and CI uses unpinned stable. Mitigation: fix in Q1. Consider pinning the toolchain.
 - R9 Dependency advisories in pdf-extract/lopdf and rusqlite may force crate replacement — Q1 gates on cargo deny; PDF importer may go behind an off-by-default feature. Q2: pdf-extract panics on 4.8 % of mutated PDFs (now caught; stack overflow is not) — cut-list evidence
-- R1 Recognition on sung vocals (Whisper WER 21–56% on singing) — mitigated by ADR-009 + eval harness in Inc 1; kill criterion week 14
+- R1 Recognition on sung vocals (Whisper WER 21–56% on singing) — mitigated by ADR-009 + eval harness in Inc 1; kill criterion week 14. Q5: the harness (`voxxa-eval`) exists, but its fixtures are spoken synthetic stand-ins, so singing is still unmeasured (Q5-01)
 - R2 Support conversion ≈ 1% — Setup & Calibration + Store listing as independent lines; decision gate month 12
 - R3 CCLI/publisher objection to lyric indexing — no lyrics shipped; written question before launch
 - R4 Vendors ship lyric-following natively — ship first on open platforms; contribute upstream

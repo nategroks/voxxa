@@ -367,3 +367,41 @@ Two lanes built Q5 independently (`q5/10x`, `q5/ponytail`). The comparator chose
 - **No GUI, conductor, `voxxad` or library change; no new crates.**
 
 **Debt.** Q5-01 stand-ins are synthetic speech; Q5-02 the kit has no blank key and no first-slide row; Q5-03 `voxxa-eval` may be bundled (with Q3-03); Q5-04 a song after an opening prayer is not shown (conductor, Q6; add the shape as a third fixture then); Q5-05 debug replay takes about 27 s per OS; Q5-07 replay cannot see a `SmartConfig` default change. Known gap (documented, tested): explicit `unblank` actions are not scored as false or double advances.
+
+## 2026-11-13 — Q5 final: `voxxa-eval` and the first fixtures on `q5/base` (head c10e963), merge on hold
+Process record: `reviews/2026-11-13-ponytail-q5.md`. Tickets: `reviews/2026-11-13-q5-tickets.md` (Q5-01 … Q5-05, Q5-07 … Q5-12; 11 open). Design: ADR-015 (Accepted; Decision 8 amended at Q5 close). This section corrects the numbers in the section above, which was written at the finish (a0da74d).
+
+**What was built** (as above, with the verifier fixes):
+- `voxxa-eval` (`src-tauri/src/bin/voxxa-eval/main.rs`, `score.rs`, `audio.rs`): replay by default, `--full` (Whisper Tiny, `--shadow`, a temporary folder with `--log-dir .`), `--record`, `--baseline`; exit 0 pass, 1 a metric worse than the baseline, 2 an error. It runs the `voxxad` beside it as a subprocess and scores only its `action` lines.
+- Verifier fixes in the code: a metric that has a value but no threshold in its row fails the gate (ae3249f; ADR-015 D8 amended), so dropping a threshold cannot switch its gate off; `voxxa-eval` exits 2 when `voxxad` did not run in the mode asked for (0b7df6d: a recogniser `start` line in replay, or none in full mode).
+- Fixtures `prayer-then-reprise` and `prayer-without-pause` (JSON only; `audio.wav` rebuilt from `audio.json` and git-ignored); both session logs re-recorded with the final `--full --record` (3efc3d1; only the start line's `log` field changed, now relative).
+- CI step "voxxa-eval (fixtures vs baseline)" in the `check` job on Ubuntu, Windows and macOS, `shell: bash`, no model.
+- Tests: 168 (55 unit + 113 integration); `tests/voxxa_eval.rs` 26 (15 in the ponytail lane, 19 after the finish, 23 after verifier round 1, 26 after round 2). Every other suite is unchanged from Q4.
+
+**Gates at c10e963 (Windows 11, rustc 1.99.1):** all 7 pass (finisher, and both round-3 verifiers); the CI step exactly as `ci.yml` runs it exits 0; `git grep -lP '[\x00\x0b]'` matches only binaries.
+
+**Budgets:** voxxa-eval **469/600** (new row); everything else 2,286/2,500; voxxad 548/600; recognizer 432/700; conductor 1,188/1,200; presenters 1,149/2,000; importers 1,362/1,600; GUI 2,951/3,000. No other row changed.
+
+**Eval table** (Whisper Tiny full mode and replay give the same numbers; verifier A reproduced it on a fresh clone):
+
+| Fixture | Slides / gotos / hits / missed | Precision | Recall | Median / p95 | False / double | Blank | Unblank |
+|---|---|---|---|---|---|---|---|
+| prayer-then-reprise | 3 / 3 / 3 / 0 | 1.00 | 1.00 | 2,900 / 8,900 ms | 0 / 0 | 200 ms | 1,500 ms |
+| prayer-without-pause | 2 / 2 / 2 / 0 | 1.00 | 1.00 | 2,900 / 8,900 ms | 0 / 0 | 6,600 ms | - |
+| total | 5 / 5 / 5 / 0 | 1.00 | 1.00 | 2,900 / 8,900 ms | 0 / 0 | 6,600 ms | 1,500 ms |
+
+Baseline thresholds: precision and recall 1.0, false and double 0, median 3,000, p95 9,000, blank 500 and 7,000 (total 7,000), unblank 2,000. Gate proven locally: `total.p95_ms` 1000 gives `FAIL total: p95_ms is 8900, baseline needs <= 1000`, exit 1; per-fixture breaks give their own FAIL lines and no FAIL total.
+
+**Deviations from the prompt** (all recorded in ADR-015):
+- **Budget (user decision 3):** one new row, "voxxa-eval (src/bin/voxxa-eval*)", capped at **600** and excluded from "everything else" (2,500 unchanged). A recorded deviation from ADR-010 Decision 3, noted in `scripts/loc_budget.py` and ADR-015 Decision 11. Measured 469.
+- **Fixtures:** stand-ins from the committed synthetic-speech WAVs (user decision 1), in `fixtures/recordings/<name>/`, with an `audio.json` recipe instead of `audio.wav`.
+- **CI:** replays committed session logs instead of running `--stdin-audio` (user decision 2); `--full` does that locally.
+- **`truth.jsonl`:** adds `{"t_ms":…,"blank":true}`; `song` may be a title; the kit's `event` lines are skipped.
+- **Extra flags:** `--record`, `--baseline`.
+- **No GUI, conductor, `voxxad`, library or `Cargo.toml` change; no new crates.**
+
+**Verifiers.** Round 1 (a0da74d) and round 2 (e31ddb8) found surviving mutants and two gate gaps; all fixed (7660b26, ae3249f, 0b7df6d, 624acad). **Round 3 at c10e963: verifier A passed, verifier B failed** (70 mutants, 63 killed; one more caught by the mode check and by CI). Open: M65 (Q5-08) and M66 (Q5-09), which block the merge, and M52, M55, M57, M68 (Q5-10). All are test-only fixes.
+
+**History note.** 1b0cc5d committed an empty `.10x/status.md` (an edit script failed after opening the file); c10e963 restores it. History was not rewritten; the net change to `status.md` across both commits is one line.
+
+**Debt.** Q5-01 stand-ins are synthetic speech; Q5-02 the kit has no blank key and no first-slide row; Q5-03 `voxxa-eval` may be bundled (#47); Q5-04 a song after an opening prayer is not shown until its next verse (Q6); Q5-05 debug replay time; Q5-07 replay cannot see a `SmartConfig` default change; Q5-08 … Q5-10 verifier B's survivors; Q5-11 scorer edge cases (unblank, equal `t_ms`, stale baseline rows); Q5-12 wording and FAIL-line rounding.

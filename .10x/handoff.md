@@ -10,106 +10,102 @@
 
 ---
 
-## From: Q4 → To: Q5 (voxxa-eval and the first fixtures)
+## From: Q5 → To: Q6 (conductor against the budget)
 **Date:** 2026-11-13
-**Phase:** Phase 4 Implementation done; merged into `main` (PR #58, 571cf0d) (head a4bae0e plus the state commit); CI, PR and merge into `main` by the orchestrator (pre-approved) → Q5
+**Phase:** Phase 4 Implementation done on `q5/base` (code head **c10e963**, plus the state commit). **Not merged: verifier B failed in round 3.** The orchestrator first closes Q5-08 and Q5-09 (and Q5-10's M52 and M55) with tests and has a verifier confirm them, then pushes, opens the PR, proves the CI gate in real CI, merges (all pre-approved) and files the tickets. Q6 starts from `main` after that merge.
 
-### What Q4 did
-- Replaced the recogniser closure and the 5 s speech batch in the shared loop (`listen::run`) with ADR-004's `Recognizer` trait: Whisper Tiny over a 5 s window, decoded every 1 s (hop). ADR-014 (Accepted, with dated notes) records the design; ADR-013 has a dated amendment.
-- Ran as two lanes (`q4/10x`, `q4/ponytail`) with a cross-review, a comparator (base 10x, three ponytail grafts, four review fixes), a finisher and three verifier rounds (rounds 1 and 2 failed and were fixed with tests; round 3 passed with two verifiers): `reviews/2026-11-12-ponytail-q4.md`.
-- Closed Q3-02 (#46: the GUI event mapping is pure and tested) and Q3-08 (#52: no goto to the slide still showing after inter-verse silence).
-- All 7 gates pass on Windows at a4bae0e; 142 tests (55 unit + 87 integration). Only the real-model 10 s WAV test needs `ggml-tiny.bin`; it skips without it, as in CI.
-- Record: `decisions/sde/church-autoadvance.md` ("Q4 final"). Tickets: `reviews/2026-11-12-q4-tickets.md` (13 open: 4 medium, 9 low; to be filed with label `q4`).
+### What Q5 did
+- Added `voxxa-eval` (`src-tauri/src/bin/voxxa-eval/`: `main.rs`, `score.rs`, `audio.rs`), a third binary that runs the `voxxad` beside it as a subprocess and scores its `action` lines against an operator's `truth.jsonl`. Design: ADR-015 (Accepted; Decision 8 amended at Q5 close).
+- Two stand-in fixtures, `fixtures/recordings/prayer-then-reprise` and `prayer-without-pause` (JSON only); `fixtures/baseline.json`; `fixtures/README.md` (running, `truth.jsonl`, exact metric definitions, baseline rules, recording a real fixture); `fixtures/SOURCES.md` (stand-ins labelled as synthetic speech, real recordings to replace them, Q5-01).
+- A CI step, "voxxa-eval (fixtures vs baseline)", in the `check` job on Ubuntu, Windows and macOS (replay, no model).
+- Ran as two lanes (`q5/10x`, `q5/ponytail`) with cross-reviews, a comparator (base ponytail, seven 10x grafts, the review's fixes), a finisher and three verifier rounds: `reviews/2026-11-13-ponytail-q5.md`.
+- All 7 gates pass on Windows at c10e963; 168 tests (55 unit + 113 integration; `voxxa_eval` 26).
+- No GUI, conductor, `voxxad`, library or `Cargo.toml` change; no new crates.
+- Record: `decisions/sde/church-autoadvance.md` ("Q5 final"). Tickets: `reviews/2026-11-13-q5-tickets.md` (11 open: 4 medium, 7 low; label `q5`).
 
-### What Q5 must know
-**User decisions already taken for Q5** (2026-11-13, recorded by the orchestrator; confirm at the start of Q5):
-- Fixtures: the committed spoken Amazing Grace WAVs stand in for the two hymn recordings; real recordings come later, by ticket.
-- CI eval gate: it replays committed session logs (JSON only; no audio and no model in CI).
-- Budget: a new "voxxa-eval" row capped at 600, recorded as a deviation.
+### Open before the Q5 merge (verifier B, round 3)
+- **Q5-08 (M65, important):** no test covers an action before the first truth row's window; a lookup that falls back to row 0 would score an early first-slide goto (during an opening prayer) as a hit.
+- **Q5-09 (M66):** no test checks that the total row adds up every fixture.
+- **Q5-10:** M52 (an unknown action kind skipped silently) and M55 (an unblank timed at a double blank) should be closed with the two above; M57 (the mode check is unpinned) and M68 (a stderr message) may be deferred with a reason.
+- All are test-only additions to `src-tauri/tests/voxxa_eval.rs`; each ticket gives the exact test.
 
-**Event schema v1 (ADR-013, ADR-014).** One JSON object per line, keys in order `v`, `t`, `type`. Seven types are used (ADR-001 allows 8):
-- On stdout and in the session log:
-  - `status`: `start` (with `info`: `SmartConfig`, setlist fingerprint, model, `bias`, `shadow`), `listening`, `singing`, `inter_verse_silence`, `blank_hold`, `stop`.
-  - `hypothesis` (`text`).
-  - `action`: `goto` with `song`, `slide`, `global` and `title`; `blank`; `unblank`.
-  - `error` (`message`).
-- In the session log only:
-  - `tick`, every 200 ms.
-  - `speech`, coalesced to the last one before any later line.
-  - `window` (`text`), new in Q4.
+### What Q6 must know
+**Running `voxxa-eval`** (from the repository root; see `fixtures/README.md`):
+```sh
+cargo build --manifest-path src-tauri/Cargo.toml --bin voxxad --bin voxxa-eval
+cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval                     # replay: what CI runs
+cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --full 2>/dev/null  # Whisper Tiny, local
+cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --baseline <file>   # another thresholds file
+cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- fixtures/recordings/<name>  # one fixture
+```
+- **Replay (default, CI):** `voxxad --replay <fixture>/session.jsonl --setlist <fixture>/setlist.json` for every folder in `fixtures/recordings`. No model, no audio, the same result on every OS. About 27 s for both fixtures in a debug build (Q5-05).
+- **Full (`--full`, local only):** rebuilds `audio.wav` from `audio.json` (git-ignored), then runs `voxxad --stdin-audio audio.wav --setlist … --shadow --model tiny --log-dir .` in a temporary folder, at file speed. Needs `%APPDATA%\voxxa\models\ggml-tiny.bin` (present). Debug: about 2.5-6 minutes for both fixtures (93 s of audio). Do not use a release build on Windows (Q4-01).
+- **Exit codes:** 0 when no metric is worse than the baseline; 1 when one is (`FAIL <row>: <metric> is <v>, baseline needs <=|>= <limit>`); 2 on an error, including `voxxad` running in the wrong mode.
+- **Safety:** `voxxa-eval` only ever passes `--replay` or `--shadow` to `voxxad`.
 
-  Session-log `t` never decreases.
+**What replay measures, and what it does not.**
+- Replay re-runs today's conductor on the recorded recogniser output (`hypothesis`, `tick` and `speech` lines). A conductor-logic change in Q6 is measured by replay and by CI alone.
+- **But replay builds the conductor from the `SmartConfig` stored in each log's start line (`info.config`), not from today's defaults (Q5-07).** If Q6 changes a default (`silence_to_blank_secs`, `unrecognized_speech_to_blank_secs`, a threshold, the buffer size if it lives there), replay and CI will not see it until the logs are re-recorded or Q5-07's `--current-config` option is built (about 10 lines, suggested in the ticket). Decide which before tuning.
+- A recogniser change (window, hop, stitcher, model) always needs the logs re-recorded.
 
-**Hypothesis cadence.** There are two kinds of recogniser line:
-- **`window`:** the whole text of each decoded 5 s window. At file speed there is one at every whole second while the VAD heard speech in the second before (exit demo: 4000-8000, 10000-15000, 17000-26000, 31000-38000 ms). Not a conductor input. Overlapping windows repeat words.
-- **`hypothesis`:** the stitched text, only the words a window adds, held until there are 4. It comes every 1-3 s of speech (exit demo: 6000 8000 10000 11000 14000 18000 20000 23000 25000 32000 35000 36000). This is the conductor's input and the only recogniser line replay applies.
-- With `--realtime`, `--device` and in the GUI, hops are skipped while inference is slower than real time. On the 4-core reference PC that means one decode every 2-5 s (Q4-02). Run the eval at file speed.
+**Current numbers against Q6's thresholds** (Whisper Tiny on the stand-ins; full mode and replay agree):
 
-**Replay.**
-- Command: `voxxad --replay <session.jsonl> --setlist <the same setlist>`. It needs no model and opens no audio.
-- It applies the logged `tick`, `speech` and `hypothesis` lines at `base + t` through `Conductor::apply` and skips `window` lines.
-- It prints the `status`, `hypothesis` and `action` lines without the start and stop lines. They are byte-identical to the live run's.
-- It refuses another setlist (FNV-1a fingerprint in the start line), a bad line, a `v` other than 1, and `--bias`.
-- What this means for the CI gate: replay re-runs today's conductor on recorded recogniser output. A conductor change (Q6) is measured by replay alone. A recogniser change (window, hop, stitcher, model) needs the logs re-recorded locally with Whisper Tiny, with the reason in the commit (as `session-pd-hymns.jsonl` was in Q4).
+| Metric | Q6 threshold | Now (total) | Status |
+|---|---|---|---|
+| p95 latency | ≤ 2,500 ms | **8,900 ms** (median 2,900 ms) | fails by 6.4 s: the advance into verse 2 comes 8.9 s after it starts (Q4-04) |
+| False advances | ≤ 1 per 10-song set | 0 per fixture | met, but each stand-in fixture is a one-song set of 2-3 slides; a 10-song set is not measured yet |
+| Precision / recall | (no Q6 number) | 1.00 / 1.00 | |
+| Double advances | (none expected) | 0 | |
+| Blank | (no Q6 number) | 200 ms after a 4 s pause; **6,600 ms** into a prayer with no pause (Q4-03) | |
+| Unblank | (no Q6 number) | 1,500 ms | |
 
-**Aligning actions and timing to truth.**
-- **Timeline:** at file speed `t` is ms of audio from the start of the WAV, leading silence included (a sample clock, deterministic, identical on every machine). Truth `t_ms` must use the same timeline: ms from the start of the same WAV.
-- **Indices:** `song` is the 0-based index in the setlist JSON and `slide` the 0-based slide within that song; `global` counts slides across the setlist. Use the same indices in `truth.jsonl`.
-- **Matching:** a truth row `{t_ms, song, slide}` is matched by the first `goto` to the same `song` and `slide` at or after it. Latency is action `t` minus `t_ms`.
-- **Where the latency comes from:**
-  - a decision is timed at the end of its hop: whole seconds for transcripts, the 200 ms tick grid for tick blanks;
-  - the stitcher holds words until there are 4 (1-3 s);
-  - the conductor's 40-word buffer still holds the previous verse (Q4-04: an advance came 9.5 s into a 12 s verse in a scripted test).
-  - Q6's budget is p95 latency at most 2.5 s, so expect the first numbers to miss it.
-- **Double advances and repeats:** count a `goto` to the slide already shown as a defect. Q3-08's path is fixed (613b894) and verifier round 3 saw none, so any repeat now is a regression. Dispatch drops repeats, so the screen would not show them.
-- **Blank and unblank:**
-  - A blank is `{"action":"blank"}`. It comes from the silence rule or from the unmatched-speech rule:
-    - Silence rule: `inter_verse_silence` after 3 s without speech (`silence_to_blank_secs`), then a blank after 5 s.
-    - Unmatched-speech rule: a blank after 5 s of unmatched transcripts (`unrecognized_speech_to_blank_secs`), checked on a transcript or on a tick.
-    - In the exit demo the silence rule fired 0.3 s into the prayer, before the VAD reported its speech.
-  - Expect a blank 5-7 s into a prayer that follows a song without a pause (Q4-03). With a pause, the blank comes sooner, through the silence rule.
-  - After a blank the conductor usually shows the slide again with a `goto`. It sends `unblank` only when it has no slide to go to. Time "unblank" as the first `goto` or `unblank` after a blank.
+Per fixture: `prayer-then-reprise` 3 slides, latencies 2,900 / 8,900 / 1,500 ms, blank 200 ms, unblank 1,500 ms; `prayer-without-pause` 2 slides, latencies 2,900 / 8,900 ms, blank 6,600 ms. Thresholds in `baseline.json`: precision and recall 1.0, false and double 0, median 3,000, p95 9,000, blank 500 (`prayer-then-reprise`) and 7,000, unblank 2,000.
 
-**Recording and running.**
-- `voxxad --stdin-audio` takes only 16 kHz mono WAV (Q3-10, #54). Convert recordings first.
-- A debug `voxxad` decodes a hop in about 1.8 s: a 44 s service takes about 65 s of wall time.
-- A release build on Windows compiles whisper.cpp unoptimised (Q4-01), so the same run takes about 6.5 s per hop, over 10 minutes for 44 s. Use a debug build, or set `CMAKE_C_FLAGS_RELEASE` and `CMAKE_CXX_FLAGS_RELEASE` as in the ticket.
-- There is no operator key log (`--log-keys` in the 2026-10-24 plan was never built; operator inputs are not logged, Q3-09, #53). For now, `truth.jsonl` is written by hand.
-- Committed test audio: `src-tauri/tests/fixtures/voxxad/amazing-grace-v1.wav` (verse 1, 12 s), `amazing-grace-v2.wav` (verse 2, 10.3 s) and `prayer.wav` (8.1 s). These are public-domain text read by the Windows SAPI voice, plus a synthetic prayer written for Q2. Also there: `pd-hymns-setlist.json` and the re-recorded session `session-pd-hymns.jsonl` (3 actions: goto 0/0 at 6000, goto 0/1 at 25000, blank at 30600).
-- The verifier WAVs (service4, service2, gap2, gap4) are in the session scratchpad only, not committed. The eval needs its own committed logs.
-- Pointing `APPDATA` at an empty folder does not hide the model on Windows (Q4-09). Do not use it to prove a no-model CI path.
+**Known conductor defect for Q6 (Q5-04, medium):** a song that starts after an opening prayer is not shown until its next verse. Before a song is committed, the conductor keeps the prayer's words in its 40-word buffer (`src-tauri/src/aligner/mod.rs:370-411`). With the prayer's lines removed, verse 1 shows 2.8 s after it starts. Reproduction: the 10x lane's fixture `standin-prayer-between` at commit 30e8990 on `q5/10x` (rewrite its blank row as `{"t_ms":23200,"blank":true}`). When Q6 fixes it, add that shape as a third fixture in the same commit, with its `baseline.json` row and an updated `total`. Today it cannot be added: Voxxa never blanks into that prayer, so its `blank_ms` is `miss`.
 
-**Open Q4 tickets an eval should measure:** Q4-03 (blank timing), Q4-04 (late advances), Q4-06 (a repeat right after a short pause can be dropped), Q4-11 (`--bias`, ADR-004 E6), Q4-13 (word times are rough and not logged; the eval can time actions and lines, not words).
+**The fixtures are stand-ins.** They are Amazing Grace verses 1 and 2 and a synthetic prayer, read by the Windows SAPI voice: spoken, not sung, one voice, a quiet room. Use them to catch regressions and to see whether a conductor change moves latency and blank timing, not to claim accuracy in a church. Real recordings replace them later (Q5-01: the founder's two public-domain hymn recordings, made with `fixtures/tools/record-session.ps1`; the README lists the hand-added first slide row and blank rows, Q5-02).
 
-**Budget numbers (after Q4, a4bae0e).**
+**Re-recording the logs and updating `baseline.json`:**
+1. Re-record when the recogniser changes, or when a `SmartConfig` default changes and Q5-07 is not built: `cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --full --record` (all fixtures) or add `fixtures/recordings/<name>` for one. It writes `<fixture>/session.jsonl` with a relative log path (no user folder). Say why in the commit.
+2. Run replay and read the table.
+3. Thresholds, not last numbers: each latency is the next multiple of 500 ms strictly above the measured worst (8,900 → 9,000; 1,500 → 2,000); counts and ratios are exact. Every metric that has a value in a row needs a threshold in that row.
+4. **Tighten** in the same commit as a change that improves a metric (Q6 aims at p95 ≤ 2,500 ms). Under the README, **loosen** only with the reason in the commit message. The orchestrator's notes record a stricter user choice for Q6 (2026-11-13): the baseline may be tightened, never loosened. Confirm it at the start of Q6.
+5. Adding a fixture: add its row and update `total`; the gate checks the full set.
+
+**Also noted for Q6** (orchestrator's notes of the user's choices, 2026-11-13; confirm at the start of Q6): add 2-3 offline Windows-TTS fixtures of public-domain hymns with a refrain or a jump, WAVs committed beside the test WAVs and labelled synthetic; a new budget row "conductor evidence (ADR-009 minimum)" capped at 500, with the conductor row kept at 1,200.
+
+**Budget numbers (after Q5, c10e963).**
 | Row | Used / cap | Left |
 |---|---|---|
-| everything else in src-tauri/src (holds `listen.rs`, `commands/`) | 2,286 / 2,500 | 214 |
-| recognizer (`transcription/` + recognizer code; new in Q4, user decision) | 432 / 700 | 268 |
+| everything else in src-tauri/src | 2,286 / 2,500 | 214 |
 | conductor (`aligner/`) | 1,188 / 1,200 | **12** |
+| recognizer (`transcription/` + recognizer code) | 432 / 700 | 268 |
 | voxxad binary (`src/bin/voxxad*`) | 548 / 600 | 52 |
+| voxxa-eval (`src/bin/voxxa-eval*`; new in Q5, user decision) | 469 / 600 | 131 |
 | presenters | 1,149 / 2,000 | 851 |
 | importers + planning_center | 1,362 / 1,600 | 238 |
 | GUI | 2,951 / 3,000 | 49 |
 
-`voxxa-eval` goes in its own row (user decision above). Do not grow the conductor: 12 lines are left for Q6. Tests in `src-tauri/tests/` are not counted.
+The conductor has 12 lines left. Q6's conductor work (ADR-009 minimum, Q4-04, Q5-04) needs code removed first or a budget decision before code, never a silent raise. Tests in `src-tauri/tests/` are not counted.
 
 **Other things to keep.**
-- One dispatch path: `dispatch::drive`. `--shadow` and `--presenter none` never build a presenter.
+- Event schema v1, replay rules and the hop cadence are unchanged from Q4 (ADR-013, ADR-014).
 - Safety rules for unattended runs are unchanged: no microphone, no keystroke dispatch, a local mock presenter only, and stop every process by PID.
-- Text written through a Bash heredoc on this PC can turn `\0` into a NUL byte (it happened again in Q4). Write files with the Edit or Write tools and check with `git grep -lIP '[\x00\x0b]'` before committing (Q3-12, #56).
-- Session logs now hold a `window` line per decoded hop, so several times more transcript text sits in the roaming `%APPDATA%` (Q3-05, #49). The fixtures `README.md` and the privacy text should say so.
+- Write files with the Edit or Write tools, not Bash heredocs (Q3-12, #56: in Q5 a heredoc again put a raw line break into a string literal, in the 10x lane). A mutation harness that restores sources with `mv` leaves them older than the build, so cargo keeps the mutant's binary: touch the sources after restoring. An edit script that opens a file for writing and then fails empties it (1b0cc5d): check `git diff --stat` before committing state files.
+- Check `git grep -lIP '[\x00\x0b]'` before every commit.
 
 ### Still open from earlier steps
-- **Founder checklist** before any pilot leaves shadow mode: QA report §10 (M1–M14) and security review §10, plus Q3-07 (#51): start and stop listening in the GUI (now with the hop: a `transcription` event every 1-3 s of speech), unplug, and one `voxxad --device default --shadow` run on the booth PC. First clear `%LOCALAPPDATA%\com.voxxa.app`; keep `%APPDATA%\voxxa\models\ggml-tiny.bin`.
+- **Founder checklist** before any pilot leaves shadow mode: QA report §10 (M1–M14) and security review §10, plus Q3-07 (#51): start and stop listening in the GUI (a `transcription` event every 1-3 s of speech), unplug, and one `voxxad --device default --shadow` run on the booth PC. First clear `%LOCALAPPDATA%\com.voxxa.app`; keep `%APPDATA%\voxxa\models\ggml-tiny.bin`.
+- **Founder:** record the two public-domain hymn fixtures (Q5-01).
 - **User decision:** the cut-list ADR-012 (evidence in the QA report §9).
-- **Q1 A15 follow-ups:** `fixtures/setlists/pd-hymns.json` and `fixtures/pco/plan-sample.json` do not fit the May parsers (this matters to Q5's fixtures); re-run the Windows verification (a003992) on the merged head (`handoff-local-windows.md`); finish reconciling `docs/signing-policy.md` with `SIGNING.md`.
+- **Q1 A15 follow-ups:** `fixtures/setlists/pd-hymns.json` and `fixtures/pco/plan-sample.json` do not fit the May parsers (the eval's fixtures use the `voxxad --setlist` format instead); re-run the Windows verification (a003992) on the merged head (`handoff-local-windows.md`); finish reconciling `docs/signing-policy.md` with `SIGNING.md`.
 
 **Process rule (user, 2026-11-11):** every prompt (Q2…Q27) also runs independently through ponytail. Run it as two lanes plus cross-review for code steps, or `ponytail` + `ponytail-audit` for verification and close steps. Record the result in `reviews/YYYY-MM-DD-ponytail-<Q>.md`.
 
 ---
 
 ## Handoff History
+- 2026-11-13 Q4 → Q5: Q4 put Whisper behind ADR-004's `Recognizer` trait as a 5 s window decoded every 1 s, with a stitcher and a session-log `window` line (ADR-014); code head a4bae0e, merged into `main` as 571cf0d (PR #58); 13 tickets filed as issues #59–#71; #46 and #52 closed; the full section, with the schema, cadence, replay and alignment notes for the eval, is in this file's git history (c10e963).
 - 2026-11-12 Q3 → Q4: Q3 added the headless `voxxad` CLI and moved the listening loop into `voxxa_lib::listen::run` (ADR-013; schema v1, byte-identical replay); code head 912b978, merged into `main` as ec6d85e (PR #45); 12 tickets filed as issues #46–#57; Q3-02 (#46) handed to Q4; the full section is in this file's git history (a4bae0e).
 - 2026-11-12 Q2 → Q3 (handed to the user for ADR-012, then Q3): Q2 verified the merged base in simulate mode and fixed every crash, data-loss, freeze and wrong-slide defect found, with tests (code head 713f40f after the ponytail-audit re-run, merged into `main` as 7bd84a1); 43 tickets filed as issues #2–#44; the full section, with the unattended-run needs and the cut-list evidence, is in this file's git history (f2bcea1).
 - 2026-11-11 Q2: QA + security verification in simulate mode; 18 fix-now items + verifier finding Q2-44 fixed with tests; two fix lanes (10x, ponytail) → 10x base with ponytail grafts; 34 tickets; ADR-011 stage window compliant by default; cut-list evidence for ADR-012.
