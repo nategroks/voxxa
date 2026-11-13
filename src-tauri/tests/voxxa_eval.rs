@@ -298,6 +298,37 @@ fn the_total_row_sums_counts_and_pools_latencies() {
 }
 
 #[test]
+fn the_table_prints_every_count_and_metric_cell() {
+    // A missed slide (verse 2), and the same with a false advance (slide 2).
+    let missed = score(&truth(), &[slide(1500, 0), blank(25300)]);
+    let acts = [slide(1500, 0), slide(5000, 2), blank(25300)];
+    let wrong = score(&truth(), &acts);
+    let mut total = missed.clone();
+    total.add(&wrong);
+    let rows = vec![
+        ("missed".to_string(), missed),
+        ("wrong".into(), wrong),
+        ("total".into(), total),
+    ];
+    let text = table(&rows);
+    let cells: Vec<Vec<&str>> = text
+        .lines()
+        .map(|l| l.split_whitespace().collect())
+        .collect();
+    // fixture, slides, gotos, hits, missed, precision, recall, median ms,
+    // p95 ms, false/set, double, blank ms, unblank ms.
+    let want = [
+        "missed 2 1 1 1 1.00 0.50 500 500 0 0 300 -",
+        "wrong 2 2 1 1 0.50 0.50 500 500 1 0 300 -",
+        "total 4 3 2 2 0.67 0.50 500 500 1 0 300 -",
+    ];
+    for (got, want) in cells[1..].iter().zip(want) {
+        assert_eq!(got.join(" "), want, "{text}");
+    }
+    assert_eq!(cells.len(), 4, "{text}");
+}
+
+#[test]
 fn the_baseline_check_names_each_worse_metric_and_refuses_unknown_names() {
     let m = score(&truth(), &[slide(1500, 0), slide(13400, 1), blank(25300)]);
     let mut ok = json!({ "a": {
@@ -338,6 +369,25 @@ fn the_baseline_check_names_each_worse_metric_and_refuses_unknown_names() {
         1,
         "a row without thresholds fails"
     );
+    // Each metric's direction on its own: precision must not fall below its
+    // minimum, and counts must not rise above their maximum.
+    let acts = [
+        slide(1500, 0),
+        slide(4000, 0),
+        slide(5000, 2),
+        slide(13400, 1),
+        blank(25300),
+    ];
+    let m = score(&truth(), &acts);
+    ok["a"].as_object_mut().unwrap().remove("unblank_ms");
+    let fails = check("a", &m, &ok);
+    // In the baseline's (sorted) key order.
+    let want = [
+        "a: double_advances is 1, baseline needs <= 0",
+        "a: false_advances is 1, baseline needs <= 0",
+        "a: precision is 0.50, baseline needs >= 1",
+    ];
+    assert_eq!(fails, want);
 }
 
 #[test]
@@ -420,6 +470,53 @@ fn the_audio_recipe_joins_committed_wavs_and_silences() {
     assert_eq!(&pcm[250 * 32..], &verse[..]);
     assert!(audio::build(dir, r#"[{"wav":"pd-hymns-setlist.json"}]"#).is_err());
     assert!(audio::build(dir, r#"[{"silence":1}]"#).is_err());
+    // The header says 16000 Hz, 32000 bytes/s, 2-byte frames, 16 bits.
+    assert_eq!(&wav[24..28], &16_000u32.to_le_bytes());
+    assert_eq!(&wav[28..32], &32_000u32.to_le_bytes());
+    assert_eq!(&wav[32..36], &[2, 0, 16, 0]);
+}
+
+/// A WAV whose fmt chunk says `channels`, `rate` and `bits`, with 64 bytes
+/// of silence as data.
+fn wav_header(channels: u16, rate: u32, bits: u16) -> Vec<u8> {
+    let frame = channels * bits / 8;
+    let mut w = b"RIFF".to_vec();
+    w.extend((36u32 + 64).to_le_bytes());
+    w.extend(b"WAVEfmt ");
+    w.extend(16u32.to_le_bytes());
+    w.extend(1u16.to_le_bytes());
+    w.extend(channels.to_le_bytes());
+    w.extend(rate.to_le_bytes());
+    w.extend((rate * frame as u32).to_le_bytes());
+    w.extend(frame.to_le_bytes());
+    w.extend(bits.to_le_bytes());
+    w.extend(b"data");
+    w.extend(64u32.to_le_bytes());
+    w.extend([0u8; 64]);
+    w
+}
+
+#[test]
+fn the_audio_recipe_refuses_a_wav_that_is_not_16_khz_mono_16_bit() {
+    let dir = tempfile::tempdir().unwrap();
+    let ok = dir.path().join("ok.wav");
+    std::fs::write(&ok, wav_header(1, 16_000, 16)).unwrap();
+    assert_eq!(audio::pcm16(&ok).unwrap(), [0u8; 64]);
+    for (name, wav) in [
+        ("cd.wav", wav_header(1, 44_100, 16)),
+        ("stereo.wav", wav_header(2, 16_000, 16)),
+        ("8bit.wav", wav_header(1, 16_000, 8)),
+    ] {
+        let path = dir.path().join(name);
+        std::fs::write(&path, wav).unwrap();
+        let e = audio::pcm16(&path).unwrap_err();
+        assert!(
+            e.contains("need a 16 kHz mono 16-bit PCM WAV"),
+            "{name}: {e}"
+        );
+        let recipe = format!(r#"[{{"wav":"{name}"}}]"#);
+        assert!(audio::build(dir.path(), &recipe).is_err(), "{name}");
+    }
 }
 
 fn eval(args: &[&str]) -> (String, i32) {
@@ -455,6 +552,32 @@ fn a_broken_threshold_fails_the_gate_and_names_the_metric() {
     assert_eq!(code, 1, "{out}");
     assert!(out.contains("FAIL total: p95_ms is"), "{out}");
     assert!(!out.contains("FAIL prayer"), "{out}");
+}
+
+#[test]
+fn a_broken_per_fixture_threshold_fails_the_gate_while_total_passes() {
+    // Each fixture row is checked on its own: a fixture that regresses
+    // while staying under the looser total thresholds still fails.
+    // Measured: prayer-then-reprise blank 200 ms, prayer-without-pause p95
+    // 8900 ms; total allows 7000 and 9000.
+    let text = std::fs::read_to_string("../fixtures/baseline.json").unwrap();
+    let mut limits: serde_json::Value = serde_json::from_str(&text).unwrap();
+    limits["prayer-then-reprise"]["blank_ms"] = json!(100);
+    limits["prayer-without-pause"]["p95_ms"] = json!(8000);
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("baseline.json");
+    std::fs::write(&path, limits.to_string()).unwrap();
+    let (out, code) = eval(&["--baseline", path.to_str().unwrap()]);
+    assert_eq!(code, 1, "{out}");
+    let want = [
+        "FAIL prayer-then-reprise: blank_ms is 200, baseline needs <= 100",
+        "FAIL prayer-without-pause: p95_ms is 8900, baseline needs <= 8000",
+    ];
+    for line in want {
+        assert!(out.lines().any(|l| l == line), "{line}: {out}");
+    }
+    assert_eq!(out.matches("FAIL ").count(), 2, "{out}");
+    assert!(!out.contains("FAIL total"), "{out}");
 }
 
 #[test]
