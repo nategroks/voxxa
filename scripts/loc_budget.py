@@ -53,7 +53,11 @@ voxxad = total(["bin/voxxad.rs", "bin/voxxad/"])
 # transcription/) get one row instead of raising "everything else", which
 # stays at 2500 and still holds the listening loop (listen.rs).
 recognizer = total(["transcription/"])
-rest = sum(rust.values()) - conductor - presenters - importers - voxxad - recognizer
+# Recorded deviation from ADR-010 Decision 3 (ADR-015, user decision 2026-11-13):
+# the voxxa-eval binary (fixture scoring, Q5) gets its own row instead of
+# raising "everything else", which stays at 2500.
+voxxa_eval = total(["bin/voxxa-eval.rs", "bin/voxxa-eval/"])
+rest = sum(rust.values()) - conductor - presenters - importers - voxxad - recognizer - voxxa_eval
 
 checks = [
     ("conductor (aligner/)", conductor, 1200),
@@ -62,6 +66,7 @@ checks = [
     ("everything else in src-tauri/src", rest, 2500),
     ("voxxad binary (src/bin/voxxad*)", voxxad, 600),
     ("recognizer (transcription/ + recognizer code)", recognizer, 700),
+    ("voxxa-eval (src/bin/voxxa-eval*)", voxxa_eval, 600),
     ("GUI (src/, index.html, stage.html)", sum(gui.values()), 3000),
 ]
 for f, n in sorted(rust.items()):
