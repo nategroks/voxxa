@@ -7,13 +7,14 @@ Recordings with ground truth, used to score auto-advance with `voxxa-eval`
 fixtures/
   baseline.json              the eval gate's thresholds (CI fails below them)
   recordings/<name>/         one fixture per folder:
-    setlist.json             the setlist voxxad follows (v1 schema)
+    setlist.json             the setlist voxxad follows (--setlist format)
     truth.jsonl              what the operator did, and when
     session.jsonl            a recorded voxxad session log (Whisper Tiny)
     audio.json               recipe that rebuilds audio.wav from committed WAVs
     audio.wav                the audio (never committed; fixtures/.gitignore)
   tools/record-session.ps1   capture desk audio + slide-change truth
-  setlists/pd-hymns.json     v1 setlist for the two public-domain hymns
+  setlists/pd-hymns.json     the two public-domain hymns, older v1 schema
+                             (voxxad does not load it; Q1 A15 follow-up)
   pco/plan-sample.json       anonymised Planning Center plan (no people)
   SOURCES.md                 where each fixture's audio comes from
 ```
@@ -37,8 +38,12 @@ row per fixture plus a total, and checks each row against `baseline.json`.
 
 - **Replay (default, CI):** `voxxad --replay session.jsonl --setlist setlist.json`.
   No model, no audio, the same result on every OS. It re-runs today's
-  conductor on the recorded recogniser output, so a conductor change is
-  measured by replay alone.
+  conductor on the recorded recogniser output, so a conductor-logic change
+  is measured by replay alone. But replay rebuilds the conductor from the
+  `SmartConfig` stored in each log's start line (`info.config`), not from
+  today's defaults: a change to a `SmartConfig` default is not seen by
+  replay (or CI) until the logs are re-recorded, or their start-line config
+  is edited (ticket Q5-07).
 - **Full (`--full`, local):** `voxxad --stdin-audio audio.wav --setlist setlist.json
   --shadow --model tiny`, at file speed. When the fixture has an `audio.json`,
   `audio.wav` is rebuilt from it first. Needs `ggml-tiny.bin` (download it in
@@ -46,7 +51,9 @@ row per fixture plus a total, and checks each row against `baseline.json`.
   build on Windows is much slower (Q4-01). Whisper's own log goes to stderr;
   add `2>/dev/null` to hide it.
 - **Re-recording (`--full --record`):** also saves the session log as the
-  fixture's `session.jsonl` (its `log` path reduced to `session.jsonl`).
+  fixture's `session.jsonl`. `voxxad` runs in a temporary folder with
+  `--log-dir .`, so the `log` path on the start line is relative
+  (`.\session-<time>.jsonl` on Windows) and names no user folder.
   Re-record after any recogniser change (window, hop, stitcher, model) and say
   why in the commit; then check the table and `baseline.json`.
 - Exit status: 0 when no metric is worse than the baseline, 1 when one is
@@ -75,11 +82,14 @@ first sample of `audio.wav`, the same timeline as `voxxad`'s `t` at file speed.
 
 ## Metrics
 
-Every truth row is matched by at most one action: the first `goto` (for a
-slide row) or `blank` (for a blank row) that shows the same thing and whose
-time plus 1000 ms falls in that row's span (from its `t_ms` up to the next
-row's). So an action may be up to 1 s early (operators press 200-400 ms late)
-and any amount late until the operator's next change.
+Truth row *i* owns the actions with `t` in `[t_i - 1000, t_{i+1} - 1000)`
+(the last row owns everything after `t_i - 1000`). So an action may be up
+to 1 s early (operators press 200-400 ms late), and a late action matches
+until 1 s before the operator's next change; from then on it belongs to the
+next row. Every truth row is matched by at most one action: the first `goto`
+(for a slide row) or `blank` (for a blank row) in its span that shows the
+same thing. There is no "already showing" rule: a row whose slide was
+already on screen still needs its own `goto`.
 
 | Column | Definition |
 |---|---|
@@ -97,7 +107,10 @@ and any amount late until the operator's next change.
 
 The total row sums the counts (so its false/set is the sum over all sets)
 and computes the ratios, percentiles and worst timings over all fixtures'
-actions together. Explicit `unblank` actions count only for unblank timing.
+actions together. Explicit `unblank` actions count only for unblank timing:
+they are never counted as false or double advances, even when one re-shows
+lyrics in the middle of a prayer. That is a known gap; the conductor emits
+`unblank` rarely and neither committed log has one.
 Word timing is not measured: word times are rough and not logged (Q4-13).
 
 ## baseline.json
@@ -110,8 +123,10 @@ fails, and so does an unknown metric name. A `miss` or `-` fails any
 threshold set for that metric.
 
 These are thresholds, not the last numbers. They start at the first replay's
-values, with latencies rounded up to the next 500 ms (headroom for hop jitter
-when a log is re-recorded) and counts and ratios exact. Update them:
+values: each latency (median, p95, blank, unblank) is the next multiple of
+500 ms strictly above the measured worst (1,500 becomes 2,000; 2,900
+becomes 3,000), headroom for hop jitter when a log is re-recorded; counts
+and ratios are exact. Update them:
 
 - **Tighten** in the same commit as a change that improves a metric (Q6 aims
   at p95 latency of at most 2,500 ms).
@@ -144,11 +159,23 @@ each part (the start of the part plus 100 ms).
    ```
 4. Watch the slides. Press **Enter** the moment each slide changes.
    `n` + Enter starts the next song (you type its title), `q` + Enter stops.
-   The script has no blank key: add `{"t_ms":…,"blank":true}` rows by hand.
-5. Copy the song(s) you sang from `setlists/pd-hymns.json` into
-   `recordings/<name>/setlist.json` (v1 schema) and edit the slides to match
-   what was actually sung, in order: truth `slide` counts Enter presses.
-6. Run `voxxa-eval --full --record fixtures/recordings/<name>` to write its
+5. Fix up `truth.jsonl` by hand (ticket Q5-02):
+   - add the first slide row: the kit records only changes and puts the
+     first song only on its `start` event line, which the eval skips, so the
+     slide on screen when recording started has no row. Without it every
+     real recording scores a false advance on its first slide. Add
+     `{"t_ms":<when it went up>,"song":"Amazing Grace","slide":0}`
+     (`0` if it was already up);
+   - add a `{"t_ms":…,"blank":true}` row for each blank: the kit has no
+     blank key.
+6. Write `recordings/<name>/setlist.json` in the format `voxxad --setlist`
+   reads (`{"setlist":[{"title":…,"slides":[{"id":0,"text":…}]}]}`, as in
+   `recordings/prayer-then-reprise/setlist.json`), with the slides as they
+   were shown, in order: truth `slide` counts Enter presses. The kit's
+   earlier step 5 said to copy songs from `setlists/pd-hymns.json`; that
+   file uses the older v1 setlist schema, which `voxxad` does not load
+   (Q1 A15 follow-up), so copy the text, not the file.
+7. Run `voxxa-eval --full --record fixtures/recordings/<name>` to write its
    `session.jsonl`, then add its thresholds to `baseline.json`.
 
 The script writes 16 kHz mono 16-bit PCM, the only format `voxxad` reads.
