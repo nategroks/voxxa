@@ -46,10 +46,16 @@ pub struct Metrics {
     pub unblank: Vec<Option<i64>>,
 }
 
-/// Every truth row is matched by at most one action: the first goto (or
-/// blank) whose `t + EARLY_MS` falls in that row's time (from its t_ms to the
-/// next row's) and that shows the same thing. Any other goto or blank is a
-/// double advance when it leaves the screen as it was, else a false advance.
+/// Truth row i owns the actions with `t` in `[t_i - EARLY_MS, t_{i+1} -
+/// EARLY_MS)` (the last row owns everything after its start): an action up
+/// to 1 s early matches, and a late one matches until 1 s before the
+/// operator's next change. Each row is matched by at most one action, the
+/// first goto (for a slide row) or blank (for a blank row) in its span that
+/// shows the same thing. Any other goto or blank is a double advance when it
+/// leaves the screen as it was (a goto to the slide already shown with no
+/// blank since, or a blank on a blank screen), else a false advance.
+/// Explicit `unblank` actions are never false or double advances; they
+/// count only for unblank timing (a known gap, ADR-015 D6).
 pub fn score(truth: &[At], actions: &[At]) -> Metrics {
     let is_slide = |c: &Cue| matches!(c, Cue::Slide(..));
     let mut m = Metrics {

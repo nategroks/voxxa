@@ -97,6 +97,50 @@ fn a_late_advance_counts_until_the_next_truth_row_and_is_false_after_it() {
 }
 
 #[test]
+fn a_row_owns_from_1_s_before_it_to_1_s_before_the_next_row() {
+    // Slide 0 at 1 s, slide 1 at 13 s: slide 0's span ends at 12 s.
+    let t = [slide(1000, 0), slide(13000, 1)];
+    let m = score(&t, &[slide(12500, 0), slide(13400, 1)]);
+    let missed = m.slides - m.hits;
+    assert_eq!((m.hits, missed, m.false_advances), (1, 1, 1));
+    let m = score(&t, &[slide(11999, 0), slide(13400, 1)]);
+    assert_eq!((m.hits, m.false_advances), (2, 0));
+    assert_eq!(m.latency, [10999, 400]);
+}
+
+#[test]
+fn a_blank_before_anything_is_shown_is_a_double_advance() {
+    // voxxad's conductor starts blank, so a blank leaves the screen as it was.
+    let m = score(&[slide(1000, 0)], &[blank(500)]);
+    assert_eq!((m.double_advances, m.false_advances), (1, 0));
+    assert!(m.blank.is_empty(), "the truth has no blank row");
+}
+
+#[test]
+fn an_unblank_during_a_prayer_is_neither_false_nor_double() {
+    // Known gap (ADR-015 D6): the unblank at 30 s shows verse 2 again in
+    // the middle of the prayer, yet it only counts as an early unblank.
+    let t = [truth(), vec![slide(40000, 1)]].concat();
+    let unblank = At {
+        t: 30000,
+        cue: Cue::Unblank,
+    };
+    let acts = [
+        slide(1500, 0),
+        slide(13400, 1),
+        blank(25300),
+        unblank,
+        slide(42000, 1),
+    ];
+    let m = score(&t, &acts);
+    assert_eq!((m.hits, m.false_advances, m.double_advances), (3, 0, 0));
+    assert_eq!(
+        (m.blank.clone(), m.unblank.clone()),
+        (vec![Some(300)], vec![Some(-10000)])
+    );
+}
+
+#[test]
 fn blank_and_unblank_are_timed_from_the_operator_rows() {
     // Prayer blanked at 25 s, verse 2 again at 40 s.
     let t = [truth(), vec![slide(40000, 1)]].concat();
