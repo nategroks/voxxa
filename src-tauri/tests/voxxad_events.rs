@@ -197,6 +197,37 @@ fn the_recorder_keeps_the_last_speech_before_each_tick_or_transcript() {
     assert_eq!(r.last_t, 450);
 }
 
+/// Verifier round 2: with `--realtime` a hop's lines are timed after its
+/// inference, later than the speech heard before it (rt3: window t=7096,
+/// then speech t=1987). The pending speech is written before a window or
+/// an error line too, so `t` never goes back in the session log.
+#[test]
+fn the_session_log_t_never_goes_back_across_a_window_or_error_line() {
+    let base = Instant::now();
+    let at = |ms| base + Duration::from_millis(ms);
+    let mut r = Recorder::new(base);
+    let events = [
+        (1987, Event::Input(Input::Speech)),
+        (7096, Event::Window("amazing grace how sweet".into())),
+        (
+            7096,
+            Event::Input(Input::Heard("amazing grace how sweet".into())),
+        ),
+        (7096, Event::Action(Action::Noop, Some(13))),
+        (7150, Event::Input(Input::Speech)),
+        (9000, Event::Error("whisper failed".into())),
+        (9000, Event::Input(Input::Tick)),
+    ];
+    let mut lines = Vec::new();
+    for (ms, event) in events {
+        lines.extend(r.lines(at(ms), &event));
+    }
+    let t: Vec<u64> = lines.iter().map(|l| l.t).collect();
+    assert_eq!(t, [1987, 7096, 7096, 7150, 9000, 9000]);
+    assert!(matches!(lines[0].kind, Kind::Speech), "{lines:?}");
+    assert!(matches!(lines[3].kind, Kind::Speech), "{lines:?}");
+}
+
 #[test]
 fn replay_reproduces_the_recorded_actions_byte_for_byte() {
     let log = std::fs::read_to_string(SESSION).unwrap();

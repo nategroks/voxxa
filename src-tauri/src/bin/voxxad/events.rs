@@ -176,11 +176,13 @@ impl Recorder {
             },
             Event::Mic(_) | Event::Detection(_) => return Vec::new(),
         };
-        // Only the last speech before a tick or a transcript matters.
-        let speech = matches!(kind, Kind::Tick | Kind::Hypothesis { .. })
-            .then(|| self.pending_speech.take())
-            .flatten();
-        let speech = speech.map(|ts| Line::new(ts, Kind::Speech));
+        // Only the last speech before a tick or a transcript matters; it is
+        // written before any later line (a window, an error) so t never
+        // goes back.
+        let speech = self
+            .pending_speech
+            .take()
+            .map(|ts| Line::new(ts, Kind::Speech));
         speech.into_iter().chain([Line::new(t, kind)]).collect()
     }
 }
