@@ -1,0 +1,349 @@
+{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261113-0717.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"bfd4e837f4d5c5f6","slides":13,"songs":3},"shadow":true,"version":"0.1.0"}}
+{"v":1,"t":200,"type":"tick"}
+{"v":1,"t":400,"type":"tick"}
+{"v":1,"t":600,"type":"tick"}
+{"v":1,"t":800,"type":"tick"}
+{"v":1,"t":1000,"type":"tick"}
+{"v":1,"t":1200,"type":"tick"}
+{"v":1,"t":1400,"type":"tick"}
+{"v":1,"t":1500,"type":"speech"}
+{"v":1,"t":1600,"type":"tick"}
+{"v":1,"t":1700,"type":"speech"}
+{"v":1,"t":1800,"type":"tick"}
+{"v":1,"t":1900,"type":"speech"}
+{"v":1,"t":2000,"type":"window","text":"Amazing grace"}
+{"v":1,"t":2000,"type":"tick"}
+{"v":1,"t":2100,"type":"speech"}
+{"v":1,"t":2200,"type":"tick"}
+{"v":1,"t":2300,"type":"speech"}
+{"v":1,"t":2400,"type":"tick"}
+{"v":1,"t":2600,"type":"tick"}
+{"v":1,"t":2800,"type":"tick"}
+{"v":1,"t":3000,"type":"window","text":"Amazing grace. House"}
+{"v":1,"t":3000,"type":"tick"}
+{"v":1,"t":3100,"type":"speech"}
+{"v":1,"t":3200,"type":"tick"}
+{"v":1,"t":3300,"type":"speech"}
+{"v":1,"t":3400,"type":"tick"}
+{"v":1,"t":3500,"type":"speech"}
+{"v":1,"t":3600,"type":"tick"}
+{"v":1,"t":3700,"type":"speech"}
+{"v":1,"t":3800,"type":"tick"}
+{"v":1,"t":3900,"type":"speech"}
+{"v":1,"t":4000,"type":"window","text":"Amazing grace! How sweet the sound!"}
+{"v":1,"t":4000,"type":"hypothesis","text":"Amazing grace House sweet the sound!"}
+{"v":1,"t":4000,"type":"action","action":"goto","song":1,"slide":0,"global":4,"title":"Amazing Grace"}
+{"v":1,"t":4000,"type":"tick"}
+{"v":1,"t":4000,"type":"status","state":"singing","blank":false}
+{"v":1,"t":4200,"type":"tick"}
+{"v":1,"t":4400,"type":"tick"}
+{"v":1,"t":4500,"type":"speech"}
+{"v":1,"t":4600,"type":"tick"}
+{"v":1,"t":4700,"type":"speech"}
+{"v":1,"t":4800,"type":"tick"}
+{"v":1,"t":4900,"type":"speech"}
+{"v":1,"t":5000,"type":"window","text":"Amazing grace! How sweet the sound? That saved the"}
+{"v":1,"t":5000,"type":"tick"}
+{"v":1,"t":5100,"type":"speech"}
+{"v":1,"t":5200,"type":"tick"}
+{"v":1,"t":5300,"type":"speech"}
+{"v":1,"t":5400,"type":"tick"}
+{"v":1,"t":5500,"type":"speech"}
+{"v":1,"t":5600,"type":"tick"}
+{"v":1,"t":5700,"type":"speech"}
+{"v":1,"t":5800,"type":"tick"}
+{"v":1,"t":5900,"type":"speech"}
+{"v":1,"t":6000,"type":"window","text":"Amazing grace! How sweet the sound? That saved the wretch like me."}
+{"v":1,"t":6000,"type":"hypothesis","text":"That saved the wretch like me."}
+{"v":1,"t":6000,"type":"tick"}
+{"v":1,"t":6200,"type":"tick"}
+{"v":1,"t":6400,"type":"tick"}
+{"v":1,"t":6600,"type":"tick"}
+{"v":1,"t":6800,"type":"tick"}
+{"v":1,"t":7000,"type":"tick"}
+{"v":1,"t":7100,"type":"speech"}
+{"v":1,"t":7200,"type":"tick"}
+{"v":1,"t":7300,"type":"speech"}
+{"v":1,"t":7400,"type":"tick"}
+{"v":1,"t":7500,"type":"speech"}
+{"v":1,"t":7600,"type":"tick"}
+{"v":1,"t":7700,"type":"speech"}
+{"v":1,"t":7800,"type":"tick"}
+{"v":1,"t":7900,"type":"speech"}
+{"v":1,"t":8000,"type":"window","text":"the sound, that saved the wretch like me. I once was lost."}
+{"v":1,"t":8000,"type":"hypothesis","text":"I once was lost."}
+{"v":1,"t":8000,"type":"tick"}
+{"v":1,"t":8000,"type":"speech"}
+{"v":1,"t":8200,"type":"tick"}
+{"v":1,"t":8400,"type":"tick"}
+{"v":1,"t":8600,"type":"tick"}
+{"v":1,"t":8700,"type":"speech"}
+{"v":1,"t":8800,"type":"tick"}
+{"v":1,"t":8900,"type":"speech"}
+{"v":1,"t":9000,"type":"window","text":"That saved the wretch like me. I once was lost, but now I am"}
+{"v":1,"t":9000,"type":"hypothesis","text":"but now I am"}
+{"v":1,"t":9000,"type":"tick"}
+{"v":1,"t":9100,"type":"speech"}
+{"v":1,"t":9200,"type":"tick"}
+{"v":1,"t":9300,"type":"speech"}
+{"v":1,"t":9400,"type":"tick"}
+{"v":1,"t":9500,"type":"speech"}
+{"v":1,"t":9600,"type":"tick"}
+{"v":1,"t":9700,"type":"speech"}
+{"v":1,"t":9800,"type":"tick"}
+{"v":1,"t":10000,"type":"window","text":"I once was lost, but now I am found."}
+{"v":1,"t":10000,"type":"tick"}
+{"v":1,"t":10200,"type":"tick"}
+{"v":1,"t":10300,"type":"speech"}
+{"v":1,"t":10400,"type":"tick"}
+{"v":1,"t":10500,"type":"speech"}
+{"v":1,"t":10600,"type":"tick"}
+{"v":1,"t":10700,"type":"speech"}
+{"v":1,"t":10800,"type":"tick"}
+{"v":1,"t":10900,"type":"speech"}
+{"v":1,"t":11000,"type":"window","text":"I once was lost, but now I am found, was blind."}
+{"v":1,"t":11000,"type":"tick"}
+{"v":1,"t":11200,"type":"tick"}
+{"v":1,"t":11400,"type":"tick"}
+{"v":1,"t":11500,"type":"speech"}
+{"v":1,"t":11600,"type":"tick"}
+{"v":1,"t":11700,"type":"speech"}
+{"v":1,"t":11800,"type":"tick"}
+{"v":1,"t":11900,"type":"speech"}
+{"v":1,"t":12000,"type":"window","text":"was lost, but now I am found, was blind, but now I see."}
+{"v":1,"t":12000,"type":"hypothesis","text":"found. was blind. but now I see."}
+{"v":1,"t":12000,"type":"tick"}
+{"v":1,"t":12100,"type":"speech"}
+{"v":1,"t":12200,"type":"tick"}
+{"v":1,"t":12300,"type":"speech"}
+{"v":1,"t":12400,"type":"tick"}
+{"v":1,"t":12400,"type":"speech"}
+{"v":1,"t":12600,"type":"tick"}
+{"v":1,"t":12800,"type":"tick"}
+{"v":1,"t":13000,"type":"window","text":"But now I am found, was blind, but now I see."}
+{"v":1,"t":13000,"type":"tick"}
+{"v":1,"t":13200,"type":"tick"}
+{"v":1,"t":13400,"type":"tick"}
+{"v":1,"t":13600,"type":"tick"}
+{"v":1,"t":13800,"type":"tick"}
+{"v":1,"t":14000,"type":"tick"}
+{"v":1,"t":14200,"type":"tick"}
+{"v":1,"t":14400,"type":"tick"}
+{"v":1,"t":14500,"type":"speech"}
+{"v":1,"t":14600,"type":"tick"}
+{"v":1,"t":14700,"type":"speech"}
+{"v":1,"t":14800,"type":"tick"}
+{"v":1,"t":14900,"type":"speech"}
+{"v":1,"t":15000,"type":"window","text":"was blind, but now I see."}
+{"v":1,"t":15000,"type":"tick"}
+{"v":1,"t":15100,"type":"speech"}
+{"v":1,"t":15200,"type":"tick"}
+{"v":1,"t":15300,"type":"speech"}
+{"v":1,"t":15400,"type":"tick"}
+{"v":1,"t":15500,"type":"speech"}
+{"v":1,"t":15600,"type":"tick"}
+{"v":1,"t":15700,"type":"speech"}
+{"v":1,"t":15800,"type":"tick"}
+{"v":1,"t":15900,"type":"speech"}
+{"v":1,"t":16000,"type":"window","text":"But now I see. It was grace that taught my heart to feel."}
+{"v":1,"t":16000,"type":"hypothesis","text":"It was grace that taught my heart to feel."}
+{"v":1,"t":16000,"type":"tick"}
+{"v":1,"t":16100,"type":"speech"}
+{"v":1,"t":16200,"type":"tick"}
+{"v":1,"t":16300,"type":"speech"}
+{"v":1,"t":16400,"type":"tick"}
+{"v":1,"t":16500,"type":"speech"}
+{"v":1,"t":16600,"type":"tick"}
+{"v":1,"t":16600,"type":"speech"}
+{"v":1,"t":16800,"type":"tick"}
+{"v":1,"t":17000,"type":"window","text":"2. Toes Grace that taught my heart to fear."}
+{"v":1,"t":17000,"type":"tick"}
+{"v":1,"t":17100,"type":"speech"}
+{"v":1,"t":17200,"type":"tick"}
+{"v":1,"t":17300,"type":"speech"}
+{"v":1,"t":17400,"type":"tick"}
+{"v":1,"t":17500,"type":"speech"}
+{"v":1,"t":17600,"type":"tick"}
+{"v":1,"t":17700,"type":"speech"}
+{"v":1,"t":17800,"type":"tick"}
+{"v":1,"t":17900,"type":"speech"}
+{"v":1,"t":18000,"type":"window","text":"To us grace that taught my heart to fear, and grace my fears were"}
+{"v":1,"t":18000,"type":"hypothesis","text":"and grace my fears were"}
+{"v":1,"t":18000,"type":"tick"}
+{"v":1,"t":18100,"type":"speech"}
+{"v":1,"t":18200,"type":"tick"}
+{"v":1,"t":18300,"type":"speech"}
+{"v":1,"t":18400,"type":"tick"}
+{"v":1,"t":18500,"type":"speech"}
+{"v":1,"t":18600,"type":"tick"}
+{"v":1,"t":18700,"type":"speech"}
+{"v":1,"t":18800,"type":"tick"}
+{"v":1,"t":19000,"type":"window","text":"It was grace that taught my heart to fear, and grace my fears relieved."}
+{"v":1,"t":19000,"type":"tick"}
+{"v":1,"t":19200,"type":"tick"}
+{"v":1,"t":19400,"type":"tick"}
+{"v":1,"t":19600,"type":"tick"}
+{"v":1,"t":19800,"type":"tick"}
+{"v":1,"t":19900,"type":"speech"}
+{"v":1,"t":20000,"type":"window","text":"taught my heart to fear, and grace my fears relieved."}
+{"v":1,"t":20000,"type":"tick"}
+{"v":1,"t":20100,"type":"speech"}
+{"v":1,"t":20200,"type":"tick"}
+{"v":1,"t":20300,"type":"speech"}
+{"v":1,"t":20400,"type":"tick"}
+{"v":1,"t":20500,"type":"speech"}
+{"v":1,"t":20600,"type":"tick"}
+{"v":1,"t":20700,"type":"speech"}
+{"v":1,"t":20800,"type":"tick"}
+{"v":1,"t":20900,"type":"speech"}
+{"v":1,"t":21000,"type":"window","text":"fear, and grace my fears relieved. How precious did that grace of"}
+{"v":1,"t":21000,"type":"hypothesis","text":"How precious did that grace of"}
+{"v":1,"t":21000,"type":"tick"}
+{"v":1,"t":21100,"type":"speech"}
+{"v":1,"t":21200,"type":"tick"}
+{"v":1,"t":21300,"type":"speech"}
+{"v":1,"t":21400,"type":"tick"}
+{"v":1,"t":21500,"type":"speech"}
+{"v":1,"t":21600,"type":"tick"}
+{"v":1,"t":21600,"type":"speech"}
+{"v":1,"t":21800,"type":"tick"}
+{"v":1,"t":22000,"type":"window","text":"grace my fears relieved. How precious did that grace appear?"}
+{"v":1,"t":22000,"type":"tick"}
+{"v":1,"t":22200,"type":"tick"}
+{"v":1,"t":22300,"type":"speech"}
+{"v":1,"t":22400,"type":"tick"}
+{"v":1,"t":22500,"type":"speech"}
+{"v":1,"t":22600,"type":"tick"}
+{"v":1,"t":22700,"type":"speech"}
+{"v":1,"t":22800,"type":"tick"}
+{"v":1,"t":22900,"type":"speech"}
+{"v":1,"t":23000,"type":"window","text":"believed. How precious did that grace appear, the hour I first"}
+{"v":1,"t":23000,"type":"hypothesis","text":"the hour I first"}
+{"v":1,"t":23000,"type":"action","action":"goto","song":1,"slide":1,"global":5,"title":"Amazing Grace"}
+{"v":1,"t":23000,"type":"tick"}
+{"v":1,"t":23100,"type":"speech"}
+{"v":1,"t":23200,"type":"tick"}
+{"v":1,"t":23300,"type":"speech"}
+{"v":1,"t":23400,"type":"tick"}
+{"v":1,"t":23500,"type":"speech"}
+{"v":1,"t":23600,"type":"tick"}
+{"v":1,"t":23700,"type":"speech"}
+{"v":1,"t":23800,"type":"tick"}
+{"v":1,"t":24000,"type":"window","text":"How precious did that grace appear, the hour I first believed?"}
+{"v":1,"t":24000,"type":"tick"}
+{"v":1,"t":24200,"type":"tick"}
+{"v":1,"t":24400,"type":"tick"}
+{"v":1,"t":24600,"type":"tick"}
+{"v":1,"t":24700,"type":"speech"}
+{"v":1,"t":24800,"type":"tick"}
+{"v":1,"t":24900,"type":"speech"}
+{"v":1,"t":25000,"type":"window","text":"just did that grace appear, the hour I first believed."}
+{"v":1,"t":25000,"type":"tick"}
+{"v":1,"t":25100,"type":"speech"}
+{"v":1,"t":25200,"type":"tick"}
+{"v":1,"t":25300,"type":"speech"}
+{"v":1,"t":25400,"type":"tick"}
+{"v":1,"t":25500,"type":"speech"}
+{"v":1,"t":25600,"type":"tick"}
+{"v":1,"t":25700,"type":"speech"}
+{"v":1,"t":25800,"type":"tick"}
+{"v":1,"t":25900,"type":"speech"}
+{"v":1,"t":26000,"type":"window","text":"appear, the hour I first believed. Let us bow our heads and pray."}
+{"v":1,"t":26000,"type":"hypothesis","text":"believed? Let us bow our heads and pray."}
+{"v":1,"t":26000,"type":"tick"}
+{"v":1,"t":26100,"type":"speech"}
+{"v":1,"t":26200,"type":"tick"}
+{"v":1,"t":26300,"type":"speech"}
+{"v":1,"t":26400,"type":"tick"}
+{"v":1,"t":26600,"type":"tick"}
+{"v":1,"t":26800,"type":"tick"}
+{"v":1,"t":27000,"type":"window","text":"our I first believed. Let us power heads and pray."}
+{"v":1,"t":27000,"type":"tick"}
+{"v":1,"t":27200,"type":"tick"}
+{"v":1,"t":27400,"type":"tick"}
+{"v":1,"t":27500,"type":"speech"}
+{"v":1,"t":27600,"type":"tick"}
+{"v":1,"t":27700,"type":"speech"}
+{"v":1,"t":27800,"type":"tick"}
+{"v":1,"t":27800,"type":"speech"}
+{"v":1,"t":28000,"type":"window","text":"Leave. Let us bow our heads and pray. Father"}
+{"v":1,"t":28000,"type":"tick"}
+{"v":1,"t":28200,"type":"tick"}
+{"v":1,"t":28300,"type":"speech"}
+{"v":1,"t":28400,"type":"tick"}
+{"v":1,"t":28500,"type":"speech"}
+{"v":1,"t":28600,"type":"tick"}
+{"v":1,"t":28700,"type":"speech"}
+{"v":1,"t":28800,"type":"tick"}
+{"v":1,"t":28900,"type":"speech"}
+{"v":1,"t":29000,"type":"window","text":"Let us bow our heads and pray. Father, we thank you for this."}
+{"v":1,"t":29000,"type":"hypothesis","text":"Father we thank you for this."}
+{"v":1,"t":29000,"type":"tick"}
+{"v":1,"t":29100,"type":"speech"}
+{"v":1,"t":29200,"type":"tick"}
+{"v":1,"t":29300,"type":"speech"}
+{"v":1,"t":29400,"type":"tick"}
+{"v":1,"t":29500,"type":"speech"}
+{"v":1,"t":29600,"type":"tick"}
+{"v":1,"t":29700,"type":"speech"}
+{"v":1,"t":29800,"type":"tick"}
+{"v":1,"t":29900,"type":"speech"}
+{"v":1,"t":30000,"type":"window","text":"our heads and pray. Father, we thank you for this morning and for every"}
+{"v":1,"t":30000,"type":"hypothesis","text":"morning and for every"}
+{"v":1,"t":30000,"type":"tick"}
+{"v":1,"t":30100,"type":"speech"}
+{"v":1,"t":30200,"type":"tick"}
+{"v":1,"t":30300,"type":"speech"}
+{"v":1,"t":30400,"type":"tick"}
+{"v":1,"t":30500,"type":"speech"}
+{"v":1,"t":30600,"type":"tick"}
+{"v":1,"t":30700,"type":"speech"}
+{"v":1,"t":30800,"type":"tick"}
+{"v":1,"t":30900,"type":"speech"}
+{"v":1,"t":31000,"type":"window","text":"Father, we thank you for this morning and for everyone gathered here."}
+{"v":1,"t":31000,"type":"tick"}
+{"v":1,"t":31000,"type":"action","action":"blank"}
+{"v":1,"t":31000,"type":"status","state":"blank_hold","blank":true}
+{"v":1,"t":31100,"type":"speech"}
+{"v":1,"t":31200,"type":"tick"}
+{"v":1,"t":31300,"type":"speech"}
+{"v":1,"t":31400,"type":"tick"}
+{"v":1,"t":31500,"type":"speech"}
+{"v":1,"t":31600,"type":"tick"}
+{"v":1,"t":31700,"type":"speech"}
+{"v":1,"t":31800,"type":"tick"}
+{"v":1,"t":31800,"type":"speech"}
+{"v":1,"t":32000,"type":"window","text":"Father, we thank you for this morning and for everyone gathered here today."}
+{"v":1,"t":32000,"type":"tick"}
+{"v":1,"t":32200,"type":"tick"}
+{"v":1,"t":32400,"type":"tick"}
+{"v":1,"t":32600,"type":"tick"}
+{"v":1,"t":32800,"type":"tick"}
+{"v":1,"t":33000,"type":"tick"}
+{"v":1,"t":33200,"type":"tick"}
+{"v":1,"t":33400,"type":"tick"}
+{"v":1,"t":33600,"type":"tick"}
+{"v":1,"t":33800,"type":"tick"}
+{"v":1,"t":34000,"type":"tick"}
+{"v":1,"t":34200,"type":"tick"}
+{"v":1,"t":34400,"type":"tick"}
+{"v":1,"t":34600,"type":"tick"}
+{"v":1,"t":34800,"type":"tick"}
+{"v":1,"t":35000,"type":"tick"}
+{"v":1,"t":35200,"type":"tick"}
+{"v":1,"t":35400,"type":"tick"}
+{"v":1,"t":35600,"type":"tick"}
+{"v":1,"t":35800,"type":"tick"}
+{"v":1,"t":36000,"type":"tick"}
+{"v":1,"t":36200,"type":"tick"}
+{"v":1,"t":36400,"type":"tick"}
+{"v":1,"t":36600,"type":"tick"}
+{"v":1,"t":36800,"type":"tick"}
+{"v":1,"t":37000,"type":"tick"}
+{"v":1,"t":37200,"type":"tick"}
+{"v":1,"t":37400,"type":"tick"}
+{"v":1,"t":37600,"type":"tick"}
+{"v":1,"t":37800,"type":"tick"}
+{"v":1,"t":38000,"type":"tick"}
+{"v":1,"t":38200,"type":"tick"}
+{"v":1,"t":38300,"type":"status","state":"stop","info":{"reason":"end_of_audio"}}

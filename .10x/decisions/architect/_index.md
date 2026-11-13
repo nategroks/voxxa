@@ -65,3 +65,16 @@ The statements above were checked against the code at `f7b56e6`; the full log is
   - three conductor behaviour fixes, API unchanged: blank after 5 s of unmatched transcripts, also on a tick; no goto to the slide still showing after inter-verse silence (closes Q3-08 / #52);
   - word text decoded per segment (UTF-8 safe).
   - Budgets: everything else 2,286/2,500, recognizer 432/700, conductor 1,188/1,200 (12 left), voxxad 548/600. Root cause of the slow release build found (whisper.cpp built without `/O2` on MSVC, ticket Q4-01). Process: `reviews/2026-11-12-ponytail-q4.md`.
+
+## Q5 Phase 2 check (2026-11-13): `voxxa-eval` and the first fixtures → ADR-015
+- **Covered by ADR-013/014:** file-speed `t` is audio time; schema v1; `--replay` re-runs the conductor without a model, byte-identical on actions; a recogniser change needs logs re-recorded.
+- **Not covered, decided in ADR-015 (Accepted on the user's pre-approved Q5 decisions):**
+  - a third binary, `src/bin/voxxa-eval/`, runs the `voxxad` beside it as a subprocess (replay and the WAV reader live in the `voxxad` binary, so in-process would mean copying them) and scores only its `action` lines;
+  - two modes: replay of a committed `session.jsonl` (default, CI, no model) and `--full` (`--stdin-audio --shadow --model tiny --log-dir .` in a temporary folder; `--record` re-records the log);
+  - fixtures: every folder in `fixtures/recordings/` (the kit's folder), with `setlist.json`, `truth.jsonl`, `session.jsonl`, and `audio.json` (a part list over the committed WAVs) or an uncommitted `audio.wav`;
+  - `truth.jsonl`: `{t_ms, song (index or title), slide}` and `{t_ms, "blank": true}`; `event` lines skipped; rows outside the setlist rejected;
+  - metrics: truth row *i* owns `[t_i − 1000, t_{i+1} − 1000)`; precision = hits ÷ all gotos; false and double advances; missed slides; worst blank/unblank latency per row (`miss` fails any threshold); nearest-rank median and p95;
+  - `fixtures/baseline.json` holds per-row thresholds (`{"<fixture>|total": {"<metric>": <worst accepted>}}`); exit 1 names the failing metric, exit 2 on an error; CI runs it as a step of the `check` job on all three OSes;
+  - budget: a new 600-line "voxxa-eval" row, a recorded deviation from ADR-010 Decision 3.
+- **Boundaries unchanged:** no GUI change, no conductor change, no sockets, no new crates; the eval only ever passes `--shadow` or `--replay`.
+- **Built (Q5, `q5/base`):** the ponytail lane's code (`q5/ponytail`, merged), with grafts and review fixes from the 10x lane and the comparator: `voxxa-eval` 458/600 (469/600 at the final head c10e963, after the verifier fixes; ADR-015 Decision 8 amended so a metric with a value and no threshold fails; merge on hold until verifier B's test gaps Q5-08 … Q5-10 are closed); two stand-in fixtures (`prayer-then-reprise`, `prayer-without-pause`); the CI step. First numbers (precision and recall 1.00, latency median 2.9 s and p95 8.9 s, blank 6.6 s into a prayer with no pause) and the Q5-04 finding from the 10x lane (a song after an opening prayer is not shown until its next verse): `decisions/sde/church-autoadvance.md` (Q5), tickets `reviews/2026-11-13-q5-tickets.md`.

@@ -1,0 +1,31 @@
+{
+  "prayer-then-reprise": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "median_ms": 3000,
+    "p95_ms": 9000,
+    "false_advances": 0,
+    "double_advances": 0,
+    "blank_ms": 500,
+    "unblank_ms": 2000
+  },
+  "prayer-without-pause": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "median_ms": 3000,
+    "p95_ms": 9000,
+    "false_advances": 0,
+    "double_advances": 0,
+    "blank_ms": 7000
+  },
+  "total": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "median_ms": 3000,
+    "p95_ms": 9000,
+    "false_advances": 0,
+    "double_advances": 0,
+    "blank_ms": 7000,
+    "unblank_ms": 2000
+  }
+}
