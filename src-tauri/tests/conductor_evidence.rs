@@ -329,6 +329,32 @@ fn an_operator_step_starts_the_dwell() {
     assert_eq!(run.gotos.last(), Some(&(0, 2)));
 }
 
+/// ADR-016 Decision 7: a tracker move clears the 40-word song-detection
+/// buffer. Song 0 moves on to its refrain through the tracker; the next
+/// song is then sung straight after the move, with no blank or silence.
+/// Song detection reads only the words since the move, so song 1 starts on
+/// its first transcript (`min_song_dwell_secs` has passed by then). With
+/// verse 1 still in the buffer it starts later.
+#[test]
+fn a_tracker_move_clears_the_song_detection_buffer() {
+    let songs = setlist(REFRAIN);
+    let next = transcripts(&tokens(&songs[1].slides[0].text));
+    let mut run = Run::new(songs);
+    run.sing(0);
+    // The refrain's first transcript moves to it at 10.5 s. Song 0 started
+    // at 1.5 s, so the 8 s dwell is over when song 1 comes in at 12 s.
+    let refrain = transcripts(&run.words(1));
+    assert!(matches!(run.hear(&refrain[0]), Action::Goto { .. }));
+    assert_eq!(run.gotos, [(0, 0), (0, 1)]);
+    let started = next.iter().position(|line| {
+        let a = run.hear(line);
+        matches!(a, Action::Goto { .. })
+    });
+    // Without the clear: Some(4), five transcripts (6 s) late.
+    assert_eq!(started, Some(0), "{:?}", run.gotos);
+    assert_eq!(run.gotos, [(0, 0), (0, 1), (1, 0)]);
+}
+
 /// A song of made-up words (no hymn text), for the tracker on its own.
 fn synthetic(slides: &[&str], sections: Vec<Section>) -> Song {
     Song {
