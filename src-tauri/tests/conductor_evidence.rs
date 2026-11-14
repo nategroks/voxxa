@@ -4,7 +4,7 @@
 //! from the committed public-domain fixture setlists, never from this file.
 
 use std::time::{Duration, Instant};
-use voxxa_lib::evidence::{score, tokens, EvidenceConfig, Section, SectionKind};
+use voxxa_lib::evidence::{score, tokens, EvidenceConfig, Section, SectionKind, Tracker};
 use voxxa_lib::listen::{check_setlist, Input};
 use voxxa_lib::{Action, Conductor, Setlist, Slide, SmartConfig, Song};
 
@@ -40,8 +40,12 @@ struct Run {
 
 impl Run {
     fn new(songs: Vec<Song>) -> Run {
+        Run::with_config(songs, SmartConfig::default())
+    }
+
+    fn with_config(songs: Vec<Song>, cfg: SmartConfig) -> Run {
         Run {
-            c: Conductor::new(songs.clone(), SmartConfig::default()),
+            c: Conductor::new(songs.clone(), cfg),
             songs,
             t0: Instant::now(),
             ms: 0,
@@ -298,6 +302,118 @@ fn no_move_comes_sooner_than_min_dwell_ms() {
         }
     }
     assert_eq!((gotos, c.current_index()), (1, 0), "only the song start");
+}
+
+#[test]
+fn an_operator_step_starts_the_dwell() {
+    // ADR-016 Decisions 5 and 6: `manual_step` sets `last_advance`, so the
+    // next slide sung right after a step waits out `min_dwell_ms`, even
+    // when the last move before it (the song start) is long past.
+    let mut cfg = SmartConfig::default();
+    cfg.evidence.min_dwell_ms = 15_000;
+    let mut run = Run::with_config(unlabelled(setlist(REFRAIN)), cfg);
+    run.sing(0);
+    run.ms += 30_000;
+    assert!(matches!(
+        run.step(1),
+        Action::Goto {
+            slide_in_song: 1,
+            ..
+        }
+    ));
+    // Slide 2 takes 5 transcripts (7.5 s), all inside the dwell.
+    assert_eq!(run.sing(2), None);
+    assert_eq!(run.gotos, [(0, 0), (0, 1)]);
+    run.ms += 15_000;
+    assert_eq!(run.sing(2), Some(0), "the first transcript after the dwell");
+    assert_eq!(run.gotos.last(), Some(&(0, 2)));
+}
+
+/// A song of made-up words (no hymn text), for the tracker on its own.
+fn synthetic(slides: &[&str], sections: Vec<Section>) -> Song {
+    Song {
+        title: "Synthetic".into(),
+        slides: (slides.iter().enumerate())
+            .map(|(id, text)| Slide {
+                id,
+                text: text.to_string(),
+            })
+            .collect(),
+        sections,
+    }
+}
+
+#[test]
+fn evidence_is_kept_across_transcripts_with_decay() {
+    // Slide 3 is inside a labelled verse, so it is an "other" slide (prior
+    // 0.4). One clean transcript of it gives 0.7 x 0.4 = 0.28, under the
+    // 0.35 threshold; the second adds 0.28 to the 0.084 kept from the
+    // first and moves. Without the kept share it would never move.
+    let verse = Section {
+        kind: SectionKind::Verse,
+        slides: vec![0, 1, 2, 3],
+    };
+    let song = synthetic(
+        &[
+            "c1 c2 c3 c4 c5",
+            "d1 d2 d3 d4 d5",
+            "e1 e2 e3 e4 e5",
+            "o1 o2 o3 o4 o5 o6 o7 o8 o9 o10",
+        ],
+        vec![verse],
+    );
+    let cfg = EvidenceConfig::default();
+    let mut t = Tracker::default();
+    t.hear("o1 o2 o3 o4 o5");
+    assert_eq!(t.decide(0, &song, 0, &cfg, true), None, "one transcript");
+    t.hear("o6 o7 o8 o9 o10");
+    assert_eq!(
+        t.decide(0, &song, 0, &cfg, true),
+        Some(3),
+        "two transcripts"
+    );
+}
+
+#[test]
+fn the_best_slide_must_lead_the_current_one_by_the_margin() {
+    // Seven new words: all of slide 1 (next, prior 0.9: E = 0.63) and three
+    // of the current slide 0 (E = 0.3 kept + 0.7 x 3/7 = 0.6). Slide 1 is
+    // ahead by 0.03, less than the 0.05 margin, so the screen stays.
+    let song = synthetic(&["c1 w1 w2 w3 c2", "w1 w2 w3 w4 w5 w6 w7"], vec![]);
+    let decide = |margin: f64, line: &str| {
+        let cfg = EvidenceConfig {
+            margin,
+            ..EvidenceConfig::default()
+        };
+        let mut t = Tracker::default();
+        t.hear(line);
+        t.decide(0, &song, 0, &cfg, true)
+    };
+    let near_tie = "w1 w2 w3 w4 w5 w6 w7";
+    assert_eq!(decide(0.05, near_tie), None);
+    assert_eq!(decide(0.0, near_tie), Some(1));
+    // A clean line of slide 1 alone: 0.63 against 0.3 moves at the default
+    // margin, but not when the margin asks for a lead of 0.5.
+    assert_eq!(decide(0.05, "w4 w5 w6 w7"), Some(1));
+    assert_eq!(decide(0.5, "w4 w5 w6 w7"), None);
+}
+
+#[test]
+fn the_window_holds_the_last_12_words() {
+    // Slide 1 has "n1" after five other words and before "x". While "x" is
+    // in the window it comes before "n1", so "n1" extends no alignment;
+    // once "x" has left the window, "n1" is a full score for slide 1.
+    let song = synthetic(&["c1 c2 c3 c4", "a1 a2 a3 a4 a5 n1 x"], vec![]);
+    let cfg = EvidenceConfig::default();
+    let decide = |fillers: usize| {
+        let older: Vec<String> = (1..=fillers).map(|i| format!("f{i}")).collect();
+        let mut t = Tracker::default();
+        t.hear(&format!("x {}", older.join(" ")));
+        t.hear("n1");
+        t.decide(0, &song, 0, &cfg, true)
+    };
+    assert_eq!(decide(10), None, "x is the 12th newest word: still heard");
+    assert_eq!(decide(11), Some(1), "x is the 13th newest word: gone");
 }
 
 #[test]
