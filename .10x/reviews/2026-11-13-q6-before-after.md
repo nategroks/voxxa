@@ -93,3 +93,20 @@ Text comes from the committed public-domain fixture setlists; transcripts are 5-
 | total (5 fixtures before, 6 after) | 4120 / 11230 | 2310 / 4870 | 0.68 → 1.00 | 1 → 0 |
 
 **Gate status.** The replay gate, the CI step and two `voxxa_eval` tests still fail on the two `jump-be-thou-my-vision` cells (`median_ms` 1200 against 1000, `p95_ms` 5850 against 1000). That is ADR-016's second amendment, item 5, and it is pending the user's decision. With option (a) on a scratch copy of `baseline.json` (`median_ms` 1500, `p95_ms` 6000), `voxxa-eval --baseline <copy>` prints OK and exits 0, and `cargo test --test voxxa_eval` passes 26 of 26. The committed `baseline.json` was not changed.
+
+## Verifier fixes on `q6/base` (tests only, after 906e78b)
+Two test commits close the verifier's mutation survivors (ADR-016, amendment "Q6 verifier fixes"): decay, margin, the 12-word window (11 and 13), the dwell after `manual_step`, `manual_step` clearing a blank and the buffer, and `blank_hold` clearing the buffer (not redundant: the re-show path keeps the buffer). Each mutant was applied and run; each fails its new test on the asserted step. Both `conductor_unchanged` traces also pass on a `git archive` export of 733c7e1. No conductor, metric, fixture or baseline file changed.
+
+**Eval, re-run after these commits (replay, debug, stream time at file speed).** Before: `voxxa-eval` built from a `git archive` export of 733c7e1, on that commit's fixtures. After: the CI step on the new head. Every cell equals the tables above:
+
+| fixture | before (733c7e1) median / p95 ms | after median / p95 ms | recall before → after | false before → after |
+|---|---|---|---|---|
+| jump-be-thou-my-vision | 900 / 900 | 1200 / 5850 | 0.25 → 1.00 | 0 → 0 |
+| prayer-before-first-song | not a fixture then | 1710 / 2800 | - → 1.00 | - → 0 |
+| prayer-between-songs | 8490 / 11230 | 2490 / 4870 | 1.00 → 1.00 | 0 → 0 |
+| prayer-then-reprise | 2900 / 8900 | 2900 / 2900 | 1.00 → 1.00 | 0 → 0 |
+| prayer-without-pause | 2900 / 8900 | 1900 / 2900 | 1.00 → 1.00 | 0 → 0 |
+| refrain-it-is-well | 4120 / 10310 | 2120 / 3900 | 0.50 → 1.00 | 1 → 0 |
+| total | 4120 / 11230 | 2310 / 4870 | 0.68 → 1.00 | 1 → 0 |
+
+**Gates on the new head.** 1 npm, 2 fmt, 3 clippy, 5 cargo-deny, 6 loc budget and 7 the `dictat` grep pass. Gate 4 fails only on the two `voxxa_eval` tests above, and the CI eval step exits 1 on the same two `jump-be-thou-my-vision` cells. Both still wait on the user's decision (ADR-016, second amendment, item 5). **The exit criterion "eval not worse on any fixture" is still not met** on that fixture's `median_ms` and `p95_ms`.
