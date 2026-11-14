@@ -438,3 +438,28 @@ Design: ADR-016 (Accepted, with a measurement amendment). Numbers: `reviews/2026
 - **Must-fix 1 (`jump-be-thou-my-vision` thresholds):** pending a user decision. The committed baseline was not loosened. Option (a), 1,500 / 6,000, is checked on a scratch copy: the gate prints OK and `voxxa_eval` passes 26 of 26.
 - **Should-fix 3 (the GUI stores the whole `SmartConfig`):** a GUI change needs the user's approval (decision 5), so it is filed as ticket Q6-01 and not committed.
 - **Eval:** "before" re-measured on a 733c7e1 export, and "after" on the head. Both match the 10x lane's tables cell for cell (`reviews/2026-11-13-q6-before-after.md`, "Finish on `q6/base`").
+
+## 2026-11-13 — Q6 final: ADR-009 minimum on `q6/base` (head 4edd7f6), merge on hold
+Process record: `reviews/2026-11-13-ponytail-q6.md`. Numbers: `reviews/2026-11-13-q6-eval-before-after.md` (summary) and `reviews/2026-11-13-q6-before-after.md` (per hit). Tickets: `reviews/2026-11-13-q6-tickets.md` (11 open: 2 medium, 9 low). Design: ADR-016 (Accepted, three amendments).
+
+**Decision.** Two independent measurements of 733c7e1: 1 false advance over 6 sung songs (1.67 per 10 songs, limit 1) and p95 11.23 s (limit 2.5 s; stream time at file speed, no inference time). The conductor missed both limbs, so ADR-009's minimum was built.
+
+**What was built** (on top of the 10x lane, as above):
+- `src-tauri/src/aligner/evidence/` (`mod.rs`, `sections.rs`): optional `sections[].kind`, repeat-aware priors in `SmartConfig.evidence`, word-token scoring on the last 12 words, an accumulator with decay 0.3, threshold 0.35, margin 0.05 and `min_dwell_ms` 1,500. `aligner/mod.rs`: the next-slide check replaced by `follow()`; song detection reads only the newest transcript while blank (Q5-04).
+- Untouched: `MachineState`, `tick`, `blank_hold`, `manual_step`, `jump_to_song`, `notify_external_blank`, the conductor's public methods, `Action`, `Input`, event schema v1, the GUI, `voxxad`, `voxxa-eval`, the recogniser, `Cargo.toml`. No new crates, no sockets.
+- Fixtures: three synthetic TTS fixtures (733c7e1), `refrain-it-is-well` labelled and re-recorded, `prayer-before-first-song` added (Q5-04's reproduction), `session-pd-hymns.jsonl` re-recorded. Whisper inputs identical in every re-recording.
+- After the merge (d92800c): two review fixes (cf1a4c2, e2fd129) and tests for every mutation survivor of verifier rounds 1 and 2 (69795e4, 0dc1e35, b4f3710).
+
+**Tests:** 189 (55 unit + 134 integration; `conductor_evidence` 19, `conductor_unchanged` 2, `voxxa_eval` 26, `voxxad_events` 31). At 4edd7f6, 187 pass and 2 fail: `replay_of_the_committed_fixtures_passes_the_baseline` and `a_broken_per_fixture_threshold_fails_the_gate_while_total_passes`, both on the `jump-be-thou-my-vision` baseline cells.
+
+**Gates at 4edd7f6 (Windows 11, rustc 1.99.1):** 1 npm, 2 fmt, 3 clippy, 5 cargo-deny, 6 loc budget and 7 the `dictat` grep pass. **Gate 4 fails** (the two tests above) and **the CI eval step exits 1** with `FAIL jump-be-thou-my-vision: median_ms is 1200, baseline needs <= 1000` and `FAIL jump-be-thou-my-vision: p95_ms is 5850, baseline needs <= 1000`. `git grep -lP '[\x00\x0b]'` matches only binaries.
+
+**Budgets:** conductor 1,173 / 1,200; conductor evidence (new row, recorded deviation, user decision 3) 215 / 500; everything else 2,288 / 2,500; importers 1,386 / 1,600; voxxad 548 / 600; recognizer 432 / 700; voxxa-eval 469 / 600; presenters 1,149 / 2,000; GUI 2,951 / 3,000. No cap raised.
+
+**Eval (replay; full mode equal):** total precision 0.93 → 1.00, recall 0.68 → 1.00, false 1 → 0, median 4,120 → 2,310 ms, p95 11,230 → 4,870 ms, unblank 8,490 → 2,490 ms; blank and double unchanged. Rule after: 0 false advances per 10 songs (met); p95 4.87 s (not met).
+
+**Not met, waiting on the user:** `jump-be-thou-my-vision` median 900 → 1,200 ms and p95 900 → 5,850 ms (recall 0.25 → 1.00). The log's floor (1,200 and 3,850 ms) means no conductor that follows the jump can meet the 1,000 ms cells. (a) a one-time exception to decision 4 (1,500 / 6,000), or (b) keep `q6/base` out of `main`. Also for the user: the `total` row ended Q6 with blank 7,500 and unblank 2,500 (was 7,000 and 2,000), because the new fixtures' prayer needs them.
+
+**Verifiers:** rounds 1 and 2 failed on mutation survivors, all killed with tests. Round 3 at 4edd7f6: verifier A and verifier B both failed, on the jump cells only; B's two low survivors are Q6-04 and Q6-05.
+
+**Debt.** Q6-01 GUI stores the whole `SmartConfig`; Q6-03 p95 still 4.87 s; Q6-04/05 test gaps; Q6-06 no importer writes sections; Q6-07/08/09 fixture notes, provenance and an unused generator path; Q6-10 two unused `SmartConfig` fields; Q6-11 ADR-009's graph-wide tracking; Q6-12 generated-schema line endings.
