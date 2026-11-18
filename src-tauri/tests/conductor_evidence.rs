@@ -401,6 +401,35 @@ fn evidence_is_kept_across_transcripts_with_decay() {
 }
 
 #[test]
+fn a_decay_outside_0_to_1_acts_as_the_nearest_bound() {
+    // The GUI stores the whole SmartConfig, evidence included (Q6-01), so a
+    // bad value can come back. Two clean transcripts of an "other" slide
+    // (prior 0.4), the first inside the dwell. Decay -0.5 acts as 0: 0.4,
+    // then 0.4 again, and moves. Unclamped it would give 0.6, then -0.3 +
+    // 0.6 = 0.3, under the threshold.
+    let verse = Section {
+        kind: SectionKind::Verse,
+        slides: vec![0, 1, 2, 3],
+    };
+    let slides = ["c1 c2 c3 c4 c5", "d1 d2 d3 d4 d5", "e1 e2 e3 e4 e5"];
+    let slides = [&slides[..], &["o1 o2 o3 o4 o5 o6 o7 o8 o9 o10"]].concat();
+    let song = synthetic(&slides, vec![verse]);
+    let second = |decay: f64| {
+        let cfg = EvidenceConfig {
+            decay,
+            ..EvidenceConfig::default()
+        };
+        let mut t = Tracker::default();
+        t.hear("o1 o2 o3 o4 o5");
+        assert_eq!(t.decide(0, &song, 0, &cfg, false), None, "in the dwell");
+        t.hear("o6 o7 o8 o9 o10");
+        t.decide(0, &song, 0, &cfg, true)
+    };
+    assert_eq!(second(0.0), Some(3));
+    assert_eq!(second(-0.5), Some(3));
+}
+
+#[test]
 fn the_best_slide_must_lead_the_current_one_by_the_margin() {
     // Seven new words: all of slide 1 (next, prior 0.9: E = 0.63) and three
     // of the current slide 0 (E = 0.3 kept + 0.7 x 3/7 = 0.6). Slide 1 is

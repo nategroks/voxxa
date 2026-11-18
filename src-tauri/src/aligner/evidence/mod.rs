@@ -31,7 +31,7 @@ pub struct EvidenceConfig {
     pub prior_section: f64,
     /// Any other slide of the song.
     pub prior_other: f64,
-    /// Share of the old evidence kept per transcript (0..1).
+    /// Share of the old evidence kept per transcript; clamped to 0..=1.
     pub decay: f64,
     /// Evidence the best slide needs to move there.
     pub threshold: f64,
@@ -137,7 +137,7 @@ impl Tracker {
         }
         let fresh = std::mem::take(&mut self.fresh);
         let next = self.next(song, current);
-        let mut here = 0.0;
+        let (d, mut here) = (cfg.decay.clamp(0.0, 1.0), 0.0);
         for (i, slide) in song.slides.iter().enumerate() {
             let words = tokens(&slide.text);
             let prior = if words.is_empty() || Some(i) == self.left {
@@ -155,7 +155,7 @@ impl Tracker {
             };
             let s = score(&self.window, fresh, &words, i != current);
             here = if i == current { s } else { here };
-            self.evidence[i] = cfg.decay * self.evidence[i] + (1.0 - cfg.decay) * prior * s;
+            self.evidence[i] = d * self.evidence[i] + (1.0 - d) * prior * s;
         }
         // Once the room sings the operator's slide, the slide they left is
         // an ordinary candidate again.
