@@ -443,6 +443,58 @@ fn the_window_holds_the_last_12_words() {
 }
 
 #[test]
+fn a_return_to_a_chorus_moves_sooner_than_a_return_to_a_verse_or_bridge() {
+    // ADR-016 Decision 2: the first slide of a chorus gets `prior_chorus`
+    // (0.8), the first slide of any other section `prior_section` (0.6).
+    // From the bridge (slide 3, the last slide, so no "next"), three of four
+    // new words are slide 1's: s = 0.75. Labelled chorus: E1 = 0.7 x 0.8 x
+    // 0.75 = 0.42 against E3 = 0.3, so it moves. Labelled verse or bridge:
+    // 0.7 x 0.6 x 0.75 = 0.315, under the 0.35 threshold, so it waits.
+    let slides = ["c1 c2 c3 c4 c5", "k1 k2 k3 k4 k5", "e1 e2 e3 e4 e5"];
+    let slides = [&slides[..], &["b1 b2 b3 b4 b5"]].concat();
+    let return_to_slide_1 = |kind: SectionKind| {
+        let section = |kind, slide| Section {
+            kind,
+            slides: vec![slide],
+        };
+        let sections = vec![
+            section(SectionKind::Verse, 0),
+            section(kind, 1),
+            section(SectionKind::Verse, 2),
+            section(SectionKind::Bridge, 3),
+        ];
+        let song = synthetic(&slides, sections);
+        let mut t = Tracker::default();
+        t.hear("k1 k2 k3 x9");
+        t.decide(0, &song, 3, &EvidenceConfig::default(), true)
+    };
+    assert_eq!(return_to_slide_1(SectionKind::Chorus), Some(1));
+    assert_eq!(return_to_slide_1(SectionKind::Verse), None);
+    assert_eq!(return_to_slide_1(SectionKind::Bridge), None);
+}
+
+#[test]
+fn equal_evidence_goes_to_the_nearest_slide_after_the_current_one() {
+    // ADR-016 Decision 5: ties keep the current slide, then go to the
+    // nearest slide after it, wrapping to the start of the song. Two copies
+    // of the same slide score the same (0.7 x 0.6 x 1 = 0.42 in an
+    // unlabelled song, against 0.3 for the current slide).
+    let decide = |slides: &[&str], current: usize| {
+        let song = synthetic(slides, vec![]);
+        let mut t = Tracker::default();
+        t.hear("k1 k2 k3 k4");
+        t.decide(0, &song, current, &EvidenceConfig::default(), true)
+    };
+    let (a, n, k, m) = ("a1 a2 a3 a4", "n1 n2 n3 n4", "k1 k2 k3 k4", "m1 m2 m3 m4");
+    // Copies at 2 and 4, from 0: the nearer one, not the last one.
+    assert_eq!(decide(&[a, n, k, m, k], 0), Some(2));
+    // Copies at 0 and 2, from 3: after 4 the search wraps, so 0 comes first.
+    assert_eq!(decide(&[k, a, k, m, n], 3), Some(0));
+    // Copies at 1 and 4, from 2: the one after, not the lowest index.
+    assert_eq!(decide(&[a, k, n, m, k], 2), Some(4));
+}
+
+#[test]
 fn old_setlists_load_and_serialise_exactly_as_before() {
     let text = std::fs::read_to_string(JUMP).unwrap();
     let songs = serde_json::from_str::<Setlist>(&text).unwrap().setlist;
