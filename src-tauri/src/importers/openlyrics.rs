@@ -95,7 +95,7 @@ pub fn parse(text: &str, fallback_title: &str) -> Result<Song> {
     if slides.is_empty() {
         return Err(anyhow!("OpenLyrics song has no <verse> content"));
     }
-    Ok(Song { title, slides })
+    Ok(Song { title, slides, sections: Vec::new() })
 }
 
 #[cfg(test)]

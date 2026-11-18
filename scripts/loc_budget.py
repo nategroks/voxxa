@@ -39,7 +39,12 @@ def total(prefixes):
     return sum(n for f, n in rust.items() if any(f.startswith(RUST + p) for p in prefixes))
 
 
-conductor = total(["aligner/"])
+# Recorded deviation from ADR-010 Decision 3 (ADR-016, user decision 2026-11-13):
+# ADR-009's minimum (section-aware transitions, word scoring, the evidence
+# accumulator) gets its own row in aligner/evidence/ instead of raising the
+# conductor row, which stays at 1200, or "everything else", which stays at 2500.
+evidence = total(["aligner/evidence/"])
+conductor = total(["aligner/"]) - evidence
 presenters = total(["presenters/"])
 importers = total(["importers/", "planning_center/"])
 # Recorded deviation from ADR-010 Decision 3 (ADR-013, user decision 2026-11-12):
@@ -57,10 +62,11 @@ recognizer = total(["transcription/"])
 # the voxxa-eval binary (fixture scoring, Q5) gets its own row instead of
 # raising "everything else", which stays at 2500.
 voxxa_eval = total(["bin/voxxa-eval.rs", "bin/voxxa-eval/"])
-rest = sum(rust.values()) - conductor - presenters - importers - voxxad - recognizer - voxxa_eval
+rest = sum(rust.values()) - conductor - evidence - presenters - importers - voxxad - recognizer - voxxa_eval
 
 checks = [
     ("conductor (aligner/)", conductor, 1200),
+    ("conductor evidence (ADR-009 minimum)", evidence, 500),
     ("presenters/ total", presenters, 2000),
     ("importers/ + planning_center/", importers, 1600),
     ("everything else in src-tauri/src", rest, 2500),

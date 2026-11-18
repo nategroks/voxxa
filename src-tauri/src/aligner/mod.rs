@@ -9,6 +9,9 @@
 //! [`crate::presenters::PresentationController`]: `Goto` (move to a specific
 //! global slide), `Blank`, `Unblank`, or `Noop`.
 
+mod evidence;
+
+use evidence::{char_ratio, Evidence, Section, RECENT_WORDS};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
@@ -22,6 +25,9 @@ pub struct Slide {
 pub struct Song {
     pub title: String,
     pub slides: Vec<Slide>,
+    /// setlist.json v1 section labels (ADR-009); none means one section.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sections: Vec<Section>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,8 +49,10 @@ pub enum MachineState {
     BlankHold,
 }
 
-/// Tunable parameters. Defaults come from §4.4.
+/// Tunable parameters. Defaults come from §4.4. Fields missing from a saved
+/// config (or an older session log) take their defaults.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct SmartConfig {
     pub silence_to_blank_secs: f64,
     pub unrecognized_speech_to_blank_secs: f64,
@@ -57,14 +65,24 @@ pub struct SmartConfig {
     /// "bad blank is better than wrong slide."
     pub min_song_match: f64,
     pub min_song_dwell_secs: f64,
-    pub slide_advance_debounce_ms: u64,
+    /// Least time on a slide before the conductor moves on (ADR-009).
+    #[serde(alias = "slide_advance_debounce_ms")]
+    pub min_dwell_ms: u64,
+    /// Evidence (0-100) a move needs, and its lead over the current slide
+    /// (`advance_margin`); also the bar for keeping lyrics up.
     pub min_advance_match: f64,
     /// partial_ratio the new transcript needs to start a song or re-show
     /// lyrics. Stricter than an advance: short worship phrases score 70-81.
     pub min_start_match: f64,
     pub advance_margin: f64,
-    pub max_buffer_words: usize,
     pub softmax_temperature: f64,
+    /// Share of a slide's evidence kept from one hop to the next.
+    pub evidence_decay: f64,
+    /// Priors (0-1) of moving to the next slide, to a chorus start and to
+    /// any other section start; staying is 1.
+    pub prior_next: f64,
+    pub prior_chorus: f64,
+    pub prior_section: f64,
 }
 
 impl Default for SmartConfig {
@@ -76,12 +94,15 @@ impl Default for SmartConfig {
             song_second_max: 0.40,
             min_song_match: 40.0,
             min_song_dwell_secs: 8.0,
-            slide_advance_debounce_ms: 1500,
+            min_dwell_ms: 1500,
             min_advance_match: 70.0,
             min_start_match: 85.0,
             advance_margin: 10.0,
-            max_buffer_words: 40,
             softmax_temperature: 12.0,
+            evidence_decay: 0.3,
+            prior_next: 1.0,
+            prior_chorus: 0.9,
+            prior_section: 0.8,
         }
     }
 }
@@ -150,11 +171,15 @@ pub fn check_setlist(songs: &[Song]) -> Result<(), String> {
             songs.len()
         ));
     }
-    match songs.iter().find(|s| s.slides.is_empty()) {
-        Some(bad) => Err(format!(
+    if let Some(bad) = songs.iter().find(|s| s.slides.is_empty()) {
+        return Err(format!(
             "Song \"{}\" has no slides — every song needs at least one.",
             bad.title
-        )),
+        ));
+    }
+    let past_end = |s: &&Song| s.sections.iter().any(|x| x.start >= s.slides.len());
+    match songs.iter().find(past_end) {
+        Some(bad) => Err(format!("Song \"{}\" has a section past its last slide.", bad.title)),
         None => Ok(()),
     }
 }
@@ -175,6 +200,7 @@ pub struct Conductor {
     song_started_at: Option<Instant>,
 
     buffer_words: Vec<String>,
+    evidence: Evidence,
 
     last_speech: Option<Instant>,
     last_advance: Option<Instant>,
@@ -212,6 +238,7 @@ impl Conductor {
             current_slide_in_song: 0,
             song_started_at: None,
             buffer_words: Vec::new(),
+            evidence: Evidence::default(),
             last_speech: None,
             last_advance: None,
             unmatched_since: None,
@@ -370,8 +397,8 @@ impl Conductor {
         for w in text.split_whitespace() {
             self.buffer_words.push(w.to_lowercase());
         }
-        if self.buffer_words.len() > self.config.max_buffer_words {
-            let drop = self.buffer_words.len() - self.config.max_buffer_words;
+        if self.buffer_words.len() > RECENT_WORDS {
+            let drop = self.buffer_words.len() - RECENT_WORDS;
             self.buffer_words.drain(..drop);
         }
         let buffer_text = self.buffer_words.join(" ");
@@ -501,7 +528,7 @@ impl Conductor {
             .collect::<Vec<_>>()
             .join(" ")
             .to_lowercase();
-        partial_ratio(&text.to_lowercase(), &combined) >= bar
+        char_ratio(&text.to_lowercase(), &combined) >= bar
     }
 
     /// Blank the output and hold. The rolling buffer is cleared so the words
@@ -527,7 +554,7 @@ impl Conductor {
                     .collect::<Vec<_>>()
                     .join(" ")
                     .to_lowercase();
-                (i, partial_ratio(buffer_text, &combined))
+                (i, char_ratio(buffer_text, &combined))
             })
             .collect();
         raw.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
@@ -548,54 +575,25 @@ impl Conductor {
             .collect()
     }
 
-    fn maybe_advance_within_current(&mut self, buffer_text: &str, now: Instant) -> Action {
+    fn maybe_advance_within_current(&mut self, words: &str, now: Instant) -> Action {
         let Some(current) = self.current_song else {
             return Action::Noop;
         };
-        if let Some(last) = self.last_advance {
-            if now.saturating_duration_since(last)
-                < Duration::from_millis(self.config.slide_advance_debounce_ms)
-            {
-                return Action::Noop;
-            }
-        }
-
+        let dwell = Duration::from_millis(self.config.min_dwell_ms);
+        let dwelled = (self.last_advance).is_none_or(|t| now.saturating_duration_since(t) >= dwell);
+        let at = (current, self.current_slide_in_song);
         let song = &self.songs[current];
-        let curr_idx = self.current_slide_in_song;
-        let curr = song.slides.get(curr_idx);
-        // Empty slides (blank pptx slides, empty PDF pages) are kept so slide
-        // numbers match the presentation app, but are never matched.
-        let Some(next_idx) =
-            (curr_idx + 1..song.slides.len()).find(|&i| !song.slides[i].text.trim().is_empty())
-        else {
+        let Some(to) = self.evidence.step(at, song, words, &self.config, dwelled) else {
             return Action::Noop;
         };
-        let next = song.slides.get(next_idx);
-
-        let score_curr = curr
-            .map(|s| partial_ratio(buffer_text, &s.text.to_lowercase()))
-            .unwrap_or(0.0);
-        let score_next = next
-            .map(|s| partial_ratio(buffer_text, &s.text.to_lowercase()))
-            .unwrap_or(0.0);
-
-        if next.is_some()
-            && score_next >= self.config.min_advance_match
-            && score_next > (score_curr + self.config.advance_margin)
-        {
-            self.current_slide_in_song = next_idx;
-            self.buffer_words.clear();
-            self.unmatched_since = None;
-            self.last_advance = Some(now);
-            self.is_blank = false;
-            self.transition(MachineState::Singing, now);
-            log::info!(
-                "[CONDUCTOR] advance within song {current} to slide {}",
-                self.current_slide_in_song
-            );
-            return self.goto_action_for_current().unwrap_or(Action::Noop);
-        }
-        Action::Noop
+        self.current_slide_in_song = to;
+        self.buffer_words.clear();
+        self.unmatched_since = None;
+        self.last_advance = Some(now);
+        self.is_blank = false;
+        self.transition(MachineState::Singing, now);
+        log::info!("[CONDUCTOR] move within song {current} to slide {to}");
+        self.goto_action_for_current().unwrap_or(Action::Noop)
     }
 
     /// The slide of `song_idx` that best matches the recent words, so a song
@@ -607,7 +605,7 @@ impl Conductor {
             if slide.text.trim().is_empty() {
                 continue;
             }
-            let score = partial_ratio(buffer_text, &slide.text.to_lowercase());
+            let score = char_ratio(buffer_text, &slide.text.to_lowercase());
             if score > best.1 {
                 best = (i, score);
             }
@@ -702,68 +700,6 @@ impl Conductor {
     }
 }
 
-/// Sliding-window character similarity (rapidfuzz-style partial ratio).
-fn partial_ratio(s1: &str, s2: &str) -> f64 {
-    if s1.is_empty() || s2.is_empty() {
-        return 0.0;
-    }
-    let (shorter, longer) = if s1.len() <= s2.len() {
-        (s1, s2)
-    } else {
-        (s2, s1)
-    };
-    let shorter_chars: Vec<char> = shorter.chars().collect();
-    let longer_chars: Vec<char> = longer.chars().collect();
-    if shorter_chars.is_empty() || longer_chars.is_empty() {
-        return 0.0;
-    }
-
-    let mut best_score: f64 = 0.0;
-    let window_len = shorter_chars.len();
-    if window_len > longer_chars.len() {
-        return simple_ratio(&shorter_chars, &longer_chars);
-    }
-    for i in 0..=(longer_chars.len() - window_len) {
-        let window = &longer_chars[i..i + window_len];
-        let score = simple_ratio(&shorter_chars, window);
-        if score > best_score {
-            best_score = score;
-        }
-        if best_score >= 100.0 {
-            return 100.0;
-        }
-    }
-    best_score
-}
-
-fn simple_ratio(a: &[char], b: &[char]) -> f64 {
-    let matches = lcs_length(a, b);
-    let total = a.len() + b.len();
-    if total == 0 {
-        return 0.0;
-    }
-    (2.0 * matches as f64 / total as f64) * 100.0
-}
-
-fn lcs_length(a: &[char], b: &[char]) -> usize {
-    let m = a.len();
-    let n = b.len();
-    let mut prev = vec![0usize; n + 1];
-    let mut curr = vec![0usize; n + 1];
-    for i in 1..=m {
-        for j in 1..=n {
-            if a[i - 1] == b[j - 1] {
-                curr[j] = prev[j - 1] + 1;
-            } else {
-                curr[j] = curr[j - 1].max(prev[j]);
-            }
-        }
-        std::mem::swap(&mut prev, &mut curr);
-        curr.fill(0);
-    }
-    prev[n]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -772,6 +708,7 @@ mod tests {
         vec![
             Song {
                 title: "Amazing Grace".into(),
+                sections: Vec::new(),
                 slides: vec![
                     Slide {
                         id: 0,
@@ -791,6 +728,7 @@ mod tests {
             },
             Song {
                 title: "Holy, Holy, Holy".into(),
+                sections: Vec::new(),
                 slides: vec![
                     Slide {
                         id: 3,
@@ -804,6 +742,7 @@ mod tests {
             },
             Song {
                 title: "Come, Thou Fount".into(),
+                sections: Vec::new(),
                 slides: vec![
                     Slide {
                         id: 5,

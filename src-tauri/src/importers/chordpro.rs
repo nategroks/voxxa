@@ -83,7 +83,7 @@ pub fn parse(text: &str, fallback_title: &str) -> Result<Song> {
     if slides.is_empty() {
         return Err(anyhow!("ChordPro song has no lyric content"));
     }
-    Ok(Song { title, slides })
+    Ok(Song { title, slides, sections: Vec::new() })
 }
 
 /// Strip `[Chord]` markers from a lyric line. ChordPro chord names can include

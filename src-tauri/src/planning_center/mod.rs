@@ -214,6 +214,7 @@ fn parse_pco_lyrics(lyrics: &str, title: &str, start_id: usize) -> Result<Song> 
     Ok(Song {
         title: title.to_string(),
         slides,
+        sections: Vec::new(),
     })
 }
 
