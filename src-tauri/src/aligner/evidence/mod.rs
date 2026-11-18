@@ -122,3 +122,35 @@ fn tokens(text: &str) -> Vec<String> {
         .map(String::from)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn section_labels_choose_the_prior() {
+        let json = r#"{"title":"t","slides":[{"id":0,"text":"a b"},{"id":1,"text":"c d"},
+            {"id":2,"text":""},{"id":3,"text":"e f"},{"id":4,"text":"g h"},{"id":5,"text":"i j"}],
+            "sections":[{"kind":"Verse","start":0},{"kind":"Refrain","start":1},
+            {"kind":"bridge","start":3}]}"#;
+        let mut song: Song = serde_json::from_str(json).unwrap();
+        let cfg = SmartConfig::default();
+        let slides: Vec<_> = song.slides.iter().map(|s| tokens(&s.text)).collect();
+        let p = |song: &Song, from, to| prior(song, &slides, from, to, &cfg);
+        assert_eq!(p(&song, 0, 1), cfg.prior_next);
+        assert_eq!(
+            p(&song, 1, 3),
+            cfg.prior_next,
+            "the empty slide 2 is skipped"
+        );
+        assert_eq!(p(&song, 3, 1), cfg.prior_chorus);
+        assert_eq!(p(&song, 3, 0), cfg.prior_section);
+        assert_eq!(p(&song, 1, 4), cfg.prior_other, "inside the bridge");
+        song.sections.clear();
+        assert_eq!(p(&song, 1, 4), cfg.prior_section);
+        assert_eq!(
+            tokens("Don't  alpha-Bravo, DON\u{2019}T!"),
+            ["dont", "alpha", "bravo", "dont"]
+        );
+    }
+}
