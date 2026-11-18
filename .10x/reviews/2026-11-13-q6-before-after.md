@@ -117,3 +117,33 @@ One test commit closes the last mutation survivor: `follow()` (`src-tauri/src/al
 **Eval, re-run (debug, stream time at file speed, not wall clock; Q4-02 applies live).** Before: replay with `voxxa-eval` built from a `git archive` export of 733c7e1, on that commit's fixtures, plus `prayer-before-first-song`'s committed log replayed with that conductor. After: the CI step on the new head (replay), and `voxxa-eval --full` (Whisper Tiny, `--shadow`, 10 min 6 s). Full mode printed the same table, cell for cell, and the same two FAIL lines. Every cell equals the table in the previous section. That covers jump 900 / 900 → 1200 / 5850 ms, recall 0.25 → 1.00, and the total 4120 / 11230 → 2310 / 4870 ms, false advances 1 → 0.
 
 **Gates on the new head.** 1, 2, 3, 5, 6 and 7 pass. Gate 4 (`cargo test --no-fail-fast`) fails only `replay_of_the_committed_fixtures_passes_the_baseline` and `a_broken_per_fixture_threshold_fails_the_gate_while_total_passes`; every other test binary passes. The CI eval step exits 1 on the same two `jump-be-thou-my-vision` cells. **The exit criterion "eval not worse on any fixture" is still not met.** It waits on the user's decision (ADR-016, second amendment, item 5): (a) a one-time exception to user decision 4 setting that row's `median_ms` to 1500 and `p95_ms` to 6000, or (b) keeping `q6/base` out of main. `fixtures/baseline.json` was not changed.
+
+## Finish on `q6/base`, 2026-11-18 (the user's baseline decision, the last mutation pins, ponytail grafts)
+Commits after 151a8b3, each on its own:
+1. `fixtures/baseline.json`: `jump-be-thou-my-vision` `median_ms` 1000 → 1500 and `p95_ms` 1000 → 6000, the user's decision 3 of 2026-11-18 (a one-time exception; the old cells came from 1 of 4 slides hit; the recorded log's floor is 1200 / 3850 ms). The total row's `blank_ms` 7500 and `unblank_ms` 2500 were already in place and are accepted by the same decision. ADR-016 amendment of 2026-11-18.
+2. Tests for the verifier's two mutation survivors (`prior_chorus`; the tie-break order). Each mutant was applied by hand and fails its test: `prior_chorus` → `prior_section`; `>` → `>=`, `max_by` over `0..n`, and a fold over `0..n` in the tie-break.
+3. Ponytail graft: its scripted scenarios and 27-step trace, as `src-tauri/tests/conductor_scripted.rs`. On a `git archive` export of 733c7e1 the trace passes and the four tracker scenarios fail (the old conductor cannot follow them); on `q6/base` all five pass. So the trace still records pre-Q6 behaviour, and base's Q5-04 change does not alter it.
+4. Ponytail graft: `fixtures/README.md` now says fields missing from a log's start-line config take today's defaults (the `evidence` block in 4 of 6 logs).
+5. Ponytail graft: `decay` clamped to 0..=1 (no new code line; replay unchanged cell for cell; pinned by a test).
+
+Grafts not taken: none of the six was skipped. The ponytail lane's deletion of `slide_advance_debounce_ms` and `advance_margin` was not proposed as a graft (ADR-016 Decision 7 keeps them; the user's call), and its scoring idea (the current slide's tail as context for the slide being entered) stays a ticket, not a graft.
+
+**Eval (debug, stream time at file speed, not wall clock; Q4-02 applies live).** Before: `voxxa-eval` built from a `git archive` export of 733c7e1, replaying that commit's fixtures, plus `prayer-before-first-song`'s committed log replayed with that conductor; every cell equals the Before table above. After: the CI step on the new head (replay); it prints `OK: no metric is worse than ... baseline.json`.
+
+| fixture | hits before → after | recall before → after | median / p95 ms before | median / p95 ms after | false before → after | blank / unblank ms before | blank / unblank ms after |
+|---|---|---|---|---|---|---|---|
+| jump-be-thou-my-vision | 1 → 4 of 4 | 0.25 → 1.00 | 900 / 900 | 1200 / 5850 | 0 → 0 | - / - | - / - |
+| prayer-before-first-song | 1 → 2 of 2 | 0.50 → 1.00 | 6710 / 6710 | 1710 / 2800 | 0 → 0 | miss / miss | 6800 / 1710 |
+| prayer-between-songs | 4 → 4 of 4 | 1.00 → 1.00 | 8490 / 11230 | 2490 / 4870 | 0 → 0 | 7280 / 8490 | 7280 / 2490 |
+| prayer-then-reprise | 3 → 3 of 3 | 1.00 → 1.00 | 2900 / 8900 | 2900 / 2900 | 0 → 0 | 200 / 1500 | 200 / 1500 |
+| prayer-without-pause | 2 → 2 of 2 | 1.00 → 1.00 | 2900 / 8900 | 1900 / 2900 | 0 → 0 | 6600 / - | 6600 / - |
+| refrain-it-is-well | 3 → 6 of 6 | 0.50 → 1.00 | 4120 / 10310 | 2120 / 3900 | 1 → 0 | - / - | - / - |
+| total (5 fixtures before, 6 after) | 13 → 21 | 0.68 → 1.00 | 4120 / 11230 | 2310 / 4870 | 1 → 0 | 7280 / 8490 | 7280 / 2490 |
+
+- Double advances are 0 everywhere, before and after. Precision before was 0.75 on the refrain fixture (0.93 total); after, 1.00 everywhere.
+- **Not worse on any fixture, with one cell pair read the user's way:** `jump-be-thou-my-vision`'s median and p95 are higher (900 / 900 → 1200 / 5850) because 3 hits were added to its single fast one; the user accepted that with the 1500 / 6000 cells. Every other cell is the same or better.
+- **The Q6 budget:** 0 false advances over 7 sung songs (met; before 1.67 per 10 songs); p95 4.87 s against 2.5 s (**not met**; before 11.23 s). ADR-016 is the decision file.
+
+**Full mode.** `voxxa-eval --full` (Whisper Tiny, `--shadow`, `--stdin-audio`, debug build, 11 min 36 s) on the final head printed the same table as replay, cell for cell, and `OK: no metric is worse than ... baseline.json`.
+
+**Gates on the final head (587d2ad).** 1 `npm ci && npm run build`, 2 fmt, 3 clippy `-D warnings`, 4 `cargo test` (21 test binaries, 0 failures; `conductor_evidence` 22 tests, `conductor_scripted` 5), 6 loc budget (conductor 1173 / 1200, conductor evidence 215 / 500) and 7 the `dictat` grep pass, and so does the CI eval step (exit 0). **Gate 5 (cargo-deny) fails on advisories**: RUSTSEC-2026-0543 (chrono, unmaintained) and RUSTSEC-2026-0548 (zip, vulnerability); bans and licences are ok. `src-tauri/Cargo.lock` and `Cargo.toml` are identical to 733c7e1, so this is new advisory data, not a Q6 change; the earlier "gate 5 passes" in this file was true when it was run. Ignoring the advisories or upgrading those crates is the user's decision.
