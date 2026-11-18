@@ -36,7 +36,8 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 log = "0.4"
-chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+# Clock and dates (chrono is unmaintained, RUSTSEC-2026-0543; time is already in the tree).
+time = { version = "0.3.47", features = ["formatting", "parsing", "macros", "local-offset"] }
 
 # Audio capture
 cpal = "0.15"

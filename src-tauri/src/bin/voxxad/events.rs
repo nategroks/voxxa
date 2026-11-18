@@ -2,10 +2,11 @@
 //! Uses only `voxxa_lib`, so `tests/voxxad_events.rs` includes this file and
 //! tests it without the binary, a microphone or a Whisper model.
 
-use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
+use time::macros::format_description;
+use time::Date;
 use voxxa_lib::listen::{Event, Input};
 use voxxa_lib::{Action, Conductor, MachineState, SmartConfig, Song};
 
@@ -243,10 +244,10 @@ pub fn replay(log: &str, songs: Vec<Song>) -> Result<Vec<Line>, String> {
 
 /// A `session-YYYYMMDD-HHMM[-N].jsonl` name dated more than [`KEEP_DAYS`]
 /// before `today`. Any other name is never expired.
-pub fn expired(name: &str, today: NaiveDate) -> bool {
+pub fn expired(name: &str, today: Date) -> bool {
     let date = (name.strip_prefix("session-"))
         .filter(|_| name.ends_with(".jsonl"))
         .and_then(|rest| rest.get(..8))
-        .and_then(|d| NaiveDate::parse_from_str(d, "%Y%m%d").ok());
-    date.is_some_and(|d| (today - d).num_days() > KEEP_DAYS)
+        .and_then(|d| Date::parse(d, format_description!("[year][month][day]")).ok());
+    date.is_some_and(|d| (today - d).whole_days() > KEEP_DAYS)
 }

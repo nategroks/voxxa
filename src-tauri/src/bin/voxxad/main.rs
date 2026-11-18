@@ -6,7 +6,6 @@
 mod cli;
 mod events;
 
-use chrono::Local;
 use cli::{parse_args, recognizer, Args};
 use events::{fingerprint, status, Kind, Line, Recorder};
 use serde_json::json;
@@ -16,6 +15,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
+use time::macros::format_description;
+use time::{OffsetDateTime, UtcOffset};
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 use voxxa_lib::listen::{self, check_setlist, Event};
@@ -46,13 +47,16 @@ speed (t is audio time) unless --realtime is given.";
 const CHUNK: usize = 1600;
 
 fn main() {
-    if let Err(message) = run(parse_args(std::env::args().skip(1))) {
+    // Read before any thread starts: on Unix `time` only reads the local
+    // offset while the process has one thread, else it falls back to UTC.
+    let offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
+    if let Err(message) = run(parse_args(std::env::args().skip(1)), offset) {
         say(&Line::new(0, Kind::Error { message }).to_json());
         std::process::exit(1);
     }
 }
 
-fn run(args: Result<Args, String>) -> Result<(), String> {
+fn run(args: Result<Args, String>, offset: UtcOffset) -> Result<(), String> {
     let args = args?;
     if args.help {
         say(USAGE);
@@ -111,7 +115,7 @@ fn run(args: Result<Args, String>) -> Result<(), String> {
     let mut engine = TranscriptionEngine::new();
     let model = pick_model(&engine, args.model.as_deref())?;
     engine.load_model(&model).map_err(|e| e.to_string())?;
-    let (path, mut log) = open_session(args.log_dir.as_deref())?;
+    let (path, mut log) = open_session(args.log_dir.as_deref(), offset)?;
 
     let config = SmartConfig::default();
     let driving = presenter.as_ref().and(args.presenter.as_deref());
@@ -304,8 +308,8 @@ fn pick_model(engine: &TranscriptionEngine, name: Option<&str>) -> Result<Whispe
 }
 
 /// A new `session-YYYYMMDD-HHMM[-N].jsonl`, after deleting logs older than
-/// 14 days.
-fn open_session(dir: Option<&str>) -> Result<(PathBuf, File), String> {
+/// 14 days, named in local time at `offset`.
+fn open_session(dir: Option<&str>, offset: UtcOffset) -> Result<(PathBuf, File), String> {
     let dir = match dir {
         Some(d) => PathBuf::from(d),
         None => (dirs::data_dir().ok_or("no data directory")?)
@@ -313,13 +317,14 @@ fn open_session(dir: Option<&str>) -> Result<(PathBuf, File), String> {
             .join("sessions"),
     };
     fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    let now = Local::now();
+    let now = OffsetDateTime::now_utc().to_offset(offset);
     for entry in fs::read_dir(&dir).into_iter().flatten().flatten() {
-        if events::expired(&entry.file_name().to_string_lossy(), now.date_naive()) {
+        if events::expired(&entry.file_name().to_string_lossy(), now.date()) {
             let _ = fs::remove_file(entry.path());
         }
     }
-    let stem = format!("session-{}", now.format("%Y%m%d-%H%M"));
+    let stamp = format_description!("[year][month][day]-[hour][minute]");
+    let stem = format!("session-{}", now.format(stamp).map_err(|e| e.to_string())?);
     for n in 1..1000 {
         let name = match n {
             1 => format!("{stem}.jsonl"),

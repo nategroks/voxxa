@@ -10,13 +10,13 @@ mod cli;
 #[path = "../src/bin/voxxad/events.rs"]
 mod events;
 
-use chrono::NaiveDate;
 use events::{expired, fingerprint, replay, status, Act, Kind, Line, Recorder};
 use serde_json::json;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering::SeqCst};
 use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
+use time::{Date, Month};
 use tokio::sync::Mutex;
 use voxxa_lib::listen::{self, Event, Input};
 use voxxa_lib::transcription::{Decode, Hypothesis, Recognizer, Rolling, Word};
@@ -330,7 +330,7 @@ fn the_fingerprint_names_the_setlist_and_changes_with_any_text() {
 
 #[test]
 fn session_logs_expire_after_fourteen_days_and_nothing_else_is_touched() {
-    let today = NaiveDate::from_ymd_opt(2026, 11, 30).unwrap();
+    let today = Date::from_calendar_date(2026, Month::November, 30).unwrap();
     assert!(
         !expired("session-20261116-0930.jsonl", today),
         "14 days: kept"
@@ -341,6 +341,16 @@ fn session_logs_expire_after_fourteen_days_and_nothing_else_is_touched() {
     );
     assert!(expired("session-20261101-1000-2.jsonl", today));
     assert!(!expired("session-20261130-1000.jsonl", today));
+    let new_year = Date::from_calendar_date(2027, Month::January, 5).unwrap();
+    assert!(
+        !expired("session-20261222-2359.jsonl", new_year),
+        "14 days across the year"
+    );
+    assert!(
+        expired("session-20261221-0000.jsonl", new_year),
+        "15 days across the year"
+    );
+    assert!(!expired("session-20261340-1000.jsonl", today), "not a date");
     for other in [
         "session-20261101-1000.txt",
         "voxxa.log",
