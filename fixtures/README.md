@@ -46,7 +46,10 @@ row per fixture plus a total, and checks each row against `baseline.json`.
   `SmartConfig` stored in each log's start line (`info.config`), not from
   today's defaults: a change to a `SmartConfig` default is not seen by
   replay (or CI) until the logs are re-recorded, or their start-line config
-  is edited (ticket Q5-07).
+  is edited (ticket Q5-07). Fields missing from a log's start-line config
+  do take today's defaults: today that is the ADR-016 `evidence` block in 4
+  of the 6 logs (only `refrain-it-is-well` and `prayer-before-first-song`
+  record it), so retuning an `EvidenceConfig` default moves CI for those 4.
 - **Full (`--full`, local):** `voxxad --stdin-audio audio.wav --setlist setlist.json
   --shadow --model tiny`, at file speed. When the fixture has an `audio.json`,
   `audio.wav` is rebuilt from it first. Needs `ggml-tiny.bin` (download it in
