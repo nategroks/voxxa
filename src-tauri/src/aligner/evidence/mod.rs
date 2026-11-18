@@ -90,8 +90,12 @@ impl Tracker {
         let e = &self.evidence;
         let best = (0..e.len()).max_by(|&a, &b| e[a].total_cmp(&e[b]))?;
         // Clear: ahead of the current slide and of every other one, so words
-        // that two slides share (a repeated line) never decide.
-        let ahead = (0..e.len()).all(|c| c == best || e[best] >= e[c] + cfg.evidence_margin);
+        // that two slides share (a repeated line) never decide. A copy of the
+        // best slide (a chorus repeated as slides) is the same words: the
+        // prior picks between copies.
+        let same = |c: usize| c != here && slides[c] == slides[best];
+        let ahead =
+            (0..e.len()).all(|c| c == best || same(c) || e[best] >= e[c] + cfg.evidence_margin);
         let clear = e[best] >= cfg.min_evidence && ahead;
         (best != here && clear && dwell >= Duration::from_millis(cfg.min_dwell_ms)).then_some(best)
     }
