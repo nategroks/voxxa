@@ -649,3 +649,26 @@ fn a_slide_being_entered_also_scores_on_its_leading_words() {
         score(&window, 4, &late, false)
     );
 }
+
+#[test]
+fn a_dropped_word_at_the_start_of_a_slide_being_entered_costs_only_its_share() {
+    let w = |s: &str| tokens(s);
+    // The context ("kilo lima") lines up with the slide's last words, so
+    // only the leading-words term can score the new words.
+    let slide = w("alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima");
+    let heard = |new: &str| w(&format!("kilo lima {new}"));
+    // "charlie" dropped: the leading words reach past the four new words.
+    let dropped = heard("alpha bravo delta echo");
+    assert_eq!(score(&dropped, 4, &slide, false), 0.5);
+    assert_eq!(score(&dropped, 4, &slide, true), 1.0);
+    // The leading words are exactly the first 4 + 4: "hotel" (the 8th)
+    // counts, "india" (the 9th) does not.
+    assert_eq!(
+        score(&heard("alpha foxtrot golf hotel"), 4, &slide, true),
+        1.0
+    );
+    assert_eq!(
+        score(&heard("alpha bravo charlie india"), 4, &slide, true),
+        0.75
+    );
+}
