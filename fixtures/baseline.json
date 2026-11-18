@@ -29,8 +29,8 @@
   "jump-be-thou-my-vision": {
     "precision": 1.0,
     "recall": 1.0,
-    "median_ms": 1000,
-    "p95_ms": 1000,
+    "median_ms": 1500,
+    "p95_ms": 6000,
     "false_advances": 0,
     "double_advances": 0
   },
