@@ -123,6 +123,10 @@ fn the_operator_wins_and_tracking_resumes_from_the_operators_slide() {
     ));
     // Words of the first verse heard before the step change nothing.
     assert_eq!(run(&mut c, t0, &verse[2..]), []);
+    // The room keeps singing the verse the operator left, well past the
+    // dwell: the screen stays on the operator's slide.
+    let again = sing(&slide_words(0, 0), &mut ms);
+    assert_eq!(run(&mut c, t0, &again), []);
     // The bridge is sung: no goto back; then the next verse: one goto.
     ms += 2000;
     let bridge = sing(&slide_words(0, 3), &mut ms);
