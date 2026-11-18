@@ -45,6 +45,14 @@ The simplest format. Drop a `.json` file shaped like this:
 Slide IDs are re-numbered on load; you can leave them as `0` or omit
 them entirely (in the JS path they get reassigned).
 
+Optional section labels (ADR-009) help Voxxa follow a song that repeats
+its chorus or jumps: each song may have `"sections": [{"kind": "verse",
+"start": 0}, {"kind": "chorus", "start": 1}]`, where `start` is the
+section's first slide (0-based) and a section runs to the next one's
+start. `kind` is free text; a `chorus` or `refrain` is expected to come
+back. Without labels every slide may start a section, and Voxxa still
+follows repeats and jumps, from the words alone.
+
 ## `.voxxa-set` envelope
 
 Exported via the **Export** link in the song-title row. Same JSON as

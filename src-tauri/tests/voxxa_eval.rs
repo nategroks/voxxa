@@ -556,7 +556,7 @@ fn replay_of_the_committed_fixtures_passes_the_baseline() {
         assert!(out.lines().any(|l| l.starts_with(row)), "{row}: {out}");
     }
     // The total row adds up every fixture (slides 4 + 4 + 3 + 2 + 6, gotos
-    // 1 + 4 + 3 + 2 + 4, hits 1 + 4 + 3 + 2 + 3) and takes the worst blank
+    // and hits 4 + 4 + 3 + 2 + 6 since the Q6 tracker) and takes the worst blank
     // and unblank (7280 and 8490 ms, both from prayer-between-songs).
     let total: Vec<&str> = out
         .lines()
@@ -564,7 +564,7 @@ fn replay_of_the_committed_fixtures_passes_the_baseline() {
         .unwrap()
         .split_whitespace()
         .collect();
-    assert_eq!(total[1..4], ["19", "14", "13"], "{out}");
+    assert_eq!(total[1..4], ["19", "19", "19"], "{out}");
     assert_eq!(total[11..13], ["7280", "8490"], "{out}");
 }
 
@@ -587,11 +587,11 @@ fn a_broken_per_fixture_threshold_fails_the_gate_while_total_passes() {
     // Each fixture row is checked on its own: a fixture that regresses
     // while staying under the looser total thresholds still fails.
     // Measured: prayer-then-reprise blank 200 ms, prayer-without-pause p95
-    // 8900 ms; total allows 7500 and 11500.
+    // 2900 ms; total allows 7500 and 8500.
     let text = std::fs::read_to_string("../fixtures/baseline.json").unwrap();
     let mut limits: serde_json::Value = serde_json::from_str(&text).unwrap();
     limits["prayer-then-reprise"]["blank_ms"] = json!(100);
-    limits["prayer-without-pause"]["p95_ms"] = json!(8000);
+    limits["prayer-without-pause"]["p95_ms"] = json!(2000);
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("baseline.json");
     std::fs::write(&path, limits.to_string()).unwrap();
@@ -599,7 +599,7 @@ fn a_broken_per_fixture_threshold_fails_the_gate_while_total_passes() {
     assert_eq!(code, 1, "{out}");
     let want = [
         "FAIL prayer-then-reprise: blank_ms is 200, baseline needs <= 100",
-        "FAIL prayer-without-pause: p95_ms is 8900, baseline needs <= 8000",
+        "FAIL prayer-without-pause: p95_ms is 2900, baseline needs <= 2000",
     ];
     for line in want {
         assert!(out.lines().any(|l| l == line), "{line}: {out}");

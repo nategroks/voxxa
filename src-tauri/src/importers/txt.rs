@@ -63,7 +63,11 @@ pub fn parse(text: &str, fallback_title: &str) -> Result<Song> {
     if slides.is_empty() {
         return Err(anyhow!("no slides after parsing"));
     }
-    Ok(Song { title, slides })
+    Ok(Song {
+        title,
+        slides,
+        sections: Vec::new(),
+    })
 }
 
 fn looks_like_section_label(line: &str) -> bool {

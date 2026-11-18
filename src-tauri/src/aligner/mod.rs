@@ -9,6 +9,8 @@
 //! [`crate::presenters::PresentationController`]: `Goto` (move to a specific
 //! global slide), `Blank`, `Unblank`, or `Noop`.
 
+mod evidence;
+
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
@@ -22,6 +24,9 @@ pub struct Slide {
 pub struct Song {
     pub title: String,
     pub slides: Vec<Slide>,
+    /// Section labels (ADR-009); none means every slide may start a section.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sections: Vec<evidence::Section>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,8 +48,10 @@ pub enum MachineState {
     BlankHold,
 }
 
-/// Tunable parameters. Defaults come from §4.4.
+/// Tunable parameters. Defaults come from §4.4. A missing field takes its
+/// default, so older session logs and saved settings still load.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct SmartConfig {
     pub silence_to_blank_secs: f64,
     pub unrecognized_speech_to_blank_secs: f64,
@@ -57,14 +64,26 @@ pub struct SmartConfig {
     /// "bad blank is better than wrong slide."
     pub min_song_match: f64,
     pub min_song_dwell_secs: f64,
-    pub slide_advance_debounce_ms: u64,
+    /// partial_ratio the new transcript needs to keep the lyrics up.
     pub min_advance_match: f64,
     /// partial_ratio the new transcript needs to start a song or re-show
     /// lyrics. Stricter than an advance: short worship phrases score 70-81.
     pub min_start_match: f64,
-    pub advance_margin: f64,
     pub max_buffer_words: usize,
     pub softmax_temperature: f64,
+    /// Evidence tracker (ADR-009, `evidence/`): the least time a slide stays
+    /// up, the decay per hop, the evidence a move needs and its margin over
+    /// every other slide's.
+    pub min_dwell_ms: u64,
+    pub evidence_decay: f64,
+    pub min_evidence: f64,
+    pub evidence_margin: f64,
+    /// Priors of a move (staying is 1.0): to the next slide, to a chorus or
+    /// refrain, to another section's start, to any other slide of the song.
+    pub prior_next: f64,
+    pub prior_chorus: f64,
+    pub prior_section: f64,
+    pub prior_other: f64,
 }
 
 impl Default for SmartConfig {
@@ -76,12 +95,18 @@ impl Default for SmartConfig {
             song_second_max: 0.40,
             min_song_match: 40.0,
             min_song_dwell_secs: 8.0,
-            slide_advance_debounce_ms: 1500,
             min_advance_match: 70.0,
             min_start_match: 85.0,
-            advance_margin: 10.0,
             max_buffer_words: 40,
             softmax_temperature: 12.0,
+            min_dwell_ms: 2000,
+            evidence_decay: 0.3,
+            min_evidence: 0.7,
+            evidence_margin: 0.1,
+            prior_next: 1.0,
+            prior_chorus: 1.0,
+            prior_section: 0.95,
+            prior_other: 0.5,
         }
     }
 }
@@ -189,6 +214,7 @@ pub struct Conductor {
     /// call so the UI can render confidence bars in real time. Empty before
     /// the first transcript arrives.
     last_scores: Vec<SongScore>,
+    evidence: evidence::Tracker,
 }
 
 impl Conductor {
@@ -217,6 +243,7 @@ impl Conductor {
             unmatched_since: None,
             unmatched_again: false,
             last_scores: Vec::new(),
+            evidence: evidence::Tracker::default(),
         }
     }
 
@@ -441,7 +468,7 @@ impl Conductor {
             text.to_lowercase()
         };
         if showing || self.matches_song(current, text, self.config.min_start_match) {
-            let advance = self.maybe_advance_within_current(&words, now);
+            let advance = self.maybe_advance_within_current((&words, showing), now);
             if !matches!(advance, Action::Noop) {
                 return advance;
             }
@@ -548,54 +575,30 @@ impl Conductor {
             .collect()
     }
 
-    fn maybe_advance_within_current(&mut self, buffer_text: &str, now: Instant) -> Action {
+    /// Moves within the current song when the evidence tracker says the
+    /// room is on another slide (ADR-009): the next one, a chorus again, a jump.
+    fn maybe_advance_within_current(&mut self, heard: (&str, bool), now: Instant) -> Action {
         let Some(current) = self.current_song else {
             return Action::Noop;
         };
-        if let Some(last) = self.last_advance {
-            if now.saturating_duration_since(last)
-                < Duration::from_millis(self.config.slide_advance_debounce_ms)
-            {
-                return Action::Noop;
-            }
-        }
-
+        // In a song, last_advance is when its slide went up (start_song sets it).
+        let dwell = now.saturating_duration_since(self.last_advance.unwrap_or(now));
+        let at = (current, self.current_slide_in_song);
         let song = &self.songs[current];
-        let curr_idx = self.current_slide_in_song;
-        let curr = song.slides.get(curr_idx);
-        // Empty slides (blank pptx slides, empty PDF pages) are kept so slide
-        // numbers match the presentation app, but are never matched.
-        let Some(next_idx) =
-            (curr_idx + 1..song.slides.len()).find(|&i| !song.slides[i].text.trim().is_empty())
-        else {
+        let Some(next_idx) = self.evidence.hop(song, at, heard, dwell, &self.config) else {
             return Action::Noop;
         };
-        let next = song.slides.get(next_idx);
-
-        let score_curr = curr
-            .map(|s| partial_ratio(buffer_text, &s.text.to_lowercase()))
-            .unwrap_or(0.0);
-        let score_next = next
-            .map(|s| partial_ratio(buffer_text, &s.text.to_lowercase()))
-            .unwrap_or(0.0);
-
-        if next.is_some()
-            && score_next >= self.config.min_advance_match
-            && score_next > (score_curr + self.config.advance_margin)
-        {
-            self.current_slide_in_song = next_idx;
-            self.buffer_words.clear();
-            self.unmatched_since = None;
-            self.last_advance = Some(now);
-            self.is_blank = false;
-            self.transition(MachineState::Singing, now);
-            log::info!(
-                "[CONDUCTOR] advance within song {current} to slide {}",
-                self.current_slide_in_song
-            );
-            return self.goto_action_for_current().unwrap_or(Action::Noop);
-        }
-        Action::Noop
+        self.current_slide_in_song = next_idx;
+        self.buffer_words.clear();
+        self.unmatched_since = None;
+        self.last_advance = Some(now);
+        self.is_blank = false;
+        self.transition(MachineState::Singing, now);
+        log::info!(
+            "[CONDUCTOR] advance within song {current} to slide {}",
+            self.current_slide_in_song
+        );
+        self.goto_action_for_current().unwrap_or(Action::Noop)
     }
 
     /// The slide of `song_idx` that best matches the recent words, so a song
@@ -745,7 +748,7 @@ fn simple_ratio(a: &[char], b: &[char]) -> f64 {
     (2.0 * matches as f64 / total as f64) * 100.0
 }
 
-fn lcs_length(a: &[char], b: &[char]) -> usize {
+fn lcs_length<T: PartialEq>(a: &[T], b: &[T]) -> usize {
     let m = a.len();
     let n = b.len();
     let mut prev = vec![0usize; n + 1];
@@ -788,6 +791,7 @@ mod tests {
                             .into(),
                     },
                 ],
+                sections: Vec::new(),
             },
             Song {
                 title: "Holy, Holy, Holy".into(),
@@ -801,6 +805,7 @@ mod tests {
                         text: "Early in the morning our song shall rise to Thee".into(),
                     },
                 ],
+                sections: Vec::new(),
             },
             Song {
                 title: "Come, Thou Fount".into(),
@@ -816,6 +821,7 @@ mod tests {
                             .into(),
                     },
                 ],
+                sections: Vec::new(),
             },
         ]
     }

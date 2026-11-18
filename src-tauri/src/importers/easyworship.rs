@@ -98,7 +98,11 @@ pub fn parse_database(bytes: &[u8]) -> Result<Vec<Song>> {
             continue;
         }
         slide_id_offset += slides.len();
-        out.push(Song { title, slides });
+        out.push(Song {
+            title,
+            slides,
+            sections: Vec::new(),
+        });
     }
     if out.is_empty() {
         return Err(anyhow!(

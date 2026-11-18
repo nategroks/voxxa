@@ -76,7 +76,11 @@ pub fn parse(text: &str, fallback_title: &str) -> Result<Song> {
     if slides.is_empty() {
         return Err(anyhow!("OpenSong song has no lyric content"));
     }
-    Ok(Song { title, slides })
+    Ok(Song {
+        title,
+        slides,
+        sections: Vec::new(),
+    })
 }
 
 fn extract_title_and_lyrics(text: &str) -> Result<(String, String)> {
