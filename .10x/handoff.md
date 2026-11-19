@@ -1,12 +1,11 @@
 # Current Handoff
 
-## User decisions for Q6 (2026-11-13, before the unattended run)
-- **ADR:** ADR-011 is taken and ADR-012 is reserved for the cut list; Q6 writes ADR-016 (the next free number after ADR-015).
-- **Evidence:** Q5's two fixtures are spoken stand-ins of one hymn. Q6 first adds 2–3 synthetic fixtures made with offline Windows text-to-speech (System.Speech, voices David and Zira, 16 kHz mono 16-bit, written to WAV files, never played) of public-domain hymns with a refrain or a jump (at least one repeated chorus and one jump), plus a prayer or silence between songs. The WAVs are committed beside the existing test WAVs (`src-tauri/tests/fixtures/voxxad/`), with setlist, `truth.jsonl` and the recorded Whisper Tiny replay log in the Q5 fixture layout, and labelled synthetic in `fixtures/SOURCES.md`.
-- **Line budget:** if ADR-009's minimum is built, its new modules go in one new recorded row, "conductor evidence (ADR-009 minimum)", capped at **500**, for a dedicated directory. The conductor row stays at 1200 (12 lines left): existing aligner files must not grow. No other budget is raised.
-- **Baseline:** `fixtures/baseline.json` may be tightened, never loosened; fixture replay logs may be re-recorded with Whisper Tiny when the change alters what the conductor hears (reason in the commit).
-- **Pre-approved:** push `q6/base`, open a draft PR against `main`, fix CI forward; merge once Q6's exit criteria are met (a decision file and before/after numbers; the eval not worse on any fixture) and every CI job is green; file Q6 tickets as GitHub issues (label `q6`); agents may stop processes they started, by PID.
-- **QA mode** (as in Q2–Q5): no microphone, no keystroke dispatch; `--shadow`, `--replay` or `--presenter none` only; public-domain text only; `ggml-tiny.bin` is present.
+## User decisions for Q7 (2026-11-18, before the unattended run)
+- **Full Whisper eval:** a separate, report-only CI workflow (`workflow_dispatch`, plus `pull_request` with a paths filter on that workflow file only, so it can run before it reaches `main`). It downloads Whisper Tiny pinned by SHA-256, runs `voxxa-eval --full` and uploads the table; it never fails the PR. The PR gate stays replay plus the determinism test, on all three OSes.
+- **Shipping the CLI:** `voxxad` and `voxxa-eval` do **not** ship in installers yet. If the Tauri bundle would include them, exclude them and prove it; CI and `cargo test` must still build and test both. Release notes for the CLI are a file in the repo; **no tag and no GitHub release**.
+- **Pre-approved:** push `q7/base`, open a draft PR against `main`, fix CI forward; run the manual full-eval job; merge once Q7's exit criteria are met and every CI job is green; file Q7 tickets as GitHub issues (label `q7`); agents may stop processes they started, by PID.
+- **QA mode** (as in Q2–Q6): no microphone, no keystroke dispatch; `--shadow`, `--replay` or `--presenter none` only; public-domain text only, and agents never echo hymn text; `ggml-tiny.bin` is present.
+- The decisions for Q6 are in the "From: Q6" section below and in git history (a60d1ce).
 
 ---
 
@@ -46,8 +45,8 @@ Before is 733c7e1. The numbers have not changed since 4edd7f6; every later commi
 - With these cells the exit criterion "eval not worse on any fixture" holds, and gate 4 and the CI eval step pass.
 - **Still for the user:** approve or decline Q6-01, a ~6-line GUI fix (decision 5 allows no GUI change without approval); and Q6-10 (whether to drop the two unused `SmartConfig` fields).
 
-### Next for the orchestrator (pre-approved, "User decisions for Q6")
-Push `q6/base`, open a draft PR against `main`, get CI green on all jobs (fix forward if needed), and merge only when every CI job is green. Then file the 12 open Q6 tickets (label `q6`), close #76 (Q5-04) and #62 (Q4-04), and add the Q6 numbers to #61, #73, #77 and #78. The first CI run on the merged state also runs gate 5 against the advisory database of that day.
+### Next for the orchestrator (pre-approved, "User decisions for Q6") — done 2026-11-19
+PR #82 merged as a60d1ce (CI green on all 5 jobs at 1254374); Q6 tickets filed as #83–#94; #76 and #62 closed; Q6 numbers added to #61, #73, #77 and #78. Original instruction: push `q6/base`, open a draft PR against `main`, get CI green on all jobs (fix forward if needed), and merge only when every CI job is green. Then file the 12 open Q6 tickets (label `q6`), close #76 (Q5-04) and #62 (Q4-04), and add the Q6 numbers to #61, #73, #77 and #78. The first CI run on the merged state also runs gate 5 against the advisory database of that day.
 
 ### What Q7 must know
 **Q7's task** (prompt pack): QA runs the full fixture eval and the replay determinism test on all three OSes via CI; Security adds a test that runs `voxxad --replay` with networking disabled and asserts zero sockets; DevOps writes CLI release notes and a `docs/INTEGRATIONS.md` section for driving `voxxad` from Companion; SRE writes the runbook "eval shows regression". Q7 starts from `main` after the Q6 merge (the user chose option (a), so Q6 is meant to merge).

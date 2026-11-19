@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q6 done on `q6/base` (head 97cc21b plus this state commit): ADR-009's minimum built (ADR-016). The user decided the baseline item on 2026-11-18, the ponytail lane was re-run and compared, and **both verifiers passed at 97cc21b**. Next: CI + PR + merge by the orchestrator, then Q7 (close Increment 1′). Q5 complete and merged into `main` (PR #72, 69f7d27).
+**Current Phase:** Q7 (close Increment 1′: QA, Security, DevOps, SRE) started on `q7/base` with the ponytail lane; user decisions in handoff, "User decisions for Q7". Q6 complete and merged into `main` (PR #82, a60d1ce).
 **Last Updated:** 2026-11-19 by 10x-team orchestrator
 **Health:** On Track
 
@@ -149,13 +149,13 @@
   The user pre-approved the push, PR, CI fixes, gate proof, merge and filing (handoff, "User decisions for Q5").
 - [x] **User decision (2026-11-18):** the `jump-be-thou-my-vision` baseline cells set to 1,500 / 6,000 as a one-time exception (option (a)); the two looser `total` cells (blank 7,500, unblank 2,500) accepted. Applied in 85c736c.
 - [ ] **Still for the user:** approve or decline the GUI fix in Q6-01 (decision 5); decide whether to drop the two unused `SmartConfig` fields (Q6-10).
-- [ ] **Q6 close-out (orchestrator).**
+- [x] **Q6 close-out (orchestrator).**
   1. [x] The user's choice applied in its own commit (85c736c) and recorded in ADR-016 (amendment of 2026-11-18); the ponytail lane re-run, reviewed and compared; grafts applied; gate 5 fixed (b7a5382, 734b467); verifiers passed at 97cc21b.
-  2. [ ] Pushed `q6/base` and opened draft PR #82 against `main` (2026-11-19). Still to do: get CI green on all jobs (fix forward if needed); merge only when every CI job is green and the exit criteria hold.
+  2. [x] Pushed `q6/base`, opened PR #82; CI green on all 5 jobs at 1254374 (run 44480642855); merged into `main` as a60d1ce (2026-11-19). #76 closed by the merge, #62 closed by hand.
   3. [x] Filed the 12 open Q6 tickets as #83–#94 (label `q6`); added the Q6 numbers to #61, #73, #77 and #78. #76 and #62 close when PR #82 merges.
 
   The user pre-approved the push, PR, CI fixes, merge and filing (handoff, "User decisions for Q6").
-- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 done and verified on `q6/base` (97cc21b), CI + PR + merge next; Q7 (close Increment 1′) after
+- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 merged (a60d1ce); Q7 (close Increment 1′) in progress
   - [x] 2026-11-13 Q5 verifier fixes on `q5/base`: every surviving mutant named by the verifier is now killed by a test (song not compared, false advance lowering recall, EARLY_MS 999 and `<=`→`<`, the total row's false/double sums, unblank not resetting the blank, a failing `voxxad` read as success); a metric with a value but no threshold now fails the gate (ADR-015 D8 amended); voxxa-eval exits 2 when `voxxad` ran in the wrong mode (a replay that ran Whisper); both session logs re-recorded with the final `--full --record` (only the start line's `log` field changed).
   - [x] 2026-11-13 Q5 second verifier pass on `q5/base`: tests now kill the round-2 survivors: M42 (main.rs checking only the total row; a binary-level test breaks only per-fixture thresholds and needs both FAIL lines and no FAIL total), M25/M26 (one metric's comparison reversed), M37 (the table's count cells) and M47/M48 (the audio recipe's 16 kHz mono 16-bit check and header byte rate). Each test was run against its mutant and fails. No product code changed; voxxa_eval tests 23 to 26.
   - [x] 2026-11-13 Q5 verifier round 3 at c10e963: verifier A passed; verifier B failed on six surviving mutants (Q5-08 … Q5-10). The four that mattered were closed with tests in 5858872 (orchestrator, checked against each mutant); M57 and M68 deferred (Q5-10).
