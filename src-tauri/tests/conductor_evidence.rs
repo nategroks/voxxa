@@ -726,6 +726,11 @@ fn tokens_are_lower_case_words_without_marks() {
         ["twas", "grace", "half", "shed", "it", "is", "well", "2"]
     );
     assert!(tokens(" ... === ").is_empty());
+    // An apostrophe inside a word joins it, straight or curly.
+    assert_eq!(
+        tokens("alpha'bravo charlie\u{2019}s"),
+        ["alphabravo", "charlies"]
+    );
 }
 
 #[test]
