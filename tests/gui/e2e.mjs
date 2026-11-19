@@ -102,9 +102,14 @@ try {
   };
   const load = async () => { await send("Page.navigate", { url: APP }); await waitFor(`return !!document.getElementById("simple") && !!window.__mock`); await sleep(300); };
   const sentence = () => ev(`return document.querySelector("#s-light").className.split(" ")[1] + " | " + document.getElementById("s-sentence").textContent`);
+  // The colour a volunteer sees, not only the class: grey and amber are fixed, green and red
+  // are main.css's --success and --danger as the browser resolves them; all four differ.
+  const COLOURS = `(() => { const probe = (c) => { const e = document.createElement("i"); e.style.color = c; document.body.appendChild(e); const v = getComputedStyle(e).color; e.remove(); return v; };
+    return { grey: "rgb(107, 114, 128)", amber: "rgb(245, 158, 11)", green: probe("var(--success)"), red: probe("var(--danger)") }; })()`;
   const light = async (want, name, re) => {
-    const ok = await waitFor(`return document.querySelector("#s-light").classList.contains(${JSON.stringify(want)}) && ${re}.test(document.getElementById("s-sentence").textContent)`, 3000);
-    check(`light ${name}`, ok, await sentence());
+    const ok = await waitFor(`const c = ${COLOURS}; return new Set(Object.values(c)).size === 4 && document.querySelector("#s-light").classList.contains(${JSON.stringify(want)})
+      && getComputedStyle(document.getElementById("s-light")).backgroundColor === c[${JSON.stringify(want)}] && ${re}.test(document.getElementById("s-sentence").textContent)`, 3000);
+    check(`light ${name}`, ok, `${await sentence()} | ${await ev(`return getComputedStyle(document.getElementById("s-light")).backgroundColor`)}`);
   };
   // Clicks only what a user could click: element.click() also works on hidden elements, so
   // a hidden Skip, Help or Advanced control would otherwise pass unnoticed.
