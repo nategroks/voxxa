@@ -23,6 +23,8 @@
 //! `VOXXA_REQUIRE_SOCKET_TRACE=1` (CI does, on Linux and Windows) to fail
 //! instead of skipping when no tracer is available.
 
+mod common;
+
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::Command;
@@ -38,7 +40,6 @@ fn voxxad_exe() -> &'static str {
     env!("CARGO_BIN_EXE_voxxad")
 }
 
-const RECORDINGS: &str = "../fixtures/recordings";
 const PROBE_ENV: &str = "VOXXA_SOCKET_PROBE";
 
 struct Run {
@@ -76,22 +77,7 @@ fn probe() -> Run {
 
 /// `voxxad --replay` on every committed log.
 fn replays() -> Vec<Run> {
-    let mut logs: Vec<(String, PathBuf, PathBuf)> = (std::fs::read_dir(RECORDINGS).unwrap())
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.is_dir())
-        .map(|d| {
-            let name = d.file_name().unwrap().to_string_lossy().into_owned();
-            (name, d.join("session.jsonl"), d.join("setlist.json"))
-        })
-        .collect();
-    logs.sort();
-    logs.push((
-        "session-pd-hymns".into(),
-        "tests/fixtures/voxxad/session-pd-hymns.jsonl".into(),
-        "tests/fixtures/voxxad/pd-hymns-setlist.json".into(),
-    ));
-    (logs.into_iter())
+    (common::committed_logs().into_iter())
         .map(|(name, log, setlist)| Run {
             name,
             program: voxxad_exe().into(),

@@ -11,7 +11,10 @@
 //! is re-recorded (`voxxa-eval --full --record fixtures/recordings/<name>`)
 //! and the commit says why; its recogniser lines stay the same.
 
-use std::path::{Path, PathBuf};
+mod common;
+
+use common::committed_logs as logs;
+use std::path::Path;
 use std::process::Command;
 
 /// The binary is built only with `--features cli`. Cargo sets `CARGO_BIN_EXE_voxxad`
@@ -22,27 +25,6 @@ fn voxxad_exe() -> &'static str {
         panic!("run: cargo test --features cli");
     }
     env!("CARGO_BIN_EXE_voxxad")
-}
-
-const RECORDINGS: &str = "../fixtures/recordings";
-
-/// (name, session log, setlist) for every committed log.
-fn logs() -> Vec<(String, PathBuf, PathBuf)> {
-    let mut logs: Vec<_> = (std::fs::read_dir(RECORDINGS).unwrap().flatten())
-        .map(|e| e.path())
-        .filter(|p| p.is_dir())
-        .map(|dir| {
-            let name = dir.file_name().unwrap().to_string_lossy().into_owned();
-            (name, dir.join("session.jsonl"), dir.join("setlist.json"))
-        })
-        .collect();
-    logs.sort();
-    logs.push((
-        "tests/fixtures/voxxad/session-pd-hymns".into(),
-        "tests/fixtures/voxxad/session-pd-hymns.jsonl".into(),
-        "tests/fixtures/voxxad/pd-hymns-setlist.json".into(),
-    ));
-    logs
 }
 
 fn replay(log: &Path, setlist: &Path) -> Vec<u8> {
