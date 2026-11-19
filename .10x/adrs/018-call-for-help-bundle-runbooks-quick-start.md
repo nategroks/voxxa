@@ -25,7 +25,7 @@ One zip, `voxxa-help-YYYYMMDD-HHMMSS.zip` (UTC), deflate (`zip` 9.0.5, already a
 | File | What | Source |
 |---|---|---|
 | `diagnostic-report.json` | `generate_diagnostic_report`'s `DiagnosticReport`, pretty JSON: version, OS, audio device names, presenter kind and state, song title and slide numbers, machine state, outbound request count, the last 500 log lines (no heard text after § 1) | `diagnostics::generate_report` |
-| `operator-settings.json` | the `voxxa.*` keys of `localStorage`, each value parsed as JSON, secrets redacted (§ 4); `voxxa.recentSetlists` replaced by `"[left out: whole setlists, slide text included]"` | the GUI passes `localStorage` to the command |
+| `operator-settings.json` | the `voxxa.*` keys of `localStorage`, each value parsed as JSON, secrets redacted (§ 4); `voxxa.recentSetlists` replaced by `"[left out: whole setlists]"` (they hold slide text) | the GUI passes `localStorage` to the command |
 | `words-last-2-minutes.txt` (optional) | the `hypothesis` lines of the newest session log whose `t` is within the last 120,000 ms of that log's last `t`, one per line as `<seconds> s  <words>`, under a header naming the log file | `<data dir>/voxxa/sessions/` |
 
 - "Newest" is by file name (`session-YYYYMMDD-HHMM[-N]`, `N` compared as a number), not by modified time. A log without `hypothesis` lines in the window gives a words file that says so. No log at all gives no words file, and the review screen says that Voxxa found no record of what it heard (the GUI writes none, #53, ticket Q9-02).
@@ -40,7 +40,7 @@ One zip, `voxxa-help-YYYYMMDD-HHMMSS.zip` (UTC), deflate (`zip` 9.0.5, already a
 
 ### 4. Secret redaction (operator settings)
 - Only `voxxa.*` keys are exported. A value that is not JSON is kept as a string.
-- In every object, at any depth, a property **whose name** reads as a secret has its value replaced by `"[redacted]"` (null stays null). The name is lower-cased and split at non-alphanumerics and camelCase humps. It is a secret if a part is `key`, `pwd`, `pass`, `pat` or `auth`, or if the joined name contains `token`, `secret`, `password`, `passwd`, `apikey`, `credential`, `authorization` or `appid`. So `voxxa.presenterForm.password`, `apiToken`, `pco_app_id`, `pcoSecret`, `http_api_token`, `opensong key` and `Authorization` are redacted; `keystroke_profile`, `port` and `username` are not.
+- In every object, at any depth, a property **whose name** reads as a secret has its value replaced by `"[redacted]"`. The name is lower-cased with everything but letters and digits removed. It is a secret if it contains `token`, `secret`, `pass` (password, passwd, passphrase), `pwd`, `credential`, `authoriz` or `appid`, or ends in `key`, `auth` or `pat`. So `voxxa.presenterForm.password`, `apiToken`, `API_KEY`, `pco_app_id`, `appId`, `pcoSecret`, `http_api_token`, `key`, `client_secret` and `Authorization` are redacted; `keystroke_profile`, `port`, `host`, `username` and every `SmartConfig` field are not. Over-redaction (a harmless name such as `hotkey`) is accepted.
 - A top-level key that reads as a secret is redacted whole.
 - Test: a storage map with each of those names, nested and at top level, plus a `recentSetlists` with placeholder slide text: none of the secret values and none of the slide text appears in the output; the harmless fields do.
 

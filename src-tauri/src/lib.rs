@@ -4,6 +4,7 @@ mod commands;
 mod diagnostics;
 mod discovery;
 mod dispatch;
+pub mod help;
 mod http_api;
 mod hymnary;
 mod importers;
@@ -159,6 +160,10 @@ pub fn run() {
             commands::get_http_api_status,
             commands::start_http_api,
             commands::stop_http_api,
+            help::help_bundle_preview,
+            help::write_help_bundle,
+            help::open_help_email,
+            help::open_runbook,
         ])
         .setup(|app| {
             tray::create_tray(app)?;
