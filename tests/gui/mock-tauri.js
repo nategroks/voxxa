@@ -11,6 +11,9 @@
     presenter: { kind: "keystroke", display_name: "Keystroke (any app)", connected: true },
     devices: ["Desk USB input", "Laptop microphone"], found: [], startError: null,
     startDelay: 300, // ms start_listening takes, like loading the model and opening the device
+    // Call for help (ADR-018): what the newest session log holds, how long the preview takes,
+    // and every bundle "written" (nothing touches the disk here).
+    helpWords: "alpha bravo\ncharlie delta", helpDelay: 300, bundles: [], opened: [],
   };
   const emit = (event, payload) => { for (const fn of [...(listeners[event] || [])]) fn({ event, payload }); };
   const total = () => (st.songs ? st.songs.reduce((n, s) => n + s.slides.length, 0) : 0);
@@ -52,7 +55,11 @@
     set_smart_config: () => null,
     get_network_stats: () => ({ outbound_requests: 0 }),
     get_http_api_status: () => ({ running: false, port: 7575 }),
-    generate_diagnostic_report: () => ({ note: "mock report" }),
+    generate_diagnostic_report: () => ({ note: "mock report", recent_log: ["Heard 2 words"] }),
+    help_preview: async () => { await new Promise((r) => setTimeout(r, st.helpDelay)); return { folder: "C:\\Users\\mock\\Desktop", words: st.helpWords }; },
+    write_help_bundle: ({ files }) => { st.bundles.push(files); return `C:\\Users\\mock\\Desktop\\voxxa-help-2026111912000${st.bundles.length}.zip`; },
+    open_help_email: ({ file }) => { st.opened.push(["email", file]); },
+    open_runbook: ({ name }) => { st.opened.push(["runbook", name]); },
     toggle_stage_display: () => false,
     next_slide_manual: () => null, prev_slide_manual: () => null, blank_manual: () => null, jump_to_song: () => null,
   };

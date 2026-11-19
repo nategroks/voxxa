@@ -292,7 +292,18 @@ try {
   await click("#s-simple");
 
   // 5. The status light, row by row, through the real events.
+  // A red light, and the grey "no model" one, link their runbook on GitHub (ADR-018).
+  const runbook = async (name, row) => {
+    check(`${row} shows "What to do"`, await visible("#s-runbook"));
+    await click("#s-runbook");
+    check(`${row} opens docs/runbooks/${name}.md`, await waitFor(`return __mock.st.opened.some((o) => o[0] === "runbook" && o[1] === ${JSON.stringify(name)})`));
+  };
+  await ev(`__mock.models.forEach((m) => (m.loaded = false)); return true`);
+  await light("grey", "row 3 (no model)", /Download the voice model/);
+  await runbook("model-missing", "row 3");
+  await ev(`__mock.models[0].loaded = true; return true`);
   await light("grey", "row 4 (ready, off)", /Choose Songs/);
+  check("row 4 links no runbook", !(await visible("#s-runbook")));
   await shot("11-simple-off-ready");
   await click('[data-mode="songs"]');
   await light("amber", "row 10 (listening)", /Waiting for a song/);
@@ -317,13 +328,16 @@ try {
   await ev(`__mock.presenterError("focus your presentation app: Voxxa's own window has the keyboard"); return true`);
   await light("red", "row 5 (presenter error, with the reason)", /ProPresenter 7\.9\+ didn't take the last slide change: focus your presentation app: Voxxa's own window has the keyboard\.$/);
   await shot("15-simple-red-presenter-error");
+  await runbook("presentation-app-not-reachable", "row 5");
   await ev(`__mock.goto(4); return true`);
   await light("green", "a delivered slide clears row 5", /slide 3 of 3/);
   await ev(`__mock.st.presenter.connected = false; return true`);
   await light("red", "row 6 (presenter not found)", /not found/);
+  await runbook("presentation-app-not-reachable", "row 6");
   await ev(`__mock.st.presenter.connected = true; return true`);
   await ev(`__mock.micLost(); return true`);
   await light("red", "row 1 (mic lost)", /Can't hear the mic/);
+  await runbook("no-audio-device", "row 1");
   check("mic lost: switch back on Off", await waitFor(`return document.querySelector('[data-mode="off"]').getAttribute("aria-checked") === "true"`));
   await shot("16-simple-red-mic-lost");
   await click('[data-mode="songs"]');
@@ -348,15 +362,47 @@ try {
   check("Off 150 ms after Songs: still stopped, switch on Off", !(await ev(`return __mock.st.running`)) && (await calls("start_listening")) === starts + 2 && (await ev(`return document.querySelector('[data-mode="off"]').getAttribute("aria-checked")`)) === "true");
   await light("grey", "Off 150 ms after Songs: grey", /Choose Songs/);
 
-  // 6. Call for help: a message, no command.
-  const before = await ev(`return __mock.calls.filter((c) => !["get_status", "get_presenter_info"].includes(c.cmd)).length`);
+  // 6. Call for help (ADR-018): a review screen first, nothing written until Save; then the zip,
+  // the e-mail draft and the folder. The mock's help_preview takes 300 ms.
+  await ev(`localStorage.setItem("voxxa.httpApiToken", JSON.stringify("tok-mock-secret")); return true`);
   const startsBeforeHelp = await calls("start_listening");
   await space("#s-help"); // Space presses Call for help; it must not reach the Listen shortcut
-  await sleep(300);
+  await sleep(100);
   check("Space on Call for help: no start_listening", (await calls("start_listening")) === startsBeforeHelp && !(await ev(`return __mock.st.running`)));
-  check("Call for help shows the next-update message", (await visible("#s-help-msg")) && /next update/.test(await ev(`return document.getElementById("s-help-msg").textContent`)));
-  check("Call for help calls no command", (await ev(`return __mock.calls.filter((c) => !["get_status", "get_presenter_info"].includes(c.cmd)).length`)) === before && (await calls("generate_diagnostic_report")) === 0);
-  await shot("17-simple-call-for-help");
+  check("Call for help opens the review screen", await visible("#help"));
+  check("Save is not offered while the files are read", !(await visible("#help-save")));
+  check("review: report, settings and words listed", (await waitFor(`return [...document.querySelectorAll("#help-files summary")].map((s) => s.textContent).join(",")`)) === "report.json,settings.json,words.txt");
+  check("review: the words file's content is shown", await ev(`return [...document.querySelectorAll("#help-files details")].find((d) => d.open).querySelector("pre").textContent === "alpha bravo\\ncharlie delta"`));
+  check("review: the words box is on by default", (await ev(`return document.getElementById("help-words").checked`)) && /^Include the last 2 minutes of words the app heard$/.test((await ev(`return document.querySelector(".help-check").textContent`)).trim()));
+  check("review: no secret in the settings shown", await ev(`const t = document.getElementById("help-files").textContent; return t.includes("voxxa.httpApiToken") && !t.includes("tok-mock-secret")`));
+  check("review: nothing written, nothing opened", (await calls("write_help_bundle")) === 0 && (await calls("open_help_email")) === 0);
+  await shot("17a-help-review");
+  const helpStage = await calls("toggle_stage_display");
+  await keyOnBody(" ");
+  await keyOnBody("s");
+  await sleep(300);
+  check("review open, focus on the page: Space and s reach nothing", (await calls("start_listening")) === startsBeforeHelp && (await calls("toggle_stage_display")) === helpStage);
+  await click("#help-save");
+  check("Save writes the reviewed files with the words", (await waitFor(`return __mock.st.bundles.length === 1`)) && (await ev(`return __mock.st.bundles[0].map((f) => f[0]).join(",")`)) === "report.json,settings.json,words.txt");
+  check("the written settings have no secret", !(await ev(`return JSON.stringify(__mock.st.bundles[0])`)).includes("tok-mock-secret"));
+  check("then the e-mail draft and the folder open, for the zip's name", await waitFor(`return JSON.stringify(__mock.st.opened.filter((o) => o[0] === "email")) === '[["email","voxxa-help-20261119120001.zip"]]'`));
+  check("the user is told where the file is", /^Saved voxxa-help-20261119120001\.zip in C:\\Users\\mock\\Desktop\. Attach it/.test(await ev(`return document.getElementById("help-msg").textContent`)));
+  await shot("17b-help-saved");
+  await click("#help-cancel");
+  check("Close closes it", !(await visible("#help")));
+  // Unticked: the words file is not written at all.
+  await click("#s-help");
+  await waitFor(`return !!document.getElementById("help-words")`);
+  await click("#help-words");
+  await click("#help-save");
+  check("unticked: no words file in the bundle", (await waitFor(`return __mock.st.bundles.length === 2`)) && (await ev(`return __mock.st.bundles[1].map((f) => f[0]).join(",")`)) === "report.json,settings.json");
+  await click("#help-cancel");
+  // No words recorded: no words file and no box; Cancel writes nothing.
+  await ev(`__mock.st.helpWords = null; return true`);
+  await click("#s-help");
+  check("no words: no words file, no box", (await waitFor(`return /No recent words/.test(document.getElementById("help-files").textContent)`)) && !(await ev(`return !!document.getElementById("help-words")`)));
+  await click("#help-cancel");
+  check("Cancel writes nothing", (await calls("write_help_bundle")) === 2 && (await calls("open_help_email")) === 2);
 
   // 7. Advanced: every old panel, unchanged, one click away.
   await click("#s-advanced");
