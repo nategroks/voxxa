@@ -285,6 +285,21 @@ fn the_words_file_holds_the_last_two_minutes_of_the_newest_log() {
     assert!(help::recent_words(d)
         .unwrap()
         .contains("(no words in that time)"));
+    // A malformed log with `t` near u64::MAX: no overflow, the window still holds.
+    write_log(
+        d,
+        "session-20261119-1200.jsonl",
+        &[
+            line(0, "hypothesis", "juliet cut"),
+            line(u64::MAX - 1, "hypothesis", "kilo kept"),
+            line(u64::MAX, "tick", ""),
+        ],
+    );
+    let words = help::recent_words(d).unwrap();
+    assert!(
+        words.contains("kilo kept") && !words.contains("juliet"),
+        "{words}"
+    );
 }
 
 /// The preview is built in memory: the report, the settings and (with a log)

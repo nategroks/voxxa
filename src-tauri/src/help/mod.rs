@@ -99,7 +99,7 @@ pub fn recent_words(dir: &Path) -> Option<String> {
     let end = lines.iter().filter_map(|l| l["t"].as_u64()).max();
     let words: String = (lines.iter().filter(|l| l["type"] == "hypothesis"))
         .filter_map(|l| Some((l["t"].as_u64()?, l["text"].as_str()?)))
-        .filter(|(t, _)| t + WORDS_MS >= end.unwrap_or(0))
+        .filter(|(t, _)| *t >= end.unwrap_or(0).saturating_sub(WORDS_MS))
         .map(|(t, w)| format!("{:.1} s  {w}\n", t as f64 / 1000.0))
         .collect();
     let none = "(no words in that time)\n".to_string();
