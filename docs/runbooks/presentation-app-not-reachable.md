@@ -32,8 +32,9 @@ or "Your presentation app"):
    and after the next slide change that reaches the app.
 
 ProPresenter's WebSocket connection and OpenLP with a login need the password again after every
-start of Voxxa, because Voxxa never saves passwords. Expect this red light after each start until
-you connect in step 4.
+start of Voxxa, and so does OpenSong with an API key: enter the key again under **Presentation
+App > API key (optional)** and press **Connect**. Voxxa never saves passwords or keys. Expect this
+red light after each start until you connect in step 4.
 
 While you fix it, move the slides by hand in your presentation app.
 
