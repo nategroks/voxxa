@@ -14,7 +14,7 @@
 
 ### Operability notes
 - The eval has no service to page: it runs in CI. Its "incident" is a red PR or a red `main`. The owner of a red `main` is whoever merged last: fix forward or revert the same day.
-- Time budget: in debug on the reference PC, a replay of all six fixtures takes about 2.5 min. The determinism test replays every log twice in parallel (about 80 s). The full eval takes about 12 min on the reference PC; the workflow has a 180 min timeout per OS.
+- Time budget: in debug on the reference PC, a replay of all six fixtures takes about 2.5 min. The determinism test replays every log twice in parallel (about 80 s). The full eval took 38 min in debug on the reference PC in Q7 (another lane's full eval shared the 4-core PC; about 12 min on an idle PC in Q6); the workflow has a 180 min timeout per OS.
 - **Model supply chain:** the app's model URL is a moving `main`. The workflow pins the SHA-256, and a mismatch fails the job; the runbook says not to just update the hash. The app itself still checks no hash (Q2-27, #9).
 
 ### Open

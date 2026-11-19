@@ -39,8 +39,9 @@ jobs:
       matrix:
         os: [ubuntu-22.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    # A debug build decodes about 2 s per second of audio on the reference
-    # PC (six fixtures, about 12 min); hosted runners are slower.
+    # A debug build of all six fixtures took 38 min on the 4-core reference
+    # PC in Q7 (with another full eval running beside it; about 12 min in Q6
+    # on an idle PC). Hosted runners are slower: 180 min leaves headroom.
     timeout-minutes: 180
     steps:
       # Actions are pinned to commit SHAs (tag in the comment).
