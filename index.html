@@ -7,44 +7,8 @@
     <link rel="stylesheet" href="/src/styles/main.css" />
   </head>
   <body>
-    <!-- First-launch welcome overlay (one-shot; dismissed via localStorage flag) -->
-    <div class="welcome-overlay" id="welcome-overlay" hidden>
-      <div class="welcome-card">
-        <h2 class="welcome-title">Welcome to Voxxa</h2>
-        <p class="welcome-tag">
-          Voxxa listens to the room and advances your slides automatically.
-          All audio stays on this computer — nothing is uploaded.
-        </p>
-        <div class="welcome-actions">
-          <button class="welcome-action" id="welcome-detect">
-            <div class="welcome-action-num">1</div>
-            <div>
-              <div class="welcome-action-title">Find my presentation app</div>
-              <div class="welcome-action-sub">Scans for ProPresenter, FreeShow, OpenLP</div>
-            </div>
-          </button>
-          <button class="welcome-action" id="welcome-model">
-            <div class="welcome-action-num">2</div>
-            <div>
-              <div class="welcome-action-title">Pick a Whisper model</div>
-              <div class="welcome-action-sub">Base (142 MB) is a good starting point</div>
-            </div>
-          </button>
-          <button class="welcome-action" id="welcome-setlist">
-            <div class="welcome-action-num">3</div>
-            <div>
-              <div class="welcome-action-title">Load a setlist</div>
-              <div class="welcome-action-sub">.json, .txt, .pptx, OpenLyrics, ChordPro, or Planning Center</div>
-            </div>
-          </button>
-        </div>
-        <div class="welcome-footer">
-          <button class="welcome-dismiss" id="welcome-dismiss">Don’t show this again</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="app">
+    <!-- Advanced: every existing panel. Simple mode (src/simple/) is in front of it (ADR-017). -->
+    <div id="app" hidden>
       <!-- Header -->
       <header class="header">
         <h1 class="logo">Voxxa</h1>
@@ -392,22 +356,23 @@
           <p class="helper-sub">For bug reports. Voxxa won’t upload anything — copy the text and attach it where you want.</p>
         </div>
       </section>
+    </div>
 
-      <!-- Diagnostic modal -->
-      <div class="modal-overlay" id="diag-overlay" hidden>
-        <div class="modal-card">
-          <div class="modal-header">
-            <div class="modal-title">Diagnostic report</div>
-            <button class="modal-close" id="diag-close">×</button>
-          </div>
-          <textarea class="modal-text" id="diag-text" readonly></textarea>
-          <div class="modal-actions">
-            <button class="primary-btn" id="diag-copy">Copy to clipboard</button>
-          </div>
+    <!-- Diagnostic modal -->
+    <div class="modal-overlay" id="diag-overlay" hidden>
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title">Diagnostic report</div>
+          <button class="modal-close" id="diag-close">×</button>
+        </div>
+        <textarea class="modal-text" id="diag-text" readonly></textarea>
+        <div class="modal-actions">
+          <button class="primary-btn" id="diag-copy">Copy to clipboard</button>
         </div>
       </div>
     </div>
 
     <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/simple/simple.js"></script>
   </body>
 </html>

@@ -1,63 +1,87 @@
 # Current Handoff
 
-## User decisions for Q7 (2026-11-18, before the unattended run)
-- **Full Whisper eval:** a separate, report-only CI workflow (`workflow_dispatch`, plus `pull_request` with a paths filter on that workflow file only, so it can run before it reaches `main`). It downloads Whisper Tiny pinned by SHA-256, runs `voxxa-eval --full` and uploads the table; it never fails the PR. The PR gate stays replay plus the determinism test, on all three OSes.
-- **Shipping the CLI:** `voxxad` and `voxxa-eval` do **not** ship in installers yet. If the Tauri bundle would include them, exclude them and prove it; CI and `cargo test` must still build and test both. Release notes for the CLI are a file in the repo; **no tag and no GitHub release**.
-- **Pre-approved:** push `q7/base`, open a draft PR against `main`, fix CI forward; run the manual full-eval job; merge once Q7's exit criteria are met and every CI job is green; file Q7 tickets as GitHub issues (label `q7`); agents may stop processes they started, by PID.
-- **QA mode** (as in Q2–Q6): no microphone, no keystroke dispatch; `--shadow`, `--replay` or `--presenter none` only; public-domain text only, and agents never echo hymn text; `ggml-tiny.bin` is present.
-- The decisions for Q6 are in git history (a60d1ce).
+## User decisions for Q8 (2026-11-18, before the unattended run)
+- **Line budget:** Simple mode and the first-run flow go in ONE new recorded row in `scripts/loc_budget.py`, "Simple mode (src/simple/*)", capped at **600**, for a dedicated directory `src/simple/`, subtracted from the GUI row like the other rows. The GUI row (`src/`, `index.html`, `stage.html`) stays capped at 3,000, and the existing panels must not grow: the "Advanced" move should cost few lines (delete before you add). Record the row as a deviation in `loc_budget.py` and the ADR. No other budget is raised, and the GUI stays free of npm runtime dependencies. This supersedes the "49 lines left" warning below.
+- **GUI testing, two ways:**
+  - (a) Browser with a mocked backend: a test-only `invoke()` and event shim, kept out of the shipped bundle. Listen, the 20-second test and every audio path are exercised **only** here.
+  - (b) The real app, guarded: a scratch build that is never committed. Each lane uses its own identifier (never `com.voxxa.app`) and WebView2 remote debugging through `additionalBrowserArgs`. Before the first launch, confirm from the code that startup opens no audio input; if anything does, do not launch. In the real app: never press Listen, never start the 20-second test, never pick the keystroke presenter, never open the stage window on a second display, never enable the HTTP API. Delete the scratch identifier's `%LOCALAPPDATA%` folder afterwards.
+- **Usability:** agents walk through the research plan's usability script on the mocked GUI (and on the guarded real app where safe) and record each step. The founder's own run on their machine is a founder checklist item and a Q8 ticket; **the merge does not wait for it**.
+- **Backend:** no change to backend commands (signatures or behaviour) and no new commands; delete no panel. The ADR is **ADR-017**.
+- **Pre-approved:** push `q8/base`, open a draft PR against `main`, fix CI forward; merge once Q8's exit criteria are met (except the founder's run) and every CI job is green; file Q8 tickets as GitHub issues (label `q8`); agents may stop processes they started, by PID.
+- **Content:** public-domain text only; agents never write or echo hymn text (mocks use placeholder words).
+- The decisions for Q7 are in git history (c448139).
 
 ---
 
-## From: Q7 → To: Q8 (Simple mode)
+## From: Q8 → To: Q9 (Call for help, runbooks, quick-start)
 **Date:** 2026-11-19
-**Phase:** Q7 (Phases 5 and 6, the close of Increment 1′) is done and verified on `q7/base`: final head **6386f6b**, plus the state commit "state: Q7 close Increment 1prime". **Both verifiers passed at 6386f6b.** Next: the orchestrator's CI, PR, manual full-eval run and merge (pre-approved above), then Increment 2′ with Q8.
+**Phase:** Q8 (Phase 4, Simple mode, ADR-017) is done on `q8/base`: head **ee431ce**, plus the state commit "state(implementation): Q8 Simple mode". In verifier round 3 at ee431ce, verifier B passed and verifier A failed (ticket Q8-10, below). The orchestrator fixed it afterwards (88aa63b, fce3e58), and a verifier confirmed the fix. Next: CI, PR and merge (pre-approved above); then Q9.
 
-### What Q7 did
-- **Process:** two lanes from 46cb6d1. `q7/10x` (8 commits) was merged into `q7/base` as the comparator's base (008aa50); `q7/ponytail` (5 commits, 4d06345) stays local for reference. Four ponytail grafts and the 10x review's fixes followed, one commit each (c9271f0..911d56c). The first verifier round (on 86b549d) found the Windows socket check flaky; aa16e90 fixed it with unit tests. Record: `reviews/2026-11-19-ponytail-q7.md`.
-- **QA:** `tests/replay_determinism.rs` runs on 3 OSes in `ci.yml`. Every committed log must replay to its own action lines, and two replays must agree. Four fixture logs were re-recorded first (20e3301); their recogniser lines and the table did not change. `.github/workflows/full-eval.yml` is the report-only Whisper Tiny eval, with the model pinned by SHA-256. On the reference PC, full mode equals replay cell for cell.
-- **Security:** `tests/replay_no_sockets.rs` traces `voxxad --replay` on every committed log: strace inside `unshare -rn` on Linux, ETW on Windows (only socket and connect events inside each child's own lifetime count), a positive control first, and `VOXXA_REQUIRE_SOCKET_TRACE=1` plus, on Linux, `VOXXA_REQUIRE_NETNS=1` in CI. macOS is skipped and says so (Q7-01). The claim is "`--replay` opens no socket; `--shadow` makes no network connection" (on Linux and macOS tokio's signal driver creates one local AF_UNIX socketpair). `ci.yml` has `permissions: contents: read`.
-- **DevOps:** `voxxad` and `voxxa-eval` are out of every installer (b9692c5). They live in `src-tauri/src/cli/` behind the off-by-default `cli` feature, and `tests/packaging.rs` guards this. Release notes: `docs/releases/voxxad-cli-preview.md` (no tag, no release). Companion: `docs/INTEGRATIONS.md`, "Driving `voxxad` from Bitfocus Companion".
-- **SRE:** the runbook `docs/runbooks/eval-regression.md`.
-- **Records:** `reviews/2026-11-19-qa-report.md` and `reviews/2026-11-19-security-review.md` (§11 is the final round), `reviews/2026-11-19-q7-tickets.md` (12 open: 1 medium, 11 low), `decisions/{qa,security,devops,sre}/church-autoadvance.md` ("Q7 final").
+### What Q8 did
+- **Process:** two lanes from f8500e3. `q8/10x` (6 commits, ADR first) was merged as the comparator's base (b4eacca). `q8/ponytail` (4 commits, bdc3348) stays local for reference. Then came the 10x review's fixes, four ponytail grafts and two verifier rounds of fixes, one commit each. Record: `reviews/2026-11-19-ponytail-q8.md`.
+- **Built** in `src/simple/`:
+  - `logic.js`, pure: `statusLight`, `songPosition`, `testVerdict`.
+  - `simple.js`: the view, the mode switch (one toggle at a time) and Call for help.
+  - `firstrun.js`: the set-up guide and the start-up reconnect.
+  - `simple.css`, including the global `[hidden]` fix.
 
-### Numbers at the finish (unchanged from Q6)
-Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double advances, median 2,310 ms, p95 4,870 ms (budget 2,500 ms, #84), blank 7,280 ms, unblank 2,490 ms. `baseline.json` is unchanged. Tests: 210 passed with `--features cli` (56 unit + 154 integration), plus 1 ignored helper.
+  Every old panel is unchanged behind Advanced (`#app` hidden), and `main.js` gained one line. Nothing under `src-tauri/` changed.
+- **Records:**
+  - ADR-017;
+  - `decisions/{sde,qa}/church-autoadvance.md` ("Q8 final"; the QA record has the usability walk-through table) and `decisions/architect/_index.md`;
+  - `reviews/2026-11-19-q8-tickets.md`: 16 open, 2 medium and 14 low. Q8 closes no earlier issue outright; #7 is fixed in part.
 
-### Next for the orchestrator (pre-approved), before Q8 starts
-1. Push `q7/base` and open a draft PR against `main`.
-2. **The first CI run must show** (QA report and security review, §9-§11):
-   - (a) the `ubuntu-22.04` and `windows-latest` jobs pass `replay_no_sockets` (a pass proves strace inside `unshare -rn` and ETW respectively; no `--nocapture` run is needed);
-   - (b) a throwaway commit adding `let _ = std::net::TcpStream::connect("127.0.0.1:9");` to `voxxad`'s replay branch turns the Linux job red, and its revert turns it green again;
-   - (c) `full-eval.yml` is green, or only warns, on 3 OSes; the summary and the artifact hold only the table; record the time per OS. It runs on every push to the PR (paths filter). Check it for Node 20 deprecation warnings on checkout v4.2.2, rust-cache v2.7.8, cache v4.2.3, setup-node v4.4.0 and upload-artifact v4.6.2, and bump any pin that warns (SHA-pinned).
-   - Record the run URLs in both reports.
-3. Merge when every job is green. Then run full-eval once by hand on `main` (`workflow_dispatch`) and record its three tables and times in the QA report.
-4. File the 12 open Q7 tickets (label `q7`). Close #47 and #75. Add the notes to #48, #49, #54, #78, #9, #77, #69, #89 and #70 (tickets file, last section).
+### Q8-10, the merge blocker: fixed 2026-11-19
+Q8-10 was fixed by the orchestrator in 88aa63b: a capture-phase `keydown` listener on `window` blocks every key while the guide is shown. Four new e2e checks press Space and `s` with the focus on the page body, on step 1 and during the 20-second test. All four fail on the old code (41 passed, 6 failed) and pass with the fix. An independent verifier confirmed it at 88aa63b: 13 shortcut keys were blocked with the focus on the body, the buttons and the select, and the guide's own keyboard controls still work. The old-code mutant and the bubble-phase mutant both fail. The verifier's one survivor, keys blocked even after the guide closes, is killed by fce3e58 ("s reaches main.js again" after Skip; 117 e2e checks). The original description follows.
+The guide's key block sits on the overlay box (`src/simple/firstrun.js:31`). With the focus on the page body, `main.js`'s document shortcuts (`src/main.js:1563`) still act. The focus is on the body when the guide opens on a fresh profile, and during the 20-second test after `#fr-extra` is cleared (`firstrun.js:174`). Space then starts listening behind the guide before a microphone is chosen, or stops the test and gives a false "I couldn't hear anything" verdict, and `s` opens the stage window.
 
-### Q8's task (prompt pack, `specs/2026-11-11-prompts-10x-team.md`, Stage C)
-**Q8 — Simple mode in front of the existing panels (M), Phase 4,** per ADR-010 Decision 4 and `specs/2026-10-24-software-strategy.md` § "Simple mode". The default view gets: the three-position mode switch (Off / Songs / Songs + Scripture, the last disabled until Increment 4′), the status light with one plain sentence (grey/amber/green/red, mapped from `MachineState`, the listening state and the presenter connection), the current song and slide, and a "Call for help" button. Every existing panel moves behind one "Advanced" link; nothing is deleted. The welcome overlay becomes the first-run flow: device → auto-detect presenter → model download → 20-second test. Keep the GUI under ADR-010's budget and dependency-free. Do not change backend commands. Exit: a volunteer sees three controls; everything else is one click away; the usability script from `specs/2026-10-24-user-research-plan.md` passes on the founder's machine.
+Fix: a capture-phase `window` keydown listener while the guide is shown, plus e2e checks with the focus on `document.body` that fail on ee431ce. Then a verifier confirms. Then push, draft PR, every CI job green (the browser test has never run on GitHub, Q8-04), merge, and file the tickets (label `q8`; Q8-10 only if it is still open). Add the comments to #7, #44, #34, #9, #102 and #37 (tickets file, last section).
 
-### What Q8 must know
-- **The GUI budget is the constraint.** GUI 2,951/3,000: **49 lines left**. Simple mode will not fit by adding code. Free lines first (move or merge markup) or ask the user for a budget decision before writing code; never raise a cap silently (R15). Q6-01 (#83) needs about 6 GUI lines and the user's approval.
-- **Q8 is a GUI step, so its QA mode differs from Q2–Q7.** Starting the GUI was forbidden in Q7. Q2 drove the GUI in simulate mode over WebView2 remote debugging, with a mocked presenter and no microphone (`reviews/2026-11-11-qa-report.md`; ticket Q2-53, #34). The 20-second test and the device step need a real microphone, so they belong to the founder's run of the usability script, not to an unattended agent. Ask the user for Q8's decisions before the run, as for Q3–Q7.
-- **"Do not change backend commands."** The status sentence must be built from what the GUI already receives (`MachineState`, the listening events, presenter status). The mapping of GUI events is pure and tested (`tests/gui_events.rs`, ADR-014).
-- **Privacy before a volunteer sees "Call for help":** the diagnostics report carries every transcript the GUI heard (Q7-08, medium). Q9 builds the help bundle on that report. Fix Q7-08 before or with Q9, and before any pilot leaves shadow mode.
-- **Model download in the first-run flow:** the app still checks no hash (#9). `full-eval.yml` pins SHA-256 `be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21` for the same URL; the first-run flow should check the same value if it touches the download.
-- **The tools:** build and test `voxxad` and `voxxa-eval` with `--features cli`. A plain `cargo test` fails 10 tests on purpose ("run: cargo test --features cli"). Never move a tool back to `src-tauri/src/bin/` (tauri-cli bundles everything there; `tests/packaging.rs` fails).
-- **The eval still guards the conductor.** A Q8 change should not move any action; if one does, re-record the affected logs with `voxxa-eval --full --record` and say why in the commit. So must any `SmartConfig` or `EvidenceConfig` default change, because all six logs store the whole config (`fixtures/README.md`, #78).
-- **CI:** keep the Linux runner on `ubuntu-22.04` until `unshare -rn` is shown to work on a newer image (comment in `ci.yml`). On Windows, `replay_no_sockets` counts only socket-creation events (AFD 1000) inside each child's start-to-exit window; keep it that way. Pid alone was flaky locally, and connect/ConnectEx completions (1017-1021) can be logged in another process's context: the first CI run on PR #95 charged six ConnectEx (1020) events with no socket to a replay.
+### Q9's task (prompt pack, `specs/2026-11-11-prompts-10x-team.md`, Stage C)
+**Q9 — Call for help, runbooks, quick-start (S), Phase 4.** Wire Call for help to `generate_diagnostic_report`, plus an export of the operator's `localStorage` state and the last 2 minutes of hypotheses from the session log. The bundle is zipped to the Desktop, shown to the user before it is written, then opened in the support e-mail draft. Write `docs/runbooks/{no-audio-device,presentation-app-not-reachable,model-missing}.md` and link each from the matching red status. Write `docs/quick-start.md` (one page, Windows). No telemetry. Exit: the bundle is produced, and the links resolve.
 
-**Running `voxxa-eval`** (see `fixtures/README.md` and `docs/runbooks/eval-regression.md`):
-```sh
-cargo build --manifest-path src-tauri/Cargo.toml --features cli --bin voxxad --bin voxxa-eval
-cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval                     # replay: what CI runs
-cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full 2> >(grep '^voxxa-eval' >&2)  # Whisper Tiny, local (bash)
-cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full --record fixtures/recordings/<name> 2> >(grep '^voxxa-eval' >&2)  # re-record one log
-```
-- Six fixtures in `fixtures/recordings/`, all synthetic speech (#73). Never print setlist or recognised text: Whisper prints recognised words to stderr, so keep only `voxxa-eval:` lines; print counts and indices only.
-- Time in debug on the reference PC: replay of all six about 2-4 min; full mode about 12 min idle, 38 min or more when another job shares the PC; `cargo test --features cli` about 7-9 min.
+### What Q9 must know
+**Where Call for help lives.**
+- The button and its message are in `src/simple/simple.js:24-25`: the `#s-help` button and the hidden `#s-help-msg` paragraph. The handler is at `:35`, and only un-hides the message. In Q8 it calls no command.
+- ADR-017 § 1 ("Call for help (Q8)") and its review trigger ("when Q9 wires Call for help") say an amendment is due.
+- The e2e checks that Call for help calls no command, and that Space on it shows the message (`tests/gui/e2e.mjs:326`). Q9 changes both checks on purpose.
+- Budget: Simple mode is 352 / 600 (248 left) and the GUI row 2,780 / 3,000 (220 left). Put the Call for help code in `src/simple/`.
 
-**Budget numbers (after Q7, unchanged from Q6).**
+**Privacy comes first.**
+- `generate_diagnostic_report` carries every transcript the GUI heard (Q7-08, **#102**, medium): `log::info!("Heard: …")` at `src-tauri/src/listen.rs:182` goes into the ring buffer, and `diagnostics/mod.rs:153` copies it into the report. That is why Q8 did not wire it. Fix #102 before or with Q9.
+- "The last 2 minutes of hypotheses" is transcript text by definition. The GUI also writes no session log (Q3-09, #53); only `voxxad` does. So the task as written needs either a GUI session log or another source.
+- The bundle must be shown before it is written (task text), and no heard text may appear anywhere else.
+- Ask the user for Q9's decisions before the run, as for Q3–Q8. Those decisions include whether a backend change or a new command is allowed: Q8's "no backend change" was for Q8 only. They also include what goes into the `localStorage` export. The keys are `voxxa.firstLaunchDone`, `voxxa.audioDevice`, `voxxa.presenterForm` (host, port and username; passwords are never stored, `src/main.js:1131-1133`), `voxxa.lastModel`, `voxxa.smartConfig`, `voxxa.language` and `voxxa.httpApi` (port and on/off only). **`voxxa.recentSetlists` holds up to eight whole setlists, slide text included** (`src/main.js:448-477`, about 1 MB at most). A naive `localStorage` export would put song text, which may be copyrighted, into the bundle, so leave that key out or reduce it to titles.
+
+**Linking runbooks from the light.** The status table is `statusLight` in `src/simple/logic.js:7-25`:
+- red row 1, mic lost (`:9`) → `no-audio-device`;
+- red rows 5 and 6, presenter refused or not found (`:13-19`) → `presentation-app-not-reachable`;
+- **"model missing" is not red.** It is grey row 3, "Off. Download the voice model in Advanced first." (`:11`), shown only while Off. Decide where `model-missing` links from (that grey sentence, or the guide's model step), and record it in ADR-017 § 2.
+
+Any sentence change has to be made in four places: `tests/gui/simple_logic.test.mjs`, the e2e's exact-sentence checks, the ADR-017 § 2 table and `docs/quick-start.md`.
+
+**How to test the GUI (Q8's method; keep it).**
+- **(a) Mocked browser.** `npm run build && npm run test:gui:e2e -- <screenshot dir>`. `tests/gui/e2e.mjs` serves `dist/` with `tests/gui/mock-tauri.js` injected before the app's scripts, so the shim is never bundled, and the test checks that. It drives headless Edge or Chrome over CDP.
+  - Add every command Q9 calls to the mock, with a configurable delay, like `st.startDelay`. A slow command is where Q8's bugs were.
+  - Use the e2e's `click()`, which refuses anything a user cannot see (`seen()`). Keep the `onlySimple()` and computed-colour checks.
+  - Listen, the 20-second test and every audio path run only here.
+  - The pure logic runs with `npm run test:gui` (`node:test`). In CI, the logic test runs on 3 OSes and the browser test on Windows only.
+- **(b) The guarded real app**, a scratch build never committed:
+  - Write a config outside git with your own identifier (`com.voxxa.qa<name>`, never `com.voxxa.app`) and `additionalBrowserArgs` with `--remote-debugging-port=<port>` on both windows.
+  - Build with `npm run tauri build -- --no-bundle --config <scratch>`. Run `python scripts/qa/mock_pro7.py 1025` (only if port 1025 is free), then `VOXXA_CDP_PORT=<port> node scripts/qa/simple-mode-real-app.mjs <dir>`.
+  - Before the first launch, re-read the startup path: `audio.start()` is called only from `start_listening` (`commands/mod.rs:229`).
+  - Never press Listen, run the 20-second test, choose the keystroke presenter, open the stage window, enable the HTTP API, or press "Use" or "Download" on a model (a failed load renames the model aside, Q2-50).
+  - **New for Q9:** a real Call for help may write to the user's real Desktop and open their mail client. Do not press it in the real app unless the user's Q9 decisions allow it. Test the bundle in the mock, or point it at a scratch folder.
+  - Afterwards, stop the app and the mock by PID, delete `%LOCALAPPDATA%\com.voxxa.qa<name>`, and restore the LF-only rewrites of `src-tauri/Cargo.toml` and `gen/schemas/*.json` (#91).
+  - The release `voxxa.exe` in `C:/dev/q3-10x-target/release/` is a scratch build with a QA identifier. Never ship it.
+
+**Keys.** Q8-10 must be fixed first. Shortcut keys stay live in Simple mode outside its own buttons (Q8-14). A new dialog, such as the bundle preview, needs the capture-phase key block that Q8-10 adds, or `main.js`'s Space shortcut will reach it.
+
+**The quick-start** (`docs/quick-start.md`) is the "quick-start card" of research objective O7 ("download to green with the quick-start card and no call"). Its steps should match the guide in order: microphone, presentation app, model, 20-second test. Its sentences should match the light. The founder's usability run (Q8-01) can then use it.
+
+### Numbers at the finish (Q8)
+Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double advances, median 2,310 ms, p95 4,870 ms (#84), unchanged from Q6. `baseline.json` unchanged. Tests: 210 passed with `--features cli` (56 unit + 154 integration), 1 ignored. GUI: `test:gui` 6/6, e2e 106/106.
+
 | Row | Used / cap | Left |
 |---|---|---|
 | everything else in src-tauri/src | 2,309 / 2,500 | 191 |
@@ -68,27 +92,30 @@ cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -
 | voxxa-eval (`src/cli/voxxa-eval/`) | 469 / 600 | 131 |
 | presenters | 1,149 / 2,000 | 851 |
 | importers + planning_center | 1,386 / 1,600 | 214 |
-| GUI | 2,951 / 3,000 | **49** |
+| GUI (without `src/simple/`) | 2,780 / 3,000 | 220 |
+| Simple mode (`src/simple/*`) | 352 / 600 | 248 |
 
-New tests go in `src-tauri/tests/`, which is not counted.
+Tests in `src-tauri/tests/`, `tests/gui/` and `scripts/qa/` are not counted.
 
 **Other things to keep.**
-- Safety rules for unattended runs: no microphone, no keystroke dispatch, `--shadow`/`--replay`/`--presenter none` only, TTS to files only, and stop every process you start, by PID.
-- The shared `CARGO_TARGET_DIR` (`C:/dev/q3-10x-target`): building an older commit there overwrites the head's debug binaries, and two `cargo test` runs in it at once can crash rustc. Use a separate target for parallel work.
-- After any cargo or tauri build, `src-tauri/gen/schemas/*.json` and sometimes `src-tauri/Cargo.toml` show as modified (line endings only). Restore them; do not commit them (Q6-12, #91).
-- Write files with the Edit or Write tools, not Bash heredocs (Q3-12, #56). Check `git grep -lIP '[\x00\x0b]'` before every commit, and `git diff --stat` before committing state files.
+- Safety rules for unattended runs: no microphone, no keystroke dispatch, `--shadow`/`--replay`/`--presenter none` only for `voxxad`, and stop every process you start, by PID.
+- Build and test the tools with `--features cli`. A plain `cargo test` fails 10 tests on purpose. Never move a tool back to `src-tauri/src/bin/`. The eval commands are in `fixtures/README.md` and `docs/runbooks/eval-regression.md`. Never print setlist or recognised text.
+- The shared `CARGO_TARGET_DIR` (`C:/dev/q3-10x-target`): two `cargo test` runs in it at once can crash rustc. Use a separate target for parallel work.
+- Write files with the Edit or Write tools, not Bash heredocs (#56). Check `git grep -lIP '[\x00\x0b]'` before every commit.
+- CI: keep Linux on `ubuntu-22.04` (the `unshare -rn` comment in `ci.yml`), and keep the Windows socket test's per-child time window.
 
 ### Still open from earlier steps
-- **Founder checklist** before any pilot leaves shadow mode: QA report Q2 §10 (M1–M14) and the security checklist, plus Q3-07 (#51): start and stop listening in the GUI, unplug, and one `voxxad --device default --shadow` run on the booth PC (with `--log-dir` set to a local folder). First clear `%LOCALAPPDATA%\com.voxxa.app`; keep `%APPDATA%\voxxa\models\ggml-tiny.bin`.
-- **Founder:** record the two public-domain hymn fixtures (Q5-01, #73); they would also re-check ADR-016's numbers on singing.
-- **User decisions:** the cut-list ADR-012 (evidence in the Q2 QA report §9); Q6-01 (#83, a ~6-line GUI fix) and Q6-10 (#89, two unused `SmartConfig` fields).
-- **Q1 A15 follow-ups:** `fixtures/setlists/pd-hymns.json` and `fixtures/pco/plan-sample.json` fit no parser (Q7-12); re-run the Windows verification (a003992) on the merged head (`handoff-local-windows.md`); finish reconciling `docs/signing-policy.md` with `SIGNING.md`.
+- **Founder checklist** before any pilot leaves shadow mode: QA report Q2 §10 (M1–M14), the security checklist, Q3-07 (#51), and now **the usability script on the founder's machine (Q8-01)**: U1-U13 with a real microphone and presentation app, plus a look through the old panels. First clear `%LOCALAPPDATA%\com.voxxa.app`; keep `%APPDATA%\voxxa\models\ggml-tiny.bin`.
+- **Founder:** record the two public-domain hymn fixtures (#73).
+- **User decisions:** the cut-list ADR-012; Q6-01 (#83) and Q6-10 (#89).
+- **Q1 A15 follow-ups:** Q7-12 (#106); re-run the Windows verification on the merged head (`handoff-local-windows.md`); reconcile `docs/signing-policy.md` with `SIGNING.md`.
 
-**Process rule (user, 2026-11-11):** every prompt (Q2…Q27) also runs independently through ponytail. Run it as two lanes plus cross-review for code steps (Q8 is a code step), or `ponytail` + `ponytail-audit` for verification and close steps. Record the result in `reviews/YYYY-MM-DD-ponytail-<Q>.md`.
+**Process rule (user, 2026-11-11):** every prompt (Q2…Q27) also runs independently through ponytail. Run code steps (Q9 is one) as two lanes plus cross-review, and verification and close steps as `ponytail` + `ponytail-audit`. Record the result in `reviews/YYYY-MM-DD-ponytail-<Q>.md`.
 
 ---
 
 ## Handoff History
+- 2026-11-19 Q7 → Q8: Q7 closed Increment 1′ (a determinism test on 3 OSes, a zero-sockets test for `--replay`, the report-only full eval, the tools out of the installers, the CLI release notes, the Companion guide and the runbook); merged into `main` as c448139 (PR #95); 12 tickets filed as #96–#107; #47 and #75 closed; the full section, with the eval commands, the budget table and the CI notes, is in this file's git history (ee431ce).
 - 2026-11-19 Q6 → Q7: Q6 built ADR-009's minimum (the evidence tracker, ADR-016) on six synthetic fixtures (false advances 1 → 0, p95 11.23 → 4.87 s), with the user's one-time baseline exception for the jump row; merged into `main` as a60d1ce (PR #82); 12 tickets filed as #83–#94; #76 and #62 closed; the full section, with the eval commands, the determinism trap and the re-recording rules, is in this file's git history (6386f6b).
 - 2026-11-13 Q5 → Q6: Q5 added `voxxa-eval` (replay in CI, `--full` with Whisper Tiny locally), two stand-in fixtures, `fixtures/baseline.json` and a CI eval step (ADR-015); merged into `main` as 69f7d27 (PR #72) after the orchestrator closed Q5-08, Q5-09 and Q5-10's M52/M55 with tests (5858872) and proved the gate in real CI (run 43469439549); 9 tickets filed as issues #73–#81; the full section, with the eval commands, the first numbers and the Q5-04 reproduction, is in this file's git history (4edd7f6).
 - 2026-11-13 Q4 → Q5: Q4 put Whisper behind ADR-004's `Recognizer` trait as a 5 s window decoded every 1 s, with a stitcher and a session-log `window` line (ADR-014); code head a4bae0e, merged into `main` as 571cf0d (PR #58); 13 tickets filed as issues #59–#71; #46 and #52 closed; the full section, with the schema, cadence, replay and alignment notes for the eval, is in this file's git history (c10e963).

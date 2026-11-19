@@ -489,3 +489,71 @@ Process record: `reviews/2026-11-13-ponytail-q6.md` §10. Final numbers: `review
 **Debt.** Q6-01 GUI stores the whole `SmartConfig`; Q6-03 p95 still 4.87 s; Q6-06 no importer writes sections; Q6-07/08/09 fixture notes, provenance and an unused generator path; Q6-10 two unused `SmartConfig` fields; Q6-11 ADR-009's graph-wide tracking; Q6-12 generated-schema line endings; Q6-13/14 operator bookkeeping not fully pinned; Q6-15 the ponytail scoring idea.
 
 **Next:** the orchestrator pushes `q6/base`, opens the PR, gets CI green and merges; then files the 12 open Q6 tickets.
+
+## 2026-11-19 — Q8 (10x lane, `q8/10x`): Simple mode in front of the existing panels (ADR-017)
+Base f8500e3. ADR first (42abe5c), then code with tests. No backend change: `src-tauri/` is untouched. Simple mode reads `get_status`, `get_presenter_info` and the existing events, and starts or stops listening by clicking the existing Listen button (`src/simple/simple.js`).
+
+**What was built.**
+- `src/simple/logic.js` (pure, Node-testable): `statusLight` (the ADR-017 table, 10 rows, first match wins), `songPosition` (global slide index to song n of N, slide k of m), `testVerdict` (the 20-second test). No DOM, no Tauri.
+- `src/simple/simple.js`: the default view (mode switch Off / Songs / Songs + Scripture disabled, the light and one sentence, song and slide, Call for help, Advanced). It polls the two status commands once a second; `machine-state`, `listening-stopped`, `presenter-error` and `slide-advanced` update it at once. It adds "Set-up guide" and "Simple mode" links to the existing header, and re-applies the saved microphone at start (before, only opening Settings applied it).
+- `src/simple/firstrun.js`: the first-run flow (device, presenter auto-detect, model, 20-second test), skippable, re-openable from Advanced, remembered under the welcome overlay's own key `voxxa.firstLaunchDone`. It writes the same `localStorage` keys as Settings and Models (`voxxa.audioDevice`, `voxxa.presenterForm`, `voxxa.lastModel`), so the old panels show what the volunteer chose. It never connects the keystroke driver itself.
+- **Call for help (Q8): a message, no command.** "Call for help comes in the next update. Until then, call your tech lead and read them the sentence next to the light." `generate_diagnostic_report` was not used because it carries every heard transcript (Q7-08, #102).
+- **The Advanced move cost the panels nothing:** `#app` gets `hidden`; the diagnostic modal moves out of `#app` unchanged; `main.js` gains one line (a `voxxa-setlist` DOM event in `loadSetlist`). The welcome overlay (markup, CSS, JS) is deleted: the first-run flow replaces it.
+- **Defect found and fixed: the `hidden` attribute did not hide flex boxes.** `main.css` gives `#app`, `.modal-overlay`, `.slide-view`, `.presenter-config`, `.discovered-list`, `.pco-step`, `.song-strip` and the old `.welcome-overlay` `display: flex`, which beats the browser's own `[hidden]` rule. Measured in headless Edge with the new rule removed: `#diag-overlay` hidden yet `display: flex` (a fixed, full-window modal at z-index 900), and the same for `#slide-view`, `#presenter-rest-config` and `#discovered-list`. So the shipped GUI showed the diagnostic modal and the welcome overlay over the window at every start, and every presenter form at once. Nobody saw it: Q2 clicked through CDP, and the founder's run is still open. One rule in `src/simple/simple.css` (`[hidden] { display: none !important; }`) makes the attribute win everywhere. The Q8 browser test checks that the modal is hidden by default and opens on its button.
+
+**Budgets** (`scripts/loc_budget.py`, tokei 15): new recorded row "Simple mode (src/simple/*)" **302 / 600** (user decision 2026-11-18, ADR-017 § 5); GUI **2,951 → 2,780 / 3,000** (welcome overlay deleted, 3 lines added for the move). No other row changed, no cap raised, no npm runtime dependency.
+
+**Tests.** `tests/gui/simple_logic.test.mjs` (node:test, 6 tests: every table row, row order, 80 input combinations each give one of four colours, `songPosition`, `testVerdict`). `tests/gui/e2e.mjs` with `tests/gui/mock-tauri.js` (77 checks in headless Edge with a scripted backend; the test server injects the shim, and the test checks the bundle does not contain it). `ci.yml`: "GUI logic tests" on all three OSes, the browser test on Windows. `scripts/qa/simple-mode-real-app.mjs`: the guarded real-app driver (allow-listed clicks only).
+
+**Real app, guarded.** Scratch config outside git (identifier `com.voxxa.qa10x`; `additionalBrowserArgs` with `--remote-debugging-port=9341` on both windows), built with `npm run tauri build -- --no-bundle --config <scratch>`. The startup path was read first: `run()` builds `AudioEngine::new()` (a `Default`, no cpal stream), the VAD, a keystroke controller (no I/O) and the tray. The page calls `list_presenters`, `get_presenter_info`, `set_language` and `load_model` (only with a saved model, and a fresh identifier has none); Simple mode adds `get_status` and `list_audio_devices`. Nothing opens an input stream at startup. 26 of 26 checks passed; the app never listened. App and mock were stopped by PID and the data dir was deleted.
+
+**Gates** (Windows 11, rustc 1.99.1, `CARGO_TARGET_DIR=C:/dev/q3-10x-target`): all pass. (1) `npm ci && npm run build`; (2) `cargo fmt --check`; (3) `cargo clippy --all-targets -- -D warnings`, with and without `--features cli`; (4) `cargo test --features cli` with `VOXXA_REQUIRE_SOCKET_TRACE=1`: 210 passed (56 unit + 154 integration), 1 ignored, 0 failed, unchanged from Q7; (5) `cargo-deny check licenses advisories bans`: ok; (6) `python scripts/loc_budget.py`: all OK; (7) the `dictat` grep prints nothing. The CI eval step: "OK: no metric is worse". `npm run test:gui`: 6/6. `npm run test:gui:e2e`: 77/77. Only binaries match the control-byte grep.
+
+**Deviations.** The 600-line row (recorded). `blank_hold` is amber, not the strategy's red "Lyrics don't match", because no signal tells a wrong setlist from a prayer. "Advanced" reveals the panels instead of opening `voxxa.toml` (there is none). Songs are still loaded in Advanced or in the first-run test step. The model step checks no hash (#9: the GUI cannot hash a file the backend wrote without a new command).
+
+## 2026-11-19 — Q8 finish on `q8/base`
+`q8/10x` merged (b4eacca), then the 10x review's fixes and four ponytail grafts, one commit each (3ab4b6c..21b5b77; list and checks in the QA record). Deviation from the review: must-fix 1 said to ignore switch clicks while a toggle is pending, but its own 150 ms check (Songs, then Off) must end stopped, so a click while pending is kept and sent once the first toggle settled (when `get_status` and the Listen button's `active` class both show it); after 3 polls without that, the switch shows the real state and drops the click. Simple mode row 302 → 341 / 600; GUI row 2,780 unchanged; `main.js` and `src-tauri/` unchanged. ADR-017 §§ 1, 2, 4, 6 and Consequences match the code.
+
+## 2026-11-19 — Q8 verifier fixes on `q8/base`
+ef84473 row 9 needs a position inside the song (`src/simple/logic.js:22`, `:38`); 3f75c09 and b191945 are test-only (`tests/gui/e2e.mjs`). Simple mode row 341 / 600 unchanged; `src-tauri/`, `main.js`, `index.html` unchanged. ADR-017 row 9 and § 6 updated to match. Checks and gates in the QA record.
+
+## 2026-11-19 — Q8 verifier round 2 on `q8/base`
+bb46628 the 20-second test waits for the Listen click to settle and stops what it started, even a late start (`src/simple/firstrun.js:173-218`); 9ef8937 and 808f14b are test-only (`tests/gui/e2e.mjs`: the light's computed colour; `seen()` for clicks and the three controls). Simple mode row 341 → 352 / 600; GUI row 2,780 unchanged; `src-tauri/`, `main.js`, `index.html` unchanged. Known limit: an error toast from elsewhere during the start window would end the wait early; nothing else toasts an error while the guide is open and listening has not started. ADR-017 § 4 (test row) and § 6 updated. Checks and gates in the QA record.
+
+## 2026-11-19 — Q8 final: Simple mode on `q8/base` (head ee431ce), merge on hold
+**Head:** `q8/base` @ ee431ce, 24 commits on f8500e3:
+- the 10x lane (42abe5c..99fe481), merged as b4eacca;
+- the review fixes and ponytail grafts (3ab4b6c..21b5b77) and their records (9e96282);
+- the round 1 fixes (ef84473, 3f75c09, b191945) and records (57fafcb);
+- the round 2 fixes (bb46628, 9ef8937, 808f14b) and records (ee431ce).
+
+`q8/10x` (99fe481) and `q8/ponytail` (bdc3348) stay local for reference. Process record: `reviews/2026-11-19-ponytail-q8.md`.
+
+**Built:** Simple mode in `src/simple/`:
+- `logic.js` is pure: `statusLight` (10 rows), `songPosition` and `testVerdict`.
+- `simple.js` holds the view, the switch (one toggle at a time) and Call for help. Call for help is a message at `src/simple/simple.js:24-25` and `:35`, and it calls no command.
+- `firstrun.js` holds the guide and the start-up reconnect.
+- `simple.css` holds the styles and the global `[hidden]` fix.
+
+Behind it, `#app` is hidden and unchanged. `main.js` gained one line, the welcome overlay was deleted, and `src-tauri/` was not touched.
+
+**Budgets:** GUI 2,780 / 3,000; Simple mode 352 / 600 (a recorded deviation, ADR-017 § 5); every Rust row unchanged; no runtime npm dependency.
+
+**Gates at ee431ce:** all pass (finisher; verifiers A and B). Tests: 210 passed, 1 ignored, with `--features cli`. `test:gui` 6/6. e2e 106/106. The CI eval step: 21/21, "OK: no metric is worse".
+
+**Not done, so the merge is on hold.** Verifier A failed round 3. The guide's key block sits on the overlay box (`src/simple/firstrun.js:31`), so with the focus on the page body, `main.js`'s shortcuts still start or stop listening and open the stage window (ticket Q8-10, medium). The fix is a capture-phase `keydown` listener on `window` while the guide is shown. It costs 1-2 lines in the Simple mode row and needs e2e checks with the focus on `document.body` that fail on ee431ce. Then a verifier confirms. ADR-017 § 1 (line 29) and Consequences (line 111) already describe the fixed behaviour.
+
+**Deviations (all recorded in ADR-017):**
+- the 600-line row;
+- `blank_hold` is amber, not red (Q8-02);
+- Advanced shows the panels, because `voxxa.toml` does not exist;
+- Call for help is a message (Q7-08, #102);
+- songs are loaded in Advanced (Q8-03);
+- the first-run download has no hash check (Q8-06, #9);
+- a click on the switch while pending is kept and sent later, not ignored (3ab4b6c).
+
+**Tickets:** 16 open (2 medium, 14 low), `reviews/2026-11-19-q8-tickets.md`. Q8 closes no earlier issue outright; #7 is fixed in part.
+
+**Next:** fix Q8-10 and have a verifier confirm it. Then the orchestrator pushes `q8/base`, opens the draft PR, gets CI green and merges. Then the orchestrator files the tickets, apart from Q8-10 if the fixing commit closes it.
+
+**Q8-10 closed (2026-11-19, orchestrator).** Q8-10 was fixed by the orchestrator in 88aa63b: a capture-phase `keydown` listener on `window` blocks every key while the guide is shown. Four new e2e checks press Space and `s` with the focus on the page body, on step 1 and during the 20-second test. All four fail on the old code (41 passed, 6 failed) and pass with the fix. An independent verifier confirmed it at 88aa63b: 13 shortcut keys were blocked with the focus on the body, the buttons and the select, and the guide's own keyboard controls still work. The old-code mutant and the bubble-phase mutant both fail. The verifier's one survivor, keys blocked even after the guide closes, is killed by fce3e58 ("s reaches main.js again" after Skip; 117 e2e checks). SDE position: ready to merge once CI is green. U6 (the 20-second test) now also passes by keyboard.

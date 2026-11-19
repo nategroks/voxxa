@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q7 (close Increment 1′: QA, Security, DevOps, SRE) **done on `q7/base`** (final head 6386f6b plus the state commit "state: Q7 close Increment 1prime"; both verifiers passed at 6386f6b). Next, by the orchestrator (pre-approved): CI on a draft PR with the first-run evidence, the PR, one manual full-eval run, and the merge; then Increment 2′, starting with **Q8 (Simple mode)** (handoff, "From: Q7 → To: Q8"). Q6 complete and merged into `main` (PR #82, a60d1ce).
+**Current Phase:** Increment 2′, **Q8 (Simple mode) done on `q8/base`**. Verifier A's round-3 blocker (Q8-10) is fixed in 88aa63b, confirmed by a verifier, and its survivor is killed in fce3e58. Next for the orchestrator: CI, PR and merge (pre-approved), then **Q9** (Call for help, runbooks, quick-start). Q7 was merged into `main` (PR #95, c448139): Increment 1′ is closed.
 **Last Updated:** 2026-11-19 by 10x-team orchestrator
 **Health:** On Track
 
@@ -155,6 +155,47 @@
   - **Tickets:** 12 open (1 medium, 11 low: Q7-01..03, Q7-05..13), not filed yet; Q7-04 closed in c9271f0. Q7 closes #47 and #75 (b9692c5). It changed but did not close #48, #49, #54 and #78, and adds notes to #9, #77, #69, #89 and #70 (tickets file, last section).
   - **Release readiness:** Increment 1′ is complete as a **developer preview** of the CLI. It is not a church release (see "Release readiness (2026-11-19, Increment 1′)" below).
 
+- [x] 2026-11-19: **Q8** Simple mode in front of the existing panels (Phase 4: ADR-017), with the ponytail lane. Records:
+  - `reviews/2026-11-19-ponytail-q8.md`: both lanes, the cross-reviews, the comparator's ruling, the grafts, the disagreements, the verifier rounds, and which checks ran in the mocked browser and which in the guarded real app;
+  - `reviews/2026-11-19-q8-tickets.md`;
+  - `adrs/017-simple-mode-in-front-of-the-existing-panels.md`;
+  - `decisions/{sde,qa}/church-autoadvance.md` ("Q8 final", with the usability walk-through table) and `decisions/architect/_index.md`.
+
+  **Implemented; not merged. Verifier A failed round 3, and the PR must not be merged until Q8-10 is fixed and verified** (below).
+  - **Final head:** `q8/base` @ **ee431ce** (24 commits on f8500e3, including the merge), plus the state commit "state(implementation): Q8 Simple mode". `q8/10x` (99fe481) and `q8/ponytail` (bdc3348) stay local for reference.
+  - **History:**
+    - the 10x lane (42abe5c..99fe481, ADR first), merged as b4eacca, the comparator's base;
+    - review fixes 3ab4b6c (one toggle at a time), 70e3519 (the presenter's reason in row 5), 68df936 (Space on Simple mode's buttons) and 21b5b77 (the device step's stale guard);
+    - ponytail grafts fa87345 (reconnect at start), 91c3fc2 (text written only on change), 9653f48 (green only on a slide change) and 42f7121 (the keystroke hint);
+    - round 1 fixes ef84473, 3f75c09 and b191945; round 2 fixes bb46628, 9ef8937 and 808f14b;
+    - records in 9e96282, 57fafcb and ee431ce.
+  - **Built:**
+    - Simple mode in `src/simple/`: a mode switch (Off, Songs, and Songs + Scripture disabled), a status light with one sentence (10 rows, a pure function tested row by row), the song and slide (titles only, ADR-011), Call for help, and Advanced.
+    - Call for help shows a "next update" message and calls no command (Q7-08, #102).
+    - Every old panel sits unchanged behind Advanced, one click away. The diagnostic modal moved out of `#app`, and `main.js` gained one line.
+    - The welcome overlay was replaced by a first-run flow: microphone, presenter auto-detect, model (Tiny), and a 20-second test that is green only on a slide change the presenter took. The flow can be skipped, re-opened from Advanced, and is remembered in `voxxa.firstLaunchDone`.
+    - The saved microphone and presenter are re-applied at start.
+    - A pre-existing defect was fixed: the `hidden` attribute lost to `display: flex`, so the diagnostic modal covered the window at every start.
+    - No change under `src-tauri/`.
+  - **Gates on Windows** (rustc 1.99.1) at ee431ce, all pass (finisher; verifiers A and B):
+    - frontend, fmt, clippy with and without `--features cli`;
+    - `cargo test --features cli`: 210 passed, 1 ignored;
+    - cargo-deny, the loc budget and the `dictat` grep;
+    - the CI eval step: 21/21, "OK: no metric is worse";
+    - `npm run test:gui`: 6/6; `npm run test:gui:e2e`: 106/106.
+    - Only binaries match the control-byte grep.
+  - **Budgets:** new row Simple mode (`src/simple/*`) **352 / 600** (user decision, recorded deviation, ADR-017 § 5). GUI 2,951 → **2,780** / 3,000. No other row changed, no cap raised, no npm runtime dependency.
+  - **Testing, two ways:**
+    - (a) Mocked browser (`tests/gui/e2e.mjs` with `tests/gui/mock-tauri.js`, headless Edge, in CI on Windows): every status row with its computed colour, Off and Songs, the 20-second test, and every Advanced panel.
+    - (b) The guarded real app (a scratch identifier per agent, CDP, a ProPresenter mock): 27/27, plus probes. It never listened and never used the keystroke presenter, the stage window or the HTTP API.
+  - **Usability walk-through** (research plan § 2 and O7): passes on the mocked GUI by mouse; U6 fails by keyboard (Q8-10). On the real app, every step that is safe without a microphone passes. The founder's own run is open (Q8-01; founder checklist below; not a merge gate).
+  - **Verifier rounds:**
+    - Round 1 (9e96282) did not pass: row 9 after a reload, panels leaking past the check, a hidden Skip.
+    - Round 2 (57fafcb) did not pass: a slow start in the 20-second test, the light's colour unchecked, controls off screen or transparent.
+    - Each finding was fixed with a check that fails without it.
+    - **Round 3 at ee431ce: verifier B passed** (scope clean, 26 of 28 mutants killed, two minor survivors: Q8-11, Q8-12). **Verifier A failed:** with the focus on the page body, the set-up guide lets `main.js`'s shortcut keys through. Space starts listening behind the guide before a microphone is chosen, and during the 20-second test Space stops listening (a false "couldn't hear" verdict) and `s` opens the stage window (`src/simple/firstrun.js:31`; Q8-10).
+  - **Tickets:** 16 open (2 medium, 14 low), not filed yet (label `q8`). Q8 closes no earlier issue outright: #7 is fixed in part (fa87345), and comments go to #7, #44, #34, #9, #102 and #37 (tickets file, last sections).
+
 ### Release readiness (2026-11-19, Increment 1′ after Q7)
 - **What Increment 1′ delivers:** `voxxad`, a headless listening loop with a replayable JSON-lines session log (ADR-013); Whisper behind a recogniser trait with a 1 s hop (ADR-014); `voxxa-eval` with six fixtures and a CI gate (ADR-015); the evidence tracker in the conductor (ADR-016); and in Q7 a determinism test, a zero-sockets test, a report-only full eval on three OSes, release notes, a Companion guide and the runbook "eval shows regression".
 - **Ready to merge** once the first CI run shows: the Linux and Windows jobs pass `replay_no_sockets`; a throwaway mutant turns Linux red and its revert green; full-eval is green or warns on three OSes with only the table, its times recorded and the Node 20 check done. Then one manual full-eval run on `main`.
@@ -188,6 +229,7 @@
 ### Pending
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
 - [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
+- [ ] Founder: run the usability script from the research plan on the founder's machine (Q8-01; user decision 3, not a merge gate). Use a fresh profile (clear `%LOCALAPPDATA%\com.voxxa.app`, keep `%APPDATA%\voxxa\models\ggml-tiny.bin`). Run U1-U13 from `decisions/qa/church-autoadvance.md` ("Q8 final") with a real microphone and presentation app. Look through every old panel once (the `[hidden]` fix changed what shows), and confirm amber for `blank_hold`.
 - [x] Q4 close-out (orchestrator): PR #58 CI green (5/5 jobs at 2807ed7); merged into `main` as 571cf0d; 13 Q4 tickets filed as #59–#71 (label `q4`); #46 and #52 closed.
 - [x] **Q5 close-out (orchestrator).**
   1. [x] Tests for Q5-08 (M65), Q5-09 (M66) and Q5-10's M52 and M55 added in 5858872 (test-only); each mutant applied by hand fails `cargo test --test voxxa_eval` (26 tests). M57 and M68 deferred with a reason (Q5-10).
@@ -205,14 +247,20 @@
   3. [x] Filed the 12 open Q6 tickets as #83–#94 (label `q6`); added the Q6 numbers to #61, #73, #77 and #78. #76 and #62 close when PR #82 merges.
 
   The user pre-approved the push, PR, CI fixes, merge and filing (handoff, "User decisions for Q6").
-- [ ] **Q7 close-out (orchestrator, pre-approved in handoff "User decisions for Q7").**
+- [x] **Q7 close-out (orchestrator, pre-approved in handoff "User decisions for Q7").**
   1. [x] Pushed `q7/base`; draft PR #95.
   2. [x] First-CI-run evidence collected and recorded (QA report §12, security review §12-§13). The Windows ETW check failed once in CI and was fixed (5d69368). The throwaway mutant (f18ab4c) turned Linux and Windows red and was reverted (fc93326). full-eval was green on 3 OSes and equal to replay. The Node 20 pins were bumped (230a42e).
-  3. [ ] Merge when every job is green (full-eval may warn, never fail).
-  4. [ ] Run full-eval once by hand on `main` (`workflow_dispatch`); record its three tables and times in the QA report.
-  5. [x] Filed the 12 open Q7 tickets as #96–#107 (label `q7`); notes added to the nine earlier issues. Still to do when merged: Close #47 and #75. Add the notes to #48, #49, #54, #78, #9, #77, #69, #89 and #70 (tickets file, last section).
-- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 merged (a60d1ce); Q7 done and verified on `q7/base` (6386f6b), waiting for CI, PR, the manual full-eval run and merge
-- [ ] Increment 2′ (Q8–Q11), starting with Q8 Simple mode, after the Q7 merge
+  3. [x] Merged into `main` as c448139 (2026-11-19). CI green on all 5 jobs at a7f6c89 (run 44545240949) and on `main` (run 44548298909); full-eval green on 3 OSes with no warnings at a7f6c89 (run 44545241184).
+  4. [x] full-eval run by hand on `main` (run 44548333928, at c448139): green on all three OSes; each table equals the replay table (QA report §13).
+  5. [x] Filed the 12 open Q7 tickets as #96–#107 (label `q7`); notes added to the nine earlier issues. #47 closed by the merge, #75 closed by hand. The notes were added to #48, #49, #54, #78, #9, #77, #69, #89 and #70 (tickets file, last section).
+- [x] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 merged (a60d1ce); Q7 merged (c448139). **Increment 1′ closed 2026-11-19.**
+- [ ] **Q8 close-out (orchestrator).** The push, PR, CI fixes, merge and filing are pre-approved (handoff, "User decisions for Q8").
+  1. [x] **Merge blocker, Q8-10.** Done in 88aa63b (see below). Original plan: In `src/simple/firstrun.js`, replace the key block on the overlay box (line 31) with a capture-phase `keydown` listener on `window` while the guide is shown. Add e2e checks with the focus on `document.body`: on step 1, Space and `s` call neither `start_listening` nor `toggle_stage_display`; during the 20-second test, Space does not call `stop_listening` and the verdict is unchanged. Each check must fail on ee431ce.
+  2. [x] Q8-10 was fixed by the orchestrator in 88aa63b: a capture-phase `keydown` listener on `window` blocks every key while the guide is shown. Four new e2e checks press Space and `s` with the focus on the page body, on step 1 and during the 20-second test. All four fail on the old code (41 passed, 6 failed) and pass with the fix. An independent verifier confirmed it at 88aa63b: 13 shortcut keys were blocked with the focus on the body, the buttons and the select, and the guide's own keyboard controls still work. The old-code mutant and the bubble-phase mutant both fail. The verifier's one survivor, keys blocked even after the guide closes, is killed by fce3e58 ("s reaches main.js again" after Skip; 117 e2e checks). Original plan: a verifier re-runs the gates, `npm run test:gui` and `npm run test:gui:e2e`, and confirms the fix. Record the result in the QA record and in `reviews/2026-11-19-ponytail-q8.md` § 6.
+  3. [ ] Push `q8/base` and open a draft PR against `main`. Every CI job must be green, including the GUI logic test on 3 OSes and the browser test on Windows, which has never run on GitHub (Q8-04).
+  4. [ ] Merge.
+  5. [ ] File the open Q8 tickets as issues (label `q8`), apart from Q8-10 if its fix closed it. Add the comments to #7, #44, #34, #9, #102 and #37.
+- [ ] Increment 2′ (Q8–Q11): Q8 done on `q8/base` (Q8-10 fixed), CI + PR + merge next; then Q9 (Call for help, runbooks, quick-start)
   - [x] 2026-11-13 Q5 verifier fixes on `q5/base`: every surviving mutant named by the verifier is now killed by a test (song not compared, false advance lowering recall, EARLY_MS 999 and `<=`→`<`, the total row's false/double sums, unblank not resetting the blank, a failing `voxxad` read as success); a metric with a value but no threshold now fails the gate (ADR-015 D8 amended); voxxa-eval exits 2 when `voxxad` ran in the wrong mode (a replay that ran Whisper); both session logs re-recorded with the final `--full --record` (only the start line's `log` field changed).
   - [x] 2026-11-13 Q5 second verifier pass on `q5/base`: tests now kill the round-2 survivors: M42 (main.rs checking only the total row; a binary-level test breaks only per-fixture thresholds and needs both FAIL lines and no FAIL total), M25/M26 (one metric's comparison reversed), M37 (the table's count cells) and M47/M48 (the audio recipe's 16 kHz mono 16-bit check and header byte rate). Each test was run against its mutant and fails. No product code changed; voxxa_eval tests 23 to 26.
   - [x] 2026-11-13 Q5 verifier round 3 at c10e963: verifier A passed; verifier B failed on six surviving mutants (Q5-08 … Q5-10). The four that mattered were closed with tests in 5858872 (orchestrator, checked against each mutant); M57 and M68 deferred (Q5-10).
@@ -220,7 +268,7 @@
 - [ ] Phases 4–6 per increment
 
 ### Blocked
-(none)
+- None.
 
 ## Risks
 - R8 **Closed (Q2).** Unreviewed May-branch code: Q2 ran QA and security over the merged base; all 12 Q0 must-fix defects and every new crash, data-loss and wrong-slide defect are fixed with tests; the rest are 43 tracked tickets (GitHub issues #2–#44).
@@ -232,6 +280,8 @@
   - the new conductor evidence row (`aligner/evidence/`) 215/500 (285 left; Q6 user decision 3, a recorded deviation from ADR-010 Decision 3, ADR-016 Decision 8);
   - voxxa-eval 469/600 (131 left); recognizer 432/700 (268 left); `voxxad` 552/600 (48 left; +4 for local-time log names with `time`);
   - GUI 2,951/3,000 (**49 left**; Q6-01's fix needs about 6); presenters 1,149/2,000; importers 1,386/1,600 (214 left; +24 in Q6).
+
+  After Q8 (ee431ce): GUI 2,780 / 3,000 (220 left; the welcome overlay was deleted), and the new row Simple mode (`src/simple/*`) 352 / 600 (248 left; Q8 user decision 1, ADR-017 § 5). Every Rust row is unchanged.
 
   Mitigation: keep new tests in `src-tauri/tests/` (uncounted; Q6's 32 conductor tests are there: `conductor_evidence` 25, `conductor_scripted` 5, `conductor_unchanged` 2). No cap was raised in Q6. The GUI row is now the tightest: any GUI change (Q6-01, Q8's simple mode) needs code removed first or a budget decision before code, never a silent raise.
 - R13 (new, Q1) Fragile CI gates.
