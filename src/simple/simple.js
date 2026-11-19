@@ -37,13 +37,17 @@ $("s-help").onclick = () => { $("s-help-msg").hidden = false; };
 // Everything the light needs (ADR-017 § 2), from existing commands and events.
 const s = { running: false, setlist: false, model: false, state: null, isBlank: false, presenter: null, presenterError: null, micLost: false, song: null };
 let songs = [];
+// One toggle at a time: `pending` is the running state asked for until get_status shows
+// it (or 3 polls pass); a click meanwhile is kept in `want` and sent once it settled.
+let pending = null, want = null, polls = 0;
 
 function render() {
   const [light, sentence] = statusLight(s);
   $("s-light").className = `s-light ${light}`;
   root.dataset.light = light;
   $("s-sentence").textContent = sentence;
-  for (const b of root.querySelectorAll("[data-mode]")) b.setAttribute("aria-checked", String(b.dataset.mode === (s.running ? "songs" : "off")));
+  const on = want ?? pending ?? s.running; // the user's choice shows until the backend settles
+  for (const b of root.querySelectorAll("[data-mode]")) b.setAttribute("aria-checked", String(b.dataset.mode === (on ? "songs" : "off")));
   const p = s.song;
   $("s-song").textContent = !p ? "No song on screen yet" : p.songs ? `Song ${p.song} of ${p.songs} · ${p.title}` : p.title;
   $("s-slide").textContent = p && p.slides ? `Slide ${p.slide} of ${p.slides}` : "";
@@ -58,6 +62,12 @@ async function refresh() {
     if (st.is_running && !s.running) s.micLost = s.presenterError = false; // a new session
     Object.assign(s, { running: st.is_running, setlist: st.total_slides > 0, model: st.model_loaded, state: st.machine_state, isBlank: !!st.is_blank, presenter });
     s.song = songPosition(songs, st.current_slide, st.song_title);
+    // Settled when the backend and main.js's Listen button (its "active" class) both show it.
+    if (pending !== null && st.is_running === pending && $("listen-btn").classList.contains("active") === pending) {
+      const next = want;
+      pending = want = null;
+      if (next !== null && next !== st.is_running) toggle(next); // the click made while it settled
+    } else if (pending !== null && ++polls >= 3) pending = want = null; // refused or slow: show the real state
   } catch (err) {
     console.error("simple mode status:", err);
   } finally {
@@ -67,12 +77,19 @@ async function refresh() {
 }
 
 // Off stops and Songs starts listening through the existing Listen button.
+function toggle(on) {
+  pending = on;
+  polls = 0;
+  if (on) s.micLost = s.presenterError = false;
+  $("listen-btn").click();
+  render();
+  setTimeout(refresh, 400);
+}
 root.querySelector(".s-switch").addEventListener("click", (e) => {
   const mode = e.target.dataset && e.target.dataset.mode;
-  if (!mode || e.target.disabled || (mode === "songs") === s.running) return;
-  if (mode === "songs") s.micLost = s.presenterError = false;
-  $("listen-btn").click();
-  setTimeout(refresh, 400);
+  if (!mode || e.target.disabled) return;
+  if (pending !== null) { want = mode === "songs"; return render(); } // no second toggle in flight
+  if ((mode === "songs") !== s.running) toggle(mode === "songs");
 });
 
 listen("machine-state", (e) => { s.state = e.payload.state; s.isBlank = e.payload.is_blank; render(); });

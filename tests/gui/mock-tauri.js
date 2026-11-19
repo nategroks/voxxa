@@ -10,6 +10,7 @@
     running: false, songs: null, current: null, machine: null, isBlank: false,
     presenter: { kind: "keystroke", display_name: "Keystroke (any app)", connected: true },
     devices: ["Desk USB input", "Laptop microphone"], found: [], startError: null,
+    startDelay: 300, // ms start_listening takes, like loading the model and opening the device
   };
   const emit = (event, payload) => { for (const fn of [...(listeners[event] || [])]) fn({ event, payload }); };
   const total = () => (st.songs ? st.songs.reduce((n, s) => n + s.slides.length, 0) : 0);
@@ -38,7 +39,8 @@
     },
     set_language: () => null, get_language: () => null,
     load_setlist: ({ setlistJson }) => { st.songs = JSON.parse(setlistJson).setlist; st.current = null; st.machine = null; st.isBlank = false; return st.songs; },
-    start_listening: () => {
+    start_listening: async () => {
+      await new Promise((r) => setTimeout(r, st.startDelay));
       if (st.startError) throw st.startError;
       if (!st.songs) throw "No setlist loaded. Load a setlist first.";
       if (!models.some((m) => m.loaded)) throw "No Whisper model loaded. Download one from the Models tab first.";

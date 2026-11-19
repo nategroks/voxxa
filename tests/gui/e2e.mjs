@@ -134,8 +134,7 @@ try {
   check("song line before any song", (await ev(`return document.getElementById("s-song").textContent`)) === "No song on screen yet");
   await shot("02-simple-no-songs");
   await click('[data-mode="songs"]');
-  await sleep(600);
-  check("Songs without songs: start refused, switch back on Off", (await calls("start_listening")) === 1 && (await ev(`return document.querySelector('[data-mode="off"]').getAttribute("aria-checked")`)) === "true");
+  check("Songs without songs: start refused, switch back on Off", await waitFor(`return document.querySelector('[data-mode="off"]').getAttribute("aria-checked") === "true" && __mock.calls.filter((c) => c.cmd === "start_listening").length === 1`, 4000));
   check("the refusal is shown", await waitFor(`return [...document.querySelectorAll(".toast")].some((t) => /No setlist/.test(t.textContent))`, 2000));
   await shot("03-simple-songs-refused");
   await click('[data-mode="scripture"]');
@@ -239,6 +238,22 @@ try {
   await click('[data-mode="off"]');
   await light("grey", "Off stops listening", /Choose Songs/);
   check("Off called stop_listening", (await calls("stop_listening")) === 3 && !(await ev(`return __mock.st.running`)));
+  // One toggle at a time (start_listening takes 300 ms in the mock): two clicks on Songs
+  // in one tick start once; Off clicked 150 ms after Songs still ends stopped.
+  const starts = await calls("start_listening");
+  await ev(`const b = document.querySelector('[data-mode="songs"]'); b.click(); b.click(); return true`);
+  check("Songs shows at once while starting", (await ev(`return document.querySelector('[data-mode="songs"]').getAttribute("aria-checked")`)) === "true");
+  await light("amber", "two clicks on Songs: listening", /Waiting for a song/);
+  check("two clicks on Songs: one start_listening", (await calls("start_listening")) === starts + 1);
+  await click('[data-mode="off"]');
+  check("two clicks on Songs, then Off: stopped", await waitFor(`return !__mock.st.running && document.querySelector('[data-mode="off"]').getAttribute("aria-checked") === "true"`, 4000));
+  await sleep(1500);
+  check("two clicks on Songs, then Off: one start_listening, still stopped", (await calls("start_listening")) === starts + 1 && !(await ev(`return __mock.st.running`)));
+  await ev(`document.querySelector('[data-mode="songs"]').click(); setTimeout(() => document.querySelector('[data-mode="off"]').click(), 150); return true`);
+  check("Off 150 ms after Songs: stopped", await waitFor(`return __mock.calls.filter((c) => c.cmd === "stop_listening").length === 5 && !__mock.st.running`, 4000));
+  await sleep(1500);
+  check("Off 150 ms after Songs: still stopped, switch on Off", !(await ev(`return __mock.st.running`)) && (await calls("start_listening")) === starts + 2 && (await ev(`return document.querySelector('[data-mode="off"]').getAttribute("aria-checked")`)) === "true");
+  await light("grey", "Off 150 ms after Songs: grey", /Choose Songs/);
 
   // 6. Call for help: a message, no command.
   const before = await ev(`return __mock.calls.filter((c) => !["get_status", "get_presenter_info"].includes(c.cmd)).length`);
