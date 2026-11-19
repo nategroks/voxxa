@@ -309,7 +309,7 @@ fn etw(runs: &[Run]) -> Option<(String, Vec<Traced>)> {
                 stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
                 events: ids.len(),
                 sample: vec![format!(
-                    "{} socket/connect events for pid {pid} during its lifetime, ids {ids:?}",
+                    "{} socket-create events for pid {pid} during its lifetime, ids {ids:?}",
                     ids.len()
                 )],
             }
@@ -392,11 +392,14 @@ fn lifetime(events: &[Etw], pid: u32, parent: u32) -> Option<(u64, u64)> {
     Some((start, stop))
 }
 
-/// Winsock-AFD events that mean "this process made or connected a socket":
-/// socket (1000), connect (1017, 1018) and ConnectEx (1020, 1021). A send,
-/// receive or close needs a socket first, so counting only these loses no
-/// socket, and keeps stray AFD events logged in a pid's context from counting.
-const SOCKET_EVENTS: [u16; 5] = [1000, 1017, 1018, 1020, 1021];
+/// Winsock-AFD events that mean "this process made a socket": socket
+/// creation (1000), which AFD logs in the creating process's context. A
+/// connect, send, receive or close needs a socket first, so counting only
+/// creation loses no socket. The later events can be logged in whatever
+/// process is current when the I/O completes: on a busy windows-latest
+/// runner, six ConnectEx (1020) events with no socket were charged to a
+/// replay's pid (PR #95, first CI run), so they must not count.
+const SOCKET_EVENTS: [u16; 1] = [1000];
 
 /// The ids of `pid`'s socket events from inside `life` (start to exit).
 fn socket_events(events: &[Etw], pid: u32, (from, to): (u64, u64)) -> Vec<u16> {
@@ -443,7 +446,12 @@ fn etw_charges_a_replay_only_with_its_own_sockets() {
             pid: 40,
             id: 1003,
             at: 11,
-        }, // a send: not socket or connect
+        }, // a send: not a socket creation
+        Etw::Afd {
+            pid: 40,
+            id: 1020,
+            at: 11,
+        }, // a ConnectEx completion with no socket: logged in our context
         Etw::Afd {
             pid: 41,
             id: 1000,
@@ -472,7 +480,7 @@ fn etw_charges_a_replay_only_with_its_own_sockets() {
     assert_eq!(life, Some((10, 20)));
     assert_eq!(socket_events(&events, 40, life.unwrap()), Vec::<u16>::new());
 
-    // The same child making a socket and connecting is caught.
+    // The same child making a socket (and connecting) is caught.
     let mut caught = events.to_vec();
     caught.push(Etw::Afd {
         pid: 40,
@@ -484,12 +492,12 @@ fn etw_charges_a_replay_only_with_its_own_sockets() {
         id: 1018,
         at: 13,
     });
-    assert_eq!(socket_events(&caught, 40, (10, 20)), vec![1000, 1018]);
+    assert_eq!(socket_events(&caught, 40, (10, 20)), vec![1000]);
 
     // No start event from this parent, or no exit after it: no lifetime,
     // and `etw` fails the test instead of guessing.
     assert_eq!(lifetime(&events, 40, 99), None);
-    assert_eq!(lifetime(&events[..6], 40, me), None);
+    assert_eq!(lifetime(&events[..7], 40, me), None);
 }
 
 #[test]

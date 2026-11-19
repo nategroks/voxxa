@@ -8,7 +8,7 @@ Details: `reviews/2026-11-19-security-review.md` §11; the ponytail audit: `revi
 
 ## 2026-11-19 — Q7 verifier fixes on `q7/base` (aa16e90)
 Full text: `reviews/2026-11-19-security-review.md` section 10.
-- **Decision: on Windows, a replay is charged only with its own sockets, during its own lifetime.** The ETW session adds `Microsoft-Windows-Kernel-Process` (start and exit), and only socket (1000) and connect (1017, 1018, 1020, 1021) events count. Before, any AFD event with a matching pid counted, and gate 4 was flaky (a reused pid or a borrowed context). A child without a recorded start or exit fails the test.
+- **Decision: on Windows, a replay is charged only with its own sockets, during its own lifetime.** The ETW session adds `Microsoft-Windows-Kernel-Process` (start and exit), and only socket-creation events (1000) count (until the PR #95 CI fix, also connect 1017, 1018, 1020, 1021: a busy CI runner charged six ConnectEx completions with no socket to a replay's pid, so only creation, which AFD logs in the caller's context, counts now). Before, any AFD event with a matching pid counted, and gate 4 was flaky (a reused pid or a borrowed context). A child without a recorded start or exit fails the test.
 - **Decision: CI's Linux job requires a network namespace** (`VOXXA_REQUIRE_NETNS=1`). A runner that refuses `unshare -rn` now fails the test instead of passing with networking enabled. A green job proves which tracer ran.
 - **Re-proof:** 4 of 4 full `cargo test --features cli` runs pass. The replay-branch TCP-connect mutant fails with 4 socket/connect events.
 

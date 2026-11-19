@@ -138,7 +138,7 @@ The verifier round on 86b549d found two problems in the zero-sockets test. Both 
 The fix (`src-tauri/tests/replay_no_sockets.rs`, `etw`, `lifetime`, `socket_events`):
 - The same ETW session also enables `Microsoft-Windows-Kernel-Process`, keyword 0x10 (process start and exit). These events use the same clock as the AFD events.
 - A child's lifetime runs from its start event to the first exit event of that pid after it. The start event must name the test process as the parent.
-- Only socket (event 1000), connect (1017, 1018) and ConnectEx (1020, 1021) events count. They must carry the child's pid and fall inside its lifetime. A send, receive or close needs a socket first, so this misses no socket.
+- Only socket (event 1000), connect (1017, 1018) and ConnectEx (1020, 1021) events count (superseded by §12: only 1000 counts). They must carry the child's pid and fall inside its lifetime. A send, receive or close needs a socket first, so this misses no socket.
 - If a child has no recorded start or exit, the test fails. It never guesses a lifetime.
 - Unit tests: `etw_charges_a_replay_only_with_its_own_sockets` covers a reused pid before and after the child, a send event, and another pid. `etw_read_back_lines_parse` covers the read-back parser. Two mutants were tried. Without the time window, the unit test counts 4 events; without the event-id filter, it counts 1. Both mutants fail the test.
 - What is left: a socket-create or connect event logged with the replay's pid during the replay's own lifetime still counts. Windows logs these events in the context of the process that calls `socket` or `connect`, so such an event would be a real socket.
@@ -170,3 +170,9 @@ Both independent verifiers passed at 6386f6b. Security-relevant results:
 **Added at the close (§6):** Q7-S6 (Medium, transcripts in the diagnostics report, Q7-08), Q7-S7 (Low, the microphone opens before inputs are checked, Q7-09) and Q7-S8 (Low, recognised words in `voxxa-eval`'s error, Q7-11), from the ponytail audit and review (`2026-11-19-ponytail-q7.md` §3, §4).
 
 **Security position (final):** no Critical or High finding is open. Ready to merge once the PR's first CI run shows (a) the Linux and Windows jobs passing `replay_no_sockets`, (b) the throwaway mutant turning Linux red and its revert green, (c) full-eval green or warning on three OSes with only the table, and the Node 20 check. The orchestrator records the run URLs here.
+
+## 12. CI fix on PR #95 (2026-11-19, orchestrator)
+- The first CI run on PR #95 (run 44537713974) failed `replay_opens_no_socket` on `windows-latest`: `jump-be-thou-my-vision` was charged with six ConnectEx (1020) events inside its lifetime, and no socket-creation (1000) event. A process cannot connect without first creating a socket, so these were completions logged in whatever process was current on the busy runner (the same failure class as the local flake fixed in aa16e90).
+- Fix: only socket creation (AFD event 1000) counts. AFD logs it in the creating process's context. A connect, send, receive or close needs a socket first, so no socket is missed. Both proven mutants still fail: `TcpStream::connect` produced [1000, 1000, 1018, 1017] and `UdpSocket::bind` produced [1000, 1000].
+- The unit test `etw_charges_a_replay_only_with_its_own_sockets` now has a stray 1020 inside the child's lifetime that must not count.
+- Residual risk: a socket handle inherited from the parent would create no 1000 event in the child. The test harness hands no sockets to `voxxad`, so this does not apply.
