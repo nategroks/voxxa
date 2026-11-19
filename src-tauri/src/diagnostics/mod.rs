@@ -6,6 +6,8 @@
 //! generated text into a GitHub issue or email, matching Voxxa's zero-telemetry
 //! promise (see §7.3 of the project plan).
 
+pub mod help;
+
 use crate::AppState;
 use log::{Log, Metadata, Record};
 use serde::Serialize;

@@ -1,4 +1,5 @@
 use crate::aligner::{Action, Conductor, MachineState, Setlist, SmartConfig, Song};
+use crate::diagnostics::help;
 use crate::discovery::{self, DiscoveredService};
 use crate::dispatch::{self, Sent};
 use crate::hymnary::{HymnaryClient, HymnaryResult};
@@ -13,6 +14,7 @@ use crate::transcription::{Rolling, WhisperModel};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -792,6 +794,48 @@ pub async fn generate_diagnostic_report(
     state: State<'_, AppState>,
 ) -> Result<crate::diagnostics::DiagnosticReport, String> {
     Ok(crate::diagnostics::generate_report(&state).await)
+}
+
+/// Call for help's review screen (ADR-018): where the bundle goes, and the
+/// last 2 minutes of words from the newest session log. Writes nothing.
+#[tauri::command]
+pub fn help_preview() -> Result<serde_json::Value, String> {
+    let sessions = dirs::data_dir().map(|d| d.join("voxxa").join("sessions"));
+    let words = sessions.and_then(|d| help::recent_words(&d));
+    Ok(json!({ "folder": help::help_dir()?, "words": words }))
+}
+
+/// Writes the files the operator reviewed and confirmed; returns the zip's path.
+#[tauri::command]
+pub fn write_help_bundle(files: Vec<(String, String)>) -> Result<PathBuf, String> {
+    help::write_bundle(&help::help_dir()?, &files)
+}
+
+/// After the write: the e-mail draft naming the zip, and the help folder.
+/// Only the file's name is taken from the webview. Sends nothing.
+#[tauri::command]
+pub fn open_help_email(app: tauri::AppHandle, file: String) -> Result<(), String> {
+    let dir = help::help_dir()?;
+    let name = Path::new(&file).file_name().ok_or("no file name")?;
+    open(&app, help::mailto(&dir.join(name)))?;
+    open(&app, dir.display().to_string())
+}
+
+/// A runbook linked from the status light, on GitHub (the repository is public).
+#[tauri::command]
+pub fn open_runbook(app: tauri::AppHandle, name: String) -> Result<(), String> {
+    if name.is_empty() || !name.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
+        return Err(format!("not a runbook: {name:?}"));
+    }
+    let url = format!("https://github.com/nategroks/voxxa/blob/main/docs/runbooks/{name}.md");
+    open(&app, url)
+}
+
+fn open(app: &tauri::AppHandle, target: String) -> Result<(), String> {
+    use tauri_plugin_shell::ShellExt;
+    // shortcut: the shell plugin's open is deprecated for tauri-plugin-opener; switch if it is added.
+    #[allow(deprecated)]
+    app.shell().open(target, None).map_err(|e| e.to_string())
 }
 
 /// Test Planning Center credentials. Returns the authenticated user's name.
