@@ -1,5 +1,23 @@
 # Security — church-autoadvance
 
+## 2026-11-19 — Q7: the CLI surface, the zero-sockets test, the full-eval workflow's supply chain
+Full review: `reviews/2026-11-19-security-review.md`. Tickets: `reviews/2026-11-19-q7-tickets.md` (Q7-01, -03, -05, -06 and -07 are security-tagged).
+- **Decision: "replay opens no socket" is a test, not a claim.** `src-tauri/tests/replay_no_sockets.rs` runs `voxxad --replay` on every committed log under an OS tracer:
+  - Linux: `strace -e trace=%network`, inside `unshare -rn` (networking disabled) when user namespaces allow it.
+  - Windows: an ETW session on `Microsoft-Windows-Winsock-AFD`.
+
+  A positive control (the test binary connecting to 127.0.0.1) must be seen first, so a blind tracer fails the test. CI sets `VOXXA_REQUIRE_SOCKET_TRACE=1` on Linux and Windows, so a missing tracer fails there instead of skipping. macOS is skipped and says so (no tracer without SIP changes; Q7-01). Mutation proof on Windows: a TCP connect added to the replay branch makes the test fail with 11 AFD events.
+- **Shadow mode:** a full `--shadow` run, with Whisper and a network presenter named on the command line, made 0 AFD events under ETW. This was checked locally only, because CI's PR gate has no model (Q7-07).
+- **Fixed now:**
+  - Q7-S1 (Medium): the Windows installer carried `voxxa-eval.exe` at 46cb6d1. Fixed in b9692c5; see the DevOps record.
+  - Q7-S2 (Low): `ci.yml` now has `permissions: contents: read`.
+- **Full-eval workflow:**
+  - The model is pinned by SHA-256 and checked after every download and every cache restore. The hash equals the Hugging Face LFS oid.
+  - Every action is pinned to a commit SHA, with `contents: read`, `persist-credentials: false`, no secrets, and the `pull_request` trigger (not `_target`).
+  - Whisper's stderr (recognised words) is kept out of the log.
+- **Accepted:** a crafted session log can make replay print any actions; replay never dispatches. CLI inputs are the user's own local files.
+- **Still open from earlier, docs done in Q7:** #48 (keystroke focus guard), #49 (transcripts in the roaming profile).
+
 ## 2026-11-18 — Q6 close-out: two new RustSec advisories cleared in code
 - **What happened:** between 2026-11-13 and 2026-11-18 the advisory database gained RUSTSEC-2026-0543 (chrono unmaintained, no fixed release) and RUSTSEC-2026-0548 (zip 9.0.0, `ZipStreamReader` trusts local-header names). Gate 5 (cargo-deny) failed on an unchanged `Cargo.lock`, on `q6/base` and on 733c7e1 alike.
 - **Exposure:** none known. Voxxa reads `.pptx` with `ZipArchive` by entry name and never uses `ZipStreamReader`.
