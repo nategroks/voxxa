@@ -214,3 +214,38 @@ Three findings, one commit each, each with a check that fails without it.
 **Checks.** `npm run test:gui`: 6/6. `npm run test:gui:e2e`: **106/106** (was 102; screenshots 01-22 re-taken). Real app, guarded (scratch config outside git, `com.voxxa.qafinish`, CDP 9343, `npm run tauri build -- --no-bundle --config <scratch>`, ProPresenter mock on 127.0.0.1:1025; startup re-read: `src-tauri/`, `main.js`, `index.html`, `stage.html` unchanged since 9e96282, `audio.start()` only from `start_listening`, `commands/mod.rs:229`): `simple-mode-real-app.mjs` **27/27** (r01-r11), plus a read-only probe of the new checks: three controls on screen by `seen()`, light grey `rgb(107, 114, 128)`, not listening (r13). Never Listen, never the 20-second test, never the keystroke presenter chosen, no stage window, no HTTP API. App and mock stopped by PID; `%LOCALAPPDATA%\com.voxxa.qafinish` deleted. The tauri build rewrote `src-tauri/Cargo.toml` and two `gen/schemas` files with LF endings only; restored with `git checkout`.
 
 **Gates** (Windows 11, rustc 1.99.1, `CARGO_TARGET_DIR=C:/dev/q3-10x-target`): all pass. (1) `npm ci && npm run build`; (2) `cargo fmt --check`; (3) `cargo clippy --all-targets -- -D warnings`, with and without `--features cli`; (4) `cargo test --features cli`: 210 passed, 1 ignored, 0 failed (without `VOXXA_REQUIRE_SOCKET_TRACE`); (5) `cargo-deny check licenses advisories bans`: ok; (6) `python scripts/loc_budget.py`: all OK, GUI 2,780 / 3,000, Simple mode **352 / 600**; (7) the `dictat` grep prints nothing. CI eval step: 21/21, "OK: no metric is worse". Only binaries match the control-byte grep.
+
+## 2026-11-19 — Q8 final (`q8/base` @ ee431ce): verifier round 3, not ready to merge
+**QA position: not ready to merge.** In verifier round 3 at ee431ce, verifier B passed and **verifier A failed**. The set-up guide stops main.js's shortcut keys only when the focus is inside the guide. When the focus is on the page body (when the guide opens on a fresh profile, and during the 20-second test after its Start button is removed), Space starts or stops listening and `s` opens the stage window behind the guide (`src/simple/firstrun.js:31`; `src/main.js:1563`). This is ticket **Q8-10** (medium). **The PR must not be merged until Q8-10 is fixed with e2e checks that press keys with the focus on `document.body`, each check fails on ee431ce, and a verifier confirms the fix.** Everything else in the exit criteria is met, apart from the founder's run, which is not a merge gate (user decision 3). Full record: `reviews/2026-11-19-ponytail-q8.md` §§ 6-8; tickets: `reviews/2026-11-19-q8-tickets.md`.
+
+**What verifier A checked at ee431ce (round 3).**
+- Gates 1-7, with `cargo test --features cli` run with `VOXXA_REQUIRE_SOCKET_TRACE=1`: 210 passed, 1 ignored. The CI eval step: 21/21. `test:gui` 6/6. e2e 106/106.
+- Its own mocked probe: 53/53, plus 7 key-press notes. Every ADR-017 row was checked with its class, computed colour and exact sentence. Every Advanced panel works against the mock.
+- The guarded real app (`com.voxxa.qaverifya`, CDP 9344): `simple-mode-real-app.mjs` 27/27 and a read-only probe 30/30. The ProPresenter mock's log holds only `/v1/version`. The app never listened, and Windows' microphone-usage registry has no Voxxa entry afterwards. App and mock were stopped by PID, and the scratch `%LOCALAPPDATA%` folder was deleted.
+
+**What verifier B checked (passed).**
+- `src-tauri/` has no diff against f8500e3. No panel was deleted: every old element id is still there except the five welcome-overlay ids.
+- The budget has one new row (Simple mode 352 / 600), and the GUI row is 2,780 / 3,000. There is no runtime dependency, `dist/` holds no mock, and no scratch config is committed.
+- 26 of 28 mutants were killed. The two survivors are minor: Q8-11 (M6b) and Q8-12 (M3c).
+
+**Usability walk-through, final** (research plan § 2 usability test and objective O7, with the § 4 reaction prompts; this replaces the tables above):
+
+| Step | Task | Mocked GUI | Real app (guarded) |
+|---|---|---|---|
+| U1 | First launch shows the set-up guide | pass | pass |
+| U2 | Choose the microphone | pass (choice saved, re-applied at start, shown in Settings) | pass (enumeration only; names not recorded) |
+| U3 | Find the presentation app | pass (found: one click connects; none found: "arrow keys" sentence) | pass (the mock found and connected; reconnected after a real restart, r12) |
+| U4 | Get the voice model | pass (Tiny download with progress) | partial: state shown, "Use it" not pressed (Q2-50) |
+| U5 | Load this Sunday's songs | pass (the test step asks and opens the file picker) | partial: request shown, no songs loaded |
+| U6 | 20-second test reaches green | pass by clicks (green only on a slide change the presenter took; slow and refused starts handled); **fails with the keyboard** (Q8-10) | not run (forbidden) |
+| U7 | Start following, see song and slide | pass (amber "Listening…", then green "Following <title>, slide n of m") | not run (forbidden) |
+| U8 | "What does amber mean?" | the sentence answers it | grey sentence shown |
+| U9 | "What would you do when it turns red?" | each red sentence names an action; row 5 gives the presenter's reason | no red state reachable safely |
+| U10 | Stop | pass (Off stops listening, grey) | not run (never started) |
+| U11 | Find a setting | pass (Advanced, one click) | pass (HTTP API left off) |
+| U12 | "No call" | placeholder message, no command | placeholder message |
+| U13 | Three controls only | pass (by `seen()`: on screen, opaque, visible) | pass |
+
+**Verdict:** the script passes on the mocked GUI by mouse. U6 fails by keyboard until Q8-10 is fixed. On the real app, every step that is safe without a microphone passes. The founder's run (Q8-01: U2-U10 with a real microphone and presentation app, plus a look through the old panels) is a founder checklist item, not a merge gate.
+
+**Tickets:** 16 open (2 medium, 14 low), `reviews/2026-11-19-q8-tickets.md`. The six listed in the Q8 section above are Q8-01 to Q8-06 there, and the three from the finish are Q8-07 to Q8-09. New: Q8-10 (the merge blocker), Q8-11 and Q8-12 from verifier B, and Q8-13 to Q8-16 from the comparator and the lane reports. Q8 closes no earlier issue outright; #7 is fixed in part (fa87345).

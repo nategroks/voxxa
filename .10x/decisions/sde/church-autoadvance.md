@@ -519,3 +519,39 @@ ef84473 row 9 needs a position inside the song (`src/simple/logic.js:22`, `:38`)
 
 ## 2026-11-19 — Q8 verifier round 2 on `q8/base`
 bb46628 the 20-second test waits for the Listen click to settle and stops what it started, even a late start (`src/simple/firstrun.js:173-218`); 9ef8937 and 808f14b are test-only (`tests/gui/e2e.mjs`: the light's computed colour; `seen()` for clicks and the three controls). Simple mode row 341 → 352 / 600; GUI row 2,780 unchanged; `src-tauri/`, `main.js`, `index.html` unchanged. Known limit: an error toast from elsewhere during the start window would end the wait early; nothing else toasts an error while the guide is open and listening has not started. ADR-017 § 4 (test row) and § 6 updated. Checks and gates in the QA record.
+
+## 2026-11-19 — Q8 final: Simple mode on `q8/base` (head ee431ce), merge on hold
+**Head:** `q8/base` @ ee431ce, 24 commits on f8500e3:
+- the 10x lane (42abe5c..99fe481), merged as b4eacca;
+- the review fixes and ponytail grafts (3ab4b6c..21b5b77) and their records (9e96282);
+- the round 1 fixes (ef84473, 3f75c09, b191945) and records (57fafcb);
+- the round 2 fixes (bb46628, 9ef8937, 808f14b) and records (ee431ce).
+
+`q8/10x` (99fe481) and `q8/ponytail` (bdc3348) stay local for reference. Process record: `reviews/2026-11-19-ponytail-q8.md`.
+
+**Built:** Simple mode in `src/simple/`:
+- `logic.js` is pure: `statusLight` (10 rows), `songPosition` and `testVerdict`.
+- `simple.js` holds the view, the switch (one toggle at a time) and Call for help. Call for help is a message at `src/simple/simple.js:24-25` and `:35`, and it calls no command.
+- `firstrun.js` holds the guide and the start-up reconnect.
+- `simple.css` holds the styles and the global `[hidden]` fix.
+
+Behind it, `#app` is hidden and unchanged. `main.js` gained one line, the welcome overlay was deleted, and `src-tauri/` was not touched.
+
+**Budgets:** GUI 2,780 / 3,000; Simple mode 352 / 600 (a recorded deviation, ADR-017 § 5); every Rust row unchanged; no runtime npm dependency.
+
+**Gates at ee431ce:** all pass (finisher; verifiers A and B). Tests: 210 passed, 1 ignored, with `--features cli`. `test:gui` 6/6. e2e 106/106. The CI eval step: 21/21, "OK: no metric is worse".
+
+**Not done, so the merge is on hold.** Verifier A failed round 3. The guide's key block sits on the overlay box (`src/simple/firstrun.js:31`), so with the focus on the page body, `main.js`'s shortcuts still start or stop listening and open the stage window (ticket Q8-10, medium). The fix is a capture-phase `keydown` listener on `window` while the guide is shown. It costs 1-2 lines in the Simple mode row and needs e2e checks with the focus on `document.body` that fail on ee431ce. Then a verifier confirms. ADR-017 § 1 (line 29) and Consequences (line 111) already describe the fixed behaviour.
+
+**Deviations (all recorded in ADR-017):**
+- the 600-line row;
+- `blank_hold` is amber, not red (Q8-02);
+- Advanced shows the panels, because `voxxa.toml` does not exist;
+- Call for help is a message (Q7-08, #102);
+- songs are loaded in Advanced (Q8-03);
+- the first-run download has no hash check (Q8-06, #9);
+- a click on the switch while pending is kept and sent later, not ignored (3ab4b6c).
+
+**Tickets:** 16 open (2 medium, 14 low), `reviews/2026-11-19-q8-tickets.md`. Q8 closes no earlier issue outright; #7 is fixed in part.
+
+**Next:** fix Q8-10 and have a verifier confirm it. Then the orchestrator pushes `q8/base`, opens the draft PR, gets CI green and merges. Then the orchestrator files the tickets, apart from Q8-10 if the fixing commit closes it.
