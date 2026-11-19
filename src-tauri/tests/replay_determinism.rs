@@ -18,7 +18,9 @@ use std::process::Command;
 /// even when it skips the binary, and the path may hold a stale build,
 /// so the feature is checked: a plain `cargo test` fails here, loudly.
 fn voxxad_exe() -> &'static str {
-    assert!(cfg!(feature = "cli"), "run: cargo test --features cli");
+    if !cfg!(feature = "cli") {
+        panic!("run: cargo test --features cli");
+    }
     env!("CARGO_BIN_EXE_voxxad")
 }
 
