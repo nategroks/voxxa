@@ -18,7 +18,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts/fixtures/make_tts_fixture.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts/fixtures/make_tts_fixture.ps1 -Fixture refrain-it-is-well
 # Then record each fixture's session.jsonl with
-#   cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --full --record fixtures/recordings/<name>
+#   cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full --record fixtures/recordings/<name>
 param(
     [string[]]$Fixture = @('refrain-it-is-well', 'jump-be-thou-my-vision', 'prayer-between-songs')
 )

@@ -29,10 +29,17 @@ fixtures/
 From the repository root (Windows, macOS or Linux):
 
 ```sh
-cargo build --manifest-path src-tauri/Cargo.toml --bin voxxad --bin voxxa-eval
-cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval            # replay (CI)
-cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --full  # Whisper Tiny
+cargo build --manifest-path src-tauri/Cargo.toml --features cli --bin voxxad --bin voxxa-eval
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval            # replay (CI)
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full  # Whisper Tiny
 ```
+
+Both tools need the `cli` feature (off by default, so the installers leave
+them out; Q7). The tests that run them need it too:
+`cargo test --manifest-path src-tauri/Cargo.toml --features cli`, as CI runs it.
+CI's separate "Full eval" workflow (`.github/workflows/full-eval.yml`, run
+by hand) runs `--full` with a checksum-pinned Whisper Tiny on Linux, macOS
+and Windows and only reports the table; see `docs/runbooks/eval-regression.md`.
 
 `voxxa-eval` runs the `voxxad` binary built beside it on every folder in
 `fixtures/recordings` (or the folders given as arguments), reads the

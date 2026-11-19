@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Q7 security review: the jobs only read the repository.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -47,7 +51,8 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libasound2-dev \
-            libxdo-dev
+            libxdo-dev \
+            strace
 
       # tauri::generate_context! embeds ../dist, so the frontend must exist before cargo runs.
       - name: Build frontend
@@ -57,13 +62,27 @@ jobs:
         working-directory: src-tauri
         run: cargo fmt --check
 
+      # Q7: voxxad and voxxa-eval need the off-by-default `cli` feature, so
+      # the installers leave them out (Cargo.toml). Lint both ways: without
+      # it (what `tauri build` compiles) and with it (the tools and the tests
+      # that run them). bash on every OS so the && chain behaves the same.
       - name: cargo clippy
         working-directory: src-tauri
-        run: cargo clippy --all-targets -- -D warnings
+        shell: bash
+        run: >-
+          cargo clippy --all-targets -- -D warnings &&
+          cargo clippy --all-targets --features cli -- -D warnings
 
+      # Q7: tests/replay_no_sockets.rs traces `voxxad --replay` with strace
+      # (Linux, inside `unshare -rn`) or ETW (Windows); this variable makes a
+      # missing tracer fail instead of skip. macOS has no tracer without
+      # disabling SIP, so the test skips there and says so.
+      # tests/replay_determinism.rs replays every fixture log twice on each OS.
       - name: cargo test
         working-directory: src-tauri
-        run: cargo test
+        env:
+          VOXXA_REQUIRE_SOCKET_TRACE: ${{ runner.os != 'macOS' && '1' || '' }}
+        run: cargo test --features cli
 
       # Q5 / ADR-015: replay the committed fixture logs (no model, no audio)
       # and fail when a metric is worse than fixtures/baseline.json.
@@ -76,7 +95,7 @@ jobs:
       - name: voxxa-eval (fixtures vs baseline)
         working-directory: src-tauri
         shell: bash
-        run: cargo build --bin voxxad --bin voxxa-eval && cargo run --bin voxxa-eval
+        run: cargo build --features cli --bin voxxad --bin voxxa-eval && cargo run --features cli --bin voxxa-eval
 
   deny:
     name: cargo deny (licences, advisories)

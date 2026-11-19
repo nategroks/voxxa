@@ -3,10 +3,10 @@
 //! `fixtures/baseline.json`). No Whisper model or audio device is needed.
 
 #[allow(dead_code)]
-#[path = "../src/bin/voxxa-eval/audio.rs"]
+#[path = "../src/cli/voxxa-eval/audio.rs"]
 mod audio;
 #[allow(dead_code)]
-#[path = "../src/bin/voxxa-eval/score.rs"]
+#[path = "../src/cli/voxxa-eval/score.rs"]
 mod score;
 
 use score::{check, parse_actions, parse_truth, score, table, At, Cue, Metrics};

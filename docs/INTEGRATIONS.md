@@ -190,6 +190,97 @@ curl -X POST -H "Authorization: Bearer $TOKEN" http://127.0.0.1:7575/api/v1/next
 curl -X POST -H "Authorization: Bearer $TOKEN" http://127.0.0.1:7575/api/v1/blank
 ```
 
+## Driving `voxxad` from Bitfocus Companion
+
+`voxxad` is Voxxa without a window: the same listening loop and conductor,
+started from a command line. It prints one JSON line per event and writes a
+session log (ADR-013). It is a **developer preview**. It is not in the
+installers; build it from source (`docs/releases/voxxad-cli-preview.md`).
+For a booth that runs the Voxxa app, use the app's HTTP API with Companion
+instead (Path B above).
+
+`voxxad` has **no HTTP API and no remote control**. Companion can only start
+it as a program and stop it by ending the process. Both need Companion to
+run on the same computer as `voxxad`, and an action that runs a local
+program or script. Some Companion versions have one (it may be called
+"Run shell path (local)"); **check your Companion version** and its
+modules. This guide names no other Companion feature.
+
+### 1. Shadow first
+
+Run every new setup in shadow mode for at least one rehearsal.
+`--shadow` computes and logs every action and sends nothing to the
+presentation software. Start script for Windows (`start-voxxad.cmd`):
+
+```bat
+@echo off
+rem One voxxad at a time: a second one would drive the same screen.
+tasklist /FI "IMAGENAME eq voxxad.exe" | find /I "voxxad.exe" >nul && exit /b 0
+start "voxxad" /min "C:\Voxxa\voxxad.exe" --setlist "C:\Voxxa\today.json" ^
+  --device default --shadow --log-dir "%LOCALAPPDATA%\voxxa\sessions"
+```
+
+On macOS or Linux (`start-voxxad.sh`):
+
+```sh
+#!/bin/sh
+pgrep -x voxxad >/dev/null && exit 0
+nohup /opt/voxxa/voxxad --setlist "$HOME/voxxa/today.json" \
+  --device default --shadow >/dev/null 2>&1 &
+```
+
+- `--device` takes a name from `voxxad --list-devices`, or `default`. Use
+  the desk feed or a USB audio interface, not the laptop microphone.
+- The setlist is the `voxxad --setlist` JSON format (see
+  `fixtures/recordings/*/setlist.json`).
+- After the rehearsal, open the newest `session-*.jsonl` and compare its
+  `action` lines with what the operator did.
+
+### 2. Stop
+
+- **macOS and Linux:** `pkill -INT -x voxxad`. `voxxad` stops as on Ctrl+C
+  and writes a final `stop` line (`"reason":"stopped"`).
+- **Windows:** `taskkill /IM voxxad.exe /F`. Windows has no command that
+  sends Ctrl+C to another console program, so this ends the process at
+  once. The session log keeps every line written so far (each line is
+  written when it happens); only the final `stop` line is missing.
+
+Put the start script on one Companion button and the stop command on
+another. Do not run `voxxad` and the Voxxa app on the same presentation
+software at the same time.
+
+### 3. Driving the presentation software
+
+Replace `--shadow` with a presenter only after a clean shadow rehearsal:
+
+- **Prefer a network presenter:** `--presenter propresenter7_rest`,
+  `freeshow`, `openlp_v2` or `opensong`, with `--host` and `--port`.
+  These talk to the presentation software over its own API, whatever
+  window has focus.
+- **Keystroke (`--presenter keystroke`): focus the presentation app.**
+  `voxxad` has no window, so it cannot check focus (ticket Q3-04, #48). It
+  types Next/Previous into **whatever window has focus**: a terminal (where
+  a keystroke can run a command), a document, or Companion's own window.
+  Use it only when the presentation app stays focused for the whole
+  service, and never start it from a terminal you keep using.
+  `voxxad` prints a warning to stderr when it starts this way.
+
+### Privacy and files
+
+- **Session logs** hold every transcript, prayers and spoken names
+  included, for 14 days. They default to `<data dir>/voxxa/sessions`. On
+  Windows that is the roaming `%APPDATA%`, which a domain profile may copy
+  to a server. `--log-dir "%LOCALAPPDATA%\voxxa\sessions"` keeps them on
+  the computer (Q3-05, #49). Give `--log-dir` a folder of its own:
+  `voxxad` deletes `session-*.jsonl` files older than 14 days there.
+- **Network:** `--shadow` and `--replay` open no socket. A network
+  presenter is the only network traffic `voxxad` makes, and only without
+  `--shadow`. `voxxad` never downloads a model: install one in the Voxxa
+  app first, or see the release notes.
+- **Audio files** (`--stdin-audio`) must be 16 kHz mono WAV. Convert
+  others with `ffmpeg -i in.wav -ar 16000 -ac 1 -c:a pcm_s16le out.wav`
+  (Q3-10, #54).
+
 ## Security notes
 
 - The HTTP server binds **only** to `127.0.0.1`, and Voxxa has no setting

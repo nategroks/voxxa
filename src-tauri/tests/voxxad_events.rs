@@ -4,10 +4,10 @@
 //! device (the recogniser's decoder is faked), so they run in CI.
 
 #[allow(dead_code)]
-#[path = "../src/bin/voxxad/cli.rs"]
+#[path = "../src/cli/voxxad/cli.rs"]
 mod cli;
 #[allow(dead_code)]
-#[path = "../src/bin/voxxad/events.rs"]
+#[path = "../src/cli/voxxad/events.rs"]
 mod events;
 
 use events::{expired, fingerprint, replay, status, Act, Kind, Line, Recorder};
