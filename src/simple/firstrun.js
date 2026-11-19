@@ -84,7 +84,11 @@ async function device() {
   sel.add(new Option("Default", ""));
   $("fr-extra").appendChild(sel);
   const saved = read("voxxa.audioDevice") || "";
-  try { for (const d of await invoke("list_audio_devices")) sel.add(new Option(d, d, false, d === saved)); } catch (err) { say("Couldn't list the microphones: " + err); }
+  let devices = [], failed = null;
+  try { devices = await invoke("list_audio_devices"); } catch (err) { failed = err; }
+  if (!still(0)) return; // skipped or moved on while the list loaded: keep that step's Next
+  if (failed) say("Couldn't list the microphones: " + failed);
+  for (const d of devices) sel.add(new Option(d, d, false, d === saved));
   onNext = async () => {
     try { await invoke("select_audio_device", { device: sel.value || null }); } catch {}
     write("voxxa.audioDevice", sel.value);
