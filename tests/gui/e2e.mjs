@@ -109,6 +109,13 @@ try {
   const click = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).click(); return true;`);
   const visible = (sel) => ev(`const e = document.querySelector(${JSON.stringify(sel)}); return !!e && e.checkVisibility();`);
   const calls = (cmd) => ev(`return __mock.calls.filter((c) => c.cmd === ${JSON.stringify(cmd)}).length`);
+  // A real Space key press on a focused element, as the operator's keyboard sends it.
+  const space = async (sel) => {
+    await ev(`document.querySelector(${JSON.stringify(sel)}).focus(); return true`);
+    const key = { key: " ", code: "Space", windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32 };
+    await send("Input.dispatchKeyEvent", { type: "keyDown", text: " ", ...key });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", ...key });
+  };
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 420, height: 600, deviceScaleFactor: 1, mobile: false });
@@ -151,7 +158,10 @@ try {
   // 4. First-run flow: microphone.
   check("devices listed, Default first", (await waitFor(`return [...document.querySelectorAll("#fr-device option")].map((o) => o.textContent).join("|")`)) === "Default|Desk USB input|Laptop microphone");
   await ev(`document.getElementById("fr-device").value = "Desk USB input"; return true`);
-  await click("#fr-next");
+  const startsBeforeSpace = await calls("start_listening");
+  await space("#fr-next"); // Space presses Next; it must not reach main.js's Listen shortcut
+  check("Space on Next: step 2", await waitFor(`return document.getElementById("fr-step").textContent === "Step 2 of 4"`));
+  check("Space on Next: no start_listening", (await calls("start_listening")) === startsBeforeSpace && !(await ev(`return __mock.st.running`)));
   check("device saved for Settings", (await waitFor(`return localStorage.getItem("voxxa.audioDevice")`)) === '"Desk USB input"');
   check("select_audio_device called with it", await ev(`return __mock.calls.some((c) => c.cmd === "select_audio_device" && c.args.device === "Desk USB input")`));
 
@@ -258,7 +268,10 @@ try {
 
   // 6. Call for help: a message, no command.
   const before = await ev(`return __mock.calls.filter((c) => !["get_status", "get_presenter_info"].includes(c.cmd)).length`);
-  await click("#s-help");
+  const startsBeforeHelp = await calls("start_listening");
+  await space("#s-help"); // Space presses Call for help; it must not reach the Listen shortcut
+  await sleep(300);
+  check("Space on Call for help: no start_listening", (await calls("start_listening")) === startsBeforeHelp && !(await ev(`return __mock.st.running`)));
   check("Call for help shows the next-update message", (await visible("#s-help-msg")) && /next update/.test(await ev(`return document.getElementById("s-help-msg").textContent`)));
   check("Call for help calls no command", (await ev(`return __mock.calls.filter((c) => !["get_status", "get_presenter_info"].includes(c.cmd)).length`)) === before && (await calls("generate_diagnostic_report")) === 0);
   await shot("17-simple-call-for-help");

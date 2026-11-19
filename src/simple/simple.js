@@ -33,6 +33,8 @@ $("s-advanced").onclick = () => show(true);
 $("s-simple").onclick = () => show(false);
 $("s-guide").onclick = openFirstRun;
 $("s-help").onclick = () => { $("s-help-msg").hidden = false; };
+// Space or Enter on Simple mode's own buttons presses the button, not main.js's shortcut.
+root.addEventListener("keydown", (e) => { if (e.target.tagName === "BUTTON" && (e.key === " " || e.key === "Enter")) e.stopPropagation(); });
 
 // Everything the light needs (ADR-017 § 2), from existing commands and events.
 const s = { running: false, setlist: false, model: false, state: null, isBlank: false, presenter: null, presenterError: null, micLost: false, song: null };
