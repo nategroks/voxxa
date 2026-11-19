@@ -479,3 +479,14 @@ fn every_runbook_link_resolves() {
         }
     }
 }
+
+/// docs/quick-start.md fits one printed page (Letter or A4 at normal size):
+/// at most 50 lines (Q9 verifier: 58 lines printed on two pages).
+#[test]
+fn the_quick_start_fits_one_printed_page() {
+    let text = std::fs::read_to_string(repo().join("docs/quick-start.md")).unwrap();
+    let lines = text.lines().count();
+    assert!(lines <= 50, "docs/quick-start.md has {lines} lines");
+    let longest = text.lines().map(|l| l.chars().count()).max().unwrap();
+    assert!(longest <= 100, "a line of {longest} characters");
+}
