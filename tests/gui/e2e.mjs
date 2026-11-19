@@ -142,7 +142,7 @@ try {
   };
   // A key pressed while nothing has focus (the page body), as when the guide opens or after a step clears its buttons.
   const keyOnBody = async (k) => {
-    await ev(`if (document.activeElement) document.activeElement.blur(); return document.activeElement === document.body`);
+    check(`focus on the page before "${k}"`, await ev(`if (document.activeElement) document.activeElement.blur(); return document.activeElement === document.body`));
     const key = k === " " ? { key: " ", code: "Space", windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32 } : { key: k, code: "Key" + k.toUpperCase(), windowsVirtualKeyCode: k.toUpperCase().charCodeAt(0), nativeVirtualKeyCode: k.toUpperCase().charCodeAt(0) };
     await send("Input.dispatchKeyEvent", { type: "keyDown", text: k, ...key });
     await send("Input.dispatchKeyEvent", { type: "keyUp", ...key });
@@ -160,6 +160,11 @@ try {
   await click("#fr-skip");
   check("Skip closes it", !(await visible("#firstrun")));
   check("Skip is remembered", (await ev(`return localStorage.getItem("voxxa.firstLaunchDone")`)) === "1");
+  const stageAfterSkip = await calls("toggle_stage_display");
+  await keyOnBody("s");
+  await new Promise((r) => setTimeout(r, 300));
+  check("guide closed: s reaches main.js again", (await calls("toggle_stage_display")) === stageAfterSkip + 1);
+  await keyOnBody("s"); // close the stage window again
 
   // 2. The default view: three controls, the light, the song line.
   const controls = await ev(`${SEEN} return [...document.querySelectorAll("#simple button, #simple a, #simple input, #simple select")]
