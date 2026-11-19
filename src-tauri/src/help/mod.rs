@@ -150,7 +150,7 @@ fn pct(s: &str) -> String {
 }
 
 /// What the e-mail step opens: the draft (a `mailto:` link cannot attach a
-/// file, so the body says which one), then the zip's folder.
+/// file, so the body says which one) and the zip's folder.
 pub fn email_targets(zip: &Path) -> [String; 2] {
     let name = zip.file_name().unwrap_or_default().to_string_lossy();
     let body = pct(&format!("Hello,\r\n\r\nVoxxa needs help. Please attach this file to this e-mail before you send it:\r\n\r\n{}\r\n\r\nIts folder has just opened: drag {name} into this e-mail.\r\n\r\nWhat happened:\r\n\r\n", zip.display()));
@@ -200,16 +200,18 @@ pub async fn write_help_bundle(include_words: bool) -> Result<String, String> {
     Ok(path.display().to_string())
 }
 
-/// Open the e-mail draft and the saved zip's folder (nothing under the QA
-/// override); returns the two targets.
+/// Open the saved zip's folder, then the e-mail draft on top of it (nothing
+/// under the QA override): the folder opens whatever happens to the draft,
+/// and an error that starts with `folder: ` means the folder did not open.
 #[tauri::command]
-pub fn open_help_email(app: AppHandle) -> Result<Vec<String>, String> {
+pub fn open_help_email(app: AppHandle) -> Result<(), String> {
     let zip = lock(&WRITTEN).clone().ok_or("No help file saved yet")?;
-    let targets = email_targets(&zip);
+    let [mailto, folder] = email_targets(&zip);
     if qa_dir().is_none() {
-        targets.iter().try_for_each(|t| open(&app, t))?;
+        open(&app, &folder).map_err(|e| format!("folder: {e}"))?;
+        open(&app, &mailto)?;
     }
-    Ok(targets.to_vec())
+    Ok(())
 }
 
 /// The GitHub page of one of the [`RUNBOOKS`]; None for any other name.

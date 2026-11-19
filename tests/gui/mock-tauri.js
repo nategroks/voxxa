@@ -12,7 +12,7 @@
     devices: ["Desk USB input", "Laptop microphone"], found: [], startError: null,
     startDelay: 300, // ms start_listening takes, like loading the model and opening the device
     help: { words: "Words Voxxa heard in the last 2 minutes of session-20261119-1000.jsonl, in seconds from its start.\n\n60.0 s  alpha bravo charlie delta\n",
-      previewDelay: 200, writeDelay: 200, writeError: null, pending: null, written: [], opened: 0, storage: null },
+      previewDelay: 200, writeDelay: 200, writeError: null, openError: null, pending: null, written: [], opened: 0, storage: null },
     runbooks: [],
   };
   const emit = (event, payload) => { for (const fn of [...(listeners[event] || [])]) fn({ event, payload }); };
@@ -73,7 +73,7 @@
       st.help.pending = null;
       return "C:\\Users\\booth\\Desktop\\voxxa-help-20261119-101500.zip";
     },
-    open_help_email: () => { st.help.opened += 1; return ["mailto:?subject=Voxxa", "C:\\Users\\booth\\Desktop"]; },
+    open_help_email: () => { st.help.opened += 1; if (st.help.openError) throw st.help.openError; },
     open_runbook: ({ name }) => { st.runbooks.push(name); },
     toggle_stage_display: () => false,
     next_slide_manual: () => null, prev_slide_manual: () => null, blank_manual: () => null, jump_to_song: () => null,

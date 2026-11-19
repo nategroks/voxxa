@@ -457,6 +457,19 @@ try {
   await ev(`__mock.st.help.writeError = null; return true`);
   await click("#help-cancel");
 
+  // The e-mail step fails: the backend opens the folder first, so the message says the folder is
+  // open unless the error starts with "folder: " (ADR-018 § 5).
+  for (const [err, want] of [["no mail program", /Its folder is open, but Voxxa couldn't open your e-mail program \(no mail program\)\. Send that file/],
+    ["folder: no Explorer", /Voxxa couldn't open its folder \(folder: no Explorer\)\. Send that file/]]) {
+    await ev(`__mock.st.help.openError = ${JSON.stringify(err)}; return true`);
+    await click("#s-help");
+    await helpReady(3);
+    await click("#help-save");
+    check(`e-mail step fails (${err}): the message says what is open`, await waitFor(`return ${want}.test(document.getElementById("help-msg").textContent)`, 3000), await helpMsg());
+    await click("#help-cancel");
+  }
+  await ev(`__mock.st.help.openError = null; return true`);
+
   // No session log: no words file, no checkbox, and the review says so.
   await ev(`__mock.st.help.words = null; return true`);
   await click("#s-help");
@@ -465,7 +478,7 @@ try {
   check("no session log: the review says so", /no record of words it heard/.test(await helpMsg()), await helpMsg());
   await shot("21-help-no-words");
   await click("#help-cancel");
-  check("Call for help never writes without Save", (await calls("write_help_bundle")) === 3 && (await ev(`return __mock.st.help.written.length`)) === 2);
+  check("Call for help never writes without Save", (await calls("write_help_bundle")) === 5 && (await ev(`return __mock.st.help.written.length`)) === 4);
   await onlySimple("after Call for help");
 
   // 7. Advanced: every old panel, unchanged, one click away.

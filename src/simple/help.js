@@ -1,6 +1,6 @@
 // Call for help (ADR-018): show every file of the help bundle first; save the zip to the Desktop
-// only on Save, without the words file when its box is unchecked; then open the e-mail draft
-// and the zip's folder. Nothing is sent anywhere.
+// only on Save, without the words file when its box is unchecked; then open the zip's folder
+// and the e-mail draft. Nothing is sent anywhere.
 const { invoke } = window.__TAURI__.core;
 const $ = (id) => document.getElementById(id);
 const WORDS = "words-last-2-minutes.txt";
@@ -75,5 +75,9 @@ $("help-save").onclick = async () => {
   $("help-save").hidden = true;
   $("help-cancel").textContent = "Close";
   say(`Saved ${path}. Your e-mail program opens now: type your tech lead's address, drag that file into the message (its folder opens too) and send it.`);
-  try { await invoke("open_help_email"); } catch (err) { say(`Saved ${path}. Voxxa couldn't open your e-mail program (${err}). Send that file to your tech lead yourself.`); }
+  // The backend opens the folder first, so only an error that starts with "folder: " means it is not open.
+  try { await invoke("open_help_email"); } catch (err) {
+    const folderOpen = !String(err).startsWith("folder: ");
+    say(`Saved ${path}. ` + (folderOpen ? `Its folder is open, but Voxxa couldn't open your e-mail program (${err}).` : `Voxxa couldn't open its folder (${err}).`) + " Send that file to your tech lead yourself.");
+  }
 };
