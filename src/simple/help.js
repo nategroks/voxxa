@@ -15,7 +15,8 @@ box.innerHTML = `<div class="fr-card" role="dialog" aria-modal="true" aria-label
 </div>`;
 document.body.appendChild(box);
 const say = (text) => { $("help-msg").textContent = text; };
-const close = () => { box.hidden = true; };
+// Simple mode behind it is inert while it is shown: Tab cannot reach the switch, so Enter cannot start listening.
+const close = () => { box.hidden = true; $("simple").inert = false; };
 // While it is shown, main.js's shortcuts (Space = Listen, S = stage) never fire (as in the guide, Q8-10).
 window.addEventListener("keydown", (e) => { if (box.hidden) return; e.stopPropagation(); if (e.key === "Escape") close(); }, true);
 $("help-cancel").onclick = close;
@@ -44,6 +45,7 @@ let opened = 0; // a preview that returns after Cancel or a newer open is droppe
 export async function openHelp() {
   const ticket = ++opened;
   box.hidden = false;
+  $("simple").inert = true;
   $("help-files").replaceChildren();
   $("help-save").hidden = false;
   $("help-save").disabled = true;

@@ -381,6 +381,16 @@ try {
   check("Space on Call for help opens the review screen", await waitFor(`return document.getElementById("help").checkVisibility()`));
   check("Space on Call for help: no start_listening", (await calls("start_listening")) === startsBeforeHelp && !(await ev(`return __mock.st.running`)));
   check("Save waits for the files", await ev(`return document.getElementById("help-save").disabled`));
+  // Tab cannot reach Simple mode's switch behind the review, so Enter on it cannot start listening.
+  check("review open: Simple mode behind it is inert", await ev(`return document.getElementById("simple").inert`));
+  const tab = { key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 };
+  let tabbedIn = 0;
+  for (let i = 1; i <= 8 && !tabbedIn; i++) {
+    await send("Input.dispatchKeyEvent", { type: "keyDown", ...tab });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", ...tab });
+    if (await ev(`return document.getElementById("simple").contains(document.activeElement)`)) tabbedIn = i;
+  }
+  check("review open: Tab never reaches Simple mode", !tabbedIn, tabbedIn ? `after ${tabbedIn} Tab presses` : "");
   check("the review screen lists every file", (await helpReady(3)) && (await helpFiles()) === ALL, await helpFiles());
   check("each file shows its size", await ev(`return [...document.querySelectorAll("#help-files summary")].every((s) => / [(][0-9]+[.][0-9] KB[)]$/.test(s.textContent))`));
   check("the words file's content is shown", await ev(`const d = document.querySelectorAll("#help-files details")[2]; return d.open && d.querySelector("pre").checkVisibility() && /alpha bravo charlie delta/.test(d.querySelector("pre").textContent)`));
@@ -398,7 +408,7 @@ try {
   check("review open, focus on the page: Space starts nothing", (await calls("start_listening")) === startsBeforeHelp && !(await ev(`return __mock.st.running`)));
   check("review open, focus on the page: s opens no stage window", (await calls("toggle_stage_display")) === stageBeforeHelpKeys);
   await click("#help-cancel");
-  check("Cancel closes the review and writes nothing", !(await helpShown()) && (await calls("write_help_bundle")) === 0 && (await calls("open_help_email")) === 0);
+  check("Cancel closes the review and writes nothing", !(await helpShown()) && !(await ev(`return document.getElementById("simple").inert`)) && (await calls("write_help_bundle")) === 0 && (await calls("open_help_email")) === 0);
   await onlySimple("after Cancel");
   await click("#s-help");
   await helpReady(3);
