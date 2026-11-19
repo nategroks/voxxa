@@ -115,7 +115,7 @@
     - 2026-11-13: rounds 1 and 2 found conductor lines that no test observed; each got a test. Round 3 at 4edd7f6: both verifiers failed, on the jump cells; B found Q6-04 and Q6-05.
     - 2026-11-18, after the re-run and the finish: the round at c5ae273 did not pass (gate 5 advisories; `LEAD_SLACK` survived; a weak operator scenario), and the round at d57f060 did not pass (three survivors: the resume slide, the `EvidenceConfig` values, apostrophes). Each was fixed with a dependency change or a test.
     - **At 97cc21b both passed.** A: every gate, replay and full mode equal on 733c7e1 and on the head, no fixture worse apart from the approved cells, every goto in its audio segment, no goto during a prayer, replay byte-identical across CRLF and LF checkouts. B: scope clean, 51 mutants, all killed except the Q5-04 reversion (killed by the CI eval step), three equivalent ones and four non-blocking survivors in the operator bookkeeping (Q6-13, Q6-14).
-  - **Tickets:** 12 open (2 medium, 10 low), not filed yet (label `q6`); Q6-02 (b4f3710), Q6-04 and Q6-05 (d2fae8e) closed. New: Q6-13 and Q6-14 (verifier B's survivors), Q6-15 (try the ponytail re-run's scoring context). Closes #76 (Q5-04) and #62 (Q4-04) when merged.
+  - **Tickets:** 12 open (2 medium, 10 low), filed 2026-11-19 as #83–#94 (label `q6`); Q6-02 (b4f3710), Q6-04 and Q6-05 (d2fae8e) closed. New: Q6-13 and Q6-14 (verifier B's survivors), Q6-15 (try the ponytail re-run's scoring context). Closes #76 (Q5-04) and #62 (Q4-04) when merged.
 
 ### Release readiness (2026-11-11, after Q2)
 - **Code:** Q2's exit criteria are met. No open crash, data-loss, freeze or wrong-slide defect from the audit or Q2; no open Critical or High security finding.
@@ -151,8 +151,8 @@
 - [ ] **Still for the user:** approve or decline the GUI fix in Q6-01 (decision 5); decide whether to drop the two unused `SmartConfig` fields (Q6-10).
 - [ ] **Q6 close-out (orchestrator).**
   1. [x] The user's choice applied in its own commit (85c736c) and recorded in ADR-016 (amendment of 2026-11-18); the ponytail lane re-run, reviewed and compared; grafts applied; gate 5 fixed (b7a5382, 734b467); verifiers passed at 97cc21b.
-  2. [ ] Push `q6/base`, open a draft PR against `main`, get CI green on all jobs (fix forward if needed); merge only when every CI job is green and the exit criteria hold.
-  3. [ ] File the 12 open Q6 tickets (label `q6`); close #76 and #62; add the Q6 numbers to #61, #73, #77 and #78.
+  2. [ ] Pushed `q6/base` and opened draft PR #82 against `main` (2026-11-19). Still to do: get CI green on all jobs (fix forward if needed); merge only when every CI job is green and the exit criteria hold.
+  3. [x] Filed the 12 open Q6 tickets as #83–#94 (label `q6`); added the Q6 numbers to #61, #73, #77 and #78. #76 and #62 close when PR #82 merges.
 
   The user pre-approved the push, PR, CI fixes, merge and filing (handoff, "User decisions for Q6").
 - [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 done and verified on `q6/base` (97cc21b), CI + PR + merge next; Q7 (close Increment 1′) after
