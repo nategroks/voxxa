@@ -44,11 +44,11 @@
 
 | OS | Tracer | Networking | Covers | In CI |
 |---|---|---|---|---|
-| Linux | `strace -f -qq -e trace=%network -e signal=none` (every network system call of the process and its threads) | **disabled** with `unshare -rn` when user namespaces allow it (only a down loopback); the test prints which | any `socket`, `connect`, `bind`, `sendto`, `socketpair`, … | ubuntu-22.04, `VOXXA_REQUIRE_SOCKET_TRACE=1`, `strace` installed by ci.yml |
-| Windows | ETW session on `Microsoft-Windows-Winsock-AFD`, all keywords, read back with `Get-WinEvent` and grouped by process id | enabled | every socket the kernel's AFD driver creates, connects or cleans up for that process (event 1000 = create) | windows-latest (administrator), `VOXXA_REQUIRE_SOCKET_TRACE=1` |
+| Linux | `strace -f -qq -e trace=%network -e signal=none` (every network system call of the process and its threads) | **disabled** with `unshare -rn` when user namespaces allow it (only a down loopback); the test prints which | any `socket`, `connect`, `bind`, `sendto`, `socketpair`, … | ubuntu-22.04, `VOXXA_REQUIRE_SOCKET_TRACE=1` and `VOXXA_REQUIRE_NETNS=1` (no `unshare -rn` fails the test, §10), `strace` installed by ci.yml |
+| Windows | one ETW session on `Microsoft-Windows-Winsock-AFD` (all keywords) and `Microsoft-Windows-Kernel-Process` (process start and exit, keyword 0x10), read back with `Get-WinEvent` (§10) | enabled | every socket the kernel's AFD driver creates (event 1000) or connects (1017, 1018, 1020, 1021) with the replay's pid, between the replay's own start and exit events | windows-latest (administrator), `VOXXA_REQUIRE_SOCKET_TRACE=1` |
 | macOS | none: `dtruss` and DTrace need SIP disabled | — | **nothing at run time.** The replay code is the same Rust on every OS: `events::replay` and the replay branch of `main.rs` have no `cfg` | skipped, with a message |
 
-**The Linux runner stays on `ubuntu-22.04` on purpose** (comment in `ci.yml`'s matrix). Ubuntu 24.04's AppArmor default (`kernel.apparmor_restrict_unprivileged_userns=1`) refuses unprivileged `unshare -rn`, so on `ubuntu-latest` the test would fall back to strace with networking enabled: still green, still tracing every socket call, but the "networking disabled" claim of the release notes would quietly stop being true. After any runner bump, check that the job log still says `traced with strace inside unshare -rn`.
+**The Linux runner stays on `ubuntu-22.04` on purpose** (comment in `ci.yml`'s matrix). Ubuntu 24.04's AppArmor default (`kernel.apparmor_restrict_unprivileged_userns=1`) refuses unprivileged `unshare -rn`, so on `ubuntu-latest` the test would fall back to strace with networking enabled: still green, still tracing every socket call, but the "networking disabled" claim of the release notes would quietly stop being true. Since §10, CI sets `VOXXA_REQUIRE_NETNS=1` on Linux, so a runner that refuses `unshare -rn` fails the test instead. The `traced with` line is printed with `eprintln!` by a passing test, so a green CI log shows it only with `-- --nocapture`.
 
 Not covered anywhere: a socket made by another process that `voxxad` started (it starts none), and non-socket channels (named pipes, files). On Linux, strace sees system calls, so a socket opened by any library is caught. On Windows, ETW sees AFD sockets: Winsock, which is what Rust's `std::net`, tokio/mio and `reqwest` use.
 
@@ -125,3 +125,32 @@ The mutant was never committed.
 - **Run URLs:** not yet. This step may not push. The orchestrator records them here and in the QA report §9.
 
 The verdict in §1 is unchanged: no Critical or High finding.
+
+## 10. Verifier fixes (2026-11-19, after 86b549d)
+
+The verifier round on 86b549d found two problems in the zero-sockets test. Both are fixed in aa16e90, each with a unit test.
+
+**1. Gate 4 was flaky on Windows (blocking).** `replay_opens_no_socket` blamed a replay for every Winsock-AFD event whose process id matched. It did not check when the event happened. The trace is system-wide and runs from before the first child starts until the slowest one exits. So a pid that Windows reused before or after a child was counted against that replay, and so was an AFD event logged in a borrowed process context. One verifier run failed with a single AFD event; a real connect makes several.
+
+The fix (`src-tauri/tests/replay_no_sockets.rs`, `etw`, `lifetime`, `socket_events`):
+- The same ETW session also enables `Microsoft-Windows-Kernel-Process`, keyword 0x10 (process start and exit). These events use the same clock as the AFD events.
+- A child's lifetime runs from its start event to the first exit event of that pid after it. The start event must name the test process as the parent.
+- Only socket (event 1000), connect (1017, 1018) and ConnectEx (1020, 1021) events count. They must carry the child's pid and fall inside its lifetime. A send, receive or close needs a socket first, so this misses no socket.
+- If a child has no recorded start or exit, the test fails. It never guesses a lifetime.
+- Unit tests: `etw_charges_a_replay_only_with_its_own_sockets` covers a reused pid before and after the child, a send event, and another pid. `etw_read_back_lines_parse` covers the read-back parser. Two mutants were tried. Without the time window, the unit test counts 4 events; without the event-id filter, it counts 1. Both mutants fail the test.
+- What is left: a socket-create or connect event logged with the replay's pid during the replay's own lifetime still counts. Windows logs these events in the context of the process that calls `socket` or `connect`, so such an event would be a real socket.
+
+**2. A green CI log never shows the `traced with` line (minor).** The line comes from `eprintln!` in a passing test, and CI runs without `--nocapture`. So a fallback to strace with networking enabled (for example after a runner bump) would have gone unnoticed. Fix: with `VOXXA_REQUIRE_NETNS=1`, the test fails when `unshare -rn true` fails (`strace_mode`; unit test `a_required_network_namespace_fails_without_unshare`). `ci.yml` sets it on Linux. On Linux, CI also sets `VOXXA_REQUIRE_SOCKET_TRACE=1`, so a green Linux job now means "strace inside `unshare -rn`", and a green Windows job means "ETW". No `--nocapture` run is needed. The `ci.yml` comment says the line shows only with `--nocapture`. This Linux path has not run here (no Linux on this PC); the PR's first CI run proves it.
+
+**Re-proof (Windows, ETW, administrator), at aa16e90:**
+
+| Run | Result |
+|---|---|
+| Unmutated | pass: `traced with ETW Microsoft-Windows-Winsock-AFD`. The probe made 5 socket/connect events (before the fix the probe counted 18 AFD events of every kind). 44.9 s |
+| Mutant: `let _ = std::net::TcpStream::connect("127.0.0.1:9");` as the first line of the replay branch (`src/cli/voxxad/main.rs:89`) | **FAILED**: the first fixture's replay: `["4 socket/connect events for pid … during its lifetime, ids [1000, 1000, 1018, 1017]"]` (46.5 s). Reverted with `git checkout`; never committed |
+| Full `cargo test --features cli`, `VOXXA_REQUIRE_SOCKET_TRACE=1`, 4 runs in a row | 4 of 4 pass (210 passed, 1 ignored each) |
+| Under process churn: a loop starting `curl.exe` against 127.0.0.1:9 during the whole test (39 short-lived socket-making processes) | pass (45.8 s). The loop was stopped by its PID afterwards; no `curl` process was left |
+
+The verifier's flake was seen once in several runs, so 4 green runs cannot prove it is gone. The unit test shows that the two ways it happened (a reused pid, a non-socket event) can no longer count.
+
+**Before merge (replaces §9 (a)):** the `ubuntu-22.04` and `windows-latest` jobs pass `replay_no_sockets`. With `VOXXA_REQUIRE_SOCKET_TRACE=1` and, on Linux, `VOXXA_REQUIRE_NETNS=1`, a pass means strace inside `unshare -rn` on Linux and ETW on Windows. (b), (c), the Node 20 check and the run URLs stay as in §9.

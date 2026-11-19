@@ -1,5 +1,9 @@
 # DevOps — church-autoadvance
 
+## 2026-11-19 — Q7 verifier fixes (aa16e90)
+- **`ci.yml`:** the `cargo test` step also sets `VOXXA_REQUIRE_NETNS: ${{ runner.os == 'Linux' && '1' || '' }}`. The matrix comment no longer says to read the `traced with` line in the log. That line shows only with `--nocapture`, and a missing `unshare -rn` now fails the job instead.
+- **Installer exclusion re-proved at aa16e90:** the NSIS script names neither tool, and the `--features cli` control names both. The head installer was rebuilt last.
+
 ## 2026-11-19 — Q7 finish on `q7/base`
 - **`Cargo.toml`:** the four `[[test]] required-features = ["cli"]` blocks are deleted (c9271f0). CI already runs `cargo test --features cli`, so CI does not change. A plain `cargo test` now fails the CLI tests with "run: cargo test --features cli" instead of skipping them. The `[[bin]]` comment now reads "CI passes it; run `cargo test --features cli`" (171ad76).
 - **Exclusion re-proved at the head.** `npx tauri build --debug --bundles nsis` produced an `installer.nsi` whose "Copy external binaries" section is empty, and the file names neither tool. Fresh `voxxad.exe` and `voxxa-eval.exe` sat in the target folder during the build. Control: with `--features cli`, both tools are listed. The head installer was rebuilt last (14,245,540 bytes).

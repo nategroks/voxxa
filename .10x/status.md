@@ -141,8 +141,9 @@
     - zero sockets (ETW): pass; the replay TCP-connect mutant fails with 11 AFD events; pass again after the revert;
     - determinism: pass; a 1 ms change to one logged action fails it;
     - installer: the NSIS script names neither tool, and the `--features cli` control names both.
+  - **Verifier fixes (aa16e90, after the round on 86b549d):** gate 4 was flaky on Windows because `replay_opens_no_socket` counted AFD events by pid alone. It now counts only socket-create and connect events inside each child's start-to-exit window, taken from Kernel-Process events in the same ETW session. Unit tests fail if the window or the event filter is removed. `VOXXA_REQUIRE_NETNS=1` in Linux CI fails the test without `unshare -rn`. Re-proved: 4 of 4 full `cargo test --features cli` runs pass (210 passed, 1 ignored), the CI eval step and the table are unchanged, the socket and determinism mutants fail, and the installer exclusion holds. Records: QA report and security review §10.
   - **Before merge (must come from the first CI run):**
-    - (a) Linux and Windows print `traced with strace inside unshare -rn` and `traced with ETW`;
+    - (a) the Linux and Windows jobs pass `replay_no_sockets` (since aa16e90 a pass proves strace inside `unshare -rn` and ETW respectively);
     - (b) the throwaway socket mutant turns Linux red, and its revert turns it green;
     - (c) full-eval is green or warns on 3 OSes, with only the table, and its times are recorded;
     - the Node 20 check on the older action pins;

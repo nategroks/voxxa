@@ -11,7 +11,7 @@
 
 ## From: Q7 → To: the orchestrator, then Q8 (Increment 1′ closed)
 **Date:** 2026-11-19
-**Phase:** Phases 5 and 6 are done on `q7/base`. All local gates pass. The orchestrator now needs CI, the PR and the merge (pre-approved above). The finish head is the commit "state: Q7 close-out", one commit after 3a4303a.
+**Phase:** Phases 5 and 6 are done on `q7/base`. All local gates pass. The orchestrator now needs CI, the PR and the merge (pre-approved above). The finish head is the commit "state: Q7 close-out", one commit after 3a4303a. **Update after the verifier round on 86b549d:** aa16e90 fixes the flaky Windows socket attribution and adds `VOXXA_REQUIRE_NETNS=1` for Linux CI. The records follow in one docs commit (QA report and security review, section 10). The head is that docs commit.
 
 ### What Q7 did
 - **Lanes:** `q7/10x` (8 commits on 46cb6d1) was merged into `q7/base` as the comparator's base (008aa50). The `q7/ponytail` lane stays local for reference. Four grafts came from ponytail, and the 10x review's fixes followed, one commit each: c9271f0, eb58458, 3472540, 171ad76, 5807ba3, afeec76, 5fa4c76, b0efc3f, 911d56c, and the records in 3a4303a.
@@ -22,12 +22,12 @@
 - **Records:** `reviews/2026-11-19-qa-report.md` (section 9 is the finish), `reviews/2026-11-19-security-review.md` (section 9), `reviews/2026-11-19-q7-tickets.md` (6 open, all low; Q7-04 closed), and `decisions/{qa,security,devops,sre}/church-autoadvance.md`.
 
 ### Numbers at the finish (unchanged from Q6)
-Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double advances, median 2,310 ms, p95 4,870 ms (budget 2,500 ms, #84), blank 7,280 ms, unblank 2,490 ms. `baseline.json` is unchanged. Tests: 207 passed with `--features cli` (56 unit + 151 integration), plus 1 ignored helper. Budgets are unchanged: voxxad 552/600, voxxa-eval 469/600, everything else 2,309/2,500, GUI 2,951/3,000.
+Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double advances, median 2,310 ms, p95 4,870 ms (budget 2,500 ms, #84), blank 7,280 ms, unblank 2,490 ms. `baseline.json` is unchanged. Tests: 210 passed with `--features cli` (56 unit + 154 integration; aa16e90 added 3), plus 1 ignored helper. Budgets are unchanged: voxxad 552/600, voxxa-eval 469/600, everything else 2,309/2,500, GUI 2,951/3,000.
 
 ### Next for the orchestrator (pre-approved)
 1. Push `q7/base` and open a draft PR against `main`.
 2. **Get the evidence the first CI run must produce before merge** (QA report and security review, section 9):
-   - (a) The ubuntu-22.04 and windows-latest jobs pass `replay_no_sockets`, and their logs print `traced with strace inside unshare -rn` and `traced with ETW`. The test's stderr shows only on failure or with `--nocapture`, so a throwaway `-- --nocapture` run may be needed.
+   - (a) The ubuntu-22.04 and windows-latest jobs pass `replay_no_sockets`. Since aa16e90, a pass proves the tracer: CI sets `VOXXA_REQUIRE_SOCKET_TRACE=1` and, on Linux, `VOXXA_REQUIRE_NETNS=1`, so a Linux pass means strace inside `unshare -rn`, and a Windows pass means ETW. No `--nocapture` run is needed.
    - (b) A throwaway commit adding `let _ = std::net::TcpStream::connect("127.0.0.1:9");` to `voxxad`'s replay branch turns the Linux job red. Reverting it turns the job green again.
    - (c) `full-eval.yml` is green, or only warns, on 3 OSes, and the summary and the artifact hold only the table. Record the time per OS. Check that run for Node 20 deprecation warnings on checkout v4.2.2, rust-cache v2.7.8, cache v4.2.3, setup-node v4.4.0 and upload-artifact v4.6.2, and bump any pin that warns.
    - Record the run URLs in both reports.
@@ -36,7 +36,8 @@ Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double a
 ### What Q8 must know
 - Build and test the tools with `--features cli`. A plain `cargo test` fails 10 tests on purpose.
 - A conductor change that moves actions must re-record the affected logs with `voxxa-eval --full --record`, and say why in the commit. So must any `SmartConfig` or `EvidenceConfig` default change, because all six logs store the whole config (`fixtures/README.md`).
-- Keep the Linux CI runner on `ubuntu-22.04` until `unshare -rn` is shown to work on a newer image (see the comment in `ci.yml`).
+- Keep the Linux CI runner on `ubuntu-22.04` until `unshare -rn` is shown to work on a newer image (see the comment in `ci.yml`). A bump to an image that refuses it now turns the job red (`VOXXA_REQUIRE_NETNS=1`).
+- On Windows, `replay_no_sockets` counts only socket-create and connect events (AFD 1000, 1017, 1018, 1020, 1021) inside each child's start-to-exit window (Kernel-Process events in the same ETW session). Keep it that way: pid alone was flaky.
 - Still open for the founder and user: the checklist M1–M14, real singing fixtures (#73), the latency budget (#84), and the earlier user items (Q6-01, Q6-10, ADR-012).
 
 ---

@@ -1,5 +1,9 @@
 # QA — church-autoadvance
 
+## 2026-11-19 — Q7 verifier fixes (aa16e90)
+- Gate 4 was flaky on Windows: `replay_opens_no_socket` counted Winsock-AFD events by pid alone. Fixed: only socket and connect events inside each child's start-to-exit window count (security review §10), with unit tests that fail if the window or the event filter is removed.
+- Re-proved at aa16e90: 4 of 4 full `cargo test --features cli` runs pass (210 passed, 1 ignored); the CI eval step exits 0 with the table unchanged; the socket mutant fails; the determinism mutant fails; the NSIS installer names neither tool (control names both). QA report §10.
+
 ## 2026-10-24 — Windows verification of Increment 0 (local Windows session, handoff task 1)
 
 Machine: Windows 11 Pro 10.0.26300, AMD Ryzen 3 1200 (4 cores, no SMT), fresh toolchain
