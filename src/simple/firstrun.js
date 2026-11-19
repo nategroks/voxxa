@@ -146,8 +146,9 @@ async function test() {
   const i = step;
   $("fr-next").textContent = "Finish anyway";
   onNext = finish;
-  let st = {};
+  let st = {}, p = {};
   try { st = await invoke("get_status"); } catch {}
+  try { p = await invoke("get_presenter_info"); } catch {}
   if (!still(i)) return;
   if (!st.total_slides) {
     say("Load this Sunday's songs first. Then play 20 seconds of any song from the list.");
@@ -159,7 +160,9 @@ async function test() {
     say("The voice model isn't ready yet.");
     return button("Back to the voice model", () => go(i - 1));
   }
-  say("Play 20 seconds of any song from the list through the speakers. If Voxxa recognises it, your presentation app moves like it would on Sunday.");
+  // Keystrokes are refused while Voxxa's own window has the focus (#44).
+  say("Play 20 seconds of any song from the list through the speakers. If Voxxa recognises it, your presentation app moves like it would on Sunday." +
+    (p.kind === "keystroke" ? " If Voxxa presses keys for you, click into your presentation app right after you start." : ""));
   button("Start the 20-second test", () => run(i, st.is_running), "primary-btn");
 }
 

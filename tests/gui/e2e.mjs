@@ -194,10 +194,13 @@ try {
     { title: "Bravo Hymn", slides: [{ id: 2, text: "echo foxtrot" }, { id: 3, text: "golf hotel" }, { id: 4, text: "india juliet" }] },
     { title: "Charlie Hymn", slides: [{ id: 5, text: "kilo lima" }] },
   ] };
+  await ev(`__mock.st.presenter = { kind: "keystroke", display_name: "Keystroke (any app)", connected: true }; return true`);
   await ev(`const input = document.getElementById("file-input"); const dt = new DataTransfer();
     dt.items.add(new File([${JSON.stringify(JSON.stringify(setlist))}], "placeholder.json", { type: "application/json" }));
     input.files = dt.files; input.dispatchEvent(new Event("change")); return true`);
   check("songs loaded through the existing file input", await waitFor(`return [...document.querySelectorAll("#fr-extra button")].some((b) => /20-second/.test(b.textContent))`, 3000));
+  check("keystroke users are told to click into their presentation app", /If Voxxa presses keys for you, click into your presentation app right after you start\.$/.test(await ev(`return document.getElementById("fr-msg").textContent`)));
+  await ev(`__mock.st.presenter = { kind: "pro_presenter7_rest", display_name: "ProPresenter 7.9+ (REST API)", connected: true }; return true`);
   await ev(`[...document.querySelectorAll("#fr-extra button")].find((b) => /20-second/.test(b.textContent)).click(); return true`);
   check("test starts listening through the Listen button", await waitFor(`return __mock.st.running`, 2000));
   await shot("08-first-run-test-running");
