@@ -179,7 +179,8 @@ pub fn run(
             let Some(text) = stitcher.next(&hypothesis.words) else {
                 continue;
             };
-            log::info!("Heard: {}", text);
+            // A count only: the log reaches the diagnostics report (#102).
+            log::info!("Heard {} words", text.split_whitespace().count());
             sink(now, Event::Input(Input::Heard(text.clone())));
             let mut rows = Vec::new();
             let (action, total) = apply(Input::Heard(text), now, &mut |c| {

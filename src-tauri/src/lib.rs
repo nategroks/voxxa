@@ -22,6 +22,7 @@ pub use aligner::evidence;
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::{choose_config, AudioEngine, Resampler};
 pub use commands::{gui_event, gui_sink, presenter_error, GuiEvent, Sessions};
+pub use diagnostics::{init_logger, recent_log};
 pub use dispatch::{drive, step, Sent};
 pub use http_api::{authorize, resolve_token};
 pub use presenters::{
