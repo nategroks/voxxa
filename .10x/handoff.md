@@ -9,6 +9,38 @@
 
 ---
 
+## From: Q7 → To: the orchestrator, then Q8 (Increment 1′ closed)
+**Date:** 2026-11-19
+**Phase:** Phases 5 and 6 are done on `q7/base`. All local gates pass. The orchestrator now needs CI, the PR and the merge (pre-approved above). The finish head is the commit "state: Q7 close-out", one commit after 3a4303a.
+
+### What Q7 did
+- **Lanes:** `q7/10x` (8 commits on 46cb6d1) was merged into `q7/base` as the comparator's base (008aa50). The `q7/ponytail` lane stays local for reference. Four grafts came from ponytail, and the 10x review's fixes followed, one commit each: c9271f0, eb58458, 3472540, 171ad76, 5807ba3, afeec76, 5fa4c76, b0efc3f, 911d56c, and the records in 3a4303a.
+- **QA:** `tests/replay_determinism.rs` runs on 3 OSes in `ci.yml`. Every committed log must replay to its own action lines, and two replays must agree. Four fixture logs were re-recorded first (20e3301). Their recogniser lines did not change, and neither did the table. `.github/workflows/full-eval.yml` is the report-only Whisper Tiny eval, with the model pinned by SHA-256. It runs on `workflow_dispatch`, plus the PR that changes the workflow file. On the reference PC, full mode equals replay cell for cell.
+- **Security:** `tests/replay_no_sockets.rs` traces `voxxad --replay` on every committed log. On Linux it uses strace inside `unshare -rn`; on Windows, ETW. A positive control runs first, and `VOXXA_REQUIRE_SOCKET_TRACE=1` is set in CI. macOS is skipped and says so (Q7-01). The claim is now "`--replay` opens no socket; `--shadow` makes no network connection". On Linux and macOS, tokio's signal driver creates one local AF_UNIX socketpair. `ci.yml` has `permissions: contents: read`.
+- **DevOps:** `voxxad` and `voxxa-eval` are out of every installer (b9692c5). They live in `src/cli/` behind the off-by-default `cli` feature, and `tests/packaging.rs` guards this. The proof is the NSIS script, re-proved at the finish with a `--features cli` control. A plain `cargo test` now fails the CLI tests with "run: cargo test --features cli". Before, they were skipped without a word (Q7-04 is closed). Release notes: `docs/releases/voxxad-cli-preview.md` (no tag, no release). Companion: `docs/INTEGRATIONS.md`, "Driving `voxxad` from Bitfocus Companion".
+- **SRE:** the runbook `docs/runbooks/eval-regression.md`. It filters full mode's stderr to `voxxa-eval:` lines and no longer uses `2>/dev/null`.
+- **Records:** `reviews/2026-11-19-qa-report.md` (section 9 is the finish), `reviews/2026-11-19-security-review.md` (section 9), `reviews/2026-11-19-q7-tickets.md` (6 open, all low; Q7-04 closed), and `decisions/{qa,security,devops,sre}/church-autoadvance.md`.
+
+### Numbers at the finish (unchanged from Q6)
+Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double advances, median 2,310 ms, p95 4,870 ms (budget 2,500 ms, #84), blank 7,280 ms, unblank 2,490 ms. `baseline.json` is unchanged. Tests: 207 passed with `--features cli` (56 unit + 151 integration), plus 1 ignored helper. Budgets are unchanged: voxxad 552/600, voxxa-eval 469/600, everything else 2,309/2,500, GUI 2,951/3,000.
+
+### Next for the orchestrator (pre-approved)
+1. Push `q7/base` and open a draft PR against `main`.
+2. **Get the evidence the first CI run must produce before merge** (QA report and security review, section 9):
+   - (a) The ubuntu-22.04 and windows-latest jobs pass `replay_no_sockets`, and their logs print `traced with strace inside unshare -rn` and `traced with ETW`. The test's stderr shows only on failure or with `--nocapture`, so a throwaway `-- --nocapture` run may be needed.
+   - (b) A throwaway commit adding `let _ = std::net::TcpStream::connect("127.0.0.1:9");` to `voxxad`'s replay branch turns the Linux job red. Reverting it turns the job green again.
+   - (c) `full-eval.yml` is green, or only warns, on 3 OSes, and the summary and the artifact hold only the table. Record the time per OS. Check that run for Node 20 deprecation warnings on checkout v4.2.2, rust-cache v2.7.8, cache v4.2.3, setup-node v4.4.0 and upload-artifact v4.6.2, and bump any pin that warns.
+   - Record the run URLs in both reports.
+3. Merge when every job is green. File the 6 open Q7 tickets (label `q7`). Close #47 and #75. Add notes to #48, #49, #54 and #78 (tickets file, top).
+
+### What Q8 must know
+- Build and test the tools with `--features cli`. A plain `cargo test` fails 10 tests on purpose.
+- A conductor change that moves actions must re-record the affected logs with `voxxa-eval --full --record`, and say why in the commit. So must any `SmartConfig` or `EvidenceConfig` default change, because all six logs store the whole config (`fixtures/README.md`).
+- Keep the Linux CI runner on `ubuntu-22.04` until `unshare -rn` is shown to work on a newer image (see the comment in `ci.yml`).
+- Still open for the founder and user: the checklist M1–M14, real singing fixtures (#73), the latency budget (#84), and the earlier user items (Q6-01, Q6-10, ADR-012).
+
+---
+
 ## From: Q6 → To: Q7 (close Increment 1′)
 **Date:** 2026-11-13; updated 2026-11-19 after the close-out
 **Phase:** Phase 4 Implementation done and verified on `q6/base` (**final head 97cc21b**, plus the state commit "state: Q6 ponytail re-run, baseline decision, close-out"). The user decided the baseline item on 2026-11-18, and **both verifiers passed at 97cc21b**. Next: CI + PR + merge by the orchestrator (pre-approved), then Q7.
@@ -51,16 +83,16 @@ PR #82 merged as a60d1ce (CI green on all 5 jobs at 1254374); Q6 tickets filed a
 ### What Q7 must know
 **Q7's task** (prompt pack): QA runs the full fixture eval and the replay determinism test on all three OSes via CI; Security adds a test that runs `voxxad --replay` with networking disabled and asserts zero sockets; DevOps writes CLI release notes and a `docs/INTEGRATIONS.md` section for driving `voxxad` from Companion; SRE writes the runbook "eval shows regression". Q7 starts from `main` after the Q6 merge (the user chose option (a), so Q6 is meant to merge).
 
-**Running `voxxa-eval`** (unchanged from Q5; see `fixtures/README.md`):
+**Running `voxxa-eval`** (as in Q5, plus `--features cli` since Q7's b9692c5: without it neither tool is built; see `fixtures/README.md`):
 ```sh
-cargo build --manifest-path src-tauri/Cargo.toml --bin voxxad --bin voxxa-eval
-cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval                     # replay: what CI runs
-cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --full 2>/dev/null  # Whisper Tiny, local
-cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --full --record fixtures/recordings/<name>  # re-record one log
+cargo build --manifest-path src-tauri/Cargo.toml --features cli --bin voxxad --bin voxxa-eval
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval                     # replay: what CI runs
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full 2> >(grep '^voxxa-eval' >&2)  # Whisper Tiny, local (bash)
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full --record fixtures/recordings/<name> 2> >(grep '^voxxa-eval' >&2)  # re-record one log
 ```
 - **Six fixtures** in `fixtures/recordings/`: `jump-be-thou-my-vision`, `prayer-before-first-song`, `prayer-between-songs`, `prayer-then-reprise`, `prayer-without-pause`, `refrain-it-is-well`. All synthetic spoken audio, no singing (Q5-01, #73).
 - **Time in debug** on the reference PC: replay of all six about 3-4.5 min; full mode about 11-12 min (much longer when other jobs load the PC: verifier A took 75 min on 2026-11-13 and 5,518 s on 2026-11-18); the `voxxa_eval` test binary about 290 s.
-- **Keep full mode's stderr out of your output.** Whisper prints recognised words to stderr. The command above sends it to `/dev/null`; a verifier that tailed it once saw recognised words in its own tool output (nothing reached a file or message). The content rule still applies: never print setlist or recognised text; print counts and indices only. CI runs replay in the eval step and three more times in `cargo test`, on each OS (#77). Q7's "full fixture eval on all three OSes via CI" can only be replay: CI has no model. Full mode stays local.
+- **Keep full mode's stderr out of your output.** Whisper prints recognised words to stderr. The commands above keep only `voxxa-eval:` lines (since Q7; `2>/dev/null` also hid voxxa-eval's own errors); a verifier that tailed it once saw recognised words in its own tool output (nothing reached a file or message). The content rule still applies: never print setlist or recognised text; print counts and indices only. CI runs replay in the eval step and three more times in `cargo test`, on each OS (#77). Q7's "full fixture eval on all three OSes via CI" can only be replay: CI has no model. Full mode stays local.
 - **Regenerating the TTS audio:** `powershell -ExecutionPolicy Bypass -File scripts/fixtures/make_tts_fixture.ps1 [-Fixture <name>]`. It writes WAVs and the truth files; then re-record the fixture's log. Reproducibility is checked on the reference PC only.
 
 **Replay determinism: what holds, and one trap for Q7** (re-checked by verifier A at 97cc21b).
