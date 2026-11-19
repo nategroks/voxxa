@@ -1,5 +1,7 @@
 /* Simple mode (ADR-017). Colours come from main.css's variables. */
-#app[hidden], #simple[hidden], .welcome-overlay[hidden] { display: none; }
+/* main.css gives overlays display: flex, which beat the hidden attribute: the
+   diagnostic modal covered the old default view. */
+[hidden] { display: none !important; }
 #simple {
   display: flex;
   flex-direction: column;
@@ -14,7 +16,7 @@
   border-radius: var(--radius);
   padding: 4px;
 }
-.mode label { flex: 1; display: flex; cursor: pointer; }
+.mode label { flex: 1; min-width: 0; display: flex; cursor: pointer; }
 .mode input { position: absolute; opacity: 0; pointer-events: none; }
 .mode span {
   flex: 1;

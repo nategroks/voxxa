@@ -38,7 +38,7 @@ const say = (el, text) => (el.querySelector("p").textContent = text);
 let was = false;
 let busy = false;
 function render() {
-  if (isListening && !was) newSession(); // Songs, Space, the tray or the Advanced button
+  if (isListening && !was) newSession().finally(render); // Songs, Space, the tray or the Advanced button
   was = isListening;
   const [color, text] = light({ ...s, listening: isListening });
   view.querySelector(".light").className = `light ${color}`;
@@ -69,7 +69,9 @@ function songLine(i) {
   return song ? `Song ${n + 1}: ${song.title} · slide ${i - songOffsets[n] + 1}/${song.slides.length}` : "";
 }
 
-view.querySelector(".mode").addEventListener("change", async (e) => {
+// "click", not "change": choosing Off again after a refused start clears its red.
+view.querySelector(".mode").addEventListener("click", async (e) => {
+  if (!e.target.matches("input")) return;
   const want = e.target.value === "songs";
   busy = true;
   s.startError = want === isListening ? "" : (await toggleListening()) || "";

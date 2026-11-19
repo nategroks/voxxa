@@ -63,6 +63,11 @@ jobs:
       - name: Build frontend
         run: npm ci && npm run build
 
+      # Q8 / ADR-017: the Simple-mode status light, a pure function. Node's
+      # own test runner; no npm dependency.
+      - name: GUI unit tests
+        run: node --test "tests/gui/*.test.mjs"
+
       - name: cargo fmt
         working-directory: src-tauri
         run: cargo fmt --check
