@@ -394,6 +394,13 @@ fn every_runbook_link_resolves() {
             "docs/runbooks/{name}.md"
         );
     }
+    // The URL that is opened, owner, repo and branch included; nothing else.
+    assert_eq!(
+        help::runbook_url("no-audio-device").as_deref(),
+        Some("https://github.com/nategroks/voxxa/blob/main/docs/runbooks/no-audio-device.md")
+    );
+    assert_eq!(help::runbook_url("../../evil"), None);
+    assert_eq!(help::runbook_url("no-audio-device.md"), None);
     let logic = std::fs::read_to_string(repo().join("src/simple/logic.js")).unwrap();
     // `export const RUNBOOKS = { mic: "…", app: "…", model: "…" };`
     let table = logic.split("export const RUNBOOKS = {").nth(1).unwrap();

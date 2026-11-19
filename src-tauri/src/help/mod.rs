@@ -17,7 +17,6 @@ pub const SUPPORT_EMAIL: &str = "";
 /// The runbooks a link next to the status light may open (ADR-018 § 7),
 /// each `docs/runbooks/<name>.md`.
 pub const RUNBOOKS: &str = "no-audio-device presentation-app-not-reachable model-missing";
-const RUNBOOK_URL: &str = "https://github.com/nategroks/voxxa/blob/main/docs/runbooks/";
 pub const WORDS_FILE: &str = "words-last-2-minutes.txt";
 const WORDS_MS: u64 = 120_000;
 /// QA override (ADR-018 § 6): write the zip here, read session logs from
@@ -213,11 +212,15 @@ pub fn open_help_email(app: AppHandle) -> Result<Vec<String>, String> {
     Ok(targets.to_vec())
 }
 
+/// The GitHub page of one of the [`RUNBOOKS`]; None for any other name.
+pub fn runbook_url(name: &str) -> Option<String> {
+    let base = "https://github.com/nategroks/voxxa/blob/main/docs/runbooks";
+    (RUNBOOKS.split(' ').any(|r| r == name)).then(|| format!("{base}/{name}.md"))
+}
+
 /// Open one of the [`RUNBOOKS`] on GitHub; any other name is refused.
 #[tauri::command]
 pub fn open_runbook(app: AppHandle, name: String) -> Result<(), String> {
-    if !RUNBOOKS.split(' ').any(|r| r == name) {
-        return Err(format!("no runbook named {name}"));
-    }
-    open(&app, &format!("{RUNBOOK_URL}{name}.md"))
+    let url = runbook_url(&name).ok_or(format!("no runbook named {name}"))?;
+    open(&app, &url)
 }

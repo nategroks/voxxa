@@ -64,8 +64,8 @@ One zip, `voxxa-help-YYYYMMDD-HHMMSS.zip` (UTC), deflate (`zip` 9.0.5, already a
 | 6 presenter not found | red | `presentation-app-not-reachable` |
 
   "Model missing" is not red in ADR-017's table, so its link sits on the grey row 3 sentence. A "What to do" link shows under the sentence on those rows only.
-- The link calls `open_runbook { name }`. The backend accepts only the three names and opens `https://github.com/nategroks/voxxa/blob/main/docs/runbooks/<name>.md` (the repo is public) with the same `open`. An unknown name is refused.
-- **Links resolve** (tests): every name in the backend's list and every name `statusLight` returns is a file under `docs/runbooks/`; every relative link inside the new docs points to a file that exists.
+- The link calls `open_runbook { name }`. `help::runbook_url(name)` gives `https://github.com/nategroks/voxxa/blob/main/docs/runbooks/<name>.md` (the repo is public) for the three names and `None` for any other, which `open_runbook` refuses; otherwise it opens the URL with the same `open`.
+- **Links resolve** (tests): every name in the backend's list and every name `statusLight` returns is a file under `docs/runbooks/`; `runbook_url` gives exactly the URL above (owner, repo and branch included) and `None` for `../../evil`; every relative link inside the new docs points to a file that exists.
 
 ### 8. Budget fit (no cap raised, no row added)
 Backend: `src-tauri/src/help/mod.rs` and five lines in `lib.rs` and `diagnostics/mod.rs`, in "everything else in src-tauri/src". GUI: `src/simple/help.js`, a few CSS lines and the link in `simple.js`, in "Simple mode (src/simple/*)". `index.html`, `main.js` and the panels are unchanged. Tests live in `src-tauri/tests/` and `tests/gui/`, which are not counted. Measured numbers are in the SDE record.
