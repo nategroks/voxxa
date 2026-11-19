@@ -165,11 +165,13 @@ async function test() {
 
 async function run(i, wasRunning) {
   $("fr-extra").innerHTML = "";
-  const t = { started: wasRunning, lost: false, maxRms: 0, words: 0 };
+  const t = { started: wasRunning, lost: false, maxRms: 0, words: 0, advanced: 0, refused: 0 };
   const offs = await Promise.all([
     listen("mic-level", (e) => { t.maxRms = Math.max(t.maxRms, e.payload.rms || 0); }),
     listen("transcription", (e) => { if (e.payload.text) t.words += 1; }),
     listen("listening-stopped", (e) => { if (e.payload && e.payload.disconnected) t.lost = true; }),
+    listen("slide-advanced", () => { t.advanced += 1; }), // a slide change the presenter took
+    listen("presenter-error", () => { t.refused += 1; }),
   ]);
   if (!wasRunning) $("listen-btn").click();
   for (let left = 20; left > 0 && still(i) && !t.lost; left--) {

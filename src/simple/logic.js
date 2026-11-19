@@ -38,12 +38,15 @@ export function songPosition(songs, index, fallbackTitle) {
   return fallbackTitle ? { song: 0, songs: 0, title: fallbackTitle, slide: index + 1, slides: 0 } : null;
 }
 
-// The 20-second test (ADR-017 § 4). Counts only: no heard text is kept.
+// The 20-second test (ADR-017 § 4). Counts only: no heard text is kept. Green needs a slide
+// change that reached the presenter inside the window (`slide-advanced`), not only words.
 export const SOUND_RMS = 0.01;
 export function testVerdict(t) {
   if (!t.started) return [false, "Listening didn't start. Read the message at the bottom of the window, then try again."];
   if (t.lost) return [false, "The microphone stopped. Check the cable and try again."];
   if (t.maxRms < SOUND_RMS) return [false, "I couldn't hear anything. Check the microphone (step 1) and its volume."];
   if (t.words < 1) return [false, "I hear sound but no words. Move the mic closer to the speakers or turn it up."];
-  return [true, "I heard music and words. You're ready."];
+  if (!(t.advanced >= 1) && t.refused > 0) return [false, "Voxxa recognised the song, but your presentation app didn't take the slide. Click into your presentation app right after you start (and check that it is open), then try again."];
+  if (!(t.advanced >= 1)) return [false, "I hear words but didn't recognise a song from the list. Play a song that is loaded."];
+  return [true, "Voxxa followed the song and changed the slide. You're ready."];
 }

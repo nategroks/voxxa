@@ -93,8 +93,14 @@ test("songPosition counts slides inside the song", () => {
 });
 
 test("testVerdict: the 20-second test", () => {
-  const good = { started: true, lost: false, maxRms: 0.2, words: 3 };
-  assert.deepEqual(testVerdict(good), [true, "I heard music and words. You're ready."]);
+  const good = { started: true, lost: false, maxRms: 0.2, words: 3, advanced: 1, refused: 0 };
+  assert.deepEqual(testVerdict(good), [true, "Voxxa followed the song and changed the slide. You're ready."]);
+  // Words but no slide change: refused by the presentation app, or no song recognised.
+  assert.match(testVerdict({ ...good, advanced: 0, refused: 2 })[1], /^Voxxa recognised the song, but your presentation app didn't take the slide\. Click into/);
+  assert.equal(testVerdict({ ...good, advanced: 0, refused: 2 })[0], false);
+  assert.deepEqual(testVerdict({ ...good, advanced: 0 }), [false, "I hear words but didn't recognise a song from the list. Play a song that is loaded."]);
+  // One slide change that went through is green, even after a refused one.
+  assert.equal(testVerdict({ ...good, advanced: 1, refused: 1 })[0], true);
   assert.match(testVerdict({ ...good, started: false })[1], /didn't start/);
   assert.match(testVerdict({ ...good, lost: true })[1], /stopped/);
   assert.match(testVerdict({ ...good, maxRms: SOUND_RMS / 2 })[1], /couldn't hear/);
@@ -103,5 +109,6 @@ test("testVerdict: the 20-second test", () => {
   // Order: not started beats everything; a lost mic beats silence.
   assert.match(testVerdict({ started: false, lost: true, maxRms: 0, words: 0 })[1], /didn't start/);
   assert.match(testVerdict({ started: true, lost: true, maxRms: 0, words: 0 })[1], /stopped/);
-  assert.equal(testVerdict({ started: true, lost: false, maxRms: 0, words: 5 })[0], false);
+  assert.equal(testVerdict({ started: true, lost: false, maxRms: 0, words: 5, advanced: 1 })[0], false);
+  assert.match(testVerdict({ ...good, words: 0, advanced: 0, refused: 1 })[1], /no words/);
 });

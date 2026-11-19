@@ -206,7 +206,8 @@ try {
   await shot("09-first-run-test-silent-fail");
   await ev(`[...document.querySelectorAll("#fr-extra button")].find((b) => b.textContent === "Try again").click(); return true`);
   await waitFor(`return __mock.st.running`, 2000);
-  for (let i = 0; i < 6; i++) { await sleep(1500); await ev(`__mock.hear(0.2, "alpha bravo"); return true`); }
+  // Sound, words, and the conductor's slide change reaching the presenter (slide-advanced).
+  for (let i = 0; i < 6; i++) { await sleep(1500); await ev(`__mock.hear(0.2, "alpha bravo"); ${i === 3 ? "__mock.goto(0); " : ""}return true`); }
   check("test with sound and words passes", await waitFor(`return document.getElementById("firstrun").dataset.verdict === "pass"`, 25000), await ev(`return document.getElementById("fr-msg").textContent`));
   check("no heard text shown in the verdict", !(await ev(`return document.getElementById("firstrun").textContent.includes("alpha bravo")`)));
   await shot("10-first-run-test-pass");
