@@ -28,7 +28,8 @@ box.innerHTML = `<div class="fr-card" role="dialog" aria-modal="true" aria-label
   <div class="fr-actions"><button class="s-link" id="fr-skip">Skip setup</button><button class="primary-btn" id="fr-next">Next</button></div>
 </div>`;
 document.body.appendChild(box);
-box.addEventListener("keydown", (e) => e.stopPropagation()); // main.js's shortcuts (Space = Listen) stay out of the guide
+// While the guide is shown, main.js's shortcuts (Space = Listen, S = stage) never fire, wherever focus is (Q8-10).
+window.addEventListener("keydown", (e) => { if (!box.hidden) e.stopPropagation(); }, true);
 
 let step = -1;
 let onNext = () => {};

@@ -140,6 +140,13 @@ try {
     await send("Input.dispatchKeyEvent", { type: "keyDown", text: " ", ...key });
     await send("Input.dispatchKeyEvent", { type: "keyUp", ...key });
   };
+  // A key pressed while nothing has focus (the page body), as when the guide opens or after a step clears its buttons.
+  const keyOnBody = async (k) => {
+    await ev(`if (document.activeElement) document.activeElement.blur(); return document.activeElement === document.body`);
+    const key = k === " " ? { key: " ", code: "Space", windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32 } : { key: k, code: "Key" + k.toUpperCase(), windowsVirtualKeyCode: k.toUpperCase().charCodeAt(0), nativeVirtualKeyCode: k.toUpperCase().charCodeAt(0) };
+    await send("Input.dispatchKeyEvent", { type: "keyDown", text: k, ...key });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", ...key });
+  };
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 420, height: 600, deviceScaleFactor: 1, mobile: false });
@@ -181,6 +188,15 @@ try {
   check("Advanced: one click shows the old window", (await visible("#app")) && !(await visible("#simple")));
   await click("#s-guide");
   check("Set-up guide re-opens the first run", await visible("#firstrun"));
+
+  // The guide stops main.js's shortcut keys wherever focus is (ADR-017 § 1, Q8-10).
+  const stageBefore = await calls("toggle_stage_display");
+  const startsBeforeBody = await calls("start_listening");
+  await keyOnBody(" ");
+  await keyOnBody("s");
+  await new Promise((r) => setTimeout(r, 300));
+  check("guide open, focus on the page: Space starts nothing", (await calls("start_listening")) === startsBeforeBody && !(await ev(`return __mock.st.running`)));
+  check("guide open, focus on the page: s opens no stage window", (await calls("toggle_stage_display")) === stageBefore);
 
   // 4. First-run flow: microphone.
   check("devices listed, Default first", (await waitFor(`return [...document.querySelectorAll("#fr-device option")].map((o) => o.textContent).join("|")`)) === "Default|Desk USB input|Laptop microphone");
@@ -234,6 +250,13 @@ try {
   await clickButton("#fr-extra", /20-second/);
   check("test starts listening through the Listen button", await waitFor(`return __mock.st.running`, 2000));
   await shot("08-first-run-test-running");
+  const stopsDuringTest = await calls("stop_listening");
+  const stageDuringTest = await calls("toggle_stage_display");
+  await keyOnBody(" ");
+  await keyOnBody("s");
+  await new Promise((r) => setTimeout(r, 300));
+  check("20-second test, focus on the page: Space does not stop it", (await ev(`return __mock.st.running`)) && (await calls("stop_listening")) === stopsDuringTest);
+  check("20-second test, focus on the page: s opens no stage window", (await calls("toggle_stage_display")) === stageDuringTest);
   check("silent test fails", await waitFor(`return document.getElementById("firstrun").dataset.verdict === "fail"`, 25000), await ev(`return document.getElementById("fr-msg").textContent`));
   check("test stopped listening", !(await ev(`return __mock.st.running`)) && (await calls("stop_listening")) === 1);
   await shot("09-first-run-test-silent-fail");
