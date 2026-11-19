@@ -179,7 +179,9 @@ pub fn run(
             let Some(text) = stitcher.next(&hypothesis.words) else {
                 continue;
             };
-            log::info!("Heard: {}", text);
+            // A count, never the words, at any level: the log is the
+            // diagnostics report's ring buffer (#102, ADR-018).
+            log::info!("Heard {} words", text.split_whitespace().count());
             sink(now, Event::Input(Input::Heard(text.clone())));
             let mut rows = Vec::new();
             let (action, total) = apply(Input::Heard(text), now, &mut |c| {
