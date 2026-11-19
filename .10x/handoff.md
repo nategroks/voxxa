@@ -11,20 +11,23 @@
 ---
 
 ## From: Q6 → To: Q7 (close Increment 1′)
-**Date:** 2026-11-13
-**Phase:** Phase 4 Implementation done on `q6/base` (head 4edd7f6, plus the state commit that adds this section). **Not merged, and it must not be merged yet:** the verifiers did not all pass. One item is open, and only the user can decide it (below). After that: CI + PR + merge by the orchestrator, then Q7.
+**Date:** 2026-11-13; updated 2026-11-19 after the close-out
+**Phase:** Phase 4 Implementation done and verified on `q6/base` (**final head 97cc21b**, plus the state commit "state: Q6 ponytail re-run, baseline decision, close-out"). The user decided the baseline item on 2026-11-18, and **both verifiers passed at 97cc21b**. Next: CI + PR + merge by the orchestrator (pre-approved), then Q7.
 
 ### What Q6 did
 - **Fixtures first** (user decision 2, 733c7e1): three synthetic TTS fixtures of public-domain hymns, `refrain-it-is-well` (a repeated refrain), `jump-be-thou-my-vision` (verse 1, verse 3, verse 4, back to verse 1) and `prayer-between-songs`. Generator: `scripts/fixtures/make_tts_fixture.ps1` (offline System.Speech, WAV files only, byte-reproducible on the reference PC). 12 WAVs in `src-tauri/tests/fixtures/voxxad/tts-*.wav`. An independent audit found them fit to decide on.
-- **Decision, measured twice independently at 733c7e1:** 1 false advance over 6 sung songs = 1.67 per 10 songs (limit 1); p95 11.23 s over 13 hits (limit 2.5 s). Both limbs fail, so ADR-009's minimum was built. Decision record: ADR-016 (`adrs/016-adr-009-minimum-implemented.md`, Accepted, three amendments).
-- **Built:** a position tracker in `src-tauri/src/aligner/evidence/` (optional `sections[].kind` in setlist v1, repeat-aware priors in `SmartConfig.evidence`, word-token scoring on the last 12 words, an accumulator with decay and `min_dwell_ms`; the operator always wins). Q5-04 fixed: while blank, song detection reads only the newest transcript; its reproduction is the sixth fixture, `prayer-before-first-song`. `MachineState`, blanking, `manual_step`, the conductor's public API and event schema v1 are unchanged; no GUI, `voxxad`, `voxxa-eval`, recogniser or `Cargo.toml` change; no new crates.
-- **Process:** two lanes; the ponytail lane committed nothing, so the comparator took the 10x lane (merge d92800c) with two review fixes; three verifier rounds: `reviews/2026-11-13-ponytail-q6.md`.
-- **Records:** `reviews/2026-11-13-q6-eval-before-after.md` (summary and the fixtures' limits), `reviews/2026-11-13-q6-before-after.md` (every hit), `reviews/2026-11-13-q6-tickets.md` (11 open: 2 medium, 9 low), `decisions/{architect,sde,dba,qa}/church-autoadvance.md` ("Q6 final").
+- **Decision, measured twice independently at 733c7e1:** 1 false advance over 6 sung songs = 1.67 per 10 songs (limit 1); p95 11.23 s over 13 hits (limit 2.5 s). Both limbs fail, so ADR-009's minimum was built. Decision record: ADR-016 (`adrs/016-adr-009-minimum-implemented.md`, Accepted, five amendments).
+- **Built:** a position tracker in `src-tauri/src/aligner/evidence/` (optional `sections[].kind` in setlist v1, repeat-aware priors in `SmartConfig.evidence`, word-token scoring on the last 12 words, an accumulator with decay and `min_dwell_ms`; the operator always wins). Q5-04 fixed: while blank, song detection reads only the newest transcript; its reproduction is the sixth fixture, `prayer-before-first-song`. `MachineState`, blanking, `manual_step`, the conductor's public API and event schema v1 are unchanged; no GUI, `voxxa-eval` or recogniser change; no sockets.
+- **Dependencies (2026-11-18, for gate 5):** zip 9.0.0 → 9.0.5 (b7a5382) and chrono replaced by `time` (734b467), to clear RUSTSEC-2026-0548 and RUSTSEC-2026-0543, which appeared in the advisory database while `Cargo.lock` was unchanged. No advisory is ignored. `voxxad` now names session logs with `time` (local time, as before); the diagnostics report's `generated_at` ends in `Z`.
+- **Process:** two lanes. The first ponytail build lane was stopped by an output content filter and committed nothing, so the first comparator took the 10x lane (merge d92800c) with two review fixes; three verifier rounds on 2026-11-13. On 2026-11-18 the ponytail lane was re-run (`q6/ponytail` @ 7d4b4b6), reviewed and compared: the comparator kept `q6/base` and grafted tests, docs, the baseline cells and a decay clamp. Two more verifier rounds found gaps, each closed with a test or the dependency fix; both verifiers passed at 97cc21b. Record: `reviews/2026-11-13-ponytail-q6.md` (§10 for the re-run).
+- **Records:** `reviews/2026-11-13-q6-eval-before-after.md` (summary, the fixtures' limits, and §7 the user's decision and the final table), `reviews/2026-11-13-q6-before-after.md` (every hit, every round), `reviews/2026-11-13-q6-tickets.md` (12 open: 2 medium, 10 low), `decisions/{architect,sde,dba,qa,security}/church-autoadvance.md` ("Q6 final" and the 2026-11-18 close-out).
 
-### Numbers (replay; full mode with Whisper Tiny gives the same table)
+### Final numbers at 97cc21b (replay; full mode with Whisper Tiny gives the same table)
+Before is 733c7e1. The numbers have not changed since 4edd7f6; every later commit was a test, docs, the baseline, the decay clamp (no effect at the defaults) or a dependency.
+
 | fixture | before median / p95 ms | after median / p95 ms | recall before → after | false before → after |
 |---|---|---|---|---|
-| jump-be-thou-my-vision | 900 / 900 | **1,200 / 5,850** | 0.25 → 1.00 | 0 → 0 |
+| jump-be-thou-my-vision | 900 / 900 | **1,200 / 5,850** (baseline 1,500 / 6,000, user exception) | 0.25 → 1.00 | 0 → 0 |
 | prayer-before-first-song | 6,710 / 6,710 (log replayed with the old conductor) | 1,710 / 2,800 | 0.50 → 1.00 | 0 → 0 |
 | prayer-between-songs | 8,490 / 11,230 | 2,490 / 4,870 | 1.00 → 1.00 | 0 → 0 |
 | prayer-then-reprise | 2,900 / 8,900 | 2,900 / 2,900 | 1.00 → 1.00 | 0 → 0 |
@@ -34,17 +37,20 @@
 
 - Rule after: **0 false advances per 10 songs (met); p95 4.87 s (not met, budget 2.5 s)**. Precision 1.00, double advances 0, unblank 2,490 ms. Blank timing is unchanged (6.6-7.3 s into a prayer with no pause, Q4-03, #61).
 - All latency is **stream time at file speed**: no inference time, not wall clock. Live it would be higher (Q4-02, #60). No `--realtime` run was made.
+- **Gates at 97cc21b, all pass:** 1 `npm ci && npm run build`, 2 fmt, 3 clippy `-D warnings`, 4 `cargo test` (201 tests in 21 binaries, 0 failed), 5 cargo-deny (advisories, bans, licences ok), 6 loc budget, 7 the `dictat` grep, and the CI eval step (exit 0, "OK: no metric is worse"). Only binaries match the control-byte grep.
+- **The ponytail re-run, for comparison** (five old fixtures, replay): 19/19 hits, 0 false, median 2,310 ms, p95 8,490 ms, unblank 8,490 ms. It was faster on one cell (jump p95 3,850 ms, the log's floor) and slower wherever a song starts after a prayer. Ticket Q6-15 keeps its idea.
 
-### Open: the user must decide before the merge
-- **The item:** `jump-be-thou-my-vision` is worse on `median_ms` (900 → 1,200) and `p95_ms` (900 → 5,850), because its three missed slides are now hit. Its baseline cells are 1,000 / 1,000, set from one hit at recall 0.25. The recorded log sets floors of 1,200 ms (first hypothesis after verse 3) and 3,850 ms (after the return to verse 1), so no conductor that follows the jump can meet them.
-- **What fails because of it:** the exit criterion "eval not worse on any fixture"; gate 4 (`cargo test`: `replay_of_the_committed_fixtures_passes_the_baseline` and `a_broken_per_fixture_threshold_fails_the_gate_while_total_passes` in `tests/voxxa_eval.rs`); the CI step "voxxa-eval (fixtures vs baseline)", which exits 1 with `FAIL jump-be-thou-my-vision: median_ms is 1200, baseline needs <= 1000` and `FAIL jump-be-thou-my-vision: p95_ms is 5850, baseline needs <= 1000`. Gates 1, 2, 3, 5, 6 and 7 pass.
-- **Options** (ADR-016, second amendment, item 5): **(a), recommended:** a one-time exception to user decision 4, setting that row's `median_ms` to 1,500 and `p95_ms` to 6,000 (ADR-015's rule). Checked on a scratch copy: the gate prints OK and `voxxa_eval` passes 26/26. **(b):** keep `q6/base` out of `main`.
-- **Confirm at the same time:** the `total` row ended Q6 with blank 7,500 and unblank 2,500 ms (7,000 and 2,000 before Q6). No old fixture got worse; the new prayer fixture needs those values. The README now says how the `total` row is set when fixtures are added.
-- **Also for the user:** approve or decline Q6-01, a ~6-line GUI fix (decision 5 allows no GUI change without approval).
-- **Then the orchestrator:** apply the choice in its own commit (with the floor in the message), record it in ADR-016's item 5, re-run gate 4 and the CI eval step, push, draft PR, CI green on all jobs, merge, file the Q6 tickets (label `q6`), close #76 (Q5-04) and #62 (Q4-04), and add the Q6 numbers to #61, #73, #77 and #78. No agent may change `baseline.json`, the conductor or the metric definitions to get around the item.
+### Decided by the user (2026-11-18)
+- **The jump row:** `median_ms` 1,500 and `p95_ms` 6,000 in `fixtures/baseline.json`, a one-time exception to "tightened, never loosened" (applied in 85c736c, with the log's floor of 1,200 / 3,850 ms in the message). The old 1,000 / 1,000 cells came from one hit at recall 0.25.
+- **The `total` row:** `blank_ms` 7,500 and `unblank_ms` 2,500 accepted (7,000 and 2,000 before Q6). No old fixture got worse; the new prayer fixture needs those values.
+- With these cells the exit criterion "eval not worse on any fixture" holds, and gate 4 and the CI eval step pass.
+- **Still for the user:** approve or decline Q6-01, a ~6-line GUI fix (decision 5 allows no GUI change without approval); and Q6-10 (whether to drop the two unused `SmartConfig` fields).
+
+### Next for the orchestrator (pre-approved, "User decisions for Q6")
+Push `q6/base`, open a draft PR against `main`, get CI green on all jobs (fix forward if needed), and merge only when every CI job is green. Then file the 12 open Q6 tickets (label `q6`), close #76 (Q5-04) and #62 (Q4-04), and add the Q6 numbers to #61, #73, #77 and #78. The first CI run on the merged state also runs gate 5 against the advisory database of that day.
 
 ### What Q7 must know
-**Q7's task** (prompt pack): QA runs the full fixture eval and the replay determinism test on all three OSes via CI; Security adds a test that runs `voxxad --replay` with networking disabled and asserts zero sockets; DevOps writes CLI release notes and a `docs/INTEGRATIONS.md` section for driving `voxxad` from Companion; SRE writes the runbook "eval shows regression". Q7 starts from `main` after the Q6 merge. If the user chose (b), Q7 starts from `main` without Q6; say so in its records.
+**Q7's task** (prompt pack): QA runs the full fixture eval and the replay determinism test on all three OSes via CI; Security adds a test that runs `voxxad --replay` with networking disabled and asserts zero sockets; DevOps writes CLI release notes and a `docs/INTEGRATIONS.md` section for driving `voxxad` from Companion; SRE writes the runbook "eval shows regression". Q7 starts from `main` after the Q6 merge (the user chose option (a), so Q6 is meant to merge).
 
 **Running `voxxa-eval`** (unchanged from Q5; see `fixtures/README.md`):
 ```sh
@@ -54,40 +60,45 @@ cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --full 2>/dev
 cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --full --record fixtures/recordings/<name>  # re-record one log
 ```
 - **Six fixtures** in `fixtures/recordings/`: `jump-be-thou-my-vision`, `prayer-before-first-song`, `prayer-between-songs`, `prayer-then-reprise`, `prayer-without-pause`, `refrain-it-is-well`. All synthetic spoken audio, no singing (Q5-01, #73).
-- **Time in debug** on the reference PC: replay of all six about 3-4.5 min; full mode about 10 min (much longer when other jobs load the PC; verifier A took 75 min); the `voxxa_eval` test binary about 290 s. CI runs replay in the eval step and three more times in `cargo test`, on each OS (#77). Q7's "full fixture eval on all three OSes via CI" can only be replay: CI has no model. Full mode stays local.
+- **Time in debug** on the reference PC: replay of all six about 3-4.5 min; full mode about 11-12 min (much longer when other jobs load the PC: verifier A took 75 min on 2026-11-13 and 5,518 s on 2026-11-18); the `voxxa_eval` test binary about 290 s.
+- **Keep full mode's stderr out of your output.** Whisper prints recognised words to stderr. The command above sends it to `/dev/null`; a verifier that tailed it once saw recognised words in its own tool output (nothing reached a file or message). The content rule still applies: never print setlist or recognised text; print counts and indices only. CI runs replay in the eval step and three more times in `cargo test`, on each OS (#77). Q7's "full fixture eval on all three OSes via CI" can only be replay: CI has no model. Full mode stays local.
 - **Regenerating the TTS audio:** `powershell -ExecutionPolicy Bypass -File scripts/fixtures/make_tts_fixture.ps1 [-Fixture <name>]`. It writes WAVs and the truth files; then re-record the fixture's log. Reproducibility is checked on the reference PC only.
 
-**Replay determinism: one trap for Q7.**
-- Two replays of every fixture are byte-identical (verifier A).
-- For the logs recorded with the Q6 conductor (`refrain-it-is-well`, `prayer-before-first-song`, and the test log `src-tauri/tests/fixtures/voxxad/session-pd-hymns.jsonl`), replay's action lines equal the recorded ones byte for byte.
-- **The other four fixture logs still carry the actions of the 733c7e1 conductor** (documented; replay re-runs today's conductor on their recorded recogniser lines). A determinism test that compares replay's actions with the actions recorded in those four logs will fail. Either compare replay with replay, or re-record those four logs with `--full --record` first (their recogniser lines will match; say why in the commit).
+**Replay determinism: what holds, and one trap for Q7** (re-checked by verifier A at 97cc21b).
+- Two replays of every fixture are byte-identical, also between a CRLF and an LF checkout.
+- Full mode with Whisper Tiny on the reference PC reproduces every committed log's recogniser lines byte for byte (575/426/925/481/342/728 input lines over the six fixtures), and its action lines equal replay's on all six.
+- **Re-recorded in Q6** (the logs whose actions come from the Q6 conductor): `fixtures/recordings/refrain-it-is-well/session.jsonl` (its setlist gained `sections`, so the fingerprint changed; 2a57b9f), `fixtures/recordings/prayer-before-first-song/session.jsonl` (new fixture), and the test log `src-tauri/tests/fixtures/voxxad/session-pd-hymns.jsonl`. For these, replay's action lines equal the recorded ones byte for byte. In every re-recording the recogniser lines were identical to the earlier recording; only the start line and the actions changed.
+- **The other four fixture logs still carry the actions of the 733c7e1 conductor** (the 733c7e1 conductor reproduces them exactly; replay re-runs today's conductor on their recorded recogniser lines). A determinism test that compares replay's actions with the actions recorded in those four logs will fail. Either compare replay with replay, or re-record those four logs with `--full --record` first (their recogniser lines will match; say why in the commit).
+- The ponytail re-run also re-recorded `session-pd-hymns.jsonl` on its own branch; that copy is not on `q6/base`.
 
 **Re-recording rules.**
 - A setlist that gains `sections` changes its replay fingerprint, so its log must be re-recorded.
-- Logs from before Q6 get the `evidence` defaults filled in on replay. Logs recorded in Q6 store their `evidence` block, so a later change to an evidence default is invisible to replay until those logs are re-recorded (Q5-07, #78).
+- Logs from before Q6 get the `evidence` defaults filled in on replay. Logs recorded in Q6 store their `evidence` block, so a later change to an evidence default is invisible to replay until those logs are re-recorded (Q5-07, #78). So a retuned `EvidenceConfig` default moves CI for four fixtures and not for the other two; `fixtures/README.md` says this since 55e46a8.
 
 **Baseline rule, and a lesson.** Thresholds follow ADR-015 (latency: the next multiple of 500 ms strictly above the measured worst; counts and ratios exact). The user's rule is "tightened, never loosened" (decision 4). Q6 showed a gap: a per-fixture latency threshold reads a recall gain as a regression when a fixture's old hits were few. Q7's runbook "eval shows regression" should tell the reader to check recall and the missed count before treating a latency FAIL as a regression, and to ask the user before any threshold is loosened.
 
 **Conductor facts for the security test and the runbook.**
 - `voxxad --replay` builds the conductor from each log's start-line `SmartConfig` and checks the setlist's fingerprint; it loads no model and opens no audio device.
 - Each tracker move logs one `[EVIDENCE] song s: slide a -> b: e_now -> e_best` line (`aligner/evidence/mod.rs`); there is no `[CONDUCTOR]` move line any more.
+- `voxxad` session-log names and the expiry rule now use the `time` crate (734b467): local time, read in `main()` before any thread starts, falling back to UTC. No new network code; Q6 adds no socket.
+- The scripted conductor tests that guard behaviour: `tests/conductor_evidence.rs` (25), `tests/conductor_scripted.rs` (5, from the ponytail re-run, including a 27-step trace of `MachineState`, blanking and `manual_step` recorded at 733c7e1) and `tests/conductor_unchanged.rs` (2 traces). All use placeholder words.
 
-**Budget numbers (after Q6, 4edd7f6).**
+**Budget numbers (after Q6, 97cc21b).**
 | Row | Used / cap | Left |
 |---|---|---|
-| everything else in src-tauri/src | 2,288 / 2,500 | 212 |
+| everything else in src-tauri/src | 2,309 / 2,500 | 191 |
 | conductor (`aligner/`, without `evidence/`) | 1,173 / 1,200 | 27 |
 | conductor evidence (`aligner/evidence/`; new in Q6, user decision) | 215 / 500 | 285 |
 | recognizer | 432 / 700 | 268 |
-| voxxad binary | 548 / 600 | 52 |
+| voxxad binary | 552 / 600 | 48 |
 | voxxa-eval | 469 / 600 | 131 |
 | presenters | 1,149 / 2,000 | 851 |
 | importers + planning_center | 1,386 / 1,600 | 214 |
 | GUI | 2,951 / 3,000 | **49** |
 
-Tests: 189 (55 unit + 134 integration). New tests go in `src-tauri/tests/`, which is not counted.
+Tests: 201 (56 unit + 145 integration). New tests go in `src-tauri/tests/`, which is not counted.
 
-**Open Q6 tickets** (`reviews/2026-11-13-q6-tickets.md`, not filed yet): Q6-01 the GUI stores the whole `SmartConfig` (medium, needs the user's OK); Q6-03 p95 still 4.87 s (medium); Q6-04 and Q6-05 test gaps from verifier B; Q6-06 no importer writes `sections`; Q6-07 to Q6-09 fixture notes, one line's public-domain source, an unused generator path; Q6-10 two unused `SmartConfig` fields; Q6-11 ADR-009's graph-wide tracking; Q6-12 every cargo build rewrites `src-tauri/gen/schemas/*.json` line endings.
+**Open Q6 tickets** (`reviews/2026-11-13-q6-tickets.md`, 12 open, not filed yet; Q6-02, Q6-04 and Q6-05 are closed): Q6-01 the GUI stores the whole `SmartConfig` (medium, needs the user's OK); Q6-03 p95 still 4.87 s (medium); Q6-06 no importer writes `sections`; Q6-07 to Q6-09 fixture notes, one line's public-domain source, an unused generator path; Q6-10 two unused `SmartConfig` fields; Q6-11 ADR-009's graph-wide tracking; Q6-12 every cargo build rewrites `src-tauri/gen/schemas/*.json` line endings; Q6-13 and Q6-14 the tracker's operator bookkeeping is not fully pinned (verifier B's non-blocking survivors); Q6-15 try the ponytail re-run's scoring context for slides being entered.
 
 **Other things to keep.**
 - Safety rules for unattended runs are unchanged: no microphone, no keystroke dispatch, `--shadow`/`--replay`/`--presenter none` only, TTS to files only, and stop every process you start, by PID.

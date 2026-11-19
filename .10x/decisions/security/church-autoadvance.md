@@ -1,5 +1,12 @@
 # Security — church-autoadvance
 
+## 2026-11-18 — Q6 close-out: two new RustSec advisories cleared in code
+- **What happened:** between 2026-11-13 and 2026-11-18 the advisory database gained RUSTSEC-2026-0543 (chrono unmaintained, no fixed release) and RUSTSEC-2026-0548 (zip 9.0.0, `ZipStreamReader` trusts local-header names). Gate 5 (cargo-deny) failed on an unchanged `Cargo.lock`, on `q6/base` and on 733c7e1 alike.
+- **Exposure:** none known. Voxxa reads `.pptx` with `ZipArchive` by entry name and never uses `ZipStreamReader`.
+- **Decision:** fix in code, not by ignoring. b7a5382 moves zip to 9.0.5 (the smallest fixed release; the manifest now asks for it, so a fresh resolve cannot pick a vulnerable 9.0.x). 734b467 replaces chrono with `time` 0.3.47, which was already in the tree. `deny.toml` is unchanged and no advisory is ignored. New transitive crates: nix 0.31.4 (MIT) and num_threads 0.1.8 (MIT OR Apache-2.0, Unix only). chrono stays in `Cargo.lock` only as an optional transitive dependency, which the workspace scope does not flag.
+- **Result:** cargo-deny `check licenses advisories bans` passes at 97cc21b (verified by the finisher and both verifiers). No sockets, no new network path; Q6 otherwise changed no security boundary.
+- **Note:** the advisory gate can turn red with no code change (R13). Q7's CI runs will see the current database.
+
 ## 2026-11-11 — Q2 security review of the merged base (Phase 5)
 
 Full review: `reviews/2026-11-11-security-review.md`; tickets: `reviews/2026-11-11-q2-tickets.md`.

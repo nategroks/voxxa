@@ -463,3 +463,29 @@ Process record: `reviews/2026-11-13-ponytail-q6.md`. Numbers: `reviews/2026-11-1
 **Verifiers:** rounds 1 and 2 failed on mutation survivors, all killed with tests. Round 3 at 4edd7f6: verifier A and verifier B both failed, on the jump cells only; B's two low survivors are Q6-04 and Q6-05.
 
 **Debt.** Q6-01 GUI stores the whole `SmartConfig`; Q6-03 p95 still 4.87 s; Q6-04/05 test gaps; Q6-06 no importer writes sections; Q6-07/08/09 fixture notes, provenance and an unused generator path; Q6-10 two unused `SmartConfig` fields; Q6-11 ADR-009's graph-wide tracking; Q6-12 generated-schema line endings.
+
+## 2026-11-18 — Q6 close-out on `q6/base` (final head 97cc21b)
+Process record: `reviews/2026-11-13-ponytail-q6.md` §10. Final numbers: `reviews/2026-11-13-q6-eval-before-after.md` §7. Per round: `reviews/2026-11-13-q6-before-after.md`.
+
+**What changed after 4edd7f6** (each commit on its own; no conductor behaviour change at the defaults):
+- 85c736c: `fixtures/baseline.json`, jump row 1,500 / 6,000 (the user's decision of 2026-11-18). No other cell.
+- Grafts from the ponytail re-run, via the comparator: d2fae8e (tests for `prior_chorus` and the tie-break; closes Q6-04 and Q6-05), 8b866d9 (`tests/conductor_scripted.rs`: its four scenarios and its 27-step trace), 55e46a8 (`fixtures/README.md`: missing start-line config fields take today's defaults), 587d2ad (`decay` clamped to 0..=1, no new code line).
+- Gate 5: b7a5382 (zip 9.0.5) and 734b467 (chrono replaced by `time` in diagnostics and `voxxad`; generated_at now ends in `Z`; local-time log names; the 14-day expiry unchanged).
+- Test pins from the verifier rounds: 2aea4fd (`LEAD_SLACK`), b402c87 (the operator scenario past the dwell), 0050b32 (the resume slide after a two-slide chorus), d41eb35 (every `EvidenceConfig` value changes a decision), dca4637 (an inner apostrophe joins a word).
+- Records: c5ae273, d57f060, 97cc21b.
+
+**Gates at 97cc21b (Windows 11, rustc 1.99.1): all pass.** npm, fmt, clippy `-D warnings`, `cargo test` (201 tests in 21 binaries, 0 failed), cargo-deny (advisories, bans, licences ok), loc budget, the `dictat` grep, and the CI eval step ("OK: no metric is worse"). Only binaries match the control-byte grep.
+
+**Tests:** 201 (56 unit + 145 integration): `conductor_evidence` 25, `conductor_scripted` 5, `conductor_unchanged` 2, `voxxa_eval` 26, `voxxad_events` 31.
+
+**Budgets:** conductor 1,173 / 1,200; conductor evidence 215 / 500; everything else 2,309 / 2,500; importers 1,386 / 1,600; voxxad 552 / 600; recognizer 432 / 700; voxxa-eval 469 / 600; presenters 1,149 / 2,000; GUI 2,951 / 3,000. No cap raised.
+
+**Eval (replay; full mode equal), 733c7e1 → 97cc21b:** precision 0.93 → 1.00, recall 0.68 → 1.00, hits 13 → 21, false advances 1 → 0, median 4,120 → 2,310 ms, p95 11,230 → 4,870 ms, blank 7,280 ms unchanged, unblank 8,490 → 2,490 ms. The rule: 0 false advances per 10 songs (met); p95 4.87 s (not met, Q6-03).
+
+**Verifiers:** the rounds at c5ae273 and d57f060 found gaps (gate 5, `LEAD_SLACK`, a weak operator scenario; then the resume slide, the config values, apostrophes), each closed by the commits above. **Both verifiers passed at 97cc21b.** Verifier B's four non-blocking survivors are Q6-13 and Q6-14.
+
+**Not taken from the ponytail re-run:** its deletion of `slide_advance_debounce_ms` and `advance_margin` (Q6-10, the user's call) and its scoring context for slides being entered (Q6-15).
+
+**Debt.** Q6-01 GUI stores the whole `SmartConfig`; Q6-03 p95 still 4.87 s; Q6-06 no importer writes sections; Q6-07/08/09 fixture notes, provenance and an unused generator path; Q6-10 two unused `SmartConfig` fields; Q6-11 ADR-009's graph-wide tracking; Q6-12 generated-schema line endings; Q6-13/14 operator bookkeeping not fully pinned; Q6-15 the ponytail scoring idea.
+
+**Next:** the orchestrator pushes `q6/base`, opens the PR, gets CI green and merges; then files the 12 open Q6 tickets.

@@ -2,6 +2,7 @@
 
 **Step:** Q6, conductor against the budget. **Branch:** `q6/base`. **Before:** 733c7e1 (Q5's conductor plus the three Q6 fixtures). **After:** 4edd7f6 (ADR-009's minimum, ADR-016, with the review and verifier fixes).
 **Result:** the conductor missed the budget, so ADR-009's minimum was built. It removes the false advance and every missed slide, and cuts p95 latency from 11.23 s to 4.87 s. It still misses the 2.5 s latency budget. **One fixture is worse on two latency cells, so Q6's exit criterion is not met and the PR must not be merged yet** (see "Exit criterion" below).
+**Update, 2026-11-18:** the user decided the baseline item (§7): the jump row's cells are now 1,500 / 6,000, and the `total` row's blank 7,500 and unblank 2,500 are accepted. The final head is **97cc21b**. Its numbers are the same as the "after" rows below, cell for cell, and the eval passes the baseline. Both verifiers passed at 97cc21b.
 
 The lane-level detail, with every per-hit latency, is in `2026-11-13-q6-before-after.md`. This file is the orchestrator's summary. Slides are named `song/slide`; no hymn text is quoted.
 
@@ -94,3 +95,39 @@ Cells: slides / gotos / hits / missed, precision, recall, median and p95 latency
 - **Latency is stream time at file speed** (see §1). Live latency on this PC would be higher (Q4-02).
 - **Small sets:** 7 songs and 21 slides in all. "Per 10 songs" is extrapolated from that.
 - **Slow in debug:** replay of all six fixtures takes about 3-4.5 min, full mode about 10 min, and the `voxxa_eval` test binary about 5 min (#77).
+
+## 7. The user's baseline decision and the final numbers (2026-11-18)
+
+### The user's decision (binding, 2026-11-18)
+- **The `jump-be-thou-my-vision` row** may be set to `median_ms` 1,500 and `p95_ms` 6,000. This is a one-time exception to "tightened, never loosened". The old 1,000 / 1,000 cells came from the old conductor hitting 1 of 4 slides; the recorded log sets a floor of 1,200 and 3,850 ms for any conductor that follows the jump (§4). This was option (a) in §4.
+- **The `total` row's `blank_ms` 7,500 and `unblank_ms` 2,500 are accepted.** They were raised by adding the `prayer-between-songs` fixture, not because any fixture got worse (§5).
+- Applied in its own commit, 85c736c, with the floor in the message; no other cell changed. Recorded in ADR-016's amendment of 2026-11-18.
+- The rest of the baseline stays "tightened, never loosened". Replay logs may still be re-recorded with Whisper Tiny when a change alters what the conductor hears, with the reason in the commit.
+
+### The final after-table (97cc21b)
+Replay mode (the CI step), debug build, stream time at file speed. `voxxa-eval --full` with Whisper Tiny printed the same table, cell for cell, on dca4637 (the last code or test commit; 97cc21b changes only docs) and again for verifier A on 97cc21b. The eval prints `OK: no metric is worse than ... baseline.json` (exit 0).
+
+| fixture | slides/gotos/hits/missed | prec | recall | median | p95 | false | double | blank | unblank | baseline median / p95 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| jump-be-thou-my-vision | 4/4/4/0 | 1.00 | 1.00 | 1200 | 5850 | 0 | 0 | - | - | 1500 / 6000 (user exception) |
+| prayer-before-first-song | 2/2/2/0 | 1.00 | 1.00 | 1710 | 2800 | 0 | 0 | 6800 | 1710 | 2000 / 3000 |
+| prayer-between-songs | 4/4/4/0 | 1.00 | 1.00 | 2490 | 4870 | 0 | 0 | 7280 | 2490 | 2500 / 5000 |
+| prayer-then-reprise | 3/3/3/0 | 1.00 | 1.00 | 2900 | 2900 | 0 | 0 | 200 | 1500 | 3000 / 3000 |
+| prayer-without-pause | 2/2/2/0 | 1.00 | 1.00 | 1900 | 2900 | 0 | 0 | 6600 | - | 2000 / 3000 |
+| refrain-it-is-well | 6/6/6/0 | 1.00 | 1.00 | 2120 | 3900 | 0 | 0 | - | - | 2500 / 4000 |
+| **total** | 21/21/21/0 | 1.00 | 1.00 | 2310 | 4870 | 0 | 0 | 7280 | 2490 | 2500 / 5000; blank 7500, unblank 2500 |
+
+**Against 733c7e1 (the "before" rows in §3):**
+- Precision 0.93 → 1.00, recall 0.68 → 1.00, hits 13 → 21, false advances 1 → 0, double advances 0 → 0.
+- Median 4,120 → 2,310 ms, p95 11,230 → 4,870 ms, blank 7,280 ms unchanged, unblank 8,490 → 2,490 ms.
+- **Not worse on any fixture, with the jump row read the user's way:** its median and p95 rose (900 / 900 → 1,200 / 5,850) because three missed slides are now hit (recall 0.25 → 1.00). The user accepted that with the 1,500 / 6,000 cells. Every other cell is the same or better.
+
+**The Q6 budget, final:**
+- False advances: 0 over 7 sung songs = **0 per 10 songs: met** (was 1.67).
+- p95 latency: **4.87 s over 21 hits: not met** (the limit is 2.5 s; was 11.23 s). Ticket Q6-03, and Q6-15 for one idea from the ponytail re-run.
+- Exit criteria: the decision file (ADR-016) and the before/after numbers exist, and the eval is not worse on any fixture under the user's decision. **Met.**
+
+**How the final numbers were checked.**
+- The finisher measured "before" from a fresh `git archive` export of 733c7e1, replaying that commit's five fixtures, plus `prayer-before-first-song`'s committed log replayed with the 733c7e1 conductor. "After" is the CI step on the head.
+- Verifier A rebuilt both commits and ran replay and full mode on each: full mode equals replay on both, recogniser lines equal the committed logs byte for byte on all six fixtures, and two replays from CRLF and LF checkouts are byte-identical.
+- The ponytail re-run measured the same "before" on its own, and its "after" on five fixtures is in `2026-11-13-ponytail-q6.md` §10.3 (total p95 8,490 ms). The comparator's side-by-side is in §10.5 there.
