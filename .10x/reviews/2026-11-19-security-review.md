@@ -176,3 +176,8 @@ Both independent verifiers passed at 6386f6b. Security-relevant results:
 - Fix: only socket creation (AFD event 1000) counts. AFD logs it in the creating process's context. A connect, send, receive or close needs a socket first, so no socket is missed. Both proven mutants still fail: `TcpStream::connect` produced [1000, 1000, 1018, 1017] and `UdpSocket::bind` produced [1000, 1000].
 - The unit test `etw_charges_a_replay_only_with_its_own_sockets` now has a stray 1020 inside the child's lifetime that must not count.
 - Residual risk: a socket handle inherited from the parent would create no 1000 event in the child. The test harness hands no sockets to `voxxad`, so this does not apply.
+
+## 13. CI evidence on PR #95 (2026-11-19, orchestrator)
+- (a) The fix in §12 is on the head. Linux (strace inside `unshare -rn`, with `VOXXA_REQUIRE_NETNS=1`) passed at f9e2397 (https://github.com/nategroks/voxxa/actions/runs/44537713974).
+- (b) The throwaway mutant at f18ab4c turned both tracer jobs red (https://github.com/nategroks/voxxa/actions/runs/44542368597): ubuntu-22.04 caught `socket(AF_INET, SOCK_STREAM...)` and `connect(... 127.0.0.1:9) = -1 ENETUNREACH`; windows-latest counted ids [1000, 1000]. The revert (fc93326) and the green run on the head are in `status.md`.
+- (c) full-eval.yml: green on 3 OSes, the artifacts hold only the table (https://github.com/nategroks/voxxa/actions/runs/44537714084). Its actions now run on Node 24 (230a42e).

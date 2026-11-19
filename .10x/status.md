@@ -206,11 +206,11 @@
 
   The user pre-approved the push, PR, CI fixes, merge and filing (handoff, "User decisions for Q6").
 - [ ] **Q7 close-out (orchestrator, pre-approved in handoff "User decisions for Q7").**
-  1. [ ] Push `q7/base` and open a draft PR against `main`.
-  2. [ ] Collect the first-CI-run evidence (a)-(c), do the Node 20 check, and record the run URLs in the QA report and the security review (sections 9-11).
+  1. [x] Pushed `q7/base`; draft PR #95.
+  2. [x] First-CI-run evidence collected and recorded (QA report §12, security review §12-§13). The Windows ETW check failed once in CI and was fixed (5d69368). The throwaway mutant (f18ab4c) turned Linux and Windows red and was reverted (fc93326). full-eval was green on 3 OSes and equal to replay. The Node 20 pins were bumped (230a42e).
   3. [ ] Merge when every job is green (full-eval may warn, never fail).
   4. [ ] Run full-eval once by hand on `main` (`workflow_dispatch`); record its three tables and times in the QA report.
-  5. [ ] File the 12 open Q7 tickets (label `q7`). Close #47 and #75. Add the notes to #48, #49, #54, #78, #9, #77, #69, #89 and #70 (tickets file, last section).
+  5. [x] Filed the 12 open Q7 tickets as #96–#107 (label `q7`); notes added to the nine earlier issues. Still to do when merged: Close #47 and #75. Add the notes to #48, #49, #54, #78, #9, #77, #69, #89 and #70 (tickets file, last section).
 - [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 merged (a60d1ce); Q7 done and verified on `q7/base` (6386f6b), waiting for CI, PR, the manual full-eval run and merge
 - [ ] Increment 2′ (Q8–Q11), starting with Q8 Simple mode, after the Q7 merge
   - [x] 2026-11-13 Q5 verifier fixes on `q5/base`: every surviving mutant named by the verifier is now killed by a test (song not compared, false advance lowering recall, EARLY_MS 999 and `<=`→`<`, the total row's false/double sums, unblank not resetting the blank, a failing `voxxad` read as success); a metric with a value but no threshold now fails the gate (ADR-015 D8 amended); voxxa-eval exits 2 when `voxxad` ran in the wrong mode (a replay that ran Whisper); both session logs re-recorded with the final `--full --record` (only the start line's `log` field changed).
