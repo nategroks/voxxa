@@ -298,8 +298,10 @@ try {
   check("diagnostic modal opens outside #app", await waitFor(`return document.getElementById("diag-overlay").checkVisibility()`));
   await click("#diag-close");
   await click('.tab[data-tab="home"]');
-  // The setlist loader with its import paths, once no setlist is loaded.
+  // The setlist loader with its import paths, once no setlist is loaded. The reload also
+  // reconnects the presenter chosen in the first run (the mock starts on the keystroke driver).
   await load();
+  check("reload reconnects the saved presenter", await waitFor(`return __mock.calls.some((c) => c.cmd === "connect_presenter" && c.args.args.kind === "pro_presenter7_rest" && c.args.args.port === 1025) && __mock.st.presenter.kind === "pro_presenter7_rest"`));
   await click("#s-advanced");
   for (const [sel, what] of [["#setlist-loader", "imports"], ["#hymnary-section", "Hymnary"], ["#pco-section", "Planning Center"], ["#recent-section", "recent setlists"]]) {
     check(`Advanced → Slides: ${what}`, await visible(sel));

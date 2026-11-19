@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { appName, statusLight, songPosition, testVerdict, SOUND_RMS } from "../../src/simple/logic.js";
 
-const pro = { connected: true, display_name: "ProPresenter 7.9+ (REST API)" };
+const pro = { kind: "pro_presenter7_rest", connected: true, display_name: "ProPresenter 7.9+ (REST API)" };
 const song = { title: "Alpha Bravo", slide: 2, slides: 6 };
 // A healthy listening session; each row below changes one input.
 const base = { running: true, setlist: true, model: true, state: "listening", isBlank: true, presenter: pro, presenterError: null, micLost: false, song: null };
@@ -20,6 +20,8 @@ test("ADR-017 table, one case per row", () => {
     [5, { presenterError: true }, "red", "ProPresenter 7.9+ didn't take the last slide change. Check that it is open."],
     [5, { presenterError: " " }, "red", "ProPresenter 7.9+ didn't take the last slide change. Check that it is open."],
     [6, { presenter: { ...pro, connected: false } }, "red", "ProPresenter 7.9+ not found. Voxxa can't change slides."],
+    // ProPresenter was chosen, the reconnect at start failed: the keystroke default is connected.
+    [6, { chosen: "pro_presenter7_rest", presenter: { kind: "keystroke", display_name: "Keystroke (any app)", connected: true } }, "red", "Your presentation app not found. Voxxa can't change slides."],
     [7, { state: "blank_hold" }, "amber", "Hearing talking, not a song. The screen stays blank."],
     [8, { state: "singing", isBlank: true, song }, "amber", "The screen is blank. It comes back when the song does."],
     [9, { state: "singing", isBlank: false, song }, "green", "Following Alpha Bravo, slide 2 of 6."],
@@ -49,6 +51,8 @@ test("first matching row wins", () => {
   assert.equal(light({ presenter: { connected: false }, state: "singing", isBlank: false, song })[0], "red");
   // blank_hold is amber even when is_blank is false.
   assert.equal(light({ state: "blank_hold", isBlank: false, song })[0], "amber");
+  // The app last chosen is the one connected: not row 6.
+  assert.equal(light({ chosen: "pro_presenter7_rest" })[0], "amber");
   // A missing presenter counts as not connected.
   assert.deepEqual(light({ presenter: null }), ["red", "Your presentation app not found. Voxxa can't change slides."]);
 });

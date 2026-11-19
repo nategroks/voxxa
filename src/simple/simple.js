@@ -3,7 +3,7 @@
 // listening through the existing Listen button, so main.js stays in step.
 import "./simple.css";
 import { statusLight, songPosition } from "./logic.js";
-import { openFirstRun, maybeFirstRun, applySavedDevice } from "./firstrun.js";
+import { openFirstRun, maybeFirstRun, applySavedDevice, reconnectPresenter, savedPresenter } from "./firstrun.js";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -62,7 +62,8 @@ async function refresh() {
   try {
     const [st, presenter] = await Promise.all([invoke("get_status"), invoke("get_presenter_info")]);
     if (st.is_running && !s.running) s.micLost = s.presenterError = false; // a new session
-    Object.assign(s, { running: st.is_running, setlist: st.total_slides > 0, model: st.model_loaded, state: st.machine_state, isBlank: !!st.is_blank, presenter });
+    const chosen = (savedPresenter() || {}).kind || null; // connected means: to the app last chosen
+    Object.assign(s, { running: st.is_running, setlist: st.total_slides > 0, model: st.model_loaded, state: st.machine_state, isBlank: !!st.is_blank, presenter, chosen });
     s.song = songPosition(songs, st.current_slide, st.song_title);
     // Settled when the backend and main.js's Listen button (its "active" class) both show it.
     if (pending !== null && st.is_running === pending && $("listen-btn").classList.contains("active") === pending) {
@@ -104,4 +105,5 @@ render();
 refresh();
 setInterval(refresh, 1000);
 applySavedDevice();
+reconnectPresenter();
 maybeFirstRun();

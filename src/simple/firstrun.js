@@ -66,6 +66,17 @@ export async function applySavedDevice() {
   try { if (dev && (await invoke("list_audio_devices")).includes(dev)) await invoke("select_audio_device", { device: dev }); } catch {}
 }
 
+// The presentation app chosen here (or in Settings) is reconnected at every start, apart from
+// the device restore so a failed device list cannot skip it. Never the keystroke driver (it is
+// the default) and never a form that needs a secret: passwords are never saved (main.js:1131-
+// 1133), so that reconnect would fail every launch; row 6 of the light shows it instead.
+export const savedPresenter = () => read("voxxa.presenterForm");
+export function reconnectPresenter() {
+  const form = savedPresenter();
+  if (!form || !form.kind || form.kind === "keystroke" || /_ws$/.test(form.kind) || form.username) return;
+  invoke("connect_presenter", { args: form }).catch(() => {});
+}
+
 async function device() {
   say("Pick the input that carries the music, usually the sound desk's USB or line input.");
   const sel = document.createElement("select");

@@ -31,7 +31,8 @@ Inputs, all from existing signals:
 - `running`: `get_status.is_running`.
 - `state`, `isBlank`: the latest `machine-state` event (`listening` · `singing` · `inter_verse_silence` · `blank_hold`, plus `is_blank`); before any event, `get_status.machine_state` and `is_blank`.
 - `setlist`: `get_status.total_slides > 0`. `model`: `get_status.model_loaded`.
-- `presenter`: `get_presenter_info` (`connected`, `display_name`), polled every second.
+- `presenter`: `get_presenter_info` (`kind`, `connected`, `display_name`), polled every second.
+- `chosen`: the `kind` of the presentation app last chosen (`voxxa.presenterForm`, saved by the first-run flow and by Settings).
 - `presenterError`: the payload of a `presenter-error` event (the presenter's refusal, e.g. `dispatch.rs:24`'s "focus your presentation app: …"; it names song titles at most, never slide text, `dispatch.rs:130`, so ADR-011 holds); cleared by `slide-advanced` (a goto that reached the presenter) and by starting again.
 - `micLost`: set by `listening-stopped` with `disconnected: true`; cleared by starting again.
 - `song`: the in-song position from `get_status.current_slide` and the loaded setlist.
@@ -45,13 +46,15 @@ First matching row wins:
 | 3 | not `running`, no model | grey | "Off. Download the voice model in Advanced first." |
 | 4 | not `running` | grey | "Off. Choose Songs to start following." |
 | 5 | `presenterError` | red | "<app> didn't take the last slide change: <reason>." with the `presenter-error` payload; "<app> didn't take the last slide change. Check that it is open." when the payload is empty |
-| 6 | presenter not connected | red | "<app> not found. Voxxa can't change slides." |
+| 6 | presenter not connected, or connected to another kind than `chosen` | red | "<app> not found. Voxxa can't change slides." ("Your presentation app" when the kind differs) |
 | 7 | `state` = `blank_hold` | amber | "Hearing talking, not a song. The screen stays blank." |
 | 8 | `state` = `singing` or `inter_verse_silence`, `isBlank` | amber | "The screen is blank. It comes back when the song does." |
 | 9 | `state` = `singing` or `inter_verse_silence` | green | "Following <title>, slide <n> of <m>." ("Following the song." without a position) |
 | 10 | otherwise (`listening`, or no state yet) | amber | "Listening. Waiting for a song from the list." |
 
-`<app>` is the presenter's display name without its bracketed detail ("ProPresenter 7.9+"). The keystroke driver always reports `connected`, so rows 5-6 come only from network presenters and from refused sends.
+`<app>` is the presenter's display name without its bracketed detail ("ProPresenter 7.9+"). The keystroke driver always reports `connected`, so row 6 comes only from network presenters and from a reconnect that did not happen; row 5 also from the keystroke driver's refusal while Voxxa has the focus (#44).
+
+**Reconnect at start.** The backend starts on the keystroke driver at every launch. Simple mode reconnects the saved `voxxa.presenterForm` once at start (`reconnectPresenter` in `firstrun.js`, apart from the device restore so a failed device list cannot skip it), except the keystroke driver itself and any form that needs a secret: passwords are never saved (`main.js:1131-1133`), so the ProPresenter WebSocket kinds (`*_ws`) and a form with a username are not reconnected. A failed or skipped reconnect leaves the keystroke driver connected, which is not the kind chosen, so row 6 turns red instead of a false green; the operator reconnects in Advanced → Settings.
 
 **Not mapped (recorded):** the strategy's red "Lyrics don't match what I hear". No existing signal tells a wrong setlist from a prayer or a sermon: both are `blank_hold`, which is the conductor's designed behaviour, so row 7 is amber. Ticket for a time-based rule once the pilots show what "lost" looks like.
 
