@@ -1,7 +1,7 @@
 # Q7 security review: the CLI surface and the full-eval workflow (2026-11-19)
 
 **Role:** Security Engineer, Phase 5 (Verification), Q7, the close of Increment 1′.
-**Branch:** `q7/10x`, from 46cb6d1 (`main` after the Q6 merge).
+**Branch:** `q7/10x`, from 46cb6d1 (`main` after the Q6 merge), merged into `q7/base` and finished there (§9, §10). **Final head: 6386f6b**, where both verifiers passed (§11).
 **Scope:** `voxxad` and `voxxa-eval` (`src-tauri/src/cli/`, moved from `src/bin/` in b9692c5), and the new `.github/workflows/full-eval.yml`. `ci.yml` was reviewed where Q7 changed it.
 **Fix-now bar:** as in Q2. Critical and High are fixed now with tests; Medium and Low become tickets.
 **Companion files:** `2026-11-19-qa-report.md` (§6 has the Q7 tickets) and `decisions/security/church-autoadvance.md`.
@@ -87,6 +87,9 @@ Not covered: the toolchain that `dtolnay/rust-toolchain` installs comes from rus
 | — | Medium (open since Q3) | keystroke presenter has no focus guard in `voxxad` | docs done in Q7; code stays on #48 |
 | — | Medium (open since Q3) | 14 days of transcripts in the roaming profile | docs done in Q7; the default-folder decision stays on #49 |
 | — | accepted | a crafted session log can make replay print any actions | replay never dispatches; documented here |
+| Q7-S6 | Medium (ponytail audit, added at the close) | the GUI logs each transcript at Info (`src-tauri/src/listen.rs:182`), and the diagnostics report copies that log (`diagnostics/mod.rs:153`), so a report sent to support carries prayer and announcement text | ticket Q7-08; fix before any pilot leaves shadow mode |
+| Q7-S7 | Low (ponytail audit, added at the close) | `voxxad --device` opens the microphone before the presenter and model are checked (`src/cli/voxxad/main.rs:105-117`) | ticket Q7-09 |
+| Q7-S8 | Low (ponytail review nit, added at the close) | `voxxa-eval`'s "voxxad failed" message embeds `voxxad`'s stdout, which holds recognised words in `--full` mode (`src/cli/voxxa-eval/main.rs:146`); the workflow's grep drops them only by accident | ticket Q7-11 |
 
 ## 7. Not tested
 - The Linux and macOS runs of the zero-sockets test (CI only). The Linux mutant was not run.
@@ -154,3 +157,16 @@ The fix (`src-tauri/tests/replay_no_sockets.rs`, `etw`, `lifetime`, `socket_even
 The verifier's flake was seen once in several runs, so 4 green runs cannot prove it is gone. The unit test shows that the two ways it happened (a reused pid, a non-socket event) can no longer count.
 
 **Before merge (replaces §9 (a)):** the `ubuntu-22.04` and `windows-latest` jobs pass `replay_no_sockets`. With `VOXXA_REQUIRE_SOCKET_TRACE=1` and, on Linux, `VOXXA_REQUIRE_NETNS=1`, a pass means strace inside `unshare -rn` on Linux and ETW on Windows. (b), (c), the Node 20 check and the run URLs stay as in §9.
+
+## 11. Final verifier round at 6386f6b: both passed (final)
+
+Both independent verifiers passed at 6386f6b. Security-relevant results:
+- **Zero sockets (verifier A, Windows, ETW, administrator).** The replay-branch TCP-connect mutant fails: 4 socket/connect events for the first fixture's replay, ids 1000, 1000, 1018, 1017, and the probe made 5 events, both as in §10. A second mutant, `std::net::UdpSocket::bind("127.0.0.1:0")` (a socket that never connects), also fails, with ids 1000, 1000. So socket creation alone is caught. After the revert the test passes (47.7 s). Gate 4 with `VOXXA_REQUIRE_SOCKET_TRACE=1`: 210 passed, 1 ignored.
+- **Replay builds no tokio runtime** (the replay branch returns before `Runtime::new`), so tokio's socketpair cannot cause a false Linux failure.
+- **Full-eval supply chain (verifier A).** The pinned SHA-256 equals the Hugging Face LFS pointer (77,691,713 bytes), a fresh download from the app's URL and the local copy. Every action pin matches its tag (rust-cache dereferenced from its annotated tag); `rust-toolchain` 683b588 is a 2026-10-16 commit on `master`. `contents: read` at workflow level, no job overrides, `persist-credentials: false`, no secrets, `pull_request` (not `_target`).
+- **Scope (verifier B).** Product code changed only by the `src/bin` → `src/cli` rename and one error string. No capability, `tauri.conf.json` or GUI file changed. The privacy text in the release notes and INTEGRATIONS matches the code: default folder `dirs::data_dir()/voxxa/sessions` (roaming `%APPDATA%` on Windows), 14-day expiry deletes only `session-*.jsonl` in the log folder, `--log-dir` overrides it. The keystroke warning matches `src/cli/voxxad/main.rs:96-98`.
+- **Not run (safety rules):** `--list-devices`, every `--device` example, `pkill`, and the blanket `taskkill /IM`.
+
+**Added at the close (§6):** Q7-S6 (Medium, transcripts in the diagnostics report, Q7-08), Q7-S7 (Low, the microphone opens before inputs are checked, Q7-09) and Q7-S8 (Low, recognised words in `voxxa-eval`'s error, Q7-11), from the ponytail audit and review (`2026-11-19-ponytail-q7.md` §3, §4).
+
+**Security position (final):** no Critical or High finding is open. Ready to merge once the PR's first CI run shows (a) the Linux and Windows jobs passing `replay_no_sockets`, (b) the throwaway mutant turning Linux red and its revert green, (c) full-eval green or warning on three OSes with only the table, and the Node 20 check. The orchestrator records the run URLs here.

@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Q7 (close Increment 1′: QA, Security, DevOps, SRE) **done on `q7/base`**: `q7/10x` merged (008aa50), four ponytail grafts and the review fixes applied, all local gates pass. Next: the orchestrator's push, PR, first-CI-run evidence and merge (handoff, "From: Q7"). Q6 complete and merged into `main` (PR #82, a60d1ce).
+**Current Phase:** Q7 (close Increment 1′: QA, Security, DevOps, SRE) **done on `q7/base`** (final head 6386f6b plus the state commit "state: Q7 close Increment 1prime"; both verifiers passed at 6386f6b). Next, by the orchestrator (pre-approved): CI on a draft PR with the first-run evidence, the PR, one manual full-eval run, and the merge; then Increment 2′, starting with **Q8 (Simple mode)** (handoff, "From: Q7 → To: Q8"). Q6 complete and merged into `main` (PR #82, a60d1ce).
 **Last Updated:** 2026-11-19 by 10x-team orchestrator
 **Health:** On Track
 
@@ -117,11 +117,13 @@
     - **At 97cc21b both passed.** A: every gate, replay and full mode equal on 733c7e1 and on the head, no fixture worse apart from the approved cells, every goto in its audio segment, no goto during a prayer, replay byte-identical across CRLF and LF checkouts. B: scope clean, 51 mutants, all killed except the Q5-04 reversion (killed by the CI eval step), three equivalent ones and four non-blocking survivors in the operator bookkeeping (Q6-13, Q6-14).
   - **Tickets:** 12 open (2 medium, 10 low), filed 2026-11-19 as #83–#94 (label `q6`); Q6-02 (b4f3710), Q6-04 and Q6-05 (d2fae8e) closed. New: Q6-13 and Q6-14 (verifier B's survivors), Q6-15 (try the ponytail re-run's scoring context). Closes #76 (Q5-04) and #62 (Q4-04) when merged.
 
-- [x] 2026-11-19: **Q7** Close Increment 1′ (Phases 5 and 6), with the ponytail lane. Records: `reviews/2026-11-19-qa-report.md`, `reviews/2026-11-19-security-review.md`, `reviews/2026-11-19-q7-tickets.md`, `decisions/{qa,security,devops,sre}/church-autoadvance.md`, `docs/releases/voxxad-cli-preview.md`, `docs/INTEGRATIONS.md` (Companion), `docs/runbooks/eval-regression.md`. **Done locally. Ready for CI, PR and merge once the first CI run shows the evidence below.**
-  - **Head:** `q7/base`. `q7/10x` (e93b63b, 8 commits on 46cb6d1) was merged as 008aa50. Then:
+- [x] 2026-11-19: **Q7** Close Increment 1′ (Phases 5 and 6), with the ponytail lane. Records: `reviews/2026-11-19-ponytail-q7.md` (both lanes, the ponytail audit, cross-reviews, the comparator's ruling, grafts, disagreements, verifier rounds), `reviews/2026-11-19-qa-report.md`, `reviews/2026-11-19-security-review.md`, `reviews/2026-11-19-q7-tickets.md`, `decisions/{qa,security,devops,sre}/church-autoadvance.md` ("Q7 final"), `docs/releases/voxxad-cli-preview.md`, `docs/INTEGRATIONS.md` (Companion), `docs/runbooks/eval-regression.md`. **Done and verified locally. Ready for CI, PR and merge once the first CI run shows the evidence below.**
+  - **Final head:** `q7/base` @ **6386f6b** (22 commits on 46cb6d1, including the merge), plus the state commit "state: Q7 close Increment 1prime". **Both verifiers passed at 6386f6b** (QA report and security review §11). `q7/10x` (e93b63b) and `q7/ponytail` (4d06345) stay local for reference.
+  - **History:** `q7/10x` (e93b63b, 8 commits on 46cb6d1) was merged as 008aa50 (the comparator's base: the only lane whose socket test ran and was mutation-proved, with an installer guard test and the required records). Then:
     - grafts from `q7/ponytail`: c9271f0 + eb58458 (CLI tests fail loudly without `--features cli`; corrected, see below), 5807ba3 (stderr filtered to `voxxa-eval:` lines), afeec76 (`fixtures/README.md` determinism rule), 5fa4c76 (why `ubuntu-22.04`);
     - review fixes: 3472540 (one `committed_logs()`), 171ad76 (`Cargo.toml` comment), b0efc3f ("`--shadow` makes no network connection"), 911d56c (full-eval timing comment);
-    - records: 3a4303a and the state commit.
+    - records: 3a4303a and the state commit 86b549d;
+    - verifier fixes: aa16e90 (code: the socket test) and 6386f6b (records).
   - **Built in Q7:**
     - a replay determinism test on 3 OSes; four fixture logs re-recorded (20e3301; recogniser lines identical, table unchanged);
     - `full-eval.yml` (report only, model SHA-256 pinned);
@@ -148,8 +150,22 @@
     - (c) full-eval is green or warns on 3 OSes, with only the table, and its times are recorded;
     - the Node 20 check on the older action pins;
     - the run URLs, recorded in both reports.
-  - **Tickets:** 6 open, all low (Q7-01, -02, -03, -05, -06, -07), not filed yet. Q7 can close #47 and #75. It changed but did not close #48, #49, #54 and #78.
-  - **Release readiness:** Increment 1′ is complete as a **developer preview** of the CLI. It is not a church release: p95 4.87 s is over the 2.5 s budget (#84), the fixtures are synthetic speech (#73), and the founder checklist is open.
+  - **Verifier rounds:** the round on 86b549d did not pass (gate 4 flaky on Windows; a green CI log did not show which tracer ran); fixed in aa16e90. **At 6386f6b both verifiers passed:** every gate (210 passed, 1 ignored), a TCP and a UDP socket mutant each fail the socket test, the determinism mutant fails at its fixture only, the NSIS script names neither tool, the documented commands work in shadow and replay, and no test is hidden from CI. Non-blocking nits became Q7-13 or were corrected in the DevOps record.
+  - **Ponytail audit of Increment 1′:** healthy for a developer preview; two must-fix items were fixed in both lanes (the installer, the stale logs); new tickets Q7-08 (medium, transcripts in the diagnostics report) to Q7-12.
+  - **Tickets:** 12 open (1 medium, 11 low: Q7-01..03, Q7-05..13), not filed yet; Q7-04 closed in c9271f0. Q7 closes #47 and #75 (b9692c5). It changed but did not close #48, #49, #54 and #78, and adds notes to #9, #77, #69, #89 and #70 (tickets file, last section).
+  - **Release readiness:** Increment 1′ is complete as a **developer preview** of the CLI. It is not a church release (see "Release readiness (2026-11-19, Increment 1′)" below).
+
+### Release readiness (2026-11-19, Increment 1′ after Q7)
+- **What Increment 1′ delivers:** `voxxad`, a headless listening loop with a replayable JSON-lines session log (ADR-013); Whisper behind a recogniser trait with a 1 s hop (ADR-014); `voxxa-eval` with six fixtures and a CI gate (ADR-015); the evidence tracker in the conductor (ADR-016); and in Q7 a determinism test, a zero-sockets test, a report-only full eval on three OSes, release notes, a Companion guide and the runbook "eval shows regression".
+- **Ready to merge** once the first CI run shows: the Linux and Windows jobs pass `replay_no_sockets`; a throwaway mutant turns Linux red and its revert green; full-eval is green or warns on three OSes with only the table, its times recorded and the Node 20 check done. Then one manual full-eval run on `main`.
+- **Ready as a developer preview:** build from source with `--features cli` (`docs/releases/voxxad-cli-preview.md`). No tag, no GitHub release, no signed build (user decision). The church installers carry the GUI only, proved with the NSIS script and guarded by `tests/packaging.rs`.
+- **Met:** 0 false and 0 double advances on all six fixtures (21/21 hits, precision and recall 1.00); replay byte-identical and tested on three OSes; replay opens no socket (Linux and Windows in CI); shadow makes no network connection (Windows, locally); no Critical or High security finding.
+- **Not met, so not a church release:**
+  - p95 latency 4.87 s against a 2.5 s budget (#84), and it is stream time at file speed, not live (#60);
+  - the fixtures are synthetic speech, not singing (#73);
+  - no real microphone, booth or presentation app has been used (#51; founder checklist M1–M14 and the security checklist);
+  - privacy before any pilot leaves shadow mode: the diagnostics report carries transcripts (Q7-08), session logs sit in the roaming profile (#49), and `voxxad` has no keystroke focus guard (#48).
+- **Not yet run anywhere:** the Linux strace path, ETW on a hosted runner, the full-eval workflow, and MSI, deb, AppImage and `.app` bundles.
 
 ### Release readiness (2026-11-11, after Q2)
 - **Code:** Q2's exit criteria are met. No open crash, data-loss, freeze or wrong-slide defect from the audit or Q2; no open Critical or High security finding.
@@ -191,9 +207,12 @@
   The user pre-approved the push, PR, CI fixes, merge and filing (handoff, "User decisions for Q6").
 - [ ] **Q7 close-out (orchestrator, pre-approved in handoff "User decisions for Q7").**
   1. [ ] Push `q7/base` and open a draft PR against `main`.
-  2. [ ] Collect the first-CI-run evidence (a)-(c), do the Node 20 check, and record the run URLs in the QA report and the security review (section 9 of each).
-  3. [ ] Merge when every job is green. File the 6 open Q7 tickets (label `q7`). Close #47 and #75. Add notes to #48, #49, #54 and #78.
-- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 merged (a60d1ce); Q7 done on `q7/base`, waiting for CI, PR and merge
+  2. [ ] Collect the first-CI-run evidence (a)-(c), do the Node 20 check, and record the run URLs in the QA report and the security review (sections 9-11).
+  3. [ ] Merge when every job is green (full-eval may warn, never fail).
+  4. [ ] Run full-eval once by hand on `main` (`workflow_dispatch`); record its three tables and times in the QA report.
+  5. [ ] File the 12 open Q7 tickets (label `q7`). Close #47 and #75. Add the notes to #48, #49, #54, #78, #9, #77, #69, #89 and #70 (tickets file, last section).
+- [ ] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 merged (a60d1ce); Q7 done and verified on `q7/base` (6386f6b), waiting for CI, PR, the manual full-eval run and merge
+- [ ] Increment 2′ (Q8–Q11), starting with Q8 Simple mode, after the Q7 merge
   - [x] 2026-11-13 Q5 verifier fixes on `q5/base`: every surviving mutant named by the verifier is now killed by a test (song not compared, false advance lowering recall, EARLY_MS 999 and `<=`→`<`, the total row's false/double sums, unblank not resetting the blank, a failing `voxxad` read as success); a metric with a value but no threshold now fails the gate (ADR-015 D8 amended); voxxa-eval exits 2 when `voxxad` ran in the wrong mode (a replay that ran Whisper); both session logs re-recorded with the final `--full --record` (only the start line's `log` field changed).
   - [x] 2026-11-13 Q5 second verifier pass on `q5/base`: tests now kill the round-2 survivors: M42 (main.rs checking only the total row; a binary-level test breaks only per-fixture thresholds and needs both FAIL lines and no FAIL total), M25/M26 (one metric's comparison reversed), M37 (the table's count cells) and M47/M48 (the audio recipe's 16 kHz mono 16-bit check and header byte rate). Each test was run against its mutant and fails. No product code changed; voxxa_eval tests 23 to 26.
   - [x] 2026-11-13 Q5 verifier round 3 at c10e963: verifier A passed; verifier B failed on six surviving mutants (Q5-08 … Q5-10). The four that mattered were closed with tests in 5858872 (orchestrator, checked against each mutant); M57 and M68 deferred (Q5-10).

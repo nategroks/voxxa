@@ -4,7 +4,7 @@ Decisions per feature, newest first inside each file.
 
 ## Active features
 - `church-autoadvance`
-  - 2026-11-19 **Q7** close of Increment 1′: full-eval workflow (report only, 3 OSes, model pinned), replay-determinism test on 3 OSes (four fixture logs re-recorded so every log replays to its own actions), eval tables replay and full, release readiness. Report: `reviews/2026-11-19-qa-report.md`.
+  - 2026-11-19 **Q7** close of Increment 1′: full-eval workflow (report only, 3 OSes, model pinned), replay-determinism test on 3 OSes (four fixture logs re-recorded so every log replays to its own actions), eval tables replay and full, release readiness. Report: `reviews/2026-11-19-qa-report.md`. Final at 6386f6b (both verifiers passed): ready to merge once the first CI run shows the socket, mutant and full-eval evidence; a developer preview, not a church release.
   - 2026-11-18 **Q6 close-out**: the user's baseline decision closed the blocking item; ponytail re-run compared and its scripted tests grafted; both verifiers passed at 97cc21b. QA position: ready to merge once CI is green. Final table: `reviews/2026-11-13-q6-eval-before-after.md` §7.
   - 2026-11-13 **Q6** conductor against the budget: six synthetic fixtures; before/after per fixture (false advances 1 → 0, p95 11.23 → 4.87 s); three verifier rounds; round 3 failed on one item, the `jump-be-thou-my-vision` baseline cells, which wait on the user. QA position: do not merge until the user decides. Summary: `reviews/2026-11-13-q6-eval-before-after.md`.
   - 2026-11-13 **Q5** `voxxa-eval` as the QA instrument (ADR-015); see `church-autoadvance.md`.

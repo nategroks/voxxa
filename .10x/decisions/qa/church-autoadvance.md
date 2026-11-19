@@ -1,5 +1,12 @@
 # QA — church-autoadvance
 
+## 2026-11-19 — Q7 final (`q7/base` @ 6386f6b; both verifiers passed)
+Details: `reviews/2026-11-19-qa-report.md` §11; the lanes and rulings: `reviews/2026-11-19-ponytail-q7.md`.
+- **Both verifiers passed at 6386f6b.** Gates 1-7 and the CI eval step pass (210 passed, 1 ignored; the table unchanged from Q6). The socket mutants (TCP connect, and a UDP socket that never connects) fail the zero-sockets test; a 1 ms change to one logged action fails the determinism test at that fixture only; the NSIS script names neither tool. No test is hidden from CI: all 201 base tests still run with `--features cli`, plus 10 new.
+- **Decision: the QA position is final.** Ready to merge once the PR's first CI run shows the evidence in QA report §9-§10 (Linux and Windows socket tests green, the Linux mutant red then green, full-eval green or warning on three OSes with times and the Node 20 check). Then the orchestrator runs full-eval once by hand on `main` (`workflow_dispatch`) and records its tables.
+- **Release readiness of Increment 1′:** complete as a developer preview of the CLI; not a church release (p95 4.87 s against 2.5 s, #84; synthetic speech only, #73; founder checklist open).
+- **Tickets:** 12 open (1 medium, 11 low), including Q7-08 to Q7-13 added at the close; Q7 closes #47 and #75.
+
 ## 2026-11-19 — Q7 verifier fixes (aa16e90)
 - Gate 4 was flaky on Windows: `replay_opens_no_socket` counted Winsock-AFD events by pid alone. Fixed: only socket and connect events inside each child's start-to-exit window count (security review §10), with unit tests that fail if the window or the event filter is removed.
 - Re-proved at aa16e90: 4 of 4 full `cargo test --features cli` runs pass (210 passed, 1 ignored); the CI eval step exits 0 with the table unchanged; the socket mutant fails; the determinism mutant fails; the NSIS installer names neither tool (control names both). QA report §10.

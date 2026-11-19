@@ -1,5 +1,11 @@
 # SRE — church-autoadvance
 
+## 2026-11-19 — Q7 final (`q7/base` @ 6386f6b; both verifiers passed)
+- **The runbook was exercised by a verifier:** replay from the root (exit 0), a one-fixture run (exit 1 on the total row, as the runbook says to expect) and a full eval through the stderr filter (exit 0 in 1,955 s on a loaded PC, the table equal to replay, the filtered stderr empty).
+- **Two runbook-adjacent nits are tickets:** `docs/runbooks/eval-regression.md:89` says "run the printed `voxxad` command", but `voxxa-eval` prints `voxxad`'s stdout, not the command (Q7-13); and that message carries recognised words in full mode (Q7-11).
+- **Decision: the zero-sockets test is part of the eval's gate set.** On Windows it counts only socket-create and connect events inside each replay's own start-to-exit window (pid alone was flaky, security review §10). If it goes red, read which pid and event ids it names before suspecting replay.
+- **Open:** the full-eval workflow's first real runs, on the Q7 PR and then once by hand on `main`, set its real time budget per OS; until then 180 min is a guess.
+
 ## 2026-11-19 — Q7 finish on `q7/base`
 - **Runbook change (5807ba3, from ponytail's review):** full mode's stderr is filtered to `voxxa-eval:` lines (`2> >(grep '^voxxa-eval' >&2)` in bash), as `full-eval.yml` does. `2>/dev/null` also hid voxxa-eval's exit-2 messages, which section 5 of the runbook needs for triage.
 - **`fixtures/README.md` now states the determinism contract** (afeec76). The runbook's step 3c and the README agree.

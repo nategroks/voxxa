@@ -1,5 +1,11 @@
 # DevOps — church-autoadvance
 
+## 2026-11-19 — Q7 final (`q7/base` @ 6386f6b; both verifiers passed)
+- **Both verifiers passed at 6386f6b.** At the head, `npx tauri build --debug --bundles nsis` gives an `installer.nsi` that names neither tool, with fresh `voxxad.exe` and `voxxa-eval.exe` in the target folder; the `--features cli` control names both. `build.yml` passes no feature. `ci.yml` lints and tests with `--features cli`.
+- **Correction:** the entry below said full-eval "runs once on the PR that adds it". It runs on **every push** to that PR, because the paths filter looks at the whole PR diff; `cancel-in-progress` stops the older run. After the merge it runs only by hand (`workflow_dispatch`).
+- **Release path (decided, not yet done; for the orchestrator):** push `q7/base`, open a draft PR, get every job green (full-eval may warn), merge, then run full-eval once by hand on `main` and record its three tables and times in the QA report. No tag and no GitHub release (user decision 3).
+- **Open, for the first CI run:** the Node 20 check on the older pins (below); record the per-OS run time.
+
 ## 2026-11-19 — Q7 verifier fixes (aa16e90)
 - **`ci.yml`:** the `cargo test` step also sets `VOXXA_REQUIRE_NETNS: ${{ runner.os == 'Linux' && '1' || '' }}`. The matrix comment no longer says to read the `traced with` line in the log. That line shows only with `--nocapture`, and a missing `unshare -rn` now fails the job instead.
 - **Installer exclusion re-proved at aa16e90:** the NSIS script names neither tool, and the `--features cli` control names both. The head installer was rebuilt last.
@@ -19,7 +25,7 @@
 - **A defect that was already there:** at 46cb6d1 the NSIS installer carried `voxxa-eval.exe`, so Q5-03 was real. `voxxad` was left out only by accident. tauri-cli adds `src/bin` entries with no source path, and `Path::ends_with("")` is true for any path, so the second `src/bin` folder in the listing is skipped. Which one comes second depends on the OS's directory order (NTFS lists `voxxa-eval` first). On Linux or macOS the installers could have carried `voxxad` instead.
 - **Regression guard:** `src-tauri/tests/packaging.rs` runs without the feature. It checks that both tools need `cli` and live under `src/cli/`, that `cli` is not a default feature, and that `src/bin/` does not exist.
 - **Full eval, report only (user decision):** `.github/workflows/full-eval.yml`.
-  - **Triggers:** `workflow_dispatch`, plus `pull_request` with `paths: [.github/workflows/full-eval.yml]`, so it runs once on the PR that adds it.
+  - **Triggers:** `workflow_dispatch`, plus `pull_request` with `paths: [.github/workflows/full-eval.yml]`, so it runs on the PR that adds it (on every push to that PR; see "Q7 final").
   - **Runners:** ubuntu-22.04, windows-latest and macos-latest, with `fail-fast: false` and a 180-minute timeout.
   - **Model:** it downloads `ggml-tiny.bin` from the app's own URL (`transcription/mod.rs`, `download_url`) into each OS's model folder and caches it (key = OS + SHA-256). It always re-checks the pinned SHA-256 `be07e048…1b21`. That hash equals the Hugging Face LFS pointer's oid (77,691,713 bytes) and the reference PC's copy.
   - **Run:** a debug build (release on Windows is slower, Q4-01), then `voxxa-eval --full`. Exit 0 or 1 passes. Exit 1 means a metric differs: the job prints a `::warning::` and the table, and never fails for it. Any other exit fails the job.

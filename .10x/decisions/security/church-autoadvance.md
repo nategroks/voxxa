@@ -1,5 +1,11 @@
 # Security — church-autoadvance
 
+## 2026-11-19 — Q7 final (`q7/base` @ 6386f6b; both verifiers passed)
+Details: `reviews/2026-11-19-security-review.md` §11; the ponytail audit: `reviews/2026-11-19-ponytail-q7.md` §3.
+- **Both verifiers passed at 6386f6b.** A TCP-connect mutant and a UDP-socket mutant in the replay branch each fail the zero-sockets test on Windows (ETW); the model hash and every action pin were re-checked; product code changed only by the `src/bin` → `src/cli` rename and one error string.
+- **Decision: no Critical or High finding is open; the security position is final.** Ready to merge once the PR's first CI run shows the Linux and Windows socket tests green and the Linux mutant red then green.
+- **Added from the ponytail audit:** Q7-08 (Medium, privacy): the GUI logs each transcript at Info, and the diagnostics report copies it. Fix before any pilot leaves shadow mode. Q7-09 (Low): `voxxad --device` opens the microphone before checking its inputs. Q7-11 (Low): `voxxa-eval`'s "voxxad failed" error carries recognised words.
+
 ## 2026-11-19 — Q7 verifier fixes on `q7/base` (aa16e90)
 Full text: `reviews/2026-11-19-security-review.md` section 10.
 - **Decision: on Windows, a replay is charged only with its own sockets, during its own lifetime.** The ETW session adds `Microsoft-Windows-Kernel-Process` (start and exit), and only socket (1000) and connect (1017, 1018, 1020, 1021) events count. Before, any AFD event with a matching pid counted, and gate 4 was flaky (a reused pid or a borrowed context). A child without a recorded start or exit fails the test.
