@@ -268,6 +268,11 @@ async function run({ send, ev, shot }) {
   const back = await lightNow();
   ok("Advanced: listening started there shows in Simple mode after '← Simple'", r === true && back[3] === true && back[0] === "light amber", JSON.stringify([r, back]));
   await off();
+  await ev(`const input = document.getElementById('file-input'); const dt = new DataTransfer();
+    dt.items.add(new File([${JSON.stringify(JSON.stringify({ setlist: [setlist.setlist[0]] }))}], 'one.json', { type: 'application/json' }));
+    input.files = dt.files; input.dispatchEvent(new Event('change')); await new Promise(r => setTimeout(r, 900)); return 1;`);
+  r = await lightNow();
+  ok("a new setlist replaces the old song line with the song count", r[2] === "1 song loaded", JSON.stringify(r));
 
   // --- Re-open the first-run flow from Advanced, then skip it ---
   await ev(`document.querySelector('#simple .more').click(); document.querySelector('.tab[data-tab=settings]').click(); await new Promise(r => setTimeout(r, 300));

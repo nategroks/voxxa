@@ -37,14 +37,18 @@ const say = (el, text) => (el.querySelector("p").textContent = text);
 // --- Status light, mode switch, current song ---
 let was = false;
 let busy = false;
+let shownSongs = currentSongs;
 function render() {
   if (isListening && !was) newSession().finally(render); // Songs, Space, the tray or the Advanced button
   was = isListening;
+  if (currentSongs !== shownSongs) [s.song, shownSongs] = ["", currentSongs]; // a new setlist: no song yet
   const [color, text] = light({ ...s, listening: isListening });
   view.querySelector(".light").className = `light ${color}`;
-  view.querySelector(".sentence").textContent = text;
   const songs = currentSongs.length ? `${currentSongs.length} song${currentSongs.length === 1 ? "" : "s"} loaded` : "No songs loaded yet";
-  document.querySelectorAll(".now").forEach((el) => (el.textContent = s.song || songs));
+  // Write only changes, so a screen reader announces the status line once.
+  const put = (el, t) => el.textContent !== t && (el.textContent = t);
+  put(view.querySelector(".sentence"), text);
+  document.querySelectorAll(".now").forEach((el) => put(el, s.song || songs));
   if (!busy) view.querySelector(`[value=${isListening ? "songs" : "off"}]`).checked = true;
   return color;
 }
@@ -80,7 +84,7 @@ view.querySelector(".mode").addEventListener("click", async (e) => {
 });
 
 listen("machine-state", (e) => { s.machine = e.payload.state; render(); });
-listen("slide-advanced", (e) => { s.presenterError = ""; s.song = songLine(e.payload.slide_index); render(); });
+listen("slide-advanced", (e) => { s.presenterError = ""; [s.song, shownSongs] = [songLine(e.payload.slide_index), currentSongs]; render(); });
 listen("presenter-error", (e) => { s.presenterError = String(e.payload); render(); });
 listen("listening-stopped", (e) => { s.micLost = !!e.payload?.disconnected; render(); });
 setInterval(render, 500);
