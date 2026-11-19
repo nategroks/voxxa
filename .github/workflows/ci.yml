@@ -21,10 +21,10 @@ jobs:
       fail-fast: false
       matrix:
         # ubuntu-22.04 is pinned, not ubuntu-latest: Ubuntu 24.04's AppArmor
-        # default refuses unprivileged `unshare -rn`, so replay_no_sockets
-        # would fall back to strace with networking enabled (still green,
-        # but no longer "networking disabled"; Q7 security review section 4.1).
-        # Check the test's "traced with" line in the log after any bump.
+        # default refuses unprivileged `unshare -rn`. VOXXA_REQUIRE_NETNS=1
+        # (cargo test below) makes replay_no_sockets fail there instead of
+        # falling back to strace with networking enabled (Q7 security review
+        # section 4.1). Its "traced with" line shows only with --nocapture.
         os: [ubuntu-22.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
@@ -79,14 +79,16 @@ jobs:
           cargo clippy --all-targets --features cli -- -D warnings
 
       # Q7: tests/replay_no_sockets.rs traces `voxxad --replay` with strace
-      # (Linux, inside `unshare -rn`) or ETW (Windows); this variable makes a
-      # missing tracer fail instead of skip. macOS has no tracer without
+      # (Linux, inside `unshare -rn`) or ETW (Windows). VOXXA_REQUIRE_SOCKET_TRACE
+      # makes a missing tracer fail instead of skip; VOXXA_REQUIRE_NETNS makes
+      # a missing `unshare -rn` fail on Linux. macOS has no tracer without
       # disabling SIP, so the test skips there and says so.
       # tests/replay_determinism.rs replays every fixture log twice on each OS.
       - name: cargo test
         working-directory: src-tauri
         env:
           VOXXA_REQUIRE_SOCKET_TRACE: ${{ runner.os != 'macOS' && '1' || '' }}
+          VOXXA_REQUIRE_NETNS: ${{ runner.os == 'Linux' && '1' || '' }}
         run: cargo test --features cli
 
       # Q5 / ADR-015: replay the committed fixture logs (no model, no audio)

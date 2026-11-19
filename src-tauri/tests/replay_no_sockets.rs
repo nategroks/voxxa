@@ -8,11 +8,17 @@
 //! - **Linux:** `strace -f -e trace=%network` records every network system
 //!   call (`socket`, `connect`, `bind`, `sendto`, ...) of the process and its
 //!   threads. When `unshare -rn` works, the run is also inside a new network
-//!   namespace: networking is disabled, only a down loopback exists.
+//!   namespace: networking is disabled, only a down loopback exists. With
+//!   `VOXXA_REQUIRE_NETNS=1` (CI's Linux job) the test fails when `unshare -rn`
+//!   does not work, instead of tracing with networking enabled.
 //! - **Windows:** an ETW session on the `Microsoft-Windows-Winsock-AFD`
-//!   provider records every socket the kernel's AFD driver creates, connects
-//!   or closes, with the process id. Starting it needs an administrator
-//!   (GitHub's Windows runners are). Networking stays enabled.
+//!   provider records every socket the kernel's AFD driver creates or
+//!   connects, with the process id; `Microsoft-Windows-Kernel-Process` in the
+//!   same session records when each child started and exited. A replay is
+//!   charged only with socket-create and connect events of its own pid that
+//!   were logged between its own start and exit, so a pid that Windows reuses
+//!   before or after it does not count. Starting the session needs an
+//!   administrator (GitHub's Windows runners are). Networking stays enabled.
 //! - **macOS and anything else:** no tracer that works without disabling SIP,
 //!   so the test prints why and passes. The replay code is the same Rust on
 //!   every OS (`src/cli/voxxad/events.rs`, no OS-specific code).
@@ -52,9 +58,9 @@ struct Run {
 struct Traced {
     success: bool,
     stdout: String,
-    /// Network events the tracer recorded for this run's process.
+    /// Network events the tracer charged to this run's process.
     events: usize,
-    /// Up to five of them, for the failure message (no transcript text).
+    /// A few of them, for the failure message (no transcript text).
     sample: Vec<String>,
 }
 
@@ -170,6 +176,8 @@ fn strace(runs: &[Run]) -> Option<(String, Vec<Traced>)> {
         return None;
     }
     let unshare = works("unshare", &["-rn", "true"]);
+    let required = std::env::var("VOXXA_REQUIRE_NETNS").as_deref() == Ok("1");
+    let how = strace_mode(unshare, required).unwrap_or_else(|why| panic!("{why}"));
     let dir = tempfile::tempdir().unwrap();
     let traced = (runs.iter().enumerate())
         .map(|(i, run)| {
@@ -209,11 +217,21 @@ fn strace(runs: &[Run]) -> Option<(String, Vec<Traced>)> {
             }
         })
         .collect();
-    let how = match unshare {
-        true => "strace inside unshare -rn (networking disabled)",
-        false => "strace (unshare -rn unavailable: networking enabled)",
-    };
     Some((how.into(), traced))
+}
+
+/// The Linux tracer's label, or why it must not run: `VOXXA_REQUIRE_NETNS=1`
+/// turns a missing `unshare -rn` into a failure. Without it, a runner bump
+/// (Ubuntu 24.04's AppArmor refuses unprivileged user namespaces) would
+/// quietly trace with networking enabled, and a green log would not say so.
+fn strace_mode(unshare: bool, require_netns: bool) -> Result<&'static str, String> {
+    match (unshare, require_netns) {
+        (true, _) => Ok("strace inside unshare -rn (networking disabled)"),
+        (false, false) => Ok("strace (unshare -rn unavailable: networking enabled)"),
+        (false, true) => Err("VOXXA_REQUIRE_NETNS=1 but `unshare -rn true` failed, \
+             so networking cannot be disabled for the replays"
+            .into()),
+    }
 }
 
 /// Stops the ETW session even when an assertion fails.
@@ -244,7 +262,24 @@ fn etw(runs: &[Run]) -> Option<(String, Vec<Traced>)> {
     if !start.status.success() {
         return None;
     }
-    let session = Session(name);
+    let session = Session(name.clone());
+    // Process start and exit (keyword 0x10), for each child's lifetime.
+    let process = Command::new("logman")
+        .args([
+            "update",
+            "trace",
+            &name,
+            "-p",
+            "Microsoft-Windows-Kernel-Process",
+        ])
+        .args(["0x10", "0xFF", "-ets"])
+        .output()
+        .unwrap();
+    assert!(
+        process.status.success(),
+        "logman could not add Microsoft-Windows-Kernel-Process: {}",
+        String::from_utf8_lossy(&process.stdout).trim()
+    );
     // All at once: the session is system-wide, and events carry the pid.
     let children: Vec<_> = (runs.iter())
         .map(|run| {
@@ -256,33 +291,27 @@ fn etw(runs: &[Run]) -> Option<(String, Vec<Traced>)> {
         .map(|(pid, child)| (pid, child.wait_with_output().unwrap()))
         .collect();
     drop(session);
-    // Event counts per process id, read back with PowerShell.
-    let script = format!(
-        "Get-WinEvent -Path '{}' -Oldest -ErrorAction SilentlyContinue | \
-         Group-Object ProcessId | ForEach-Object {{ \"$($_.Name) $($_.Count)\" }}",
-        etl.display()
-    );
+    let script = ETW_READ.replace("ETL_PATH", &etl.display().to_string());
     let read = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
         .output()
         .unwrap();
-    let counts: Vec<(u32, usize)> = (String::from_utf8_lossy(&read.stdout).lines())
-        .filter_map(|l| {
-            let (pid, n) = l.trim().split_once(' ')?;
-            Some((pid.parse().ok()?, n.parse().ok()?))
-        })
-        .collect();
-    let traced = (outputs.into_iter())
-        .map(|(pid, out)| {
-            let events = (counts.iter())
-                .filter(|(p, _)| *p == pid)
-                .map(|(_, n)| n)
-                .sum();
+    let events = parse_etw(&String::from_utf8_lossy(&read.stdout));
+    let me = std::process::id();
+    let traced = (runs.iter().zip(outputs))
+        .map(|(run, (pid, out))| {
+            let life = lifetime(&events, pid, me).unwrap_or_else(|| {
+                panic!("{}: ETW recorded no start and exit for pid {pid}", run.name)
+            });
+            let ids = socket_events(&events, pid, life);
             Traced {
                 success: out.status.success(),
                 stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
-                events,
-                sample: vec![format!("{events} Winsock-AFD events for pid {pid}")],
+                events: ids.len(),
+                sample: vec![format!(
+                    "{} socket/connect events for pid {pid} during its lifetime, ids {ids:?}",
+                    ids.len()
+                )],
             }
         })
         .collect();
@@ -290,4 +319,210 @@ fn etw(runs: &[Run]) -> Option<(String, Vec<Traced>)> {
         "ETW Microsoft-Windows-Winsock-AFD (networking enabled)".into(),
         traced,
     ))
+}
+
+/// Reads the ETL back, one line per event that matters (FILETIME ticks):
+/// `S pid parent at` (process start), `E pid at` (process exit) and
+/// `A pid event-id at` (any Winsock-AFD event; `socket_events` filters them).
+const ETW_READ: &str = r#"
+Get-WinEvent -Path 'ETL_PATH' -Oldest -ErrorAction SilentlyContinue | ForEach-Object {
+  $at = $_.TimeCreated.ToFileTimeUtc()
+  if ($_.ProviderName -eq 'Microsoft-Windows-Kernel-Process') {
+    $d = @{}
+    ([xml]$_.ToXml()).Event.EventData.Data | ForEach-Object { $d[$_.Name] = $_.'#text' }
+    if ($_.Id -eq 1) { "S $($d.ProcessID) $($d.ParentProcessID) $at" }
+    elseif ($_.Id -eq 2) { "E $($d.ProcessID) $at" }
+  } elseif ($_.ProviderName -eq 'Microsoft-Windows-Winsock-AFD') {
+    "A $($_.ProcessId) $($_.Id) $at"
+  }
+}
+"#;
+
+/// One line of `ETW_READ`'s output.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Etw {
+    Start { pid: u32, parent: u32, at: u64 },
+    Stop { pid: u32, at: u64 },
+    Afd { pid: u32, id: u16, at: u64 },
+}
+
+fn parse_etw(text: &str) -> Vec<Etw> {
+    (text.lines())
+        .filter_map(|line| {
+            let f: Vec<&str> = line.split_whitespace().collect();
+            Some(match f[..] {
+                ["S", pid, parent, at] => Etw::Start {
+                    pid: pid.parse().ok()?,
+                    parent: parent.parse().ok()?,
+                    at: at.parse().ok()?,
+                },
+                ["E", pid, at] => Etw::Stop {
+                    pid: pid.parse().ok()?,
+                    at: at.parse().ok()?,
+                },
+                ["A", pid, id, at] => Etw::Afd {
+                    pid: pid.parse().ok()?,
+                    id: id.parse().ok()?,
+                    at: at.parse().ok()?,
+                },
+                _ => return None,
+            })
+        })
+        .collect()
+}
+
+/// When the child `pid` of `parent` ran: from its start event to the first
+/// exit event of that pid after it. A process that has the same pid before
+/// or after it (Windows reuses pids) has its own start and exit events.
+fn lifetime(events: &[Etw], pid: u32, parent: u32) -> Option<(u64, u64)> {
+    let start = events.iter().find_map(|e| match *e {
+        Etw::Start {
+            pid: p,
+            parent: q,
+            at,
+        } if p == pid && q == parent => Some(at),
+        _ => None,
+    })?;
+    let stop = (events.iter())
+        .filter_map(|e| match *e {
+            Etw::Stop { pid: p, at } if p == pid && at >= start => Some(at),
+            _ => None,
+        })
+        .min()?;
+    Some((start, stop))
+}
+
+/// Winsock-AFD events that mean "this process made or connected a socket":
+/// socket (1000), connect (1017, 1018) and ConnectEx (1020, 1021). A send,
+/// receive or close needs a socket first, so counting only these loses no
+/// socket, and keeps stray AFD events logged in a pid's context from counting.
+const SOCKET_EVENTS: [u16; 5] = [1000, 1017, 1018, 1020, 1021];
+
+/// The ids of `pid`'s socket events from inside `life` (start to exit).
+fn socket_events(events: &[Etw], pid: u32, (from, to): (u64, u64)) -> Vec<u16> {
+    (events.iter())
+        .filter_map(|e| match *e {
+            Etw::Afd { pid: p, id, at }
+                if p == pid && (from..=to).contains(&at) && SOCKET_EVENTS.contains(&id) =>
+            {
+                Some(id)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn etw_charges_a_replay_only_with_its_own_sockets() {
+    let me = 7;
+    let events = [
+        // pid 40 before our child: another process, already exited.
+        Etw::Start {
+            pid: 40,
+            parent: 3,
+            at: 1,
+        },
+        Etw::Afd {
+            pid: 40,
+            id: 1000,
+            at: 2,
+        },
+        Etw::Stop { pid: 40, at: 3 },
+        Etw::Afd {
+            pid: 40,
+            id: 1018,
+            at: 4,
+        },
+        // Our child.
+        Etw::Start {
+            pid: 40,
+            parent: me,
+            at: 10,
+        },
+        Etw::Afd {
+            pid: 40,
+            id: 1003,
+            at: 11,
+        }, // a send: not socket or connect
+        Etw::Afd {
+            pid: 41,
+            id: 1000,
+            at: 12,
+        }, // another pid
+        Etw::Stop { pid: 40, at: 20 },
+        // pid 40 reused after our child exited.
+        Etw::Afd {
+            pid: 40,
+            id: 1000,
+            at: 21,
+        },
+        Etw::Start {
+            pid: 40,
+            parent: 3,
+            at: 30,
+        },
+        Etw::Afd {
+            pid: 40,
+            id: 1017,
+            at: 31,
+        },
+        Etw::Stop { pid: 40, at: 40 },
+    ];
+    let life = lifetime(&events, 40, me);
+    assert_eq!(life, Some((10, 20)));
+    assert_eq!(socket_events(&events, 40, life.unwrap()), Vec::<u16>::new());
+
+    // The same child making a socket and connecting is caught.
+    let mut caught = events.to_vec();
+    caught.push(Etw::Afd {
+        pid: 40,
+        id: 1000,
+        at: 12,
+    });
+    caught.push(Etw::Afd {
+        pid: 40,
+        id: 1018,
+        at: 13,
+    });
+    assert_eq!(socket_events(&caught, 40, (10, 20)), vec![1000, 1018]);
+
+    // No start event from this parent, or no exit after it: no lifetime,
+    // and `etw` fails the test instead of guessing.
+    assert_eq!(lifetime(&events, 40, 99), None);
+    assert_eq!(lifetime(&events[..6], 40, me), None);
+}
+
+#[test]
+fn etw_read_back_lines_parse() {
+    let text = "S 40 7 10\r\nA 40 1000 12\r\nE 40 20\r\nWARNING: x\r\n\r\nA 4 1003\r\n";
+    assert_eq!(
+        parse_etw(text),
+        vec![
+            Etw::Start {
+                pid: 40,
+                parent: 7,
+                at: 10
+            },
+            Etw::Afd {
+                pid: 40,
+                id: 1000,
+                at: 12
+            },
+            Etw::Stop { pid: 40, at: 20 },
+        ]
+    );
+}
+
+#[test]
+fn a_required_network_namespace_fails_without_unshare() {
+    assert!(strace_mode(true, true)
+        .unwrap()
+        .contains("networking disabled"));
+    assert!(strace_mode(true, false)
+        .unwrap()
+        .contains("networking disabled"));
+    assert!(strace_mode(false, false)
+        .unwrap()
+        .contains("networking enabled"));
+    assert!(strace_mode(false, true).is_err());
 }
