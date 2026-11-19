@@ -161,8 +161,17 @@ fn the_operator_settings_export_holds_no_secret() {
             "voxxa.nested",
             json!([{ "deep": { "pwd": secret, "passphrase": secret, "client_secret": secret, "pat": secret } }]),
         ),
+        (
+            "voxxa.misc",
+            json!({ "apiKeys": [secret], "privateKeyPem": secret, "key_id": secret, "bearer": secret, "keystrokeProfile": "universal", "deeper": { "application_id": secret, "clientId": secret, "PrivateKey": secret } }),
+        ),
         ("voxxa.pcoSecret", json!(secret)),
         ("voxxa.apiToken", json!(secret)),
+        ("voxxa.apiKeys", json!([secret])),
+        ("voxxa.privateKeyPem", json!(secret)),
+        ("voxxa.key_id", json!(secret)),
+        ("voxxa.application_id", json!(secret)),
+        ("voxxa.clientId", json!(secret)),
         (
             "voxxa.smartConfig",
             serde_json::to_value(SmartConfig::default()).unwrap(),
@@ -188,6 +197,7 @@ fn the_operator_settings_export_holds_no_secret() {
     assert_eq!(form["port"], 4316);
     assert_eq!(form["username"], "booth");
     assert_eq!(form["keystroke_profile"], "universal");
+    assert_eq!(out["voxxa.misc"]["keystrokeProfile"], "universal");
     assert_eq!(out["voxxa.httpApi"]["port"], 7575);
     assert_eq!(out["voxxa.language"], "en");
     let smart = serde_json::to_value(SmartConfig::default()).unwrap();
@@ -213,6 +223,8 @@ fn the_operator_settings_export_holds_no_secret() {
         "kind",
         "username",
         "keystroke_profile",
+        "keystrokeProfile",
+        "keystroke",
         "enabled",
         "title",
     ] {

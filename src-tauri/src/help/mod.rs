@@ -37,14 +37,16 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-const SECRET_IN: &str = "token secret pass pwd credential authoriz appid";
-const SECRET_END: &str = "key auth pat";
+const SECRET_IN: &str =
+    "token secret pass pwd credential authoriz appid applicationid clientid bearer key";
+const SECRET_END: &str = "auth pat";
 
 /// A property name that reads as a secret (ADR-018 § 4), compared
-/// lower-cased with everything but letters and digits removed.
+/// lower-cased with everything but letters and digits removed; `keystroke`
+/// (the keystroke presenter's profile) is the one harmless `key` name.
 pub fn is_secret(name: &str) -> bool {
     let n: String = name.chars().filter(char::is_ascii_alphanumeric).collect();
-    let n = n.to_ascii_lowercase();
+    let n = n.to_ascii_lowercase().replace("keystroke", "");
     SECRET_IN.split(' ').any(|s| n.contains(s)) || SECRET_END.split(' ').any(|s| n.ends_with(s))
 }
 
