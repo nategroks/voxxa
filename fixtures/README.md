@@ -29,9 +29,9 @@ fixtures/
 From the repository root (Windows, macOS or Linux):
 
 ```sh
-cargo build --manifest-path src-tauri/Cargo.toml --bin voxxad --bin voxxa-eval
-cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval            # replay (CI)
-cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --full  # Whisper Tiny
+cargo build --manifest-path src-tauri/Cargo.toml --features cli --bin voxxad --bin voxxa-eval
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval            # replay (CI)
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full  # Whisper Tiny
 ```
 
 `voxxa-eval` runs the `voxxad` binary built beside it on every folder in
@@ -47,10 +47,17 @@ row per fixture plus a total, and checks each row against `baseline.json`.
   today's defaults: a change to a `SmartConfig` default is not seen by
   replay (or CI) until the logs are re-recorded, or their start-line config
   is edited (ticket Q5-07). Fields missing from a log's start-line config
-  do take today's defaults: today that is the ADR-016 `evidence` block in 4
-  of the 6 logs (only `refrain-it-is-well` and `prayer-before-first-song`
-  record it), so retuning an `EvidenceConfig` default moves CI for those 4.
-- **Full (`--full`, local):** `voxxad --stdin-audio audio.wav --setlist setlist.json
+  take today's defaults. Since Q7 all six logs were recorded by the ADR-016
+  conductor and store its `evidence` block, so retuning an `EvidenceConfig`
+  default moves no replay either until the logs are re-recorded.
+- **Determinism (CI, `tests/replay_determinism.rs`):** replaying each
+  fixture must print the `action` lines its `session.jsonl` recorded, byte
+  for byte, and two replays must agree. So a conductor change that moves an
+  action fails CI until the affected logs are re-recorded (below), with the
+  reason in the commit; `docs/runbooks/eval-regression.md` says how to tell
+  that from a regression.
+- **Full (`--full`, local, and the report-only workflow
+  `.github/workflows/full-eval.yml` on three OSes):** `voxxad --stdin-audio audio.wav --setlist setlist.json
   --shadow --model tiny`, at file speed. When the fixture has an `audio.json`,
   `audio.wav` is rebuilt from it first. Needs `ggml-tiny.bin` (download it in
   the app). A debug build takes about 2 s per second of audio; a release

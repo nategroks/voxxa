@@ -1,4 +1,4 @@
-{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261113-1145.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"7af790625fa41a81","slides":11,"songs":3},"shadow":true,"version":"0.1.0"}}
+{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"evidence":{"decay":0.3,"margin":0.05,"min_dwell_ms":1500,"prior_chorus":0.8,"prior_next":0.9,"prior_other":0.4,"prior_section":0.6,"prior_stay":1.0,"threshold":0.35},"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261119-0203.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"7af790625fa41a81","slides":11,"songs":3},"shadow":true,"version":"0.1.0"}}
 {"v":1,"t":200,"type":"tick"}
 {"v":1,"t":400,"type":"tick"}
 {"v":1,"t":600,"type":"tick"}
@@ -161,6 +161,7 @@
 {"v":1,"t":16900,"type":"speech"}
 {"v":1,"t":17000,"type":"window","text":"die presence my light. Riches I heed not."}
 {"v":1,"t":17000,"type":"hypothesis","text":"Riches I heed not."}
+{"v":1,"t":17000,"type":"action","action":"goto","song":0,"slide":2,"global":2,"title":"Be Thou My Vision"}
 {"v":1,"t":17000,"type":"tick"}
 {"v":1,"t":17000,"type":"speech"}
 {"v":1,"t":17200,"type":"tick"}
@@ -314,6 +315,7 @@
 {"v":1,"t":31900,"type":"speech"}
 {"v":1,"t":32000,"type":"window","text":"High King of Heaven, my victory won."}
 {"v":1,"t":32000,"type":"hypothesis","text":"High King of Heaven, my victory won."}
+{"v":1,"t":32000,"type":"action","action":"goto","song":0,"slide":3,"global":3,"title":"Be Thou My Vision"}
 {"v":1,"t":32000,"type":"tick"}
 {"v":1,"t":32100,"type":"speech"}
 {"v":1,"t":32200,"type":"tick"}
@@ -488,6 +490,7 @@
 {"v":1,"t":48900,"type":"speech"}
 {"v":1,"t":49000,"type":"window","text":"an, a lord of my heart, not be all else to me, save that thou art."}
 {"v":1,"t":49000,"type":"hypothesis","text":"save. that thou art."}
+{"v":1,"t":49000,"type":"action","action":"goto","song":0,"slide":0,"global":0,"title":"Be Thou My Vision"}
 {"v":1,"t":49000,"type":"tick"}
 {"v":1,"t":49200,"type":"tick"}
 {"v":1,"t":49300,"type":"speech"}

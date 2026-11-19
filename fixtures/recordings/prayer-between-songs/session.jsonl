@@ -1,4 +1,4 @@
-{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261113-1147.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"aedb9f539cd60dbf","slides":12,"songs":3},"shadow":true,"version":"0.1.0"}}
+{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"evidence":{"decay":0.3,"margin":0.05,"min_dwell_ms":1500,"prior_chorus":0.8,"prior_next":0.9,"prior_other":0.4,"prior_section":0.6,"prior_stay":1.0,"threshold":0.35},"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261119-0207.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"aedb9f539cd60dbf","slides":12,"songs":3},"shadow":true,"version":"0.1.0"}}
 {"v":1,"t":200,"type":"tick"}
 {"v":1,"t":400,"type":"tick"}
 {"v":1,"t":600,"type":"tick"}
@@ -221,6 +221,7 @@
 {"v":1,"t":24900,"type":"speech"}
 {"v":1,"t":25000,"type":"window","text":"Holy, holy, holy. All the saints adore the casting."}
 {"v":1,"t":25000,"type":"hypothesis","text":"the saints adore the casting."}
+{"v":1,"t":25000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"Holy, Holy, Holy"}
 {"v":1,"t":25000,"type":"tick"}
 {"v":1,"t":25100,"type":"speech"}
 {"v":1,"t":25200,"type":"tick"}
@@ -289,7 +290,6 @@
 {"v":1,"t":30900,"type":"speech"}
 {"v":1,"t":31000,"type":"window","text":"crowns around a glassy sea, cherubim and seraphim falling down before the, which"}
 {"v":1,"t":31000,"type":"hypothesis","text":"falling down before the, which"}
-{"v":1,"t":31000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"Holy, Holy, Holy"}
 {"v":1,"t":31000,"type":"tick"}
 {"v":1,"t":31100,"type":"speech"}
 {"v":1,"t":31200,"type":"tick"}
@@ -535,7 +535,9 @@
 {"v":1,"t":55900,"type":"speech"}
 {"v":1,"t":56000,"type":"window","text":"Come, thou found of every blessing."}
 {"v":1,"t":56000,"type":"hypothesis","text":"Come, thou found of every blessing."}
+{"v":1,"t":56000,"type":"action","action":"goto","song":1,"slide":0,"global":4,"title":"Come, Thou Fount of Every Blessing"}
 {"v":1,"t":56000,"type":"tick"}
+{"v":1,"t":56000,"type":"status","state":"singing","blank":false}
 {"v":1,"t":56100,"type":"speech"}
 {"v":1,"t":56200,"type":"tick"}
 {"v":1,"t":56300,"type":"speech"}
@@ -604,9 +606,7 @@
 {"v":1,"t":61900,"type":"speech"}
 {"v":1,"t":62000,"type":"window","text":"The same thing that grace, streams of mercy, never ceasing, call for songs of loudness."}
 {"v":1,"t":62000,"type":"hypothesis","text":"never ceasing, call. for songs of loudness."}
-{"v":1,"t":62000,"type":"action","action":"goto","song":1,"slide":0,"global":4,"title":"Come, Thou Fount of Every Blessing"}
 {"v":1,"t":62000,"type":"tick"}
-{"v":1,"t":62000,"type":"status","state":"singing","blank":false}
 {"v":1,"t":62100,"type":"speech"}
 {"v":1,"t":62200,"type":"tick"}
 {"v":1,"t":62300,"type":"speech"}
@@ -750,6 +750,7 @@
 {"v":1,"t":75900,"type":"speech"}
 {"v":1,"t":76000,"type":"window","text":"love. Here I raise my Ebenezer, hith or by"}
 {"v":1,"t":76000,"type":"hypothesis","text":"Here I raise my Ebenezer, hith or by"}
+{"v":1,"t":76000,"type":"action","action":"goto","song":1,"slide":1,"global":5,"title":"Come, Thou Fount of Every Blessing"}
 {"v":1,"t":76000,"type":"tick"}
 {"v":1,"t":76100,"type":"speech"}
 {"v":1,"t":76200,"type":"tick"}
@@ -853,7 +854,6 @@
 {"v":1,"t":84900,"type":"speech"}
 {"v":1,"t":85000,"type":"window","text":"to arrive at home, Jesus sought me when a stranger, wandering from the fold of God."}
 {"v":1,"t":85000,"type":"hypothesis","text":"wandering from the fold of God."}
-{"v":1,"t":85000,"type":"action","action":"goto","song":1,"slide":1,"global":5,"title":"Come, Thou Fount of Every Blessing"}
 {"v":1,"t":85000,"type":"tick"}
 {"v":1,"t":85100,"type":"speech"}
 {"v":1,"t":85200,"type":"tick"}

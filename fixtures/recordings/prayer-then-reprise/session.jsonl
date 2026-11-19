@@ -1,4 +1,4 @@
-{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261113-0716.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"d9164254af38a872","slides":13,"songs":3},"shadow":true,"version":"0.1.0"}}
+{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"evidence":{"decay":0.3,"margin":0.05,"min_dwell_ms":1500,"prior_chorus":0.8,"prior_next":0.9,"prior_other":0.4,"prior_section":0.6,"prior_stay":1.0,"threshold":0.35},"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261119-0213.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"d9164254af38a872","slides":13,"songs":3},"shadow":true,"version":"0.1.0"}}
 {"v":1,"t":200,"type":"tick"}
 {"v":1,"t":400,"type":"tick"}
 {"v":1,"t":600,"type":"tick"}
@@ -170,6 +170,7 @@
 {"v":1,"t":18800,"type":"tick"}
 {"v":1,"t":19000,"type":"window","text":"To us grace that taught my heart to fear, and"}
 {"v":1,"t":19000,"type":"hypothesis","text":"To us grace that taught my heart to fear, and"}
+{"v":1,"t":19000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"Amazing Grace"}
 {"v":1,"t":19000,"type":"tick"}
 {"v":1,"t":19000,"type":"status","state":"singing","blank":false}
 {"v":1,"t":19100,"type":"speech"}
@@ -234,7 +235,6 @@
 {"v":1,"t":24900,"type":"speech"}
 {"v":1,"t":25000,"type":"window","text":"believed. How precious did that grace appear, the hour I first"}
 {"v":1,"t":25000,"type":"hypothesis","text":"the hour I first"}
-{"v":1,"t":25000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"Amazing Grace"}
 {"v":1,"t":25000,"type":"tick"}
 {"v":1,"t":25100,"type":"speech"}
 {"v":1,"t":25200,"type":"tick"}
