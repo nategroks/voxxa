@@ -488,6 +488,89 @@ fn the_best_slide_must_lead_the_current_one_by_the_margin() {
 }
 
 #[test]
+fn every_evidence_value_away_from_its_default_changes_a_decision() {
+    // `SmartConfig.evidence` is read, not just stored: each value set away
+    // from its default turns a move into a wait or a wait into a move.
+    let cfg = |set: &dyn Fn(&mut EvidenceConfig)| {
+        let mut cfg = EvidenceConfig::default();
+        set(&mut cfg);
+        cfg
+    };
+    let defaults = cfg(&|_| {});
+    let section = |kind, slides: &[usize]| Section {
+        kind,
+        slides: slides.to_vec(),
+    };
+    // From slide 0, one clean line of slide 2: verse 0, verse 1, then slide
+    // 2 labelled as `third` (a chorus start, a verse start or the second
+    // slide of verse 1).
+    let first_line = |third: Section, cfg: &EvidenceConfig| {
+        let mut sections = vec![section(SectionKind::Verse, &[0])];
+        if third.slides == [2] {
+            sections.push(section(SectionKind::Verse, &[1]));
+        }
+        sections.push(third);
+        let song = synthetic(
+            &["c1 c2 c3 c4 c5", "e1 e2 e3 e4 e5", "k1 k2 k3 k4 k5"],
+            sections,
+        );
+        let mut t = Tracker::default();
+        t.hear("k1 k2 k3 k4 k5");
+        t.decide(0, &song, 0, cfg, true)
+    };
+    // prior_chorus: 0.7 x 0.8 = 0.56 moves; at 0.4, 0.28 waits.
+    let chorus = || section(SectionKind::Chorus, &[2]);
+    assert_eq!(first_line(chorus(), &defaults), Some(2));
+    let low = cfg(&|c| c.prior_chorus = 0.4);
+    assert_eq!(first_line(chorus(), &low), None);
+    // prior_section: 0.7 x 0.6 = 0.42 moves; at 0.4, 0.28 waits.
+    let verse = || section(SectionKind::Verse, &[2]);
+    assert_eq!(first_line(verse(), &defaults), Some(2));
+    let low = cfg(&|c| c.prior_section = 0.4);
+    assert_eq!(first_line(verse(), &low), None);
+    // prior_other: 0.7 x 0.4 = 0.28 waits; at 0.6, 0.42 moves.
+    let inside = || section(SectionKind::Verse, &[1, 2]);
+    assert_eq!(first_line(inside(), &defaults), None);
+    let high = cfg(&|c| c.prior_other = 0.6);
+    assert_eq!(first_line(inside(), &high), Some(2));
+
+    // An unlabelled song, from slide 0, one clean line of slide 1 (next).
+    let song = synthetic(&["c1 w1 w2 w3 c2", "w1 w2 w3 w4 w5 w6 w7"], vec![]);
+    let decide = |cfg: &EvidenceConfig, line: &str| {
+        let mut t = Tracker::default();
+        t.hear(line);
+        t.decide(0, &song, 0, cfg, true)
+    };
+    // prior_next and threshold: 0.7 x 0.9 = 0.63 moves; prior_next 0.4
+    // gives 0.28, and a threshold of 0.7 is over 0.63, so both wait.
+    assert_eq!(decide(&defaults, "w4 w5 w6 w7"), Some(1));
+    assert_eq!(decide(&cfg(&|c| c.prior_next = 0.4), "w4 w5 w6 w7"), None);
+    assert_eq!(decide(&cfg(&|c| c.threshold = 0.7), "w4 w5 w6 w7"), None);
+    // prior_stay: three of seven words are also slide 0's, so slide 0 has
+    // 0.3 + 0.7 x 3/7 = 0.6 and slide 1's 0.63 is inside the margin. At 0.5
+    // slide 0 has 0.45 and slide 1 moves.
+    let near_tie = "w1 w2 w3 w4 w5 w6 w7";
+    assert_eq!(decide(&defaults, near_tie), None);
+    assert_eq!(decide(&cfg(&|c| c.prior_stay = 0.5), near_tie), Some(1));
+
+    // decay: transcripts of slide 1 until it moves. At 0.3 the first one
+    // moves (0.63 against 0.3); at 0.9 slide 1 gains 0.09 at a time while
+    // slide 0 keeps 0.9 of its 1.0, so the eighth is the first to move.
+    let words: Vec<String> = (1..=60).map(|i| format!("n{i}")).collect();
+    let song = synthetic(&["c1 c2 c3 c4 c5", &words.join(" ")], vec![]);
+    let moves_on = |decay: f64| {
+        let cfg = cfg(&|c| c.decay = decay);
+        let mut t = Tracker::default();
+        (1..=words.len() / 5).find(|&n| {
+            t.hear(&words[5 * (n - 1)..5 * n].join(" "));
+            t.decide(0, &song, 0, &cfg, true).is_some()
+        })
+    };
+    assert_eq!(moves_on(0.3), Some(1));
+    assert_eq!(moves_on(0.9), Some(8));
+}
+
+#[test]
 fn the_window_holds_the_last_12_words() {
     // Slide 1 has "n1" after five other words and before "x". While "x" is
     // in the window it comes before "n1", so "n1" extends no alignment;
