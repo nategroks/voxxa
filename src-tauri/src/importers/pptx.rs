@@ -57,6 +57,7 @@ pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
     Ok(Song {
         title: fallback_title.to_string(),
         slides,
+        sections: Vec::new(),
     })
 }
 

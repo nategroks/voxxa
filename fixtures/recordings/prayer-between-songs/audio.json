@@ -1,0 +1,13 @@
+[
+  { "silence_ms": 2000 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-holy-holy-holy-v1-david.wav" },
+  { "silence_ms": 1500 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-holy-holy-holy-v2-david.wav" },
+  { "silence_ms": 1000 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-prayer-zira.wav" },
+  { "silence_ms": 2000 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-come-thou-fount-v1-zira.wav" },
+  { "silence_ms": 1500 },
+  { "wav": "../../../src-tauri/tests/fixtures/voxxad/tts-come-thou-fount-v2-zira.wav" },
+  { "silence_ms": 4000 }
+]

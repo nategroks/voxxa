@@ -1,0 +1,936 @@
+{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261113-1147.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"aedb9f539cd60dbf","slides":12,"songs":3},"shadow":true,"version":"0.1.0"}}
+{"v":1,"t":200,"type":"tick"}
+{"v":1,"t":400,"type":"tick"}
+{"v":1,"t":600,"type":"tick"}
+{"v":1,"t":800,"type":"tick"}
+{"v":1,"t":1000,"type":"tick"}
+{"v":1,"t":1200,"type":"tick"}
+{"v":1,"t":1400,"type":"tick"}
+{"v":1,"t":1600,"type":"tick"}
+{"v":1,"t":1800,"type":"tick"}
+{"v":1,"t":2000,"type":"tick"}
+{"v":1,"t":2200,"type":"tick"}
+{"v":1,"t":2400,"type":"tick"}
+{"v":1,"t":2600,"type":"tick"}
+{"v":1,"t":2800,"type":"tick"}
+{"v":1,"t":3000,"type":"tick"}
+{"v":1,"t":3100,"type":"speech"}
+{"v":1,"t":3200,"type":"tick"}
+{"v":1,"t":3300,"type":"speech"}
+{"v":1,"t":3400,"type":"tick"}
+{"v":1,"t":3500,"type":"speech"}
+{"v":1,"t":3600,"type":"tick"}
+{"v":1,"t":3800,"type":"tick"}
+{"v":1,"t":4000,"type":"window","text":"Holy, holy, holy."}
+{"v":1,"t":4000,"type":"tick"}
+{"v":1,"t":4100,"type":"speech"}
+{"v":1,"t":4200,"type":"tick"}
+{"v":1,"t":4300,"type":"speech"}
+{"v":1,"t":4400,"type":"tick"}
+{"v":1,"t":4400,"type":"speech"}
+{"v":1,"t":4600,"type":"tick"}
+{"v":1,"t":4800,"type":"tick"}
+{"v":1,"t":5000,"type":"window","text":"Holy, holy, holy."}
+{"v":1,"t":5000,"type":"tick"}
+{"v":1,"t":5200,"type":"tick"}
+{"v":1,"t":5300,"type":"speech"}
+{"v":1,"t":5400,"type":"tick"}
+{"v":1,"t":5500,"type":"speech"}
+{"v":1,"t":5600,"type":"tick"}
+{"v":1,"t":5700,"type":"speech"}
+{"v":1,"t":5800,"type":"tick"}
+{"v":1,"t":5900,"type":"speech"}
+{"v":1,"t":6000,"type":"window","text":"Holy, holy, holy. Lord God Almighty."}
+{"v":1,"t":6000,"type":"hypothesis","text":"Holy, holy, holy. Lord God Almighty."}
+{"v":1,"t":6000,"type":"action","action":"goto","song":0,"slide":0,"global":0,"title":"Holy, Holy, Holy"}
+{"v":1,"t":6000,"type":"tick"}
+{"v":1,"t":6000,"type":"status","state":"singing","blank":false}
+{"v":1,"t":6100,"type":"speech"}
+{"v":1,"t":6200,"type":"tick"}
+{"v":1,"t":6300,"type":"speech"}
+{"v":1,"t":6400,"type":"tick"}
+{"v":1,"t":6400,"type":"speech"}
+{"v":1,"t":6600,"type":"tick"}
+{"v":1,"t":6800,"type":"tick"}
+{"v":1,"t":7000,"type":"window","text":"Holy, holy, holy. Lord God Almighty."}
+{"v":1,"t":7000,"type":"tick"}
+{"v":1,"t":7200,"type":"tick"}
+{"v":1,"t":7400,"type":"tick"}
+{"v":1,"t":7600,"type":"tick"}
+{"v":1,"t":7700,"type":"speech"}
+{"v":1,"t":7800,"type":"tick"}
+{"v":1,"t":7900,"type":"speech"}
+{"v":1,"t":8000,"type":"window","text":"Holy, holy. Lord God Almighty, early in the morning."}
+{"v":1,"t":8000,"type":"hypothesis","text":"early in the morning."}
+{"v":1,"t":8000,"type":"tick"}
+{"v":1,"t":8100,"type":"speech"}
+{"v":1,"t":8200,"type":"tick"}
+{"v":1,"t":8300,"type":"speech"}
+{"v":1,"t":8400,"type":"tick"}
+{"v":1,"t":8500,"type":"speech"}
+{"v":1,"t":8600,"type":"tick"}
+{"v":1,"t":8700,"type":"speech"}
+{"v":1,"t":8800,"type":"tick"}
+{"v":1,"t":8900,"type":"speech"}
+{"v":1,"t":9000,"type":"window","text":"Lord God Almighty Early in the morning our song shall be"}
+{"v":1,"t":9000,"type":"hypothesis","text":"our song shall be"}
+{"v":1,"t":9000,"type":"tick"}
+{"v":1,"t":9100,"type":"speech"}
+{"v":1,"t":9200,"type":"tick"}
+{"v":1,"t":9300,"type":"speech"}
+{"v":1,"t":9400,"type":"tick"}
+{"v":1,"t":9500,"type":"speech"}
+{"v":1,"t":9600,"type":"tick"}
+{"v":1,"t":9700,"type":"speech"}
+{"v":1,"t":9800,"type":"tick"}
+{"v":1,"t":9900,"type":"speech"}
+{"v":1,"t":10000,"type":"window","text":"Lord God Almighty."}
+{"v":1,"t":10000,"type":"tick"}
+{"v":1,"t":10200,"type":"tick"}
+{"v":1,"t":10300,"type":"speech"}
+{"v":1,"t":10400,"type":"tick"}
+{"v":1,"t":10500,"type":"speech"}
+{"v":1,"t":10600,"type":"tick"}
+{"v":1,"t":10600,"type":"speech"}
+{"v":1,"t":10800,"type":"tick"}
+{"v":1,"t":11000,"type":"window","text":"early in the morning our song shall rise to the holy holy"}
+{"v":1,"t":11000,"type":"hypothesis","text":"to the holy holy"}
+{"v":1,"t":11000,"type":"tick"}
+{"v":1,"t":11100,"type":"speech"}
+{"v":1,"t":11200,"type":"tick"}
+{"v":1,"t":11300,"type":"speech"}
+{"v":1,"t":11400,"type":"tick"}
+{"v":1,"t":11500,"type":"speech"}
+{"v":1,"t":11600,"type":"tick"}
+{"v":1,"t":11800,"type":"tick"}
+{"v":1,"t":11900,"type":"speech"}
+{"v":1,"t":12000,"type":"window","text":"Early in the morning our song shall rise to the holy holy holy"}
+{"v":1,"t":12000,"type":"tick"}
+{"v":1,"t":12100,"type":"speech"}
+{"v":1,"t":12200,"type":"tick"}
+{"v":1,"t":12300,"type":"speech"}
+{"v":1,"t":12400,"type":"tick"}
+{"v":1,"t":12600,"type":"tick"}
+{"v":1,"t":12800,"type":"tick"}
+{"v":1,"t":13000,"type":"window","text":"our song shall rise to thee, holy, holy, holy."}
+{"v":1,"t":13000,"type":"tick"}
+{"v":1,"t":13200,"type":"tick"}
+{"v":1,"t":13300,"type":"speech"}
+{"v":1,"t":13400,"type":"tick"}
+{"v":1,"t":13500,"type":"speech"}
+{"v":1,"t":13600,"type":"tick"}
+{"v":1,"t":13700,"type":"speech"}
+{"v":1,"t":13800,"type":"tick"}
+{"v":1,"t":13900,"type":"speech"}
+{"v":1,"t":14000,"type":"window","text":"Rise to the Holy Holy Holy."}
+{"v":1,"t":14000,"type":"tick"}
+{"v":1,"t":14100,"type":"speech"}
+{"v":1,"t":14200,"type":"tick"}
+{"v":1,"t":14200,"type":"speech"}
+{"v":1,"t":14400,"type":"tick"}
+{"v":1,"t":14600,"type":"tick"}
+{"v":1,"t":14800,"type":"tick"}
+{"v":1,"t":15000,"type":"window","text":"Holy, holy, holy. Merciful and mighty."}
+{"v":1,"t":15000,"type":"hypothesis","text":"holy Merciful and mighty."}
+{"v":1,"t":15000,"type":"tick"}
+{"v":1,"t":15200,"type":"tick"}
+{"v":1,"t":15400,"type":"tick"}
+{"v":1,"t":15500,"type":"speech"}
+{"v":1,"t":15600,"type":"tick"}
+{"v":1,"t":15700,"type":"speech"}
+{"v":1,"t":15800,"type":"tick"}
+{"v":1,"t":15900,"type":"speech"}
+{"v":1,"t":16000,"type":"window","text":"Holy, Holy, merciful and mighty."}
+{"v":1,"t":16000,"type":"tick"}
+{"v":1,"t":16100,"type":"speech"}
+{"v":1,"t":16200,"type":"tick"}
+{"v":1,"t":16300,"type":"speech"}
+{"v":1,"t":16400,"type":"tick"}
+{"v":1,"t":16500,"type":"speech"}
+{"v":1,"t":16600,"type":"tick"}
+{"v":1,"t":16700,"type":"speech"}
+{"v":1,"t":16800,"type":"tick"}
+{"v":1,"t":17000,"type":"window","text":"Merciful and Mighty God in three persons"}
+{"v":1,"t":17000,"type":"hypothesis","text":"God in three persons"}
+{"v":1,"t":17000,"type":"tick"}
+{"v":1,"t":17200,"type":"tick"}
+{"v":1,"t":17300,"type":"speech"}
+{"v":1,"t":17400,"type":"tick"}
+{"v":1,"t":17500,"type":"speech"}
+{"v":1,"t":17600,"type":"tick"}
+{"v":1,"t":17700,"type":"speech"}
+{"v":1,"t":17800,"type":"tick"}
+{"v":1,"t":17900,"type":"speech"}
+{"v":1,"t":18000,"type":"window","text":"merciful and mighty. God in three persons, blessed Trinity"}
+{"v":1,"t":18000,"type":"tick"}
+{"v":1,"t":18100,"type":"speech"}
+{"v":1,"t":18200,"type":"tick"}
+{"v":1,"t":18400,"type":"tick"}
+{"v":1,"t":18600,"type":"tick"}
+{"v":1,"t":18800,"type":"tick"}
+{"v":1,"t":19000,"type":"window","text":"God in three persons, blessed Trinity"}
+{"v":1,"t":19000,"type":"tick"}
+{"v":1,"t":19200,"type":"tick"}
+{"v":1,"t":19400,"type":"tick"}
+{"v":1,"t":19600,"type":"tick"}
+{"v":1,"t":19800,"type":"tick"}
+{"v":1,"t":20000,"type":"tick"}
+{"v":1,"t":20200,"type":"tick"}
+{"v":1,"t":20400,"type":"tick"}
+{"v":1,"t":20500,"type":"speech"}
+{"v":1,"t":20600,"type":"tick"}
+{"v":1,"t":20700,"type":"speech"}
+{"v":1,"t":20800,"type":"tick"}
+{"v":1,"t":21000,"type":"window","text":"Persons, Blessed Trinity. Holy."}
+{"v":1,"t":21000,"type":"tick"}
+{"v":1,"t":21200,"type":"tick"}
+{"v":1,"t":21300,"type":"speech"}
+{"v":1,"t":21400,"type":"tick"}
+{"v":1,"t":21500,"type":"speech"}
+{"v":1,"t":21600,"type":"tick"}
+{"v":1,"t":21600,"type":"speech"}
+{"v":1,"t":21800,"type":"tick"}
+{"v":1,"t":22000,"type":"window","text":"=== Less trunity === Holy, holy, holy, holy."}
+{"v":1,"t":22000,"type":"hypothesis","text":"Holy. === Less trunity === Holy, holy, holy, holy."}
+{"v":1,"t":22000,"type":"tick"}
+{"v":1,"t":22200,"type":"tick"}
+{"v":1,"t":22300,"type":"speech"}
+{"v":1,"t":22400,"type":"tick"}
+{"v":1,"t":22500,"type":"speech"}
+{"v":1,"t":22600,"type":"tick"}
+{"v":1,"t":22800,"type":"tick"}
+{"v":1,"t":23000,"type":"window","text":"Holy, holy, holy."}
+{"v":1,"t":23000,"type":"tick"}
+{"v":1,"t":23200,"type":"tick"}
+{"v":1,"t":23400,"type":"tick"}
+{"v":1,"t":23500,"type":"speech"}
+{"v":1,"t":23600,"type":"tick"}
+{"v":1,"t":23700,"type":"speech"}
+{"v":1,"t":23800,"type":"tick"}
+{"v":1,"t":23900,"type":"speech"}
+{"v":1,"t":24000,"type":"window","text":"Holy, holy, holy."}
+{"v":1,"t":24000,"type":"tick"}
+{"v":1,"t":24100,"type":"speech"}
+{"v":1,"t":24200,"type":"tick"}
+{"v":1,"t":24300,"type":"speech"}
+{"v":1,"t":24400,"type":"tick"}
+{"v":1,"t":24500,"type":"speech"}
+{"v":1,"t":24600,"type":"tick"}
+{"v":1,"t":24700,"type":"speech"}
+{"v":1,"t":24800,"type":"tick"}
+{"v":1,"t":24900,"type":"speech"}
+{"v":1,"t":25000,"type":"window","text":"Holy, holy, holy. All the saints adore the casting."}
+{"v":1,"t":25000,"type":"hypothesis","text":"the saints adore the casting."}
+{"v":1,"t":25000,"type":"tick"}
+{"v":1,"t":25100,"type":"speech"}
+{"v":1,"t":25200,"type":"tick"}
+{"v":1,"t":25300,"type":"speech"}
+{"v":1,"t":25400,"type":"tick"}
+{"v":1,"t":25500,"type":"speech"}
+{"v":1,"t":25600,"type":"tick"}
+{"v":1,"t":25700,"type":"speech"}
+{"v":1,"t":25800,"type":"tick"}
+{"v":1,"t":25900,"type":"speech"}
+{"v":1,"t":26000,"type":"window","text":"Holy, Holy. All the saints adore thee, casting down their golden"}
+{"v":1,"t":26000,"type":"tick"}
+{"v":1,"t":26100,"type":"speech"}
+{"v":1,"t":26200,"type":"tick"}
+{"v":1,"t":26300,"type":"speech"}
+{"v":1,"t":26400,"type":"tick"}
+{"v":1,"t":26500,"type":"speech"}
+{"v":1,"t":26600,"type":"tick"}
+{"v":1,"t":26700,"type":"speech"}
+{"v":1,"t":26800,"type":"tick"}
+{"v":1,"t":26900,"type":"speech"}
+{"v":1,"t":27000,"type":"window","text":"All the saints adore thee, casting down their golden crowns around the glass."}
+{"v":1,"t":27000,"type":"hypothesis","text":"down their golden crowns around the glass."}
+{"v":1,"t":27000,"type":"tick"}
+{"v":1,"t":27100,"type":"speech"}
+{"v":1,"t":27200,"type":"tick"}
+{"v":1,"t":27300,"type":"speech"}
+{"v":1,"t":27400,"type":"tick"}
+{"v":1,"t":27500,"type":"speech"}
+{"v":1,"t":27600,"type":"tick"}
+{"v":1,"t":27700,"type":"speech"}
+{"v":1,"t":27800,"type":"tick"}
+{"v":1,"t":27800,"type":"speech"}
+{"v":1,"t":28000,"type":"window","text":"All the saints adore thee, casting down their golden crowns around the glassy sea, chill."}
+{"v":1,"t":28000,"type":"tick"}
+{"v":1,"t":28200,"type":"tick"}
+{"v":1,"t":28300,"type":"speech"}
+{"v":1,"t":28400,"type":"tick"}
+{"v":1,"t":28500,"type":"speech"}
+{"v":1,"t":28600,"type":"tick"}
+{"v":1,"t":28700,"type":"speech"}
+{"v":1,"t":28800,"type":"tick"}
+{"v":1,"t":28900,"type":"speech"}
+{"v":1,"t":29000,"type":"window","text":"For the, casting down their golden crowns around the glassy sea, cherubim and seraphim"}
+{"v":1,"t":29000,"type":"hypothesis","text":"sea, chill. and seraphim"}
+{"v":1,"t":29000,"type":"tick"}
+{"v":1,"t":29100,"type":"speech"}
+{"v":1,"t":29200,"type":"tick"}
+{"v":1,"t":29300,"type":"speech"}
+{"v":1,"t":29400,"type":"tick"}
+{"v":1,"t":29500,"type":"speech"}
+{"v":1,"t":29600,"type":"tick"}
+{"v":1,"t":29700,"type":"speech"}
+{"v":1,"t":29800,"type":"tick"}
+{"v":1,"t":29900,"type":"speech"}
+{"v":1,"t":30000,"type":"window","text":"Down there golden crowns around the glassy sea, charabim and seraphim falling down before"}
+{"v":1,"t":30000,"type":"tick"}
+{"v":1,"t":30100,"type":"speech"}
+{"v":1,"t":30200,"type":"tick"}
+{"v":1,"t":30300,"type":"speech"}
+{"v":1,"t":30400,"type":"tick"}
+{"v":1,"t":30500,"type":"speech"}
+{"v":1,"t":30600,"type":"tick"}
+{"v":1,"t":30700,"type":"speech"}
+{"v":1,"t":30800,"type":"tick"}
+{"v":1,"t":30900,"type":"speech"}
+{"v":1,"t":31000,"type":"window","text":"crowns around a glassy sea, cherubim and seraphim falling down before the, which"}
+{"v":1,"t":31000,"type":"hypothesis","text":"falling down before the, which"}
+{"v":1,"t":31000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"Holy, Holy, Holy"}
+{"v":1,"t":31000,"type":"tick"}
+{"v":1,"t":31100,"type":"speech"}
+{"v":1,"t":31200,"type":"tick"}
+{"v":1,"t":31300,"type":"speech"}
+{"v":1,"t":31400,"type":"tick"}
+{"v":1,"t":31500,"type":"speech"}
+{"v":1,"t":31600,"type":"tick"}
+{"v":1,"t":31800,"type":"tick"}
+{"v":1,"t":31900,"type":"speech"}
+{"v":1,"t":32000,"type":"window","text":"S.C. Cherubim and Seraphim falling down before the, which word, and our"}
+{"v":1,"t":32000,"type":"tick"}
+{"v":1,"t":32100,"type":"speech"}
+{"v":1,"t":32200,"type":"tick"}
+{"v":1,"t":32300,"type":"speech"}
+{"v":1,"t":32400,"type":"tick"}
+{"v":1,"t":32400,"type":"speech"}
+{"v":1,"t":32600,"type":"tick"}
+{"v":1,"t":32800,"type":"tick"}
+{"v":1,"t":32900,"type":"speech"}
+{"v":1,"t":33000,"type":"window","text":"Arabim and Seraphim falling down before the, which word, and art, and ever"}
+{"v":1,"t":33000,"type":"hypothesis","text":"word, and our and ever"}
+{"v":1,"t":33000,"type":"tick"}
+{"v":1,"t":33100,"type":"speech"}
+{"v":1,"t":33200,"type":"tick"}
+{"v":1,"t":33300,"type":"speech"}
+{"v":1,"t":33400,"type":"tick"}
+{"v":1,"t":33500,"type":"speech"}
+{"v":1,"t":33600,"type":"tick"}
+{"v":1,"t":33700,"type":"speech"}
+{"v":1,"t":33800,"type":"tick"}
+{"v":1,"t":33900,"type":"speech"}
+{"v":1,"t":34000,"type":"window","text":"falling down before the, which word, and art, and ever more shalld be."}
+{"v":1,"t":34000,"type":"tick"}
+{"v":1,"t":34100,"type":"speech"}
+{"v":1,"t":34200,"type":"tick"}
+{"v":1,"t":34400,"type":"tick"}
+{"v":1,"t":34600,"type":"tick"}
+{"v":1,"t":34800,"type":"tick"}
+{"v":1,"t":35000,"type":"window","text":"for the which word and art and ever more shall be."}
+{"v":1,"t":35000,"type":"tick"}
+{"v":1,"t":35200,"type":"tick"}
+{"v":1,"t":35400,"type":"tick"}
+{"v":1,"t":35600,"type":"tick"}
+{"v":1,"t":35800,"type":"tick"}
+{"v":1,"t":35900,"type":"speech"}
+{"v":1,"t":36000,"type":"window","text":"word, and art, and ever more shall be."}
+{"v":1,"t":36000,"type":"tick"}
+{"v":1,"t":36100,"type":"speech"}
+{"v":1,"t":36200,"type":"tick"}
+{"v":1,"t":36300,"type":"speech"}
+{"v":1,"t":36400,"type":"tick"}
+{"v":1,"t":36500,"type":"speech"}
+{"v":1,"t":36600,"type":"tick"}
+{"v":1,"t":36700,"type":"speech"}
+{"v":1,"t":36800,"type":"tick"}
+{"v":1,"t":36900,"type":"speech"}
+{"v":1,"t":37000,"type":"window","text":"and ever more shall be."}
+{"v":1,"t":37000,"type":"tick"}
+{"v":1,"t":37100,"type":"speech"}
+{"v":1,"t":37200,"type":"tick"}
+{"v":1,"t":37200,"type":"speech"}
+{"v":1,"t":37400,"type":"tick"}
+{"v":1,"t":37600,"type":"tick"}
+{"v":1,"t":37800,"type":"tick"}
+{"v":1,"t":38000,"type":"window","text":"more shall be. Let us pray. Father"}
+{"v":1,"t":38000,"type":"hypothesis","text":"Let us pray. Father"}
+{"v":1,"t":38000,"type":"tick"}
+{"v":1,"t":38100,"type":"speech"}
+{"v":1,"t":38200,"type":"tick"}
+{"v":1,"t":38300,"type":"speech"}
+{"v":1,"t":38400,"type":"tick"}
+{"v":1,"t":38500,"type":"speech"}
+{"v":1,"t":38600,"type":"tick"}
+{"v":1,"t":38700,"type":"speech"}
+{"v":1,"t":38800,"type":"tick"}
+{"v":1,"t":38900,"type":"speech"}
+{"v":1,"t":39000,"type":"window","text":"Let us pray. Father, thank you."}
+{"v":1,"t":39000,"type":"tick"}
+{"v":1,"t":39100,"type":"speech"}
+{"v":1,"t":39200,"type":"tick"}
+{"v":1,"t":39300,"type":"speech"}
+{"v":1,"t":39400,"type":"tick"}
+{"v":1,"t":39500,"type":"speech"}
+{"v":1,"t":39600,"type":"tick"}
+{"v":1,"t":39700,"type":"speech"}
+{"v":1,"t":39800,"type":"tick"}
+{"v":1,"t":39900,"type":"speech"}
+{"v":1,"t":40000,"type":"window","text":"Let us pray. Father, thank you for this morning and for"}
+{"v":1,"t":40000,"type":"hypothesis","text":"thank you. for this morning and for"}
+{"v":1,"t":40000,"type":"tick"}
+{"v":1,"t":40100,"type":"speech"}
+{"v":1,"t":40200,"type":"tick"}
+{"v":1,"t":40300,"type":"speech"}
+{"v":1,"t":40400,"type":"tick"}
+{"v":1,"t":40500,"type":"speech"}
+{"v":1,"t":40600,"type":"tick"}
+{"v":1,"t":40700,"type":"speech"}
+{"v":1,"t":40800,"type":"tick"}
+{"v":1,"t":40900,"type":"speech"}
+{"v":1,"t":41000,"type":"window","text":"This pray. Father, thank you for this morning and for everyone gathered here."}
+{"v":1,"t":41000,"type":"tick"}
+{"v":1,"t":41100,"type":"speech"}
+{"v":1,"t":41200,"type":"tick"}
+{"v":1,"t":41300,"type":"speech"}
+{"v":1,"t":41400,"type":"tick"}
+{"v":1,"t":41400,"type":"speech"}
+{"v":1,"t":41600,"type":"tick"}
+{"v":1,"t":41800,"type":"tick"}
+{"v":1,"t":42000,"type":"window","text":"Father, thank you for this morning and for everyone gathered here."}
+{"v":1,"t":42000,"type":"tick"}
+{"v":1,"t":42200,"type":"tick"}
+{"v":1,"t":42400,"type":"tick"}
+{"v":1,"t":42600,"type":"tick"}
+{"v":1,"t":42700,"type":"speech"}
+{"v":1,"t":42800,"type":"tick"}
+{"v":1,"t":42900,"type":"speech"}
+{"v":1,"t":43000,"type":"window","text":"Thank you for this morning and for everyone gathered here."}
+{"v":1,"t":43000,"type":"tick"}
+{"v":1,"t":43000,"type":"action","action":"blank"}
+{"v":1,"t":43000,"type":"status","state":"blank_hold","blank":true}
+{"v":1,"t":43100,"type":"speech"}
+{"v":1,"t":43200,"type":"tick"}
+{"v":1,"t":43300,"type":"speech"}
+{"v":1,"t":43400,"type":"tick"}
+{"v":1,"t":43500,"type":"speech"}
+{"v":1,"t":43600,"type":"tick"}
+{"v":1,"t":43700,"type":"speech"}
+{"v":1,"t":43800,"type":"tick"}
+{"v":1,"t":43900,"type":"speech"}
+{"v":1,"t":44000,"type":"window","text":"for this morning and for everyone gathered here. Quiet our hearts as we listen."}
+{"v":1,"t":44000,"type":"hypothesis","text":"Quiet our hearts as we listen."}
+{"v":1,"t":44000,"type":"tick"}
+{"v":1,"t":44100,"type":"speech"}
+{"v":1,"t":44200,"type":"tick"}
+{"v":1,"t":44300,"type":"speech"}
+{"v":1,"t":44400,"type":"tick"}
+{"v":1,"t":44500,"type":"speech"}
+{"v":1,"t":44600,"type":"tick"}
+{"v":1,"t":44700,"type":"speech"}
+{"v":1,"t":44800,"type":"tick"}
+{"v":1,"t":44900,"type":"speech"}
+{"v":1,"t":45000,"type":"window","text":"everyone gathered here. Quiet our hearts as we listen, and help us to live."}
+{"v":1,"t":45000,"type":"hypothesis","text":"and help us to live."}
+{"v":1,"t":45000,"type":"tick"}
+{"v":1,"t":45100,"type":"speech"}
+{"v":1,"t":45200,"type":"tick"}
+{"v":1,"t":45300,"type":"speech"}
+{"v":1,"t":45400,"type":"tick"}
+{"v":1,"t":45500,"type":"speech"}
+{"v":1,"t":45600,"type":"tick"}
+{"v":1,"t":45700,"type":"speech"}
+{"v":1,"t":45800,"type":"tick"}
+{"v":1,"t":45900,"type":"speech"}
+{"v":1,"t":46000,"type":"window","text":"Quiet our hearts as we listen and help us to love one another this week."}
+{"v":1,"t":46000,"type":"hypothesis","text":"one another this week."}
+{"v":1,"t":46000,"type":"tick"}
+{"v":1,"t":46100,"type":"speech"}
+{"v":1,"t":46200,"type":"tick"}
+{"v":1,"t":46300,"type":"speech"}
+{"v":1,"t":46400,"type":"tick"}
+{"v":1,"t":46500,"type":"speech"}
+{"v":1,"t":46600,"type":"tick"}
+{"v":1,"t":46600,"type":"speech"}
+{"v":1,"t":46800,"type":"tick"}
+{"v":1,"t":47000,"type":"window","text":"Quiet our hearts as we listen, and help us to love one another this week."}
+{"v":1,"t":47000,"type":"tick"}
+{"v":1,"t":47200,"type":"tick"}
+{"v":1,"t":47400,"type":"tick"}
+{"v":1,"t":47600,"type":"tick"}
+{"v":1,"t":47700,"type":"speech"}
+{"v":1,"t":47800,"type":"tick"}
+{"v":1,"t":47900,"type":"speech"}
+{"v":1,"t":48000,"type":"window","text":"as we listen and help us to love one another this week."}
+{"v":1,"t":48000,"type":"tick"}
+{"v":1,"t":48100,"type":"speech"}
+{"v":1,"t":48200,"type":"tick"}
+{"v":1,"t":48300,"type":"speech"}
+{"v":1,"t":48400,"type":"tick"}
+{"v":1,"t":48500,"type":"speech"}
+{"v":1,"t":48600,"type":"tick"}
+{"v":1,"t":48700,"type":"speech"}
+{"v":1,"t":48800,"type":"tick"}
+{"v":1,"t":48900,"type":"speech"}
+{"v":1,"t":49000,"type":"window","text":"and help us to love one another this week. We ask this in the name of Jesus."}
+{"v":1,"t":49000,"type":"hypothesis","text":"We ask this in the name of Jesus."}
+{"v":1,"t":49000,"type":"tick"}
+{"v":1,"t":49100,"type":"speech"}
+{"v":1,"t":49200,"type":"tick"}
+{"v":1,"t":49300,"type":"speech"}
+{"v":1,"t":49400,"type":"tick"}
+{"v":1,"t":49400,"type":"speech"}
+{"v":1,"t":49600,"type":"tick"}
+{"v":1,"t":49800,"type":"tick"}
+{"v":1,"t":50000,"type":"window","text":"of one another this week. We ask this in the name of Jesus."}
+{"v":1,"t":50000,"type":"tick"}
+{"v":1,"t":50200,"type":"tick"}
+{"v":1,"t":50300,"type":"speech"}
+{"v":1,"t":50400,"type":"tick"}
+{"v":1,"t":50500,"type":"speech"}
+{"v":1,"t":50600,"type":"tick"}
+{"v":1,"t":50700,"type":"speech"}
+{"v":1,"t":50800,"type":"tick"}
+{"v":1,"t":50900,"type":"speech"}
+{"v":1,"t":51000,"type":"window","text":"We ask this in the name of Jesus. Amen."}
+{"v":1,"t":51000,"type":"tick"}
+{"v":1,"t":51000,"type":"speech"}
+{"v":1,"t":51200,"type":"tick"}
+{"v":1,"t":51400,"type":"tick"}
+{"v":1,"t":51600,"type":"tick"}
+{"v":1,"t":51800,"type":"tick"}
+{"v":1,"t":52000,"type":"window","text":"We ask this in the name of Jesus. Amen."}
+{"v":1,"t":52000,"type":"tick"}
+{"v":1,"t":52200,"type":"tick"}
+{"v":1,"t":52400,"type":"tick"}
+{"v":1,"t":52600,"type":"tick"}
+{"v":1,"t":52800,"type":"tick"}
+{"v":1,"t":53000,"type":"tick"}
+{"v":1,"t":53200,"type":"tick"}
+{"v":1,"t":53400,"type":"tick"}
+{"v":1,"t":53600,"type":"tick"}
+{"v":1,"t":53800,"type":"tick"}
+{"v":1,"t":53900,"type":"speech"}
+{"v":1,"t":54000,"type":"window","text":"Amen."}
+{"v":1,"t":54000,"type":"tick"}
+{"v":1,"t":54100,"type":"speech"}
+{"v":1,"t":54200,"type":"tick"}
+{"v":1,"t":54400,"type":"tick"}
+{"v":1,"t":54500,"type":"speech"}
+{"v":1,"t":54600,"type":"tick"}
+{"v":1,"t":54700,"type":"speech"}
+{"v":1,"t":54800,"type":"tick"}
+{"v":1,"t":54900,"type":"speech"}
+{"v":1,"t":55000,"type":"window","text":"Amen."}
+{"v":1,"t":55000,"type":"tick"}
+{"v":1,"t":55100,"type":"speech"}
+{"v":1,"t":55200,"type":"tick"}
+{"v":1,"t":55300,"type":"speech"}
+{"v":1,"t":55400,"type":"tick"}
+{"v":1,"t":55500,"type":"speech"}
+{"v":1,"t":55600,"type":"tick"}
+{"v":1,"t":55700,"type":"speech"}
+{"v":1,"t":55800,"type":"tick"}
+{"v":1,"t":55900,"type":"speech"}
+{"v":1,"t":56000,"type":"window","text":"Come, thou found of every blessing."}
+{"v":1,"t":56000,"type":"hypothesis","text":"Come, thou found of every blessing."}
+{"v":1,"t":56000,"type":"tick"}
+{"v":1,"t":56100,"type":"speech"}
+{"v":1,"t":56200,"type":"tick"}
+{"v":1,"t":56300,"type":"speech"}
+{"v":1,"t":56400,"type":"tick"}
+{"v":1,"t":56500,"type":"speech"}
+{"v":1,"t":56600,"type":"tick"}
+{"v":1,"t":56700,"type":"speech"}
+{"v":1,"t":56800,"type":"tick"}
+{"v":1,"t":56900,"type":"speech"}
+{"v":1,"t":57000,"type":"window","text":"Come, thou found of every blessing, tune my heart to sing."}
+{"v":1,"t":57000,"type":"hypothesis","text":"tune my heart to sing."}
+{"v":1,"t":57000,"type":"tick"}
+{"v":1,"t":57100,"type":"speech"}
+{"v":1,"t":57200,"type":"tick"}
+{"v":1,"t":57300,"type":"speech"}
+{"v":1,"t":57400,"type":"tick"}
+{"v":1,"t":57500,"type":"speech"}
+{"v":1,"t":57600,"type":"tick"}
+{"v":1,"t":57700,"type":"speech"}
+{"v":1,"t":57800,"type":"tick"}
+{"v":1,"t":57900,"type":"speech"}
+{"v":1,"t":58000,"type":"window","text":"Come, thou found of every blessing, tune my heart to sing thy grace."}
+{"v":1,"t":58000,"type":"tick"}
+{"v":1,"t":58100,"type":"speech"}
+{"v":1,"t":58200,"type":"tick"}
+{"v":1,"t":58300,"type":"speech"}
+{"v":1,"t":58400,"type":"tick"}
+{"v":1,"t":58500,"type":"speech"}
+{"v":1,"t":58600,"type":"tick"}
+{"v":1,"t":58700,"type":"speech"}
+{"v":1,"t":58800,"type":"tick"}
+{"v":1,"t":58900,"type":"speech"}
+{"v":1,"t":59000,"type":"window","text":"Thou found of every blessing, tune my heart to sing thy grace, streams of mercy."}
+{"v":1,"t":59000,"type":"hypothesis","text":"thy grace. streams of mercy."}
+{"v":1,"t":59000,"type":"tick"}
+{"v":1,"t":59100,"type":"speech"}
+{"v":1,"t":59200,"type":"tick"}
+{"v":1,"t":59300,"type":"speech"}
+{"v":1,"t":59400,"type":"tick"}
+{"v":1,"t":59500,"type":"speech"}
+{"v":1,"t":59600,"type":"tick"}
+{"v":1,"t":59700,"type":"speech"}
+{"v":1,"t":59800,"type":"tick"}
+{"v":1,"t":59900,"type":"speech"}
+{"v":1,"t":60000,"type":"window","text":"Every blessing, tune my heart to sing thy grace, streams of mercy."}
+{"v":1,"t":60000,"type":"tick"}
+{"v":1,"t":60100,"type":"speech"}
+{"v":1,"t":60200,"type":"tick"}
+{"v":1,"t":60300,"type":"speech"}
+{"v":1,"t":60400,"type":"tick"}
+{"v":1,"t":60500,"type":"speech"}
+{"v":1,"t":60600,"type":"tick"}
+{"v":1,"t":60700,"type":"speech"}
+{"v":1,"t":60800,"type":"tick"}
+{"v":1,"t":60900,"type":"speech"}
+{"v":1,"t":61000,"type":"window","text":"Tune my heart to sing thy grace, streams of mercy, never ceasing, call."}
+{"v":1,"t":61000,"type":"tick"}
+{"v":1,"t":61100,"type":"speech"}
+{"v":1,"t":61200,"type":"tick"}
+{"v":1,"t":61300,"type":"speech"}
+{"v":1,"t":61400,"type":"tick"}
+{"v":1,"t":61500,"type":"speech"}
+{"v":1,"t":61600,"type":"tick"}
+{"v":1,"t":61700,"type":"speech"}
+{"v":1,"t":61800,"type":"tick"}
+{"v":1,"t":61900,"type":"speech"}
+{"v":1,"t":62000,"type":"window","text":"The same thing that grace, streams of mercy, never ceasing, call for songs of loudness."}
+{"v":1,"t":62000,"type":"hypothesis","text":"never ceasing, call. for songs of loudness."}
+{"v":1,"t":62000,"type":"action","action":"goto","song":1,"slide":0,"global":4,"title":"Come, Thou Fount of Every Blessing"}
+{"v":1,"t":62000,"type":"tick"}
+{"v":1,"t":62000,"type":"status","state":"singing","blank":false}
+{"v":1,"t":62100,"type":"speech"}
+{"v":1,"t":62200,"type":"tick"}
+{"v":1,"t":62300,"type":"speech"}
+{"v":1,"t":62400,"type":"tick"}
+{"v":1,"t":62500,"type":"speech"}
+{"v":1,"t":62600,"type":"tick"}
+{"v":1,"t":62700,"type":"speech"}
+{"v":1,"t":62800,"type":"tick"}
+{"v":1,"t":62900,"type":"speech"}
+{"v":1,"t":63000,"type":"window","text":"Streams of mercy, never ceasing, call for songs of loudest praise."}
+{"v":1,"t":63000,"type":"tick"}
+{"v":1,"t":63100,"type":"speech"}
+{"v":1,"t":63200,"type":"tick"}
+{"v":1,"t":63300,"type":"speech"}
+{"v":1,"t":63400,"type":"tick"}
+{"v":1,"t":63500,"type":"speech"}
+{"v":1,"t":63600,"type":"tick"}
+{"v":1,"t":63700,"type":"speech"}
+{"v":1,"t":63800,"type":"tick"}
+{"v":1,"t":63900,"type":"speech"}
+{"v":1,"t":64000,"type":"window","text":"never ceasing, call for songs of loudest praise, teach me some melodic"}
+{"v":1,"t":64000,"type":"hypothesis","text":"praise. teach me some melodic"}
+{"v":1,"t":64000,"type":"tick"}
+{"v":1,"t":64100,"type":"speech"}
+{"v":1,"t":64200,"type":"tick"}
+{"v":1,"t":64300,"type":"speech"}
+{"v":1,"t":64400,"type":"tick"}
+{"v":1,"t":64500,"type":"speech"}
+{"v":1,"t":64600,"type":"tick"}
+{"v":1,"t":64700,"type":"speech"}
+{"v":1,"t":64800,"type":"tick"}
+{"v":1,"t":64900,"type":"speech"}
+{"v":1,"t":65000,"type":"window","text":"C.C.C. call for songs of loudest praise, teach me some melodious sonnet."}
+{"v":1,"t":65000,"type":"tick"}
+{"v":1,"t":65100,"type":"speech"}
+{"v":1,"t":65200,"type":"tick"}
+{"v":1,"t":65300,"type":"speech"}
+{"v":1,"t":65400,"type":"tick"}
+{"v":1,"t":65500,"type":"speech"}
+{"v":1,"t":65600,"type":"tick"}
+{"v":1,"t":65700,"type":"speech"}
+{"v":1,"t":65800,"type":"tick"}
+{"v":1,"t":65900,"type":"speech"}
+{"v":1,"t":66000,"type":"window","text":"for songs of loudest praise, teach me some melodious sonnet, sung by flaming to"}
+{"v":1,"t":66000,"type":"hypothesis","text":"sonnet. sung by flaming to"}
+{"v":1,"t":66000,"type":"tick"}
+{"v":1,"t":66100,"type":"speech"}
+{"v":1,"t":66200,"type":"tick"}
+{"v":1,"t":66300,"type":"speech"}
+{"v":1,"t":66400,"type":"tick"}
+{"v":1,"t":66500,"type":"speech"}
+{"v":1,"t":66600,"type":"tick"}
+{"v":1,"t":66700,"type":"speech"}
+{"v":1,"t":66800,"type":"tick"}
+{"v":1,"t":66900,"type":"speech"}
+{"v":1,"t":67000,"type":"window","text":"What is the price? Teach me some melodious sonnet, sung by flaming tongues above."}
+{"v":1,"t":67000,"type":"tick"}
+{"v":1,"t":67100,"type":"speech"}
+{"v":1,"t":67200,"type":"tick"}
+{"v":1,"t":67300,"type":"speech"}
+{"v":1,"t":67400,"type":"tick"}
+{"v":1,"t":67500,"type":"speech"}
+{"v":1,"t":67600,"type":"tick"}
+{"v":1,"t":67700,"type":"speech"}
+{"v":1,"t":67800,"type":"tick"}
+{"v":1,"t":67900,"type":"speech"}
+{"v":1,"t":68000,"type":"window","text":"Teach me some melodious sonnet, sung by flaming tongues above, praise the Mount."}
+{"v":1,"t":68000,"type":"hypothesis","text":"above. praise the Mount."}
+{"v":1,"t":68000,"type":"tick"}
+{"v":1,"t":68100,"type":"speech"}
+{"v":1,"t":68200,"type":"tick"}
+{"v":1,"t":68400,"type":"tick"}
+{"v":1,"t":68600,"type":"tick"}
+{"v":1,"t":68800,"type":"tick"}
+{"v":1,"t":68900,"type":"speech"}
+{"v":1,"t":69000,"type":"window","text":"the sun at, sung by flaming tongues above, praise the Mount."}
+{"v":1,"t":69000,"type":"tick"}
+{"v":1,"t":69100,"type":"speech"}
+{"v":1,"t":69200,"type":"tick"}
+{"v":1,"t":69300,"type":"speech"}
+{"v":1,"t":69400,"type":"tick"}
+{"v":1,"t":69500,"type":"speech"}
+{"v":1,"t":69600,"type":"tick"}
+{"v":1,"t":69700,"type":"speech"}
+{"v":1,"t":69800,"type":"tick"}
+{"v":1,"t":69900,"type":"speech"}
+{"v":1,"t":70000,"type":"window","text":"sung by flaming tongues above, praise the Mount. I'm fixed upon it."}
+{"v":1,"t":70000,"type":"hypothesis","text":"I'm fixed upon it."}
+{"v":1,"t":70000,"type":"tick"}
+{"v":1,"t":70100,"type":"speech"}
+{"v":1,"t":70200,"type":"tick"}
+{"v":1,"t":70300,"type":"speech"}
+{"v":1,"t":70400,"type":"tick"}
+{"v":1,"t":70500,"type":"speech"}
+{"v":1,"t":70600,"type":"tick"}
+{"v":1,"t":70700,"type":"speech"}
+{"v":1,"t":70800,"type":"tick"}
+{"v":1,"t":70900,"type":"speech"}
+{"v":1,"t":71000,"type":"window","text":"tongues above, praise the Mount. I'm fixed upon it, Mount of Thy Redeeming."}
+{"v":1,"t":71000,"type":"hypothesis","text":"Mount of Thy Redeeming."}
+{"v":1,"t":71000,"type":"tick"}
+{"v":1,"t":71100,"type":"speech"}
+{"v":1,"t":71200,"type":"tick"}
+{"v":1,"t":71300,"type":"speech"}
+{"v":1,"t":71400,"type":"tick"}
+{"v":1,"t":71500,"type":"speech"}
+{"v":1,"t":71600,"type":"tick"}
+{"v":1,"t":71700,"type":"speech"}
+{"v":1,"t":71800,"type":"tick"}
+{"v":1,"t":72000,"type":"window","text":"raise the mount. I'm fixed upon it, mount of thy redeeming love."}
+{"v":1,"t":72000,"type":"tick"}
+{"v":1,"t":72200,"type":"tick"}
+{"v":1,"t":72400,"type":"tick"}
+{"v":1,"t":72600,"type":"tick"}
+{"v":1,"t":72800,"type":"tick"}
+{"v":1,"t":73000,"type":"tick"}
+{"v":1,"t":73200,"type":"tick"}
+{"v":1,"t":73400,"type":"tick"}
+{"v":1,"t":73600,"type":"tick"}
+{"v":1,"t":73800,"type":"tick"}
+{"v":1,"t":74000,"type":"tick"}
+{"v":1,"t":74100,"type":"speech"}
+{"v":1,"t":74200,"type":"tick"}
+{"v":1,"t":74300,"type":"speech"}
+{"v":1,"t":74400,"type":"tick"}
+{"v":1,"t":74500,"type":"speech"}
+{"v":1,"t":74600,"type":"tick"}
+{"v":1,"t":74700,"type":"speech"}
+{"v":1,"t":74800,"type":"tick"}
+{"v":1,"t":74900,"type":"speech"}
+{"v":1,"t":75000,"type":"window","text":"of Thy Redeeming Love."}
+{"v":1,"t":75000,"type":"tick"}
+{"v":1,"t":75100,"type":"speech"}
+{"v":1,"t":75200,"type":"tick"}
+{"v":1,"t":75300,"type":"speech"}
+{"v":1,"t":75400,"type":"tick"}
+{"v":1,"t":75500,"type":"speech"}
+{"v":1,"t":75600,"type":"tick"}
+{"v":1,"t":75700,"type":"speech"}
+{"v":1,"t":75800,"type":"tick"}
+{"v":1,"t":75900,"type":"speech"}
+{"v":1,"t":76000,"type":"window","text":"love. Here I raise my Ebenezer, hith or by"}
+{"v":1,"t":76000,"type":"hypothesis","text":"Here I raise my Ebenezer, hith or by"}
+{"v":1,"t":76000,"type":"tick"}
+{"v":1,"t":76100,"type":"speech"}
+{"v":1,"t":76200,"type":"tick"}
+{"v":1,"t":76300,"type":"speech"}
+{"v":1,"t":76400,"type":"tick"}
+{"v":1,"t":76500,"type":"speech"}
+{"v":1,"t":76600,"type":"tick"}
+{"v":1,"t":76700,"type":"speech"}
+{"v":1,"t":76800,"type":"tick"}
+{"v":1,"t":76900,"type":"speech"}
+{"v":1,"t":77000,"type":"window","text":"Here I raise my Ebenezer, hith or by the help I'm come."}
+{"v":1,"t":77000,"type":"hypothesis","text":"the help I'm come."}
+{"v":1,"t":77000,"type":"tick"}
+{"v":1,"t":77100,"type":"speech"}
+{"v":1,"t":77200,"type":"tick"}
+{"v":1,"t":77300,"type":"speech"}
+{"v":1,"t":77400,"type":"tick"}
+{"v":1,"t":77500,"type":"speech"}
+{"v":1,"t":77600,"type":"tick"}
+{"v":1,"t":77700,"type":"speech"}
+{"v":1,"t":77800,"type":"tick"}
+{"v":1,"t":77900,"type":"speech"}
+{"v":1,"t":78000,"type":"window","text":"Here I raise my Ebenezer, hith or by the help I'm come, and I hope."}
+{"v":1,"t":78000,"type":"tick"}
+{"v":1,"t":78100,"type":"speech"}
+{"v":1,"t":78200,"type":"tick"}
+{"v":1,"t":78400,"type":"tick"}
+{"v":1,"t":78500,"type":"speech"}
+{"v":1,"t":78600,"type":"tick"}
+{"v":1,"t":78700,"type":"speech"}
+{"v":1,"t":78800,"type":"tick"}
+{"v":1,"t":78900,"type":"speech"}
+{"v":1,"t":79000,"type":"window","text":"I raise my Ebenezer, hither by the help I'm come, and I hope."}
+{"v":1,"t":79000,"type":"tick"}
+{"v":1,"t":79100,"type":"speech"}
+{"v":1,"t":79200,"type":"tick"}
+{"v":1,"t":79300,"type":"speech"}
+{"v":1,"t":79400,"type":"tick"}
+{"v":1,"t":79500,"type":"speech"}
+{"v":1,"t":79600,"type":"tick"}
+{"v":1,"t":79700,"type":"speech"}
+{"v":1,"t":79800,"type":"tick"}
+{"v":1,"t":79900,"type":"speech"}
+{"v":1,"t":80000,"type":"window","text":"Heather by the help I'm come, and I hope. By the good pleasure, safe."}
+{"v":1,"t":80000,"type":"hypothesis","text":"and I hope. By the good pleasure, safe."}
+{"v":1,"t":80000,"type":"tick"}
+{"v":1,"t":80100,"type":"speech"}
+{"v":1,"t":80200,"type":"tick"}
+{"v":1,"t":80300,"type":"speech"}
+{"v":1,"t":80400,"type":"tick"}
+{"v":1,"t":80500,"type":"speech"}
+{"v":1,"t":80600,"type":"tick"}
+{"v":1,"t":80700,"type":"speech"}
+{"v":1,"t":80800,"type":"tick"}
+{"v":1,"t":80900,"type":"speech"}
+{"v":1,"t":81000,"type":"window","text":"I help I'm come, and I hope. By thy good pleasure, safely to arrive at home."}
+{"v":1,"t":81000,"type":"hypothesis","text":"to arrive at home."}
+{"v":1,"t":81000,"type":"tick"}
+{"v":1,"t":81100,"type":"speech"}
+{"v":1,"t":81200,"type":"tick"}
+{"v":1,"t":81300,"type":"speech"}
+{"v":1,"t":81400,"type":"tick"}
+{"v":1,"t":81500,"type":"speech"}
+{"v":1,"t":81600,"type":"tick"}
+{"v":1,"t":81700,"type":"speech"}
+{"v":1,"t":81800,"type":"tick"}
+{"v":1,"t":81900,"type":"speech"}
+{"v":1,"t":82000,"type":"window","text":"And I hope, by thy good pleasure, safely to arrive at home, Jesus saw."}
+{"v":1,"t":82000,"type":"tick"}
+{"v":1,"t":82100,"type":"speech"}
+{"v":1,"t":82200,"type":"tick"}
+{"v":1,"t":82300,"type":"speech"}
+{"v":1,"t":82400,"type":"tick"}
+{"v":1,"t":82500,"type":"speech"}
+{"v":1,"t":82600,"type":"tick"}
+{"v":1,"t":82700,"type":"speech"}
+{"v":1,"t":82800,"type":"tick"}
+{"v":1,"t":82900,"type":"speech"}
+{"v":1,"t":83000,"type":"window","text":"By thy good pleasure, safely to arrive at home, Jesus sought me when a stranger."}
+{"v":1,"t":83000,"type":"hypothesis","text":"Jesus saw. me when a stranger."}
+{"v":1,"t":83000,"type":"tick"}
+{"v":1,"t":83100,"type":"speech"}
+{"v":1,"t":83200,"type":"tick"}
+{"v":1,"t":83300,"type":"speech"}
+{"v":1,"t":83400,"type":"tick"}
+{"v":1,"t":83500,"type":"speech"}
+{"v":1,"t":83600,"type":"tick"}
+{"v":1,"t":83700,"type":"speech"}
+{"v":1,"t":83800,"type":"tick"}
+{"v":1,"t":83900,"type":"speech"}
+{"v":1,"t":84000,"type":"window","text":"pleasure, safely to arrive at home. Jesus sought me when a stranger, wandering from"}
+{"v":1,"t":84000,"type":"tick"}
+{"v":1,"t":84100,"type":"speech"}
+{"v":1,"t":84200,"type":"tick"}
+{"v":1,"t":84300,"type":"speech"}
+{"v":1,"t":84400,"type":"tick"}
+{"v":1,"t":84500,"type":"speech"}
+{"v":1,"t":84600,"type":"tick"}
+{"v":1,"t":84700,"type":"speech"}
+{"v":1,"t":84800,"type":"tick"}
+{"v":1,"t":84900,"type":"speech"}
+{"v":1,"t":85000,"type":"window","text":"to arrive at home, Jesus sought me when a stranger, wandering from the fold of God."}
+{"v":1,"t":85000,"type":"hypothesis","text":"wandering from the fold of God."}
+{"v":1,"t":85000,"type":"action","action":"goto","song":1,"slide":1,"global":5,"title":"Come, Thou Fount of Every Blessing"}
+{"v":1,"t":85000,"type":"tick"}
+{"v":1,"t":85100,"type":"speech"}
+{"v":1,"t":85200,"type":"tick"}
+{"v":1,"t":85300,"type":"speech"}
+{"v":1,"t":85400,"type":"tick"}
+{"v":1,"t":85500,"type":"speech"}
+{"v":1,"t":85600,"type":"tick"}
+{"v":1,"t":85700,"type":"speech"}
+{"v":1,"t":85800,"type":"tick"}
+{"v":1,"t":85900,"type":"speech"}
+{"v":1,"t":86000,"type":"window","text":"Jesus sought me when a stranger, wandering from the fold of God, he, to"}
+{"v":1,"t":86000,"type":"tick"}
+{"v":1,"t":86100,"type":"speech"}
+{"v":1,"t":86200,"type":"tick"}
+{"v":1,"t":86300,"type":"speech"}
+{"v":1,"t":86400,"type":"tick"}
+{"v":1,"t":86500,"type":"speech"}
+{"v":1,"t":86600,"type":"tick"}
+{"v":1,"t":86700,"type":"speech"}
+{"v":1,"t":86800,"type":"tick"}
+{"v":1,"t":86900,"type":"speech"}
+{"v":1,"t":87000,"type":"window","text":"me when a stranger, wandering from the fold of God, he to rescue me from danger."}
+{"v":1,"t":87000,"type":"hypothesis","text":"he, to rescue me from danger."}
+{"v":1,"t":87000,"type":"tick"}
+{"v":1,"t":87100,"type":"speech"}
+{"v":1,"t":87200,"type":"tick"}
+{"v":1,"t":87300,"type":"speech"}
+{"v":1,"t":87400,"type":"tick"}
+{"v":1,"t":87500,"type":"speech"}
+{"v":1,"t":87600,"type":"tick"}
+{"v":1,"t":87700,"type":"speech"}
+{"v":1,"t":87800,"type":"tick"}
+{"v":1,"t":87900,"type":"speech"}
+{"v":1,"t":88000,"type":"window","text":"wondering from the fold of God, he to rescue me from danger, interposing."}
+{"v":1,"t":88000,"type":"tick"}
+{"v":1,"t":88100,"type":"speech"}
+{"v":1,"t":88200,"type":"tick"}
+{"v":1,"t":88300,"type":"speech"}
+{"v":1,"t":88400,"type":"tick"}
+{"v":1,"t":88500,"type":"speech"}
+{"v":1,"t":88600,"type":"tick"}
+{"v":1,"t":88700,"type":"speech"}
+{"v":1,"t":88800,"type":"tick"}
+{"v":1,"t":88900,"type":"speech"}
+{"v":1,"t":89000,"type":"window","text":"the fold of God, He to rescue me from danger, interposed His precious blood."}
+{"v":1,"t":89000,"type":"hypothesis","text":"interposing. His precious blood."}
+{"v":1,"t":89000,"type":"tick"}
+{"v":1,"t":89100,"type":"speech"}
+{"v":1,"t":89200,"type":"tick"}
+{"v":1,"t":89300,"type":"speech"}
+{"v":1,"t":89400,"type":"tick"}
+{"v":1,"t":89500,"type":"speech"}
+{"v":1,"t":89600,"type":"tick"}
+{"v":1,"t":89700,"type":"speech"}
+{"v":1,"t":89800,"type":"tick"}
+{"v":1,"t":89800,"type":"speech"}
+{"v":1,"t":90000,"type":"window","text":"He, to rescue me from danger, interposed his precious blood."}
+{"v":1,"t":90000,"type":"tick"}
+{"v":1,"t":90200,"type":"tick"}
+{"v":1,"t":90400,"type":"tick"}
+{"v":1,"t":90600,"type":"tick"}
+{"v":1,"t":90800,"type":"tick"}
+{"v":1,"t":91000,"type":"tick"}
+{"v":1,"t":91200,"type":"tick"}
+{"v":1,"t":91400,"type":"tick"}
+{"v":1,"t":91600,"type":"tick"}
+{"v":1,"t":91800,"type":"tick"}
+{"v":1,"t":92000,"type":"tick"}
+{"v":1,"t":92200,"type":"tick"}
+{"v":1,"t":92400,"type":"tick"}
+{"v":1,"t":92600,"type":"tick"}
+{"v":1,"t":92800,"type":"tick"}
+{"v":1,"t":92800,"type":"status","state":"inter_verse_silence","blank":false}
+{"v":1,"t":93000,"type":"tick"}
+{"v":1,"t":93200,"type":"tick"}
+{"v":1,"t":93400,"type":"tick"}
+{"v":1,"t":93600,"type":"tick"}
+{"v":1,"t":93800,"type":"tick"}
+{"v":1,"t":94000,"type":"tick"}
+{"v":1,"t":94000,"type":"status","state":"stop","info":{"reason":"end_of_audio"}}

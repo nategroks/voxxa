@@ -1,0 +1,738 @@
+{"v":1,"t":0,"type":"status","state":"start","info":{"bias":false,"config":{"advance_margin":10.0,"evidence":{"decay":0.3,"margin":0.05,"min_dwell_ms":1500,"prior_chorus":0.8,"prior_next":0.9,"prior_other":0.4,"prior_section":0.6,"prior_stay":1.0,"threshold":0.35},"max_buffer_words":40,"min_advance_match":70.0,"min_song_dwell_secs":8.0,"min_song_match":40.0,"min_start_match":85.0,"silence_to_blank_secs":3.0,"slide_advance_debounce_ms":1500,"softmax_temperature":12.0,"song_confidence_floor":0.6,"song_second_max":0.4,"unrecognized_speech_to_blank_secs":5.0},"log":".\\session-20261113-1352.jsonl","mode":"file","model":"ggml-tiny.bin","presenter":null,"setlist":{"fnv1a":"a3c89c5c15c77e3c","slides":13,"songs":3},"shadow":true,"version":"0.1.0"}}
+{"v":1,"t":200,"type":"tick"}
+{"v":1,"t":400,"type":"tick"}
+{"v":1,"t":600,"type":"tick"}
+{"v":1,"t":800,"type":"tick"}
+{"v":1,"t":1000,"type":"tick"}
+{"v":1,"t":1200,"type":"tick"}
+{"v":1,"t":1400,"type":"tick"}
+{"v":1,"t":1600,"type":"tick"}
+{"v":1,"t":1800,"type":"tick"}
+{"v":1,"t":2000,"type":"tick"}
+{"v":1,"t":2200,"type":"tick"}
+{"v":1,"t":2300,"type":"speech"}
+{"v":1,"t":2400,"type":"tick"}
+{"v":1,"t":2500,"type":"speech"}
+{"v":1,"t":2600,"type":"tick"}
+{"v":1,"t":2700,"type":"speech"}
+{"v":1,"t":2800,"type":"tick"}
+{"v":1,"t":2900,"type":"speech"}
+{"v":1,"t":3000,"type":"window","text":"One piece."}
+{"v":1,"t":3000,"type":"tick"}
+{"v":1,"t":3000,"type":"speech"}
+{"v":1,"t":3200,"type":"tick"}
+{"v":1,"t":3300,"type":"speech"}
+{"v":1,"t":3400,"type":"tick"}
+{"v":1,"t":3500,"type":"speech"}
+{"v":1,"t":3600,"type":"tick"}
+{"v":1,"t":3700,"type":"speech"}
+{"v":1,"t":3800,"type":"tick"}
+{"v":1,"t":3900,"type":"speech"}
+{"v":1,"t":4000,"type":"window","text":"When peace, like a river"}
+{"v":1,"t":4000,"type":"hypothesis","text":"One piece. When peace, like a river"}
+{"v":1,"t":4000,"type":"tick"}
+{"v":1,"t":4100,"type":"speech"}
+{"v":1,"t":4200,"type":"tick"}
+{"v":1,"t":4300,"type":"speech"}
+{"v":1,"t":4400,"type":"tick"}
+{"v":1,"t":4500,"type":"speech"}
+{"v":1,"t":4600,"type":"tick"}
+{"v":1,"t":4700,"type":"speech"}
+{"v":1,"t":4800,"type":"tick"}
+{"v":1,"t":4900,"type":"speech"}
+{"v":1,"t":5000,"type":"window","text":"When peace, like a river, attended my way."}
+{"v":1,"t":5000,"type":"tick"}
+{"v":1,"t":5100,"type":"speech"}
+{"v":1,"t":5200,"type":"tick"}
+{"v":1,"t":5300,"type":"speech"}
+{"v":1,"t":5400,"type":"tick"}
+{"v":1,"t":5500,"type":"speech"}
+{"v":1,"t":5600,"type":"tick"}
+{"v":1,"t":5700,"type":"speech"}
+{"v":1,"t":5800,"type":"tick"}
+{"v":1,"t":5900,"type":"speech"}
+{"v":1,"t":6000,"type":"window","text":"When peace, like a river, attended my way, when sorrow"}
+{"v":1,"t":6000,"type":"hypothesis","text":"attended my way. when sorrow"}
+{"v":1,"t":6000,"type":"action","action":"goto","song":0,"slide":0,"global":0,"title":"It Is Well with My Soul"}
+{"v":1,"t":6000,"type":"tick"}
+{"v":1,"t":6000,"type":"status","state":"singing","blank":false}
+{"v":1,"t":6100,"type":"speech"}
+{"v":1,"t":6200,"type":"tick"}
+{"v":1,"t":6300,"type":"speech"}
+{"v":1,"t":6400,"type":"tick"}
+{"v":1,"t":6500,"type":"speech"}
+{"v":1,"t":6600,"type":"tick"}
+{"v":1,"t":6700,"type":"speech"}
+{"v":1,"t":6800,"type":"tick"}
+{"v":1,"t":6900,"type":"speech"}
+{"v":1,"t":7000,"type":"window","text":"When peace, like a river, attended my way, when sorrows like sea below's river."}
+{"v":1,"t":7000,"type":"hypothesis","text":"like sea below's river."}
+{"v":1,"t":7000,"type":"tick"}
+{"v":1,"t":7100,"type":"speech"}
+{"v":1,"t":7200,"type":"tick"}
+{"v":1,"t":7300,"type":"speech"}
+{"v":1,"t":7400,"type":"tick"}
+{"v":1,"t":7500,"type":"speech"}
+{"v":1,"t":7600,"type":"tick"}
+{"v":1,"t":7700,"type":"speech"}
+{"v":1,"t":7800,"type":"tick"}
+{"v":1,"t":7900,"type":"speech"}
+{"v":1,"t":8000,"type":"window","text":"Like a river, attendeth my way, when sorrows like sea below's roll, whatever"}
+{"v":1,"t":8000,"type":"tick"}
+{"v":1,"t":8100,"type":"speech"}
+{"v":1,"t":8200,"type":"tick"}
+{"v":1,"t":8300,"type":"speech"}
+{"v":1,"t":8400,"type":"tick"}
+{"v":1,"t":8500,"type":"speech"}
+{"v":1,"t":8600,"type":"tick"}
+{"v":1,"t":8700,"type":"speech"}
+{"v":1,"t":8800,"type":"tick"}
+{"v":1,"t":8900,"type":"speech"}
+{"v":1,"t":9000,"type":"window","text":"Attendeth my way, when sorrows like sea below's role, whatever my lot."}
+{"v":1,"t":9000,"type":"tick"}
+{"v":1,"t":9200,"type":"tick"}
+{"v":1,"t":9300,"type":"speech"}
+{"v":1,"t":9400,"type":"tick"}
+{"v":1,"t":9500,"type":"speech"}
+{"v":1,"t":9600,"type":"tick"}
+{"v":1,"t":9700,"type":"speech"}
+{"v":1,"t":9800,"type":"tick"}
+{"v":1,"t":9900,"type":"speech"}
+{"v":1,"t":10000,"type":"window","text":"When sorrows like sea below's role, whatever my lot, thou hast taught me to"}
+{"v":1,"t":10000,"type":"hypothesis","text":"whatever my lot. thou hast taught me to"}
+{"v":1,"t":10000,"type":"tick"}
+{"v":1,"t":10100,"type":"speech"}
+{"v":1,"t":10200,"type":"tick"}
+{"v":1,"t":10300,"type":"speech"}
+{"v":1,"t":10400,"type":"tick"}
+{"v":1,"t":10500,"type":"speech"}
+{"v":1,"t":10600,"type":"tick"}
+{"v":1,"t":10700,"type":"speech"}
+{"v":1,"t":10800,"type":"tick"}
+{"v":1,"t":10900,"type":"speech"}
+{"v":1,"t":11000,"type":"window","text":"like sea below's role, whatever my lot. The alhast taught me to say, it is what"}
+{"v":1,"t":11000,"type":"hypothesis","text":"say, it is what"}
+{"v":1,"t":11000,"type":"tick"}
+{"v":1,"t":11100,"type":"speech"}
+{"v":1,"t":11200,"type":"tick"}
+{"v":1,"t":11300,"type":"speech"}
+{"v":1,"t":11400,"type":"tick"}
+{"v":1,"t":11500,"type":"speech"}
+{"v":1,"t":11600,"type":"tick"}
+{"v":1,"t":11700,"type":"speech"}
+{"v":1,"t":11800,"type":"tick"}
+{"v":1,"t":11900,"type":"speech"}
+{"v":1,"t":12000,"type":"window","text":"role, whatever my lot, thou hast taught me to say, it is well, it is well."}
+{"v":1,"t":12000,"type":"tick"}
+{"v":1,"t":12100,"type":"speech"}
+{"v":1,"t":12200,"type":"tick"}
+{"v":1,"t":12300,"type":"speech"}
+{"v":1,"t":12400,"type":"tick"}
+{"v":1,"t":12500,"type":"speech"}
+{"v":1,"t":12600,"type":"tick"}
+{"v":1,"t":12700,"type":"speech"}
+{"v":1,"t":12800,"type":"tick"}
+{"v":1,"t":12900,"type":"speech"}
+{"v":1,"t":13000,"type":"window","text":"ever my lot. thou hast taught me to say, it is well, it is well with my soul."}
+{"v":1,"t":13000,"type":"hypothesis","text":"it is well. with my soul."}
+{"v":1,"t":13000,"type":"tick"}
+{"v":1,"t":13100,"type":"speech"}
+{"v":1,"t":13200,"type":"tick"}
+{"v":1,"t":13200,"type":"speech"}
+{"v":1,"t":13400,"type":"tick"}
+{"v":1,"t":13600,"type":"tick"}
+{"v":1,"t":13800,"type":"tick"}
+{"v":1,"t":14000,"type":"window","text":"thou hast taught me to say, it is well, it is well with my soul."}
+{"v":1,"t":14000,"type":"tick"}
+{"v":1,"t":14200,"type":"tick"}
+{"v":1,"t":14400,"type":"tick"}
+{"v":1,"t":14600,"type":"tick"}
+{"v":1,"t":14800,"type":"tick"}
+{"v":1,"t":15000,"type":"tick"}
+{"v":1,"t":15100,"type":"speech"}
+{"v":1,"t":15200,"type":"tick"}
+{"v":1,"t":15300,"type":"speech"}
+{"v":1,"t":15400,"type":"tick"}
+{"v":1,"t":15500,"type":"speech"}
+{"v":1,"t":15600,"type":"tick"}
+{"v":1,"t":15700,"type":"speech"}
+{"v":1,"t":15800,"type":"tick"}
+{"v":1,"t":16000,"type":"window","text":"well, it is well with my soul. It is well, it is"}
+{"v":1,"t":16000,"type":"hypothesis","text":"It is well, it is"}
+{"v":1,"t":16000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"It Is Well with My Soul"}
+{"v":1,"t":16000,"type":"tick"}
+{"v":1,"t":16100,"type":"speech"}
+{"v":1,"t":16200,"type":"tick"}
+{"v":1,"t":16300,"type":"speech"}
+{"v":1,"t":16400,"type":"tick"}
+{"v":1,"t":16500,"type":"speech"}
+{"v":1,"t":16600,"type":"tick"}
+{"v":1,"t":16700,"type":"speech"}
+{"v":1,"t":16800,"type":"tick"}
+{"v":1,"t":17000,"type":"window","text":"with my soul. It is well, it is well."}
+{"v":1,"t":17000,"type":"tick"}
+{"v":1,"t":17200,"type":"tick"}
+{"v":1,"t":17400,"type":"tick"}
+{"v":1,"t":17500,"type":"speech"}
+{"v":1,"t":17600,"type":"tick"}
+{"v":1,"t":17700,"type":"speech"}
+{"v":1,"t":17800,"type":"tick"}
+{"v":1,"t":17900,"type":"speech"}
+{"v":1,"t":18000,"type":"window","text":"It is well, it is well. With my soul."}
+{"v":1,"t":18000,"type":"tick"}
+{"v":1,"t":18100,"type":"speech"}
+{"v":1,"t":18200,"type":"tick"}
+{"v":1,"t":18200,"type":"speech"}
+{"v":1,"t":18400,"type":"tick"}
+{"v":1,"t":18500,"type":"speech"}
+{"v":1,"t":18600,"type":"tick"}
+{"v":1,"t":18700,"type":"speech"}
+{"v":1,"t":18800,"type":"tick"}
+{"v":1,"t":18900,"type":"speech"}
+{"v":1,"t":19000,"type":"window","text":"It is well, it is well. With my soul, with my soul."}
+{"v":1,"t":19000,"type":"tick"}
+{"v":1,"t":19100,"type":"speech"}
+{"v":1,"t":19200,"type":"tick"}
+{"v":1,"t":19300,"type":"speech"}
+{"v":1,"t":19400,"type":"tick"}
+{"v":1,"t":19400,"type":"speech"}
+{"v":1,"t":19600,"type":"tick"}
+{"v":1,"t":19800,"type":"tick"}
+{"v":1,"t":20000,"type":"window","text":"as well. It is well. With my soul. With my soul. It is"}
+{"v":1,"t":20000,"type":"tick"}
+{"v":1,"t":20100,"type":"speech"}
+{"v":1,"t":20200,"type":"tick"}
+{"v":1,"t":20300,"type":"speech"}
+{"v":1,"t":20400,"type":"tick"}
+{"v":1,"t":20500,"type":"speech"}
+{"v":1,"t":20600,"type":"tick"}
+{"v":1,"t":20700,"type":"speech"}
+{"v":1,"t":20800,"type":"tick"}
+{"v":1,"t":20900,"type":"speech"}
+{"v":1,"t":21000,"type":"window","text":"as well. With my soul, with my soul. It is well. It is"}
+{"v":1,"t":21000,"type":"tick"}
+{"v":1,"t":21100,"type":"speech"}
+{"v":1,"t":21200,"type":"tick"}
+{"v":1,"t":21300,"type":"speech"}
+{"v":1,"t":21400,"type":"tick"}
+{"v":1,"t":21500,"type":"speech"}
+{"v":1,"t":21600,"type":"tick"}
+{"v":1,"t":21700,"type":"speech"}
+{"v":1,"t":21800,"type":"tick"}
+{"v":1,"t":21900,"type":"speech"}
+{"v":1,"t":22000,"type":"window","text":"with my soul, with my soul. It is well. It is well. With my soul."}
+{"v":1,"t":22000,"type":"hypothesis","text":"well. With my soul."}
+{"v":1,"t":22000,"type":"tick"}
+{"v":1,"t":22100,"type":"speech"}
+{"v":1,"t":22200,"type":"tick"}
+{"v":1,"t":22300,"type":"speech"}
+{"v":1,"t":22400,"type":"tick"}
+{"v":1,"t":22500,"type":"speech"}
+{"v":1,"t":22600,"type":"tick"}
+{"v":1,"t":22700,"type":"speech"}
+{"v":1,"t":22800,"type":"tick"}
+{"v":1,"t":22900,"type":"speech"}
+{"v":1,"t":23000,"type":"window","text":"With my soul. It is well. It is well. With my soul."}
+{"v":1,"t":23000,"type":"tick"}
+{"v":1,"t":23200,"type":"tick"}
+{"v":1,"t":23400,"type":"tick"}
+{"v":1,"t":23600,"type":"tick"}
+{"v":1,"t":23800,"type":"tick"}
+{"v":1,"t":24000,"type":"tick"}
+{"v":1,"t":24200,"type":"tick"}
+{"v":1,"t":24400,"type":"tick"}
+{"v":1,"t":24600,"type":"tick"}
+{"v":1,"t":24800,"type":"tick"}
+{"v":1,"t":25000,"type":"tick"}
+{"v":1,"t":25100,"type":"speech"}
+{"v":1,"t":25200,"type":"tick"}
+{"v":1,"t":25300,"type":"speech"}
+{"v":1,"t":25400,"type":"tick"}
+{"v":1,"t":25500,"type":"speech"}
+{"v":1,"t":25600,"type":"tick"}
+{"v":1,"t":25700,"type":"speech"}
+{"v":1,"t":25800,"type":"tick"}
+{"v":1,"t":25900,"type":"speech"}
+{"v":1,"t":26000,"type":"window","text":"as well, with my soul."}
+{"v":1,"t":26000,"type":"tick"}
+{"v":1,"t":26100,"type":"speech"}
+{"v":1,"t":26200,"type":"tick"}
+{"v":1,"t":26300,"type":"speech"}
+{"v":1,"t":26400,"type":"tick"}
+{"v":1,"t":26500,"type":"speech"}
+{"v":1,"t":26600,"type":"tick"}
+{"v":1,"t":26700,"type":"speech"}
+{"v":1,"t":26800,"type":"tick"}
+{"v":1,"t":26900,"type":"speech"}
+{"v":1,"t":27000,"type":"window","text":"saw. Though Satan should buffet, though trial"}
+{"v":1,"t":27000,"type":"hypothesis","text":"saw. Though Satan should buffet, though trial"}
+{"v":1,"t":27000,"type":"action","action":"goto","song":0,"slide":2,"global":2,"title":"It Is Well with My Soul"}
+{"v":1,"t":27000,"type":"tick"}
+{"v":1,"t":27100,"type":"speech"}
+{"v":1,"t":27200,"type":"tick"}
+{"v":1,"t":27300,"type":"speech"}
+{"v":1,"t":27400,"type":"tick"}
+{"v":1,"t":27500,"type":"speech"}
+{"v":1,"t":27600,"type":"tick"}
+{"v":1,"t":27700,"type":"speech"}
+{"v":1,"t":27800,"type":"tick"}
+{"v":1,"t":27900,"type":"speech"}
+{"v":1,"t":28000,"type":"window","text":"Though Satan should buffet, though trials should come"}
+{"v":1,"t":28000,"type":"tick"}
+{"v":1,"t":28100,"type":"speech"}
+{"v":1,"t":28200,"type":"tick"}
+{"v":1,"t":28300,"type":"speech"}
+{"v":1,"t":28400,"type":"tick"}
+{"v":1,"t":28500,"type":"speech"}
+{"v":1,"t":28600,"type":"tick"}
+{"v":1,"t":28700,"type":"speech"}
+{"v":1,"t":28800,"type":"tick"}
+{"v":1,"t":28900,"type":"speech"}
+{"v":1,"t":29000,"type":"window","text":"Though Satan should buffet, though trials should come, let this blessed assure"}
+{"v":1,"t":29000,"type":"hypothesis","text":"should come let this blessed assure"}
+{"v":1,"t":29000,"type":"tick"}
+{"v":1,"t":29100,"type":"speech"}
+{"v":1,"t":29200,"type":"tick"}
+{"v":1,"t":29300,"type":"speech"}
+{"v":1,"t":29400,"type":"tick"}
+{"v":1,"t":29500,"type":"speech"}
+{"v":1,"t":29600,"type":"tick"}
+{"v":1,"t":29700,"type":"speech"}
+{"v":1,"t":29800,"type":"tick"}
+{"v":1,"t":29900,"type":"speech"}
+{"v":1,"t":30000,"type":"window","text":"So Satan should buffet, though trials should come, let this blessed assurance control."}
+{"v":1,"t":30000,"type":"tick"}
+{"v":1,"t":30100,"type":"speech"}
+{"v":1,"t":30200,"type":"tick"}
+{"v":1,"t":30300,"type":"speech"}
+{"v":1,"t":30400,"type":"tick"}
+{"v":1,"t":30500,"type":"speech"}
+{"v":1,"t":30600,"type":"tick"}
+{"v":1,"t":30700,"type":"speech"}
+{"v":1,"t":30800,"type":"tick"}
+{"v":1,"t":30900,"type":"speech"}
+{"v":1,"t":31000,"type":"window","text":"Though trials should come, let this blessed assurance control that Christ has written"}
+{"v":1,"t":31000,"type":"hypothesis","text":"control. that Christ has written"}
+{"v":1,"t":31000,"type":"tick"}
+{"v":1,"t":31100,"type":"speech"}
+{"v":1,"t":31200,"type":"tick"}
+{"v":1,"t":31300,"type":"speech"}
+{"v":1,"t":31400,"type":"tick"}
+{"v":1,"t":31500,"type":"speech"}
+{"v":1,"t":31600,"type":"tick"}
+{"v":1,"t":31700,"type":"speech"}
+{"v":1,"t":31800,"type":"tick"}
+{"v":1,"t":31900,"type":"speech"}
+{"v":1,"t":32000,"type":"window","text":"should come. Let this blessed assurance control that Christ has regarded my helpless"}
+{"v":1,"t":32000,"type":"tick"}
+{"v":1,"t":32100,"type":"speech"}
+{"v":1,"t":32200,"type":"tick"}
+{"v":1,"t":32300,"type":"speech"}
+{"v":1,"t":32400,"type":"tick"}
+{"v":1,"t":32500,"type":"speech"}
+{"v":1,"t":32600,"type":"tick"}
+{"v":1,"t":32700,"type":"speech"}
+{"v":1,"t":32800,"type":"tick"}
+{"v":1,"t":32900,"type":"speech"}
+{"v":1,"t":33000,"type":"window","text":"let this blessed assurance control that Christ has regarded my helpless estate and"}
+{"v":1,"t":33000,"type":"hypothesis","text":"my helpless estate and"}
+{"v":1,"t":33000,"type":"tick"}
+{"v":1,"t":33100,"type":"speech"}
+{"v":1,"t":33200,"type":"tick"}
+{"v":1,"t":33300,"type":"speech"}
+{"v":1,"t":33400,"type":"tick"}
+{"v":1,"t":33500,"type":"speech"}
+{"v":1,"t":33600,"type":"tick"}
+{"v":1,"t":33700,"type":"speech"}
+{"v":1,"t":33800,"type":"tick"}
+{"v":1,"t":33900,"type":"speech"}
+{"v":1,"t":34000,"type":"window","text":"insurance control that Christ has regarded my helpless estate and half-shed his own blood."}
+{"v":1,"t":34000,"type":"hypothesis","text":"half-shed his own blood."}
+{"v":1,"t":34000,"type":"tick"}
+{"v":1,"t":34100,"type":"speech"}
+{"v":1,"t":34200,"type":"tick"}
+{"v":1,"t":34300,"type":"speech"}
+{"v":1,"t":34400,"type":"tick"}
+{"v":1,"t":34500,"type":"speech"}
+{"v":1,"t":34600,"type":"tick"}
+{"v":1,"t":34700,"type":"speech"}
+{"v":1,"t":34800,"type":"tick"}
+{"v":1,"t":34900,"type":"speech"}
+{"v":1,"t":35000,"type":"window","text":"that Christ has regarded my helpless estate, and half-shed his own blood for my soul."}
+{"v":1,"t":35000,"type":"tick"}
+{"v":1,"t":35000,"type":"speech"}
+{"v":1,"t":35200,"type":"tick"}
+{"v":1,"t":35400,"type":"tick"}
+{"v":1,"t":35600,"type":"tick"}
+{"v":1,"t":35800,"type":"tick"}
+{"v":1,"t":36000,"type":"window","text":"guarded my helpless estate and half shed his own blood for my soul."}
+{"v":1,"t":36000,"type":"hypothesis","text":"for my soul. guarded my helpless estate and half shed his own blood for my soul."}
+{"v":1,"t":36000,"type":"tick"}
+{"v":1,"t":36200,"type":"tick"}
+{"v":1,"t":36400,"type":"tick"}
+{"v":1,"t":36600,"type":"tick"}
+{"v":1,"t":36800,"type":"tick"}
+{"v":1,"t":36900,"type":"speech"}
+{"v":1,"t":37000,"type":"window","text":"state, and half shed his own blood for my soul."}
+{"v":1,"t":37000,"type":"tick"}
+{"v":1,"t":37100,"type":"speech"}
+{"v":1,"t":37200,"type":"tick"}
+{"v":1,"t":37300,"type":"speech"}
+{"v":1,"t":37400,"type":"tick"}
+{"v":1,"t":37500,"type":"speech"}
+{"v":1,"t":37600,"type":"tick"}
+{"v":1,"t":37700,"type":"speech"}
+{"v":1,"t":37800,"type":"tick"}
+{"v":1,"t":37900,"type":"speech"}
+{"v":1,"t":38000,"type":"window","text":"shed his own blood for my soul. It is well, it is well."}
+{"v":1,"t":38000,"type":"hypothesis","text":"It is well, it is well."}
+{"v":1,"t":38000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"It Is Well with My Soul"}
+{"v":1,"t":38000,"type":"tick"}
+{"v":1,"t":38100,"type":"speech"}
+{"v":1,"t":38200,"type":"tick"}
+{"v":1,"t":38300,"type":"speech"}
+{"v":1,"t":38400,"type":"tick"}
+{"v":1,"t":38500,"type":"speech"}
+{"v":1,"t":38600,"type":"tick"}
+{"v":1,"t":38600,"type":"speech"}
+{"v":1,"t":38800,"type":"tick"}
+{"v":1,"t":39000,"type":"window","text":"for my soul."}
+{"v":1,"t":39000,"type":"tick"}
+{"v":1,"t":39200,"type":"tick"}
+{"v":1,"t":39300,"type":"speech"}
+{"v":1,"t":39400,"type":"tick"}
+{"v":1,"t":39500,"type":"speech"}
+{"v":1,"t":39600,"type":"tick"}
+{"v":1,"t":39700,"type":"speech"}
+{"v":1,"t":39800,"type":"tick"}
+{"v":1,"t":39900,"type":"speech"}
+{"v":1,"t":40000,"type":"window","text":"It is well, it is well. With my soul."}
+{"v":1,"t":40000,"type":"tick"}
+{"v":1,"t":40100,"type":"speech"}
+{"v":1,"t":40200,"type":"tick"}
+{"v":1,"t":40300,"type":"speech"}
+{"v":1,"t":40400,"type":"tick"}
+{"v":1,"t":40500,"type":"speech"}
+{"v":1,"t":40600,"type":"tick"}
+{"v":1,"t":40700,"type":"speech"}
+{"v":1,"t":40800,"type":"tick"}
+{"v":1,"t":40900,"type":"speech"}
+{"v":1,"t":41000,"type":"window","text":"It is well, it is well. With my soul, with my soul."}
+{"v":1,"t":41000,"type":"hypothesis","text":"With my soul. with my soul."}
+{"v":1,"t":41000,"type":"tick"}
+{"v":1,"t":41100,"type":"speech"}
+{"v":1,"t":41200,"type":"tick"}
+{"v":1,"t":41200,"type":"speech"}
+{"v":1,"t":41400,"type":"tick"}
+{"v":1,"t":41600,"type":"tick"}
+{"v":1,"t":41800,"type":"tick"}
+{"v":1,"t":41900,"type":"speech"}
+{"v":1,"t":42000,"type":"window","text":"well, it is well. With my soul, with my soul, it is well."}
+{"v":1,"t":42000,"type":"tick"}
+{"v":1,"t":42100,"type":"speech"}
+{"v":1,"t":42200,"type":"tick"}
+{"v":1,"t":42300,"type":"speech"}
+{"v":1,"t":42400,"type":"tick"}
+{"v":1,"t":42500,"type":"speech"}
+{"v":1,"t":42600,"type":"tick"}
+{"v":1,"t":42700,"type":"speech"}
+{"v":1,"t":42800,"type":"tick"}
+{"v":1,"t":42900,"type":"speech"}
+{"v":1,"t":43000,"type":"window","text":"well. With my soul, with my soul. It is well. It is well."}
+{"v":1,"t":43000,"type":"hypothesis","text":"it is well. It is well."}
+{"v":1,"t":43000,"type":"tick"}
+{"v":1,"t":43100,"type":"speech"}
+{"v":1,"t":43200,"type":"tick"}
+{"v":1,"t":43300,"type":"speech"}
+{"v":1,"t":43400,"type":"tick"}
+{"v":1,"t":43500,"type":"speech"}
+{"v":1,"t":43600,"type":"tick"}
+{"v":1,"t":43700,"type":"speech"}
+{"v":1,"t":43800,"type":"tick"}
+{"v":1,"t":43900,"type":"speech"}
+{"v":1,"t":44000,"type":"window","text":"with my soul, with my soul. It is well, it is well, with my soul."}
+{"v":1,"t":44000,"type":"tick"}
+{"v":1,"t":44100,"type":"speech"}
+{"v":1,"t":44200,"type":"tick"}
+{"v":1,"t":44300,"type":"speech"}
+{"v":1,"t":44400,"type":"tick"}
+{"v":1,"t":44500,"type":"speech"}
+{"v":1,"t":44600,"type":"tick"}
+{"v":1,"t":44700,"type":"speech"}
+{"v":1,"t":44800,"type":"tick"}
+{"v":1,"t":45000,"type":"window","text":"with my soul. It is well. It is well. With my soul."}
+{"v":1,"t":45000,"type":"tick"}
+{"v":1,"t":45200,"type":"tick"}
+{"v":1,"t":45400,"type":"tick"}
+{"v":1,"t":45600,"type":"tick"}
+{"v":1,"t":45800,"type":"tick"}
+{"v":1,"t":46000,"type":"tick"}
+{"v":1,"t":46200,"type":"tick"}
+{"v":1,"t":46400,"type":"tick"}
+{"v":1,"t":46600,"type":"tick"}
+{"v":1,"t":46800,"type":"tick"}
+{"v":1,"t":46900,"type":"speech"}
+{"v":1,"t":47000,"type":"window","text":"well, it is well, with my soul."}
+{"v":1,"t":47000,"type":"tick"}
+{"v":1,"t":47100,"type":"speech"}
+{"v":1,"t":47200,"type":"tick"}
+{"v":1,"t":47300,"type":"speech"}
+{"v":1,"t":47400,"type":"tick"}
+{"v":1,"t":47500,"type":"speech"}
+{"v":1,"t":47600,"type":"tick"}
+{"v":1,"t":47700,"type":"speech"}
+{"v":1,"t":47800,"type":"tick"}
+{"v":1,"t":47900,"type":"speech"}
+{"v":1,"t":48000,"type":"window","text":"well, with my soul."}
+{"v":1,"t":48000,"type":"tick"}
+{"v":1,"t":48100,"type":"speech"}
+{"v":1,"t":48200,"type":"tick"}
+{"v":1,"t":48400,"type":"tick"}
+{"v":1,"t":48500,"type":"speech"}
+{"v":1,"t":48600,"type":"tick"}
+{"v":1,"t":48700,"type":"speech"}
+{"v":1,"t":48800,"type":"tick"}
+{"v":1,"t":48900,"type":"speech"}
+{"v":1,"t":49000,"type":"window","text":"So, my sin, oh, the bliss of this God."}
+{"v":1,"t":49000,"type":"hypothesis","text":"So, my sin, oh, the bliss of this God."}
+{"v":1,"t":49000,"type":"action","action":"goto","song":0,"slide":3,"global":3,"title":"It Is Well with My Soul"}
+{"v":1,"t":49000,"type":"tick"}
+{"v":1,"t":49100,"type":"speech"}
+{"v":1,"t":49200,"type":"tick"}
+{"v":1,"t":49300,"type":"speech"}
+{"v":1,"t":49400,"type":"tick"}
+{"v":1,"t":49500,"type":"speech"}
+{"v":1,"t":49600,"type":"tick"}
+{"v":1,"t":49700,"type":"speech"}
+{"v":1,"t":49800,"type":"tick"}
+{"v":1,"t":49900,"type":"speech"}
+{"v":1,"t":50000,"type":"window","text":"My sin, oh, the bliss of this glorious thought."}
+{"v":1,"t":50000,"type":"tick"}
+{"v":1,"t":50100,"type":"speech"}
+{"v":1,"t":50200,"type":"tick"}
+{"v":1,"t":50300,"type":"speech"}
+{"v":1,"t":50400,"type":"tick"}
+{"v":1,"t":50500,"type":"speech"}
+{"v":1,"t":50600,"type":"tick"}
+{"v":1,"t":50700,"type":"speech"}
+{"v":1,"t":50800,"type":"tick"}
+{"v":1,"t":50900,"type":"speech"}
+{"v":1,"t":51000,"type":"window","text":"My sin, oh, the bliss of this glorious thought, my sin."}
+{"v":1,"t":51000,"type":"tick"}
+{"v":1,"t":51100,"type":"speech"}
+{"v":1,"t":51200,"type":"tick"}
+{"v":1,"t":51300,"type":"speech"}
+{"v":1,"t":51400,"type":"tick"}
+{"v":1,"t":51500,"type":"speech"}
+{"v":1,"t":51600,"type":"tick"}
+{"v":1,"t":51700,"type":"speech"}
+{"v":1,"t":51800,"type":"tick"}
+{"v":1,"t":51900,"type":"speech"}
+{"v":1,"t":52000,"type":"window","text":"Oh, the bliss of this glorious thought, my sin, not in part but the"}
+{"v":1,"t":52000,"type":"hypothesis","text":"thought. my sin. not in part but the"}
+{"v":1,"t":52000,"type":"tick"}
+{"v":1,"t":52100,"type":"speech"}
+{"v":1,"t":52200,"type":"tick"}
+{"v":1,"t":52300,"type":"speech"}
+{"v":1,"t":52400,"type":"tick"}
+{"v":1,"t":52500,"type":"speech"}
+{"v":1,"t":52600,"type":"tick"}
+{"v":1,"t":52700,"type":"speech"}
+{"v":1,"t":52800,"type":"tick"}
+{"v":1,"t":52900,"type":"speech"}
+{"v":1,"t":53000,"type":"window","text":"The bliss of this glorious thought, my sin, not in part but the whole, is new."}
+{"v":1,"t":53000,"type":"tick"}
+{"v":1,"t":53100,"type":"speech"}
+{"v":1,"t":53200,"type":"tick"}
+{"v":1,"t":53300,"type":"speech"}
+{"v":1,"t":53400,"type":"tick"}
+{"v":1,"t":53500,"type":"speech"}
+{"v":1,"t":53600,"type":"tick"}
+{"v":1,"t":53700,"type":"speech"}
+{"v":1,"t":53800,"type":"tick"}
+{"v":1,"t":53900,"type":"speech"}
+{"v":1,"t":54000,"type":"window","text":"glorious thought, my sin, not in part but the whole, is nailed to the cross."}
+{"v":1,"t":54000,"type":"hypothesis","text":"whole, is new. to the cross."}
+{"v":1,"t":54000,"type":"tick"}
+{"v":1,"t":54100,"type":"speech"}
+{"v":1,"t":54200,"type":"tick"}
+{"v":1,"t":54200,"type":"speech"}
+{"v":1,"t":54400,"type":"tick"}
+{"v":1,"t":54500,"type":"speech"}
+{"v":1,"t":54600,"type":"tick"}
+{"v":1,"t":54700,"type":"speech"}
+{"v":1,"t":54800,"type":"tick"}
+{"v":1,"t":54900,"type":"speech"}
+{"v":1,"t":55000,"type":"window","text":"My sin, not in part but the whole, is nailed to the cross, and I bear it known."}
+{"v":1,"t":55000,"type":"hypothesis","text":"and I bear it known."}
+{"v":1,"t":55000,"type":"tick"}
+{"v":1,"t":55100,"type":"speech"}
+{"v":1,"t":55200,"type":"tick"}
+{"v":1,"t":55300,"type":"speech"}
+{"v":1,"t":55400,"type":"tick"}
+{"v":1,"t":55500,"type":"speech"}
+{"v":1,"t":55600,"type":"tick"}
+{"v":1,"t":55700,"type":"speech"}
+{"v":1,"t":55800,"type":"tick"}
+{"v":1,"t":55900,"type":"speech"}
+{"v":1,"t":56000,"type":"window","text":"Not in part but the whole, is nailed to the cross and I bear it no more."}
+{"v":1,"t":56000,"type":"tick"}
+{"v":1,"t":56100,"type":"speech"}
+{"v":1,"t":56200,"type":"tick"}
+{"v":1,"t":56300,"type":"speech"}
+{"v":1,"t":56400,"type":"tick"}
+{"v":1,"t":56500,"type":"speech"}
+{"v":1,"t":56600,"type":"tick"}
+{"v":1,"t":56700,"type":"speech"}
+{"v":1,"t":56800,"type":"tick"}
+{"v":1,"t":56900,"type":"speech"}
+{"v":1,"t":57000,"type":"window","text":"the whole, is nailed to the cross, and I bear it no more, praise the Lord."}
+{"v":1,"t":57000,"type":"hypothesis","text":"more. praise the Lord."}
+{"v":1,"t":57000,"type":"tick"}
+{"v":1,"t":57200,"type":"tick"}
+{"v":1,"t":57300,"type":"speech"}
+{"v":1,"t":57400,"type":"tick"}
+{"v":1,"t":57500,"type":"speech"}
+{"v":1,"t":57600,"type":"tick"}
+{"v":1,"t":57700,"type":"speech"}
+{"v":1,"t":57800,"type":"tick"}
+{"v":1,"t":57900,"type":"speech"}
+{"v":1,"t":58000,"type":"window","text":"to the cross and I bear it no more, praise the Lord, praise the Lord."}
+{"v":1,"t":58000,"type":"tick"}
+{"v":1,"t":58100,"type":"speech"}
+{"v":1,"t":58200,"type":"tick"}
+{"v":1,"t":58300,"type":"speech"}
+{"v":1,"t":58400,"type":"tick"}
+{"v":1,"t":58500,"type":"speech"}
+{"v":1,"t":58600,"type":"tick"}
+{"v":1,"t":58700,"type":"speech"}
+{"v":1,"t":58800,"type":"tick"}
+{"v":1,"t":58900,"type":"speech"}
+{"v":1,"t":59000,"type":"window","text":"And I bear it no more, praise the Lord, praise the Lord, oh my soul."}
+{"v":1,"t":59000,"type":"hypothesis","text":"praise the Lord. oh my soul."}
+{"v":1,"t":59000,"type":"tick"}
+{"v":1,"t":59100,"type":"speech"}
+{"v":1,"t":59200,"type":"tick"}
+{"v":1,"t":59300,"type":"speech"}
+{"v":1,"t":59400,"type":"tick"}
+{"v":1,"t":59600,"type":"tick"}
+{"v":1,"t":59800,"type":"tick"}
+{"v":1,"t":60000,"type":"window","text":"No more, praise the Lord, praise the Lord. Oh my soul."}
+{"v":1,"t":60000,"type":"tick"}
+{"v":1,"t":60200,"type":"tick"}
+{"v":1,"t":60400,"type":"tick"}
+{"v":1,"t":60600,"type":"tick"}
+{"v":1,"t":60800,"type":"tick"}
+{"v":1,"t":61000,"type":"tick"}
+{"v":1,"t":61100,"type":"speech"}
+{"v":1,"t":61200,"type":"tick"}
+{"v":1,"t":61300,"type":"speech"}
+{"v":1,"t":61400,"type":"tick"}
+{"v":1,"t":61500,"type":"speech"}
+{"v":1,"t":61600,"type":"tick"}
+{"v":1,"t":61700,"type":"speech"}
+{"v":1,"t":61800,"type":"tick"}
+{"v":1,"t":61900,"type":"speech"}
+{"v":1,"t":62000,"type":"window","text":"praise the Lord, oh my soul. It is well."}
+{"v":1,"t":62000,"type":"tick"}
+{"v":1,"t":62100,"type":"speech"}
+{"v":1,"t":62200,"type":"tick"}
+{"v":1,"t":62300,"type":"speech"}
+{"v":1,"t":62400,"type":"tick"}
+{"v":1,"t":62500,"type":"speech"}
+{"v":1,"t":62600,"type":"tick"}
+{"v":1,"t":62700,"type":"speech"}
+{"v":1,"t":62800,"type":"tick"}
+{"v":1,"t":62800,"type":"speech"}
+{"v":1,"t":63000,"type":"window","text":"Oh my soul. It is well, it is well."}
+{"v":1,"t":63000,"type":"hypothesis","text":"It is well. it is well."}
+{"v":1,"t":63000,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"It Is Well with My Soul"}
+{"v":1,"t":63000,"type":"tick"}
+{"v":1,"t":63200,"type":"tick"}
+{"v":1,"t":63400,"type":"tick"}
+{"v":1,"t":63500,"type":"speech"}
+{"v":1,"t":63600,"type":"tick"}
+{"v":1,"t":63700,"type":"speech"}
+{"v":1,"t":63800,"type":"tick"}
+{"v":1,"t":63900,"type":"speech"}
+{"v":1,"t":64000,"type":"window","text":"It is well, it is well. With my soul."}
+{"v":1,"t":64000,"type":"tick"}
+{"v":1,"t":64100,"type":"speech"}
+{"v":1,"t":64200,"type":"tick"}
+{"v":1,"t":64300,"type":"speech"}
+{"v":1,"t":64400,"type":"tick"}
+{"v":1,"t":64500,"type":"speech"}
+{"v":1,"t":64600,"type":"tick"}
+{"v":1,"t":64700,"type":"speech"}
+{"v":1,"t":64800,"type":"tick"}
+{"v":1,"t":64900,"type":"speech"}
+{"v":1,"t":65000,"type":"window","text":"It is well, it is well. With my soul, with my soul."}
+{"v":1,"t":65000,"type":"hypothesis","text":"With my soul. with my soul."}
+{"v":1,"t":65000,"type":"tick"}
+{"v":1,"t":65100,"type":"speech"}
+{"v":1,"t":65200,"type":"tick"}
+{"v":1,"t":65300,"type":"speech"}
+{"v":1,"t":65400,"type":"tick"}
+{"v":1,"t":65400,"type":"speech"}
+{"v":1,"t":65600,"type":"tick"}
+{"v":1,"t":65800,"type":"tick"}
+{"v":1,"t":66000,"type":"window","text":"as well. It is well. With my soul, with my soul. It is"}
+{"v":1,"t":66000,"type":"tick"}
+{"v":1,"t":66100,"type":"speech"}
+{"v":1,"t":66200,"type":"tick"}
+{"v":1,"t":66300,"type":"speech"}
+{"v":1,"t":66400,"type":"tick"}
+{"v":1,"t":66500,"type":"speech"}
+{"v":1,"t":66600,"type":"tick"}
+{"v":1,"t":66700,"type":"speech"}
+{"v":1,"t":66800,"type":"tick"}
+{"v":1,"t":66900,"type":"speech"}
+{"v":1,"t":67000,"type":"window","text":"as well. With my soul, with my soul. It is well. It is"}
+{"v":1,"t":67000,"type":"hypothesis","text":"It is well. It is"}
+{"v":1,"t":67000,"type":"tick"}
+{"v":1,"t":67100,"type":"speech"}
+{"v":1,"t":67200,"type":"tick"}
+{"v":1,"t":67300,"type":"speech"}
+{"v":1,"t":67400,"type":"tick"}
+{"v":1,"t":67500,"type":"speech"}
+{"v":1,"t":67600,"type":"tick"}
+{"v":1,"t":67700,"type":"speech"}
+{"v":1,"t":67800,"type":"tick"}
+{"v":1,"t":67900,"type":"speech"}
+{"v":1,"t":68000,"type":"window","text":"with my soul, with my soul. It is well, it is well, with my soul."}
+{"v":1,"t":68000,"type":"hypothesis","text":"well, with my soul."}
+{"v":1,"t":68000,"type":"tick"}
+{"v":1,"t":68100,"type":"speech"}
+{"v":1,"t":68200,"type":"tick"}
+{"v":1,"t":68300,"type":"speech"}
+{"v":1,"t":68400,"type":"tick"}
+{"v":1,"t":68500,"type":"speech"}
+{"v":1,"t":68600,"type":"tick"}
+{"v":1,"t":68700,"type":"speech"}
+{"v":1,"t":68800,"type":"tick"}
+{"v":1,"t":68900,"type":"speech"}
+{"v":1,"t":69000,"type":"window","text":"With my soul. It is well. It is well. With my soul."}
+{"v":1,"t":69000,"type":"tick"}
+{"v":1,"t":69200,"type":"tick"}
+{"v":1,"t":69400,"type":"tick"}
+{"v":1,"t":69600,"type":"tick"}
+{"v":1,"t":69800,"type":"tick"}
+{"v":1,"t":70000,"type":"tick"}
+{"v":1,"t":70200,"type":"tick"}
+{"v":1,"t":70400,"type":"tick"}
+{"v":1,"t":70600,"type":"tick"}
+{"v":1,"t":70800,"type":"tick"}
+{"v":1,"t":71000,"type":"tick"}
+{"v":1,"t":71200,"type":"tick"}
+{"v":1,"t":71400,"type":"tick"}
+{"v":1,"t":71600,"type":"tick"}
+{"v":1,"t":71800,"type":"tick"}
+{"v":1,"t":72000,"type":"tick"}
+{"v":1,"t":72000,"type":"status","state":"inter_verse_silence","blank":false}
+{"v":1,"t":72200,"type":"tick"}
+{"v":1,"t":72400,"type":"tick"}
+{"v":1,"t":72600,"type":"tick"}
+{"v":1,"t":72800,"type":"tick"}
+{"v":1,"t":73000,"type":"tick"}
+{"v":1,"t":73200,"type":"tick"}
+{"v":1,"t":73200,"type":"status","state":"stop","info":{"reason":"end_of_audio"}}

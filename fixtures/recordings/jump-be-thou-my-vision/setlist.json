@@ -1,0 +1,30 @@
+{
+  "setlist": [
+    {
+      "title": "Be Thou My Vision",
+      "slides": [
+        { "id": 0, "text": "Be Thou my Vision, O Lord of my heart\nNaught be all else to me, save that Thou art\nThou my best Thought, by day or by night\nWaking or sleeping, Thy presence my light" },
+        { "id": 1, "text": "Be Thou my Wisdom, and Thou my true Word\nI ever with Thee and Thou with me, Lord\nThou my great Father, I Thy true son\nThou in me dwelling, and I with Thee one" },
+        { "id": 2, "text": "Riches I heed not, nor man's empty praise\nThou mine Inheritance, now and always\nThou and Thou only, first in my heart\nHigh King of Heaven, my Treasure Thou art" },
+        { "id": 3, "text": "High King of Heaven, my victory won\nMay I reach Heaven's joys, O bright Heaven's Sun\nHeart of my own heart, whatever befall\nStill be my Vision, O Ruler of all" }
+      ]
+    },
+    {
+      "title": "Come, Thou Fount of Every Blessing",
+      "slides": [
+        { "id": 4, "text": "Come, Thou Fount of every blessing\nTune my heart to sing Thy grace\nStreams of mercy, never ceasing\nCall for songs of loudest praise\nTeach me some melodious sonnet\nSung by flaming tongues above\nPraise the mount! I'm fixed upon it\nMount of Thy redeeming love" },
+        { "id": 5, "text": "Here I raise my Ebenezer\nHither by Thy help I'm come\nAnd I hope, by Thy good pleasure\nSafely to arrive at home\nJesus sought me when a stranger\nWandering from the fold of God\nHe, to rescue me from danger\nInterposed His precious blood" },
+        { "id": 6, "text": "O to grace how great a debtor\nDaily I'm constrained to be\nLet Thy goodness, like a fetter\nBind my wandering heart to Thee\nProne to wander, Lord, I feel it\nProne to leave the God I love\nHere's my heart, O take and seal it\nSeal it for Thy courts above" }
+      ]
+    },
+    {
+      "title": "Amazing Grace",
+      "slides": [
+        { "id": 7, "text": "Amazing grace, how sweet the sound\nThat saved a wretch like me\nI once was lost, but now am found\nWas blind, but now I see" },
+        { "id": 8, "text": "'Twas grace that taught my heart to fear\nAnd grace my fears relieved\nHow precious did that grace appear\nThe hour I first believed" },
+        { "id": 9, "text": "Through many dangers, toils and snares\nI have already come\n'Tis grace hath brought me safe thus far\nAnd grace will lead me home" },
+        { "id": 10, "text": "The Lord has promised good to me\nHis Word my hope secures\nHe will my shield and portion be\nAs long as life endures" }
+      ]
+    }
+  ]
+}

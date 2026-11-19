@@ -7,11 +7,13 @@
 //! promise (see §7.3 of the project plan).
 
 use crate::AppState;
-use chrono::Utc;
 use log::{Log, Metadata, Record};
 use serde::Serialize;
 use std::collections::VecDeque;
 use std::sync::{Mutex, OnceLock};
+use time::format_description::well_known::Rfc3339;
+use time::macros::format_description;
+use time::OffsetDateTime;
 
 const RING_CAPACITY: usize = 500;
 
@@ -38,6 +40,12 @@ impl RingLogger {
     }
 }
 
+/// UTC `HH:MM:SS.mmm`, the time stamp in front of each log line.
+fn clock_now() -> String {
+    let format = format_description!("[hour]:[minute]:[second].[subsecond digits:3]");
+    OffsetDateTime::now_utc().format(format).unwrap_or_default()
+}
+
 impl Log for RingLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         metadata.level() <= self.level_filter
@@ -49,7 +57,7 @@ impl Log for RingLogger {
         }
         let line = format!(
             "{} [{}] {} — {}",
-            Utc::now().format("%H:%M:%S%.3f"),
+            clock_now(),
             record.level(),
             record.target(),
             record.args()
@@ -126,7 +134,9 @@ pub async fn generate_report(state: &AppState) -> DiagnosticReport {
     drop(conductor);
 
     DiagnosticReport {
-        generated_at: Utc::now().to_rfc3339(),
+        generated_at: OffsetDateTime::now_utc()
+            .format(&Rfc3339)
+            .unwrap_or_default(),
         voxxa_version: env!("CARGO_PKG_VERSION").to_string(),
         os: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),
@@ -141,5 +151,20 @@ pub async fn generate_report(state: &AppState) -> DiagnosticReport {
         is_running: state.sessions.is_running(),
         outbound_requests: crate::net_stats::snapshot().outbound_requests,
         recent_log: LOGGER.get().map(|l| l.snapshot()).unwrap_or_default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::clock_now;
+
+    #[test]
+    fn log_lines_are_stamped_hh_mm_ss_millis() {
+        let stamp = clock_now();
+        let shape: String = stamp
+            .chars()
+            .map(|c| if c.is_ascii_digit() { '9' } else { c })
+            .collect();
+        assert_eq!(shape, "99:99:99.999", "{stamp}");
     }
 }
