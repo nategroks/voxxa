@@ -20,6 +20,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # ubuntu-22.04 is pinned, not ubuntu-latest: Ubuntu 24.04's AppArmor
+        # default refuses unprivileged `unshare -rn`, so replay_no_sockets
+        # would fall back to strace with networking enabled (still green,
+        # but no longer "networking disabled"; Q7 security review section 4.1).
+        # Check the test's "traced with" line in the log after any bump.
         os: [ubuntu-22.04, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:

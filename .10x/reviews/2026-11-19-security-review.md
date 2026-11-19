@@ -48,6 +48,8 @@
 | Windows | ETW session on `Microsoft-Windows-Winsock-AFD`, all keywords, read back with `Get-WinEvent` and grouped by process id | enabled | every socket the kernel's AFD driver creates, connects or cleans up for that process (event 1000 = create) | windows-latest (administrator), `VOXXA_REQUIRE_SOCKET_TRACE=1` |
 | macOS | none: `dtruss` and DTrace need SIP disabled | — | **nothing at run time.** The replay code is the same Rust on every OS: `events::replay` and the replay branch of `main.rs` have no `cfg` | skipped, with a message |
 
+**The Linux runner stays on `ubuntu-22.04` on purpose** (comment in `ci.yml`'s matrix). Ubuntu 24.04's AppArmor default (`kernel.apparmor_restrict_unprivileged_userns=1`) refuses unprivileged `unshare -rn`, so on `ubuntu-latest` the test would fall back to strace with networking enabled: still green, still tracing every socket call, but the "networking disabled" claim of the release notes would quietly stop being true. After any runner bump, check that the job log still says `traced with strace inside unshare -rn`.
+
 Not covered anywhere: a socket made by another process that `voxxad` started (it starts none), and non-socket channels (named pipes, files). On Linux, strace sees system calls, so a socket opened by any library is caught. On Windows, ETW sees AFD sockets: Winsock, which is what Rust's `std::net`, tokio/mio and `reqwest` use.
 
 ### 4.2 Proof by mutation (Windows, ETW)
