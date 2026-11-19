@@ -192,7 +192,7 @@ async function getModel(el) {
 }
 
 async function testRun(el) {
-  say(el, "Last step: load this Sunday's songs, start the test, and play or sing 20 seconds of one of them. Voxxa should turn green.");
+  say(el, "Last step: load this Sunday's songs, start the test, and play or sing 20 seconds of one of them. Voxxa should turn green. If Voxxa presses keys for you, click into your presentation app right after you start.");
   el.insertAdjacentHTML("beforeend", `<p class="now"></p><div class="connect-row"></div>`);
   const row = el.querySelector(".connect-row");
   row.append(button("secondary-btn", "Choose songs", () => document.getElementById("file-input").click()));
