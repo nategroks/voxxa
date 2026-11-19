@@ -173,6 +173,55 @@ with mido.open_input() as port:
                 requests.post(f"{VOXXA}/api/v1/{action}", headers=HEADERS)
 ```
 
+## Driving `voxxad` from Bitfocus Companion
+
+`voxxad` is Voxxa without a window (developer preview; it is not in the
+installers, so build it first: `docs/releases/voxxad-preview.md`). It has
+no HTTP API: Companion starts and stops it as a program. The endpoints
+above belong to the app, not to `voxxad`.
+
+**Start in shadow mode, and stay there for a whole service.** `--shadow`
+computes and logs every slide change and sends none. Read the session log
+afterwards (`<data dir>/voxxa/sessions/`, or the folder you give with
+`--log-dir`) before you let it drive a presenter.
+
+Companion can run a local command from a button; in recent versions this
+is an internal action called something like "Run shell path (local)".
+Names, options and whether it stops a command after a timeout differ
+between versions: **check your Companion version**. Because `voxxad` keeps
+running until it is stopped, start it through a launcher that returns at
+once, and keep the log out of Companion:
+
+```bat
+:: start-voxxad.cmd (Windows). One line, no keystroke presenter.
+start "" /min C:\voxxa\voxxad.exe --setlist C:\voxxa\today.json --device default --shadow --log-dir C:\voxxa\sessions
+```
+
+```sh
+# start-voxxad.sh (macOS, Linux)
+nohup /opt/voxxa/voxxad --setlist /opt/voxxa/today.json --device default --shadow >/dev/null 2>&1 &
+```
+
+Point the button's action at the launcher. For the Stop button:
+
+- Windows: `taskkill /IM voxxad.exe /F`. A console program started this way
+  cannot be asked to close, so it is ended at once; every line already
+  written stays in the session log, but the final `stop` line is missing.
+- macOS and Linux: `pkill -INT voxxad`. This is Ctrl+C: `voxxad` writes its
+  `stop` line and exits.
+
+When shadow mode has earned your trust, replace `--shadow` with a network
+presenter (`--presenter propresenter7_rest --host 127.0.0.1 --port <port>`,
+or `freeshow`, `openlp_v2`, `opensong`). Avoid `--presenter keystroke`
+here: it types arrow keys into **whichever window has focus**, and with a
+Stream Deck nobody is watching which window that is. If you must use it,
+focus the presentation app before pressing Start and leave the keyboard
+alone. `voxxad` prints a warning about this but cannot check the focus.
+
+Do not run `voxxad` with a presenter while the Voxxa app is listening:
+both would change slides. Session logs hold the text of everything the
+microphone heard for 14 days; see the privacy section of the release notes.
+
 ## Shell automation
 
 Manual cron-like triggers, or one-off cues from any terminal:
