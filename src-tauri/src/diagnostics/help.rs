@@ -22,6 +22,13 @@ pub fn help_dir() -> Result<PathBuf, String> {
         .ok_or_else(|| "no Desktop folder".into())
 }
 
+/// `voxxad`'s default session-log folder, or `VOXXA_SESSIONS_DIR` (the
+/// guarded QA build, so it never reads the tester's own logs).
+pub fn sessions_dir() -> Option<PathBuf> {
+    (std::env::var_os("VOXXA_SESSIONS_DIR").map(PathBuf::from))
+        .or_else(|| Some(dirs::data_dir()?.join("voxxa").join("sessions")))
+}
+
 /// The recognised words (`hypothesis` lines) of the newest session log in
 /// `dir` from its last 2 minutes, one line each; `None` without any.
 pub fn recent_words(dir: &Path) -> Option<String> {

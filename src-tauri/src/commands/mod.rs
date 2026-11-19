@@ -800,8 +800,7 @@ pub async fn generate_diagnostic_report(
 /// last 2 minutes of words from the newest session log. Writes nothing.
 #[tauri::command]
 pub fn help_preview() -> Result<serde_json::Value, String> {
-    let sessions = dirs::data_dir().map(|d| d.join("voxxa").join("sessions"));
-    let words = sessions.and_then(|d| help::recent_words(&d));
+    let words = help::sessions_dir().and_then(|d| help::recent_words(&d));
     Ok(json!({ "folder": help::help_dir()?, "words": words }))
 }
 
