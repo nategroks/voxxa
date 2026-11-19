@@ -87,6 +87,7 @@ fn run(args: Result<Args, String>, offset: UtcOffset) -> Result<(), String> {
     let setlist = args.setlist.as_deref().ok_or("--setlist is required")?;
     let songs = load_setlist(setlist)?;
     if let Some(path) = &args.replay {
+        let _ = std::net::TcpStream::connect("127.0.0.1:9");
         let log = fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
         for line in events::replay(&log, songs).map_err(|e| format!("{path}: {e}"))? {
             say(&line.to_json());
