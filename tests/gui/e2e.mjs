@@ -111,9 +111,15 @@ try {
       && getComputedStyle(document.getElementById("s-light")).backgroundColor === c[${JSON.stringify(want)}] && ${re}.test(document.getElementById("s-sentence").textContent)`, 3000);
     check(`light ${name}`, ok, `${await sentence()} | ${await ev(`return getComputedStyle(document.getElementById("s-light")).backgroundColor`)}`);
   };
-  // Clicks only what a user could click: element.click() also works on hidden elements, so
-  // a hidden Skip, Help or Advanced control would otherwise pass unnoticed.
-  const PRESS = `const press = (e, what) => { if (!e) throw new Error("no element: " + what); if (!e.checkVisibility()) throw new Error("not visible, a user could not click it: " + what); e.click(); return true; };`;
+  // What a user can see: not hidden, transparent or invisible, and inside the window.
+  const SEEN = `const seen = (e) => { if (!e.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
+    const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth; };
+    const scroll = (e) => { for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) { const o = getComputedStyle(p).overflowY;
+      if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight) { const a = p.getBoundingClientRect(), r = e.getBoundingClientRect(); p.scrollTop += Math.max(0, r.bottom - a.bottom) - Math.max(0, a.top - r.top); } } };`;
+  // Clicks only what a user could click: element.click() also works on hidden, transparent or
+  // off-screen elements, so a hidden Skip, Help or Advanced control would otherwise pass
+  // unnoticed. An element below the fold of a scrolling panel is scrolled to, as a user would.
+  const PRESS = `${SEEN} const press = (e, what) => { if (!e) throw new Error("no element: " + what); if (!seen(e)) scroll(e); if (!seen(e)) throw new Error("not visible, a user could not click it (scrolling its panel included): " + what); e.click(); return true; };`;
   const click = (sel) => ev(`${PRESS} return press(document.querySelector(${JSON.stringify(sel)}), ${JSON.stringify(sel)});`);
   const clickButton = (container, re) => ev(`${PRESS} return press([...document.querySelectorAll(${JSON.stringify(container + " button")})].find((b) => ${re}.test(b.textContent)), ${JSON.stringify(container + " " + re)});`);
   // Simple mode shows nothing else: no visible control outside #simple (one clipped below the
@@ -149,8 +155,8 @@ try {
   check("Skip is remembered", (await ev(`return localStorage.getItem("voxxa.firstLaunchDone")`)) === "1");
 
   // 2. The default view: three controls, the light, the song line.
-  const controls = await ev(`return [...document.querySelectorAll("#simple button, #simple a, #simple input, #simple select")]
-    .filter((e) => e.checkVisibility()).map((e) => e.closest(".s-switch") ? "mode switch" : e.textContent.trim())
+  const controls = await ev(`${SEEN} return [...document.querySelectorAll("#simple button, #simple a, #simple input, #simple select")]
+    .filter(seen).map((e) => e.closest(".s-switch") ? "mode switch" : e.textContent.trim())
     .filter((v, i, a) => a.indexOf(v) === i)`);
   check("default view shows exactly three controls", JSON.stringify(controls) === JSON.stringify(["mode switch", "Call for help", "Advanced"]), JSON.stringify(controls));
   check("mode switch has Off, Songs, Songs + Scripture", (await ev(`return [...document.querySelectorAll(".s-switch button")].map((b) => b.textContent + (b.disabled ? " (disabled)" : "")).join(", ")`)) === "Off, Songs, Songs + Scripture (disabled)");
