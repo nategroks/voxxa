@@ -85,6 +85,10 @@ try {
   console.log("written (box unchecked): " + without);
   const again = await ev(`try { await window.__TAURI__.core.invoke("write_help_bundle", { includeWords: true }); return "wrote"; } catch (e) { return String(e); }`);
   check("real app: a second write without a new review writes nothing", again === "Press Call for help again", again);
+  // A zip stores its entry names uncompressed: look for the words file's name in each zip.
+  const holdsWords = (zip) => fs.readFileSync(zip).includes("words-last-2-minutes.txt");
+  check("real app: box checked, the zip holds the words file", holdsWords(withWords));
+  check("real app: box unchecked, the zip has no words file", !holdsWords(without));
   const refused = await ev(`try { await window.__TAURI__.core.invoke("open_runbook", { name: "../../evil" }); return "opened"; } catch (e) { return String(e); }`);
   check("real app: open_runbook refuses an unknown name", refused === "no runbook named ../../evil", refused);
   await click("#help-cancel");

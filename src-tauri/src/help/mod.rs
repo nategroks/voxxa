@@ -178,10 +178,20 @@ pub async fn help_bundle_preview(
     storage: Storage,
 ) -> Result<Vec<BundleFile>, String> {
     let report = crate::diagnostics::generate_report(&state).await;
-    let report = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;
     let data = dirs::data_dir().map(|d| d.join("voxxa"));
-    let logs = qa_dir().or(data).map(|d| d.join("sessions"));
-    let files = bundle_files(report, &storage, logs.as_deref());
+    preview(&report, &storage, qa_dir().or(data).as_deref())
+}
+
+/// The review screen's bundle, kept for Save: `report`, `storage` and the
+/// words of `<root>/sessions` ([`QA_DIR`] or the app-data folder). Writes nothing.
+pub fn preview(
+    report: &impl serde::Serialize,
+    storage: &Storage,
+    root: Option<&Path>,
+) -> Result<Vec<BundleFile>, String> {
+    let report = serde_json::to_string_pretty(report).map_err(|e| e.to_string())?;
+    let logs = root.map(|d| d.join("sessions"));
+    let files = bundle_files(report, storage, logs.as_deref());
     *lock(&PENDING) = Some(files.clone());
     Ok(files)
 }
