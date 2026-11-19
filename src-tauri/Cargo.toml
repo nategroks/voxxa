@@ -33,23 +33,6 @@ name = "voxxa-eval"
 path = "src/cli/voxxa-eval/main.rs"
 required-features = ["cli"]
 
-# These tests run the two binaries (CARGO_BIN_EXE_*), so they need them built.
-[[test]]
-name = "voxxad_events"
-required-features = ["cli"]
-
-[[test]]
-name = "voxxa_eval"
-required-features = ["cli"]
-
-[[test]]
-name = "replay_no_sockets"
-required-features = ["cli"]
-
-[[test]]
-name = "replay_determinism"
-required-features = ["cli"]
-
 [build-dependencies]
 tauri-build = { version = "2.7", features = [] }
 

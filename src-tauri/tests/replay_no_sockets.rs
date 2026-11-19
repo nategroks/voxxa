@@ -28,6 +28,14 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
 
+/// The binary is built only with `--features cli`. Cargo sets `CARGO_BIN_EXE_voxxad`
+/// even when it skips the binary, and the path may hold a stale build,
+/// so the feature is checked: a plain `cargo test` fails here, loudly.
+fn voxxad_exe() -> &'static str {
+    assert!(cfg!(feature = "cli"), "run: cargo test --features cli");
+    env!("CARGO_BIN_EXE_voxxad")
+}
+
 const RECORDINGS: &str = "../fixtures/recordings";
 const PROBE_ENV: &str = "VOXXA_SOCKET_PROBE";
 
@@ -84,7 +92,7 @@ fn replays() -> Vec<Run> {
     (logs.into_iter())
         .map(|(name, log, setlist)| Run {
             name,
-            program: env!("CARGO_BIN_EXE_voxxad").into(),
+            program: voxxad_exe().into(),
             args: vec![
                 "--replay".into(),
                 log.into(),
