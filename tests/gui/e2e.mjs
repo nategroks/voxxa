@@ -226,6 +226,21 @@ try {
   check("silent test fails", await waitFor(`return document.getElementById("firstrun").dataset.verdict === "fail"`, 25000), await ev(`return document.getElementById("fr-msg").textContent`));
   check("test stopped listening", !(await ev(`return __mock.st.running`)) && (await calls("stop_listening")) === 1);
   await shot("09-first-run-test-silent-fail");
+  // A start that is refused after a while (the device is busy): "didn't start", nothing listening.
+  await ev(`__mock.st.startDelay = 1600; __mock.st.startError = "mock: the device is busy"; return true`);
+  await clickButton("#fr-extra", /^Try again$/);
+  check("slow refused start: didn't start", await waitFor(`return document.getElementById("firstrun").dataset.verdict === "fail" && /didn't start/.test(document.getElementById("fr-msg").textContent)`, 8000), await ev(`return document.getElementById("fr-msg").textContent`));
+  await sleep(1000);
+  check("slow refused start: nothing listening", !(await ev(`return __mock.st.running`)) && !(await ev(`return document.getElementById("listen-btn").classList.contains("active")`)));
+  // A start slower than a second (some USB or Bluetooth inputs): the test waits for it, runs,
+  // and stops it; nothing is left listening after the verdict.
+  await ev(`__mock.st.startError = null; delete document.getElementById("firstrun").dataset.verdict; return true`);
+  const stopsBeforeSlow = await calls("stop_listening");
+  await clickButton("#fr-extra", /^Try again$/);
+  check("slow start: the test waits for it", await waitFor(`return document.getElementById("firstrun").dataset.verdict === "fail"`, 30000) && !/didn't start/.test(await ev(`return document.getElementById("fr-msg").textContent`)), await ev(`return document.getElementById("fr-msg").textContent`));
+  await sleep(2500);
+  check("slow start: nothing listening after the verdict", !(await ev(`return __mock.st.running`)) && !(await ev(`return document.getElementById("listen-btn").classList.contains("active")`)) && (await calls("stop_listening")) === stopsBeforeSlow + 1);
+  await ev(`__mock.st.startDelay = 300; return true`);
   await clickButton("#fr-extra", /^Try again$/);
   await waitFor(`return __mock.st.running`, 2000);
   // Sound, words, and the conductor's slide change reaching the presenter (slide-advanced).
@@ -276,7 +291,7 @@ try {
   await light("amber", "starting again clears row 1", /Waiting for a song/);
   await click('[data-mode="off"]');
   await light("grey", "Off stops listening", /Choose Songs/);
-  check("Off called stop_listening", (await calls("stop_listening")) === 3 && !(await ev(`return __mock.st.running`)));
+  check("Off called stop_listening", (await calls("stop_listening")) === 4 && !(await ev(`return __mock.st.running`)));
   // One toggle at a time (start_listening takes 300 ms in the mock): two clicks on Songs
   // in one tick start once; Off clicked 150 ms after Songs still ends stopped.
   const starts = await calls("start_listening");
@@ -289,7 +304,7 @@ try {
   await sleep(1500);
   check("two clicks on Songs, then Off: one start_listening, still stopped", (await calls("start_listening")) === starts + 1 && !(await ev(`return __mock.st.running`)));
   await ev(`document.querySelector('[data-mode="songs"]').click(); setTimeout(() => document.querySelector('[data-mode="off"]').click(), 150); return true`);
-  check("Off 150 ms after Songs: stopped", await waitFor(`return __mock.calls.filter((c) => c.cmd === "stop_listening").length === 5 && !__mock.st.running`, 4000));
+  check("Off 150 ms after Songs: stopped", await waitFor(`return __mock.calls.filter((c) => c.cmd === "stop_listening").length === 6 && !__mock.st.running`, 4000));
   await sleep(1500);
   check("Off 150 ms after Songs: still stopped, switch on Off", !(await ev(`return __mock.st.running`)) && (await calls("start_listening")) === starts + 2 && (await ev(`return document.querySelector('[data-mode="off"]').getAttribute("aria-checked")`)) === "true");
   await light("grey", "Off 150 ms after Songs: grey", /Choose Songs/);

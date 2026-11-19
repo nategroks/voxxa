@@ -180,16 +180,31 @@ async function run(i, wasRunning) {
     listen("slide-advanced", () => { t.advanced += 1; }), // a slide change the presenter took
     listen("presenter-error", () => { t.refused += 1; }),
   ]);
-  if (!wasRunning) $("listen-btn").click();
-  for (let left = 20; left > 0 && still(i) && !t.lost; left--) {
+  // The Listen click has settled when main.js's Listen button turns "active" (started) or
+  // main.js shows the refusal as an error toast. Opening a USB or Bluetooth input can take
+  // seconds, so "started" is decided only then, and whatever the test started it stops, even
+  // a start that ends after the verdict window or after the guide was closed.
+  const active = () => $("listen-btn").classList.contains("active");
+  let up = false, refusedStart = false;
+  const watch = new MutationObserver((ms) => { if (ms.some((m) => [...m.addedNodes].some((n) => n.classList && n.classList.contains("toast-error")))) refusedStart = true; });
+  const settle = async (ms) => { for (let w = 0; w < ms && !up && !refusedStart; w += 200) { await sleep(200); up = active(); } };
+  if (!wasRunning) {
+    watch.observe(document.body, { childList: true, subtree: true });
+    $("listen-btn").click();
+    say("Starting…");
+    await settle(15000);
+    t.started = up;
+  }
+  for (let left = 20; t.started && left > 0 && still(i) && !t.lost; left--) {
     say(`Listening… ${left} s`);
     await sleep(1000);
-    if (left === 20 && !wasRunning) {
-      try { t.started = (await invoke("get_status")).is_running; } catch {}
-      if (!t.started) break;
-    }
   }
-  try { if (!wasRunning && (await invoke("get_status")).is_running) $("listen-btn").click(); } catch {}
+  if (!wasRunning) {
+    await settle(15000); // a start still in flight: wait for it, so it is stopped too
+    watch.disconnect();
+    if (active()) $("listen-btn").click();
+    for (let w = 0; w < 5000 && active(); w += 200) await sleep(200); // stopped before "Try again" shows
+  }
   offs.forEach((off) => off());
   if (!still(i)) return;
   const [pass, text] = testVerdict(t);
