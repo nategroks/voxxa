@@ -53,10 +53,18 @@ row per fixture plus a total, and checks each row against `baseline.json`.
   `SmartConfig` stored in each log's start line (`info.config`), not from
   today's defaults: a change to a `SmartConfig` default is not seen by
   replay (or CI) until the logs are re-recorded, or their start-line config
-  is edited (ticket Q5-07). Fields missing from a log's start-line config
-  do take today's defaults: today that is the ADR-016 `evidence` block in 4
-  of the 6 logs (only `refrain-it-is-well` and `prayer-before-first-song`
-  record it), so retuning an `EvidenceConfig` default moves CI for those 4.
+  is edited (ticket Q5-07, #78). Fields missing from a log's start-line
+  config take today's defaults, but since Q7 all six logs store the whole
+  `SmartConfig`, the ADR-016 `evidence` block included. So a change to any
+  `SmartConfig` or `EvidenceConfig` default moves no replay until the logs
+  are re-recorded: such a PR must re-record them (below).
+- **Determinism (CI on three OSes, `src-tauri/tests/replay_determinism.rs`):**
+  every committed log must replay to its own `action` lines, byte for byte,
+  and two replays of it must agree. So a conductor PR that changes actions
+  must re-record the affected logs with `voxxa-eval --full --record
+  fixtures/recordings/<name>`, and its commit must say why; their recogniser
+  lines stay the same. `docs/runbooks/eval-regression.md` tells such a
+  re-record from a real regression.
 - **Full (`--full`, local):** `voxxad --stdin-audio audio.wav --setlist setlist.json
   --shadow --model tiny`, at file speed. When the fixture has an `audio.json`,
   `audio.wav` is rebuilt from it first. Needs `ggml-tiny.bin` (download it in
