@@ -1,0 +1,132 @@
+name: Full eval (Whisper Tiny, report only)
+
+# Q7 (user decision 2026-11-18): voxxa-eval --full runs the real recogniser on
+# the committed fixture audio on all three OSes. REPORT ONLY: the table is
+# printed, put in the job summary and uploaded; a metric worse than
+# fixtures/baseline.json does not fail the job (Whisper output can differ by
+# OS). The job fails only when the build, the model download or checksum, or
+# the eval run itself breaks (voxxa-eval exit 2). The PR gate stays ci.yml.
+# Runbook: docs/runbooks/eval-regression.md.
+
+on:
+  workflow_dispatch:
+  # workflow_dispatch works only once this file is on the default branch, so
+  # it also runs on the PR that changes it.
+  pull_request:
+    paths:
+      - .github/workflows/full-eval.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The URL the app downloads from (src-tauri/src/transcription/mod.rs,
+  # download_url) and the file's SHA-256 (Hugging Face LFS oid, 77,691,713 bytes).
+  MODEL_URL: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
+  MODEL_SHA256: be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21
+
+jobs:
+  full-eval:
+    name: voxxa-eval --full (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    steps:
+      # Actions pinned by commit (tag in the comment).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16
+        with:
+          toolchain: 1.99.1
+
+      - uses: swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libxdo-dev
+
+      # tauri::generate_context! embeds ../dist.
+      - name: Build frontend
+        run: npm ci && npm run build
+
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .model-cache
+          key: ggml-tiny-${{ env.MODEL_SHA256 }}
+
+      # voxxad --model tiny reads <data dir>/voxxa/models/ggml-tiny.bin.
+      # The checksum is checked on every run, cached or not.
+      - name: Download and verify Whisper Tiny
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .model-cache
+          f=.model-cache/ggml-tiny.bin
+          [ -f "$f" ] || curl -fsSL --retry 3 -o "$f" "$MODEL_URL"
+          sum=$( (sha256sum "$f" 2>/dev/null || shasum -a 256 "$f") | cut -d' ' -f1)
+          if [ "$sum" != "$MODEL_SHA256" ]; then
+            echo "::error::ggml-tiny.bin has SHA-256 $sum, expected $MODEL_SHA256"
+            rm -f "$f"
+            exit 1
+          fi
+          case "$RUNNER_OS" in
+            Linux) dir="${XDG_DATA_HOME:-$HOME/.local/share}" ;;
+            macOS) dir="$HOME/Library/Application Support" ;;
+            Windows) dir="$APPDATA" ;;
+          esac
+          mkdir -p "$dir/voxxa/models"
+          cp "$f" "$dir/voxxa/models/ggml-tiny.bin"
+
+      - name: Build voxxad and voxxa-eval
+        working-directory: src-tauri
+        run: cargo build --features cli --bin voxxad --bin voxxa-eval
+
+      # Whisper prints what it recognised on stderr; only voxxa-eval's own
+      # messages are shown. Exit 1 (a metric worse than the baseline) is
+      # reported, not failed.
+      - name: voxxa-eval --full
+        working-directory: src-tauri
+        shell: bash
+        run: |
+          set +e
+          cargo run -q --features cli --bin voxxa-eval -- --full > ../eval-full.txt 2> ../eval-stderr.txt
+          code=$?
+          set -e
+          cat ../eval-full.txt
+          grep '^voxxa-eval' ../eval-stderr.txt || true
+          { echo "### voxxa-eval --full on $RUNNER_OS (exit $code)"; echo '```'; cat ../eval-full.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" -eq 1 ]; then
+            echo "::warning::a metric is worse than fixtures/baseline.json (report only)"
+          fi
+          [ "$code" -le 1 ]
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: full-eval-${{ matrix.os }}
+          path: eval-full.txt
+          if-no-files-found: ignore
