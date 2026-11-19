@@ -1,5 +1,12 @@
 # Security — church-autoadvance
 
+## 2026-11-19 — Q7 finish on `q7/base`
+Full text: `reviews/2026-11-19-security-review.md` section 9.
+- **Decision: the network claim is "`--replay` opens no socket; `--shadow` makes no network connection"** (on Linux/macOS tokio's signal driver creates one local AF_UNIX socketpair, `src/cli/voxxad/main.rs:140`). "`--shadow` opens no socket" was too strong; fixed in the release notes, INTEGRATIONS, the review and Q7-07 (b0efc3f). A future strace check of `--shadow` must allow `socketpair(AF_UNIX)` or count only AF_INET/AF_INET6 sockets and connects.
+- **Decision: Linux CI stays on `ubuntu-22.04`** until `unshare -rn` is shown to work on a newer image (Ubuntu 24.04's AppArmor default refuses it, and the test would fall back to strace with networking enabled). Comment in `ci.yml` (5fa4c76).
+- **Re-proof at the finish (Windows, ETW):** pass; the replay-branch TCP connect mutant fails with 11 AFD events; pass again after the revert.
+- **Before merge (must-fix evidence, not yet run):** in the first CI run, (a) Linux and Windows print `traced with strace inside unshare -rn` and `traced with ETW`; (b) the throwaway mutant commit turns Linux red and its revert green; (c) full-eval green or warning on three OSes with only the table in the summary and artifact. Record the run URLs in both reports.
+
 ## 2026-11-19 — Q7: the CLI surface, the zero-sockets test, the full-eval workflow's supply chain
 Full review: `reviews/2026-11-19-security-review.md`. Tickets: `reviews/2026-11-19-q7-tickets.md` (Q7-01, -03, -05, -06 and -07 are security-tagged).
 - **Decision: "replay opens no socket" is a test, not a claim.** `src-tauri/tests/replay_no_sockets.rs` runs `voxxad --replay` on every committed log under an OS tracer:

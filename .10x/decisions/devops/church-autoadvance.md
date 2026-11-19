@@ -1,5 +1,12 @@
 # DevOps — church-autoadvance
 
+## 2026-11-19 — Q7 finish on `q7/base`
+- **`Cargo.toml`:** the four `[[test]] required-features = ["cli"]` blocks are deleted (c9271f0). CI already runs `cargo test --features cli`, so CI does not change. A plain `cargo test` now fails the CLI tests with "run: cargo test --features cli" instead of skipping them. The `[[bin]]` comment now reads "CI passes it; run `cargo test --features cli`" (171ad76).
+- **Exclusion re-proved at the head.** `npx tauri build --debug --bundles nsis` produced an `installer.nsi` whose "Copy external binaries" section is empty, and the file names neither tool. Fresh `voxxad.exe` and `voxxa-eval.exe` sat in the target folder during the build. Control: with `--features cli`, both tools are listed. The head installer was rebuilt last (14,245,540 bytes).
+- **`ci.yml`:** a comment pins the reason for `ubuntu-22.04` (5fa4c76).
+- **`full-eval.yml`:** the timing comment now gives the measured times: 38 min in Q7 on a shared PC, and about 12 min on an idle PC in Q6 (911d56c). `timeout-minutes` stays 180.
+- **Open, for the first CI run:** check the full-eval run for Node 20 deprecation warnings on checkout v4.2.2, rust-cache v2.7.8, cache v4.2.3, setup-node v4.4.0 and upload-artifact v4.6.2. Bump any pin that warns, keeping it SHA-pinned. Record the per-OS run time.
+
 ## 2026-11-19 — Q7: the CLI stays out of the installers; full eval in its own workflow; release notes as a file
 
 ### Decisions

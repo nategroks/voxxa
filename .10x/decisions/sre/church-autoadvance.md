@@ -1,5 +1,10 @@
 # SRE — church-autoadvance
 
+## 2026-11-19 — Q7 finish on `q7/base`
+- **Runbook change (5807ba3, from ponytail's review):** full mode's stderr is filtered to `voxxa-eval:` lines (`2> >(grep '^voxxa-eval' >&2)` in bash), as `full-eval.yml` does. `2>/dev/null` also hid voxxa-eval's exit-2 messages, which section 5 of the runbook needs for triage.
+- **`fixtures/README.md` now states the determinism contract** (afeec76). The runbook's step 3c and the README agree.
+- **Timing:** the full eval took 38 min in Q7 on the shared 4-core PC, against about 12 min on an idle PC in Q6. The workflow comment says so; the 180 min timeout stays.
+
 ## 2026-11-19 — Q7: runbook "eval shows regression"; what the eval gates guard
 
 ### Decisions

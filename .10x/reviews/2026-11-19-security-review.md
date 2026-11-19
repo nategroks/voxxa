@@ -96,3 +96,32 @@ Not covered: the toolchain that `dtolnay/rust-toolchain` installs comes from rus
 
 ## 8. For the founder's checklist (adds to the Q2 list)
 - Before a pilot runs `voxxad` live: `--log-dir` set to a local folder, `--shadow` for a rehearsal, and a network presenter, not keystroke.
+
+## 9. Finish on `q7/base` (2026-11-19)
+
+`q7/10x` was merged into `q7/base` (008aa50). The security-relevant changes after the merge:
+
+- **Wording (10x review #1, b0efc3f).** "`--shadow` opens no socket" was too strong. On Linux and macOS, `tokio::signal::ctrl_c` (`src/cli/voxxad/main.rs:140`) makes tokio's signal driver create one local AF_UNIX socketpair. The claim is now: **`--replay` opens no socket; `--shadow` makes no network connection** (on Linux/macOS tokio's signal driver creates one local AF_UNIX socketpair). This is now in §1, row (m), the release notes, INTEGRATIONS and Q7-07. The Windows ETW run in §4.3 saw no socket at all, and it stays as recorded. A future strace check of `--shadow` must allow `socketpair(AF_UNIX)`, or count only AF_INET/AF_INET6 `socket` calls and `connect` calls (Q7-07).
+- **Runner pin (5fa4c76).** `ci.yml` now says why Linux stays on `ubuntu-22.04` (§4.1).
+- **Shared log list (3472540).** The socket test and the determinism test now read one list (`tests/common/mod.rs`), so a new log cannot be covered by one test and missed by the other.
+- **Loud failure without the feature (c9271f0).** A plain `cargo test` now fails `replay_opens_no_socket` with "run: cargo test --features cli". Before, it skipped the test without a word. The check is on `cfg!(feature = "cli")`, not `option_env!`, so a stale `voxxad` from an earlier build is never traced in place of the current one.
+
+**Re-proof at the finish (Windows, ETW, administrator).**
+
+| Run | Result |
+|---|---|
+| Unmutated | pass: `traced with ETW Microsoft-Windows-Winsock-AFD`, and the probe made 18 events (45 s) |
+| Mutant: `let _ = std::net::TcpStream::connect("127.0.0.1:9");` as the first line of the replay branch | **FAILED**: `jump-be-thou-my-vision: voxxad --replay touched the network …`, with 11 Winsock-AFD events for that pid |
+| Reverted | pass (45 s) |
+
+The mutant was never committed.
+
+**Before merge, the PR's first CI run must show** the following. Ponytail's review raised the same must-fix items against its own lane, and they apply equally to these paths, which have never run.
+
+- **(a)** The `ubuntu-22.04` and `windows-latest` jobs are green. Their `replay_no_sockets` output prints `traced with strace inside unshare -rn` and `traced with ETW`.
+- **(b)** A throwaway commit with the mutant above turns the Linux job red. Reverting it turns the job green again.
+- **(c)** `full-eval.yml` is green, or only warns, on all three OSes. The job summary and the artifact hold only the table. The run time per OS is recorded.
+- **Node 20.** Check that first full-eval run for Node 20 deprecation warnings on the older pins: checkout v4.2.2, rust-cache v2.7.8, cache v4.2.3, setup-node v4.4.0 and upload-artifact v4.6.2. If any warn, bump them, SHA-pinned (ponytail nit 7).
+- **Run URLs:** not yet. This step may not push. The orchestrator records them here and in the QA report §9.
+
+The verdict in §1 is unchanged: no Critical or High finding.
