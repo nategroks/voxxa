@@ -114,11 +114,11 @@ voxxad --setlist today.json --replay <session.jsonl>                            
 
 ```sh
 cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval                        # replay, as CI
-cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full 2>/dev/null  # Whisper Tiny
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full 2> >(grep '^voxxa-eval' >&2)  # Whisper Tiny, bash
 ```
 
-Whisper prints the words it hears to stderr, so `2>/dev/null` keeps them out of your
-terminal. Exit codes: 0 means no metric is worse than the baseline, 1 means one is, 2 means
+Whisper prints the words it hears to stderr, so the filter keeps only `voxxa-eval`'s own
+`voxxa-eval:` lines (its error messages) and drops the rest. Exit codes: 0 means no metric is worse than the baseline, 1 means one is, 2 means
 an error. When the eval goes red, see `docs/runbooks/eval-regression.md`.
 
 ## Known limits

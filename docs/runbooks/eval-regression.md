@@ -12,7 +12,10 @@
 The eval is `voxxa-eval` (ADR-015). Metric definitions are in `fixtures/README.md`,
 "Metrics". Never paste recognised or song text into an issue or a PR. Quote
 fixture names, metric names, numbers and slide indices only. Run full mode
-with `2>/dev/null`, because Whisper prints the words it hears to stderr.
+with stderr filtered to `voxxa-eval:` lines, as `full-eval.yml` does
+(`2> >(grep '^voxxa-eval' >&2)` in bash): Whisper prints the words it hears to
+stderr, and `2>/dev/null` would also hide `voxxa-eval`'s own exit-2 messages,
+which step 5 needs.
 
 ## 1. Read the failure line
 
@@ -41,7 +44,7 @@ Reproduce from the repository root:
 ```sh
 cargo build --manifest-path src-tauri/Cargo.toml --features cli --bin voxxad --bin voxxa-eval
 cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval                         # replay
-cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full 2>/dev/null   # full
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full 2> >(grep '^voxxa-eval' >&2)   # full
 cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- fixtures/recordings/<name>   # one fixture
 ```
 
@@ -63,7 +66,7 @@ Running a subset changes the `total` row, so judge only the fixture rows then.
 How to re-record:
 
 ```sh
-cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full --record fixtures/recordings/<name> 2>/dev/null
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full --record fixtures/recordings/<name> 2> >(grep '^voxxa-eval' >&2)
 ```
 
 Then check that only the start line and the action and blank-status lines changed: the input lines (`hypothesis`, `window`, `speech`, `tick`) must be identical, unless the recogniser changed. Compare counts and positions only, never the text. Say why in the commit message. Run replay and `cargo test --features cli` again. **A re-recording cannot make a conductor regression go away.** After a re-recording for a non-recogniser reason, replay's table must equal the table from before it.

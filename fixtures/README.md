@@ -61,8 +61,9 @@ row per fixture plus a total, and checks each row against `baseline.json`.
   --shadow --model tiny`, at file speed. When the fixture has an `audio.json`,
   `audio.wav` is rebuilt from it first. Needs `ggml-tiny.bin` (download it in
   the app). A debug build takes about 2 s per second of audio; a release
-  build on Windows is much slower (Q4-01). Whisper's own log goes to stderr;
-  add `2>/dev/null` to hide it.
+  build on Windows is much slower (Q4-01). Whisper's own log (the words it
+  hears) goes to stderr; keep only `voxxa-eval`'s lines with
+  `2> >(grep '^voxxa-eval' >&2)` (bash), as `full-eval.yml` does.
 - **Re-recording (`--full --record`):** also saves the session log as the
   fixture's `session.jsonl`. `voxxad` runs in a temporary folder with
   `--log-dir .`, so the `log` path on the start line is relative
