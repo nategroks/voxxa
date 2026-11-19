@@ -315,12 +315,22 @@ fn the_words_file_holds_the_last_two_minutes_of_the_newest_log() {
 }
 
 /// The preview is built in memory: the report, the settings and (with a log)
-/// the words file; nothing is written anywhere.
+/// the words file; nothing is written anywhere, before or after the log
+/// exists (the folder is listed before the first call, Q9 verifier M5c).
 #[test]
 fn the_preview_lists_every_file_and_writes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let logs = dir.path().join("sessions");
     std::fs::create_dir(&logs).unwrap();
+    let listing = |d: &Path| {
+        let names = std::fs::read_dir(d).unwrap().flatten();
+        let mut names: Vec<String> = names
+            .map(|e| e.file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        names
+    };
+    assert_eq!(listing(dir.path()), ["sessions"]);
     let st = storage(&[("voxxa.language", json!("en"))]);
     let names = |files: &[help::BundleFile]| files.iter().map(|f| f.0.clone()).collect::<Vec<_>>();
     let files = help::bundle_files("{}".into(), &st, Some(&logs));
@@ -328,12 +338,13 @@ fn the_preview_lists_every_file_and_writes_nothing() {
         names(&files),
         ["diagnostic-report.json", "operator-settings.json"]
     );
-    write_log(
-        &logs,
-        "session-20261119-1000.jsonl",
-        &[line(10, "hypothesis", "kilo lima")],
+    assert_eq!(listing(dir.path()), ["sessions"], "written with no log");
+    assert!(
+        listing(&logs).is_empty(),
+        "written into an empty log folder"
     );
-    let before = std::fs::read_dir(dir.path()).unwrap().count();
+    let log = "session-20261119-1000.jsonl";
+    write_log(&logs, log, &[line(10, "hypothesis", "kilo lima")]);
     let files = help::bundle_files("{\"report\": 1}".into(), &st, Some(&logs));
     assert_eq!(
         names(&files),
@@ -345,9 +356,14 @@ fn the_preview_lists_every_file_and_writes_nothing() {
     );
     assert_eq!(files[0].1, "{\"report\": 1}");
     assert!(files[2].1.contains("kilo lima"));
-    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), before);
-    assert_eq!(std::fs::read_dir(&logs).unwrap().count(), 1);
+    assert_eq!(listing(dir.path()), ["sessions"], "written with a log");
+    assert_eq!(listing(&logs), [log], "written beside the log");
     assert_eq!(names(&help::bundle_files("{}".into(), &st, None)).len(), 2);
+    assert_eq!(
+        listing(dir.path()),
+        ["sessions"],
+        "written with no log folder"
+    );
 }
 
 /// Checked, the zip holds the words file; unchecked, the file is absent
