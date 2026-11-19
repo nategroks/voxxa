@@ -11,6 +11,9 @@
     presenter: { kind: "keystroke", display_name: "Keystroke (any app)", connected: true },
     devices: ["Desk USB input", "Laptop microphone"], found: [], startError: null,
     startDelay: 300, // ms start_listening takes, like loading the model and opening the device
+    help: { words: "Words Voxxa heard in the last 2 minutes of session-20261119-1000.jsonl, in seconds from its start.\n\n60.0 s  alpha bravo charlie delta\n",
+      previewDelay: 200, writeDelay: 200, writeError: null, pending: null, written: [], opened: 0, storage: null },
+    runbooks: [],
   };
   const emit = (event, payload) => { for (const fn of [...(listeners[event] || [])]) fn({ event, payload }); };
   const total = () => (st.songs ? st.songs.reduce((n, s) => n + s.slides.length, 0) : 0);
@@ -53,6 +56,25 @@
     get_network_stats: () => ({ outbound_requests: 0 }),
     get_http_api_status: () => ({ running: false, port: 7575 }),
     generate_diagnostic_report: () => ({ note: "mock report" }),
+    // Call for help (ADR-018). The mock writes nothing and opens nothing: it records the
+    // calls; `st.help` scripts the files, the delays and a refused save.
+    help_bundle_preview: async ({ storage }) => {
+      await new Promise((r) => setTimeout(r, st.help.previewDelay));
+      st.help.storage = storage;
+      st.help.pending = [["diagnostic-report.json", '{\n  "voxxa_version": "0.1.0"\n}'], ["operator-settings.json", '{\n  "voxxa.language": "en"\n}'],
+        ...(st.help.words === null ? [] : [["words-last-2-minutes.txt", st.help.words]])];
+      return st.help.pending;
+    },
+    write_help_bundle: async ({ includeWords }) => {
+      await new Promise((r) => setTimeout(r, st.help.writeDelay));
+      if (st.help.writeError) throw st.help.writeError;
+      if (!st.help.pending) throw "Press Call for help again";
+      st.help.written.push(st.help.pending.filter((f) => includeWords || f[0] !== "words-last-2-minutes.txt").map((f) => f[0]));
+      st.help.pending = null;
+      return "C:\\Users\\booth\\Desktop\\voxxa-help-20261119-101500.zip";
+    },
+    open_help_email: () => { st.help.opened += 1; return ["mailto:?subject=Voxxa", "C:\\Users\\booth\\Desktop"]; },
+    open_runbook: ({ name }) => { st.runbooks.push(name); },
     toggle_stage_display: () => false,
     next_slide_manual: () => null, prev_slide_manual: () => null, blank_manual: () => null, jump_to_song: () => null,
   };
