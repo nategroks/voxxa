@@ -107,6 +107,15 @@ try {
     check(`light ${name}`, ok, await sentence());
   };
   const click = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).click(); return true;`);
+  // Simple mode shows nothing else: no visible control outside #simple (one clipped below the
+  // fold by body{overflow:hidden} is still in the focus order), and nothing else on screen.
+  const leaks = () => ev(`const simple = document.getElementById("simple"); const name = (e) => e.tagName.toLowerCase() + (e.id ? "#" + e.id : "") + (e.className && typeof e.className === "string" ? "." + e.className.trim().split(/\\s+/).join(".") : "");
+    const toast = (e) => !!e.closest("#toast-container");
+    const controls = [...document.querySelectorAll("button, a, input, select, textarea, [tabindex]")].filter((e) => e.checkVisibility() && !simple.contains(e) && !toast(e)).map(name);
+    const onScreen = [...document.body.querySelectorAll("*")].filter((e) => { if (simple.contains(e) || e.contains(simple) || toast(e) || !e.checkVisibility()) return false;
+      const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth; }).map(name);
+    return [...new Set([...controls, ...onScreen])];`);
+  const onlySimple = async (when) => { const l = await leaks(); check(`only Simple mode is shown (${when})`, l.length === 0, JSON.stringify(l)); };
   const visible = (sel) => ev(`const e = document.querySelector(${JSON.stringify(sel)}); return !!e && e.checkVisibility();`);
   const calls = (cmd) => ev(`return __mock.calls.filter((c) => c.cmd === ${JSON.stringify(cmd)}).length`);
   // A real Space key press on a focused element, as the operator's keyboard sends it.
@@ -136,6 +145,7 @@ try {
   check("default view shows exactly three controls", JSON.stringify(controls) === JSON.stringify(["mode switch", "Call for help", "Advanced"]), JSON.stringify(controls));
   check("mode switch has Off, Songs, Songs + Scripture", (await ev(`return [...document.querySelectorAll(".s-switch button")].map((b) => b.textContent + (b.disabled ? " (disabled)" : "")).join(", ")`)) === "Off, Songs, Songs + Scripture (disabled)");
   check("old panels are hidden", !(await visible("#app")) && !(await visible("#diag-overlay")));
+  await onlySimple("first view");
   check("Off is selected", (await ev(`return document.querySelector('[data-mode="off"]').getAttribute("aria-checked")`)) === "true");
   await light("grey", "row 2 (no songs)", /Load this week's songs/);
   check("song line before any song", (await ev(`return document.getElementById("s-song").textContent`)) === "No song on screen yet");
@@ -150,6 +160,7 @@ try {
   // 3. Reload: the first run stays closed; re-open it from Advanced.
   await load();
   check("first run remembered after reload", !(await visible("#firstrun")));
+  await onlySimple("after a reload");
   await click("#s-advanced");
   check("Advanced: one click shows the old window", (await visible("#app")) && !(await visible("#simple")));
   await click("#s-guide");
@@ -232,6 +243,7 @@ try {
   await ev(`__mock.goto(3); return true`);
   await light("green", "row 9 (following)", /Following Bravo Hymn, slide 2 of 3/);
   check("song and slide shown", (await ev(`return document.getElementById("s-song").textContent + " / " + document.getElementById("s-slide").textContent`)) === "Song 2 of 3 · Bravo Hymn / Slide 2 of 3");
+  await onlySimple("following a song");
   check("no slide text in Simple mode", !(await ev(`return document.getElementById("simple").textContent.includes("echo foxtrot") || document.getElementById("simple").textContent.includes("golf hotel")`)));
   await shot("13-simple-green-following");
   await ev(`__mock.machine("blank_hold", true); return true`);
@@ -317,6 +329,7 @@ try {
   await shot("21-advanced-loader");
   await click("#s-simple");
   check("Simple mode link goes back", (await visible("#simple")) && !(await visible("#app")));
+  await onlySimple("back from Advanced");
 
   // 8. A webview reload mid-song: the backend keeps its setlist and keeps following, the
   // page has lost its song list. Row 9 has no position then: "Following the song."
