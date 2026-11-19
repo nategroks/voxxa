@@ -108,3 +108,17 @@ All seven pass on Windows: 45 unit + 33 integration tests; budgets GUI 2951/3000
 - **Verifiers:** after two more rounds with findings (c5ae273, d57f060), both verifiers passed at 97cc21b. Verifier A checked every goto against the audio segments, no goto during a prayer, and replay byte-identical across CRLF and LF checkouts. Verifier B ran 51 mutants; four non-blocking survivors are tickets Q6-13 and Q6-14.
 - **QA position: ready to merge** once CI is green on all jobs. The latency limb of the budget is still missed (Q6-03), and all six fixtures are still synthetic speech (Q5-01).
 - **Note for Q7:** `voxxa-eval --full` writes recognised words to stderr. Redirect it (`2>/dev/null`) so no recognised text reaches an agent's output.
+
+## 2026-11-19 — Q7: close of Increment 1′ (`q7/10x`)
+Report: `reviews/2026-11-19-qa-report.md`. Tickets: `reviews/2026-11-19-q7-tickets.md`.
+- **Full fixture eval:**
+  - On the Windows reference PC, Whisper Tiny at the head gives exactly the replay table on all six fixtures: 21/21 hits, 0 false, 0 double, median 2,310 ms, p95 4,870 ms, blank 7,280 ms, unblank 2,490 ms, exit 0.
+  - On three OSes in CI, it runs as `.github/workflows/full-eval.yml`. That job is report-only (user decision), uses a SHA-256-pinned model, and has not run on GitHub yet; its first run is on the Q7 PR.
+- **Replay determinism is a PR-gate test on three OSes:** `tests/replay_determinism.rs`.
+  - Every committed log must replay to its own action lines byte for byte, and two replays must agree byte for byte.
+  - Four logs held the 733c7e1 conductor's actions. They were re-recorded (20e3301). Their recogniser lines were identical (576/926/482/343 lines), and the table was unchanged, so `baseline.json` is unchanged.
+  - Mutation: replay printing the wall time fails it on all seven logs.
+- **Decision: the determinism contract is "a log's actions are today's conductor's".** A conductor change that moves actions must re-record the affected logs in the same PR, with the reason in the commit; the runbook says how. Since Q7, all six logs store their whole `SmartConfig`.
+- **Gates at the head:** all pass, with 207 tests under `--features cli` (56 unit + 151 integration). Plain `cargo test` passes 147 and skips the four CLI test files (Q7-04).
+- **QA position:** ready to merge once CI is green on all jobs, the new full-eval job included (it may warn, but must not fail). Increment 1′ is complete as a developer preview. It is not ready for churches: p95 is 4.87 s against a 2.5 s budget (#84), the fixtures are synthetic speech only (#73), and the founder checklist is open.
+- **How to rerun:** `cargo test --features cli --test replay_determinism`; `voxxa-eval --full 2>/dev/null`; see `docs/runbooks/eval-regression.md`.
