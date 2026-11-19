@@ -221,6 +221,10 @@ try {
   await light("amber", "row 10 (listening)", /Waiting for a song/);
   check("Songs selected while listening", (await ev(`return document.querySelector('[data-mode="songs"]').getAttribute("aria-checked")`)) === "true");
   await shot("12-simple-amber-listening");
+  // The status is aria-live: a poll that changes nothing must not rewrite its text.
+  await ev(`window.__writes = 0; new MutationObserver((m) => (window.__writes += m.length)).observe(document.querySelector(".s-status"), { childList: true, characterData: true, subtree: true }); return true`);
+  await sleep(2500);
+  check("an unchanged status is not rewritten each second", (await ev(`return window.__writes`)) === 0, `${await ev(`return window.__writes`)} writes`);
   await ev(`__mock.goto(3); return true`);
   await light("green", "row 9 (following)", /Following Bravo Hymn, slide 2 of 3/);
   check("song and slide shown", (await ev(`return document.getElementById("s-song").textContent + " / " + document.getElementById("s-slide").textContent`)) === "Song 2 of 3 · Bravo Hymn / Slide 2 of 3");

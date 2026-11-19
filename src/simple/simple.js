@@ -43,16 +43,20 @@ let songs = [];
 // it (or 3 polls pass); a click meanwhile is kept in `want` and sent once it settled.
 let pending = null, want = null, polls = 0;
 
+// Write text only when it changes: the status is aria-live and render() runs every second,
+// so rewriting the same sentence could make a screen reader announce it again.
+const put = (el, t) => { if (el.textContent !== t) el.textContent = t; };
+
 function render() {
   const [light, sentence] = statusLight(s);
   $("s-light").className = `s-light ${light}`;
   root.dataset.light = light;
-  $("s-sentence").textContent = sentence;
+  put($("s-sentence"), sentence);
   const on = want ?? pending ?? s.running; // the user's choice shows until the backend settles
   for (const b of root.querySelectorAll("[data-mode]")) b.setAttribute("aria-checked", String(b.dataset.mode === (on ? "songs" : "off")));
   const p = s.song;
-  $("s-song").textContent = !p ? "No song on screen yet" : p.songs ? `Song ${p.song} of ${p.songs} · ${p.title}` : p.title;
-  $("s-slide").textContent = p && p.slides ? `Slide ${p.slide} of ${p.slides}` : "";
+  put($("s-song"), !p ? "No song on screen yet" : p.songs ? `Song ${p.song} of ${p.songs} · ${p.title}` : p.title);
+  put($("s-slide"), p && p.slides ? `Slide ${p.slide} of ${p.slides}` : "");
 }
 
 let polling = false;
