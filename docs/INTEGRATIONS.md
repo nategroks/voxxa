@@ -273,7 +273,7 @@ Replace `--shadow` with a presenter only after a clean shadow rehearsal:
   to a server. `--log-dir "%LOCALAPPDATA%\voxxa\sessions"` keeps them on
   the computer (Q3-05, #49). Give `--log-dir` a folder of its own:
   `voxxad` deletes `session-*.jsonl` files older than 14 days there.
-- **Network:** `--shadow` and `--replay` open no socket. A network
+- **Network:** `--replay` opens no socket; `--shadow` makes no network connection (on Linux/macOS tokio's signal driver creates one local AF_UNIX socketpair). A network
   presenter is the only network traffic `voxxad` makes, and only without
   `--shadow`. `voxxad` never downloads a model: install one in the Voxxa
   app first, or see the release notes.

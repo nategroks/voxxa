@@ -105,7 +105,7 @@ voxxad --setlist today.json --replay <session.jsonl>                            
   `--log-dir "%LOCALAPPDATA%\voxxa\sessions"`. Give it a folder of its own: `voxxad` deletes
   `session-*.jsonl` files older than 14 days there. Commit only logs of public-domain or
   synthetic audio.
-- **Network:** `--replay` and `--shadow` open no socket. CI checks `--replay` on Linux
+- **Network:** `--replay` opens no socket; `--shadow` makes no network connection (on Linux/macOS tokio's signal driver creates one local AF_UNIX socketpair). CI checks `--replay` on Linux
   (strace, networking disabled) and Windows (ETW). A local Windows check covered a full
   `--shadow` run with Whisper. Without `--shadow`, a network presenter talks to the host and
   port you give it, and that is the only network use. There is no telemetry.
