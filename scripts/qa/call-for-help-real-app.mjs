@@ -57,6 +57,7 @@ try {
   // Placeholder settings with secrets, in this scratch profile only (deleted afterwards).
   await ev(`localStorage.setItem("voxxa.presenterForm", JSON.stringify({ kind: "open_lp_v2", host: "127.0.0.1", port: 4316, username: "booth", password: "placeholder-secret-1" }));
     localStorage.setItem("voxxa.pcoSecret", JSON.stringify("placeholder-secret-2"));
+    localStorage.setItem("voxxa.pco", JSON.stringify({ application_id: "placeholder-secret-4", clientId: "placeholder-secret-5", apiKeys: ["placeholder-secret-6"] }));
     localStorage.setItem("voxxa.httpApi", JSON.stringify({ port: 7575, enabled: false, token: "placeholder-secret-3" }));
     localStorage.setItem("voxxa.recentSetlists", JSON.stringify([{ summary: "Alpha Hymn", setlist: [{ title: "Alpha Hymn", slides: [{ id: 0, text: "alpha bravo placeholder slide" }] }] }]));
     return true`);
