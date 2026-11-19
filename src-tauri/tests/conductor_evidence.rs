@@ -152,6 +152,40 @@ fn a_chorus_of_two_slides_is_followed_through_both_and_on_to_the_next_verse() {
 }
 
 #[test]
+fn a_chorus_of_two_slides_re_entered_from_a_later_verse_resumes_after_that_verse() {
+    // Verse 0, chorus 1-2, verse 3, verse 4, where verses 3 and 4 have the
+    // same words, so only the "next" prior can tell them apart. The chorus
+    // entered from verse 3 must lead on to verse 4, also after its second
+    // slide: the move from chorus slide 1 to 2 keeps the resume slide.
+    let s = "s1 s2 s3 s4 s5";
+    let slides = ["a1 a2 a3 a4 a5", "k1 k2 k3 k4 k5", "m1 m2 m3 m4 m5", s, s];
+    let section = |kind, slides: &[usize]| Section {
+        kind,
+        slides: slides.to_vec(),
+    };
+    let (verse, chorus) = (SectionKind::Verse, SectionKind::Chorus);
+    let sections = vec![
+        section(verse, &[0]),
+        section(chorus, &[1, 2]),
+        section(verse, &[3]),
+        section(verse, &[4]),
+    ];
+    let song = synthetic(&slides, sections);
+    let cfg = EvidenceConfig::default();
+    let mut t = Tracker::default();
+    let mut current = 0;
+    let mut moves = Vec::new();
+    for slide in [1, 2, 3, 1, 2, 4] {
+        t.hear(slides[slide]);
+        let moved = t.decide(0, &song, current, &cfg, true);
+        current = moved.unwrap_or(current);
+        moves.push(moved);
+    }
+    let want = [1, 2, 3, 1, 2, 4].map(Some);
+    assert_eq!(moves, want, "the second {s:?} is verse 4, not verse 3");
+}
+
+#[test]
 fn after_a_labelled_refrain_the_verse_after_the_last_one_is_the_likely_next() {
     // Verse 3 after the second refrain, one word in five misheard. With
     // labels it is "next" (prior 0.9) and moves on its first transcript;
