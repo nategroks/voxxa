@@ -89,7 +89,12 @@ test("songPosition counts slides inside the song", () => {
   assert.equal(songPosition(songs, undefined), null);
   assert.equal(songPosition(songs, 6), null);
   // No setlist known to the GUI (e.g. after a reload): the backend's title only.
-  assert.deepEqual(songPosition([], 4, "Charlie"), { song: 0, songs: 0, title: "Charlie", slide: 5, slides: 0 });
+  assert.deepEqual(songPosition([], 4, "Charlie"), { song: 0, songs: 0, title: "Charlie", slide: 0, slides: 0 });
+  // That fallback has no position inside the song, so row 9 says "Following the song."
+  // (a webview reload loses the page's songs while the backend keeps following).
+  for (const state of ["singing", "inter_verse_silence"]) {
+    assert.deepEqual(light({ state, isBlank: false, song: songPosition([], 6, "Charlie") }), ["green", "Following the song."]);
+  }
 });
 
 test("testVerdict: the 20-second test", () => {

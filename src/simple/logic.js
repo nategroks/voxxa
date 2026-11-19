@@ -19,7 +19,7 @@ export function statusLight(s) {
   if (!s.presenter || !s.presenter.connected || !chosenOk) return ["red", `${appName(chosenOk ? s.presenter : null)} not found. Voxxa can't change slides.`];
   if (s.state === "blank_hold") return ["amber", "Hearing talking, not a song. The screen stays blank."];
   if (following && s.isBlank) return ["amber", "The screen is blank. It comes back when the song does."];
-  if (following && s.song) return ["green", `Following ${s.song.title}, slide ${s.song.slide} of ${s.song.slides}.`];
+  if (following && s.song && s.song.slides) return ["green", `Following ${s.song.title}, slide ${s.song.slide} of ${s.song.slides}.`];
   if (following) return ["green", "Following the song."];
   return ["amber", "Listening. Waiting for a song from the list."];
 }
@@ -35,7 +35,7 @@ export function songPosition(songs, index, fallbackTitle) {
     }
     start += n;
   }
-  return fallbackTitle ? { song: 0, songs: 0, title: fallbackTitle, slide: index + 1, slides: 0 } : null;
+  return fallbackTitle ? { song: 0, songs: 0, title: fallbackTitle, slide: 0, slides: 0 } : null;
 }
 
 // The 20-second test (ADR-017 § 4). Counts only: no heard text is kept. Green needs a slide

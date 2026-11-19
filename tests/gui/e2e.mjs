@@ -317,6 +317,16 @@ try {
   await shot("21-advanced-loader");
   await click("#s-simple");
   check("Simple mode link goes back", (await visible("#simple")) && !(await visible("#app")));
+
+  // 8. A webview reload mid-song: the backend keeps its setlist and keeps following, the
+  // page has lost its song list. Row 9 has no position then: "Following the song."
+  await load();
+  await ev(`__mock.st.songs = ${JSON.stringify(setlist.setlist)}; __mock.st.running = true; __mock.st.machine = "listening"; return true`);
+  await light("amber", "after a reload mid-song: listening", /Waiting for a song/);
+  await ev(`__mock.goto(3); return true`);
+  await light("green", "row 9 after a reload: no position", /^Following the song\.$/);
+  check("after a reload: the song's title, no slide count", (await ev(`return document.getElementById("s-song").textContent + " / " + document.getElementById("s-slide").textContent`)) === "Bravo Hymn / ");
+  await shot("22-simple-reload-mid-song");
 } catch (err) {
   check("e2e ran to the end", false, String(err && err.stack || err));
 }
