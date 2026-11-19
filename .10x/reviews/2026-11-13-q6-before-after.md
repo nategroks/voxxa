@@ -176,3 +176,31 @@ Precision before was 0.93 in total (0.75 on the refrain fixture); after, 1.00 ev
 **Gates on the final head.** 1 `npm ci && npm run build`, 2 fmt, 3 clippy `-D warnings`, 4 `cargo test` (21 test binaries, 199 tests, 0 failures), 5 `cargo-deny check licenses advisories bans` (**advisories ok, bans ok, licenses ok**; only a `no-license-field` warning for voice_activity_detector, as before), 6 loc budget (conductor 1173 / 1200, conductor evidence 215 / 500, voxxad 552 / 600, everything else 2309 / 2500) and 7 the `dictat` grep all pass, and so does the CI eval step (exit 0). The control-byte check matches only binaries (PNG, ICNS, ICO, WAV).
 
 **Process.** No microphone and no presenter: only `voxxad --replay` and `voxxa-eval --full` (which passes `--shadow` and `--stdin-audio`). One full run was stopped by PID (cargo 15040) after 27 s because it would have used a `voxxad.exe` that the 733c7e1 build had just written to the shared target directory. It was re-run after rebuilding both binaries from the head.
+
+## Fourth verifier round on `q6/base`, 2026-11-18 (three test pins)
+Commits after d57f060, each on its own, all in `src-tauri/tests/conductor_evidence.rs` with placeholder words:
+1. `test(conductor): pin the resume slide after a two-slide chorus` (0050b32). The mutant `else if !is_chorus(song, from)` -> `else` in `Tracker::entered` (`src-tauri/src/aligner/evidence/mod.rs:207`) had survived every test and the CI eval. The new test has verse 0, chorus 1-2, and verses 3 and 4 with the same words; after 3 -> 1 -> 2 the shared words must go to 4. With the mutant they go to 3 and the test fails.
+2. `test(conductor): every EvidenceConfig value changes a decision` (d41eb35). Each of `prior_stay`, `prior_next`, `prior_chorus`, `prior_section`, `prior_other`, `threshold` and `decay` set away from its default turns a wait into a move or a move into a wait; decay 0.9 delays to the eighth transcript a move that 0.3 makes on the first.
+3. `test(conductor): an apostrophe inside a word joins it` (dca4637). Mid-word straight and curly apostrophes in `tokens_are_lower_case_words_without_marks`.
+
+**Mutants, applied one at a time to `src-tauri/src/aligner/evidence/mod.rs` and restored after, against `conductor_evidence`:** all nine fail. `resume` recomputed inside a chorus fails the new resume test; apostrophes as separators fail the tokens test; `decay` -> 0.3, `threshold` -> 0.35 and each of the five priors -> its default literal fail the new config test. No conductor, metric, fixture, baseline or GUI file changed; ADR-016 has a short amendment for this round.
+
+**Eval (debug, stream time at file speed, not wall clock; Q4-02 applies live).** Before: `voxxa-eval` and `voxxad` built from a fresh `git archive` export of 733c7e1, replaying that commit's five fixtures (exit 0, OK against its own baseline), plus `prayer-before-first-song`'s committed log copied in and replayed with that conductor. After: the CI step on dca4637 (replay, exit 0, `OK: no metric is worse than ... baseline.json`). Every cell equals the third round's table:
+
+| fixture | before (733c7e1) median / p95 ms | after median / p95 ms | recall before -> after | false before -> after | blank / unblank ms before -> after |
+|---|---|---|---|---|---|
+| jump-be-thou-my-vision | 900 / 900 | 1200 / 5850 | 0.25 -> 1.00 | 0 -> 0 | - / - -> - / - |
+| prayer-before-first-song | 6710 / 6710 | 1710 / 2800 | 0.50 -> 1.00 | 0 -> 0 | miss / miss -> 6800 / 1710 |
+| prayer-between-songs | 8490 / 11230 | 2490 / 4870 | 1.00 -> 1.00 | 0 -> 0 | 7280 / 8490 -> 7280 / 2490 |
+| prayer-then-reprise | 2900 / 8900 | 2900 / 2900 | 1.00 -> 1.00 | 0 -> 0 | 200 / 1500 -> 200 / 1500 |
+| prayer-without-pause | 2900 / 8900 | 1900 / 2900 | 1.00 -> 1.00 | 0 -> 0 | 6600 / - -> 6600 / - |
+| refrain-it-is-well | 4120 / 10310 | 2120 / 3900 | 0.50 -> 1.00 | 1 -> 0 | - / - -> - / - |
+| total (5 fixtures before, 6 after) | 4120 / 11230 | 2310 / 4870 | 0.68 -> 1.00 | 1 -> 0 | 7280 / 8490 -> 7280 / 2490 |
+
+Precision 0.93 -> 1.00 in total (refrain 0.75 -> 1.00); double advances 0 everywhere. The jump row's higher median and p95 are the user-accepted cells (1500 / 6000). The budget: false advances met (0 over 7 sung songs); p95 4.87 s against 2.5 s not met (Q6-03).
+
+**Full mode.** `voxxa-eval --full` (Whisper Tiny, `--shadow`, `--stdin-audio`, debug build, 689 s) on dca4637 printed the same table as replay, cell for cell, and `OK: no metric is worse than ... baseline.json` (exit 0).
+
+**Gates on dca4637.** 1 `npm ci && npm run build`, 2 fmt, 3 clippy `-D warnings`, 4 `cargo test` (21 test binaries, 201 tests, 0 failures), 5 `cargo-deny check licenses advisories bans` (advisories ok, bans ok, licenses ok; the `no-license-field` warning for voice_activity_detector as before), 6 loc budget (conductor 1173 / 1200, conductor evidence 215 / 500) and 7 the `dictat` grep all pass, and so does the CI eval step (exit 0). The control-byte check matches only binaries (PNG, ICNS, ICO, WAV).
+
+**Process.** No microphone and no presenter: only `voxxad --replay` (through `voxxa-eval`) and `voxxa-eval --full` (`--shadow`, `--stdin-audio`). The 733c7e1 binaries were built first and the head binaries rebuilt before the CI step and full mode. No process was left running.
