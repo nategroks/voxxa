@@ -42,6 +42,10 @@ required-features = ["cli"]
 name = "voxxa_eval"
 required-features = ["cli"]
 
+[[test]]
+name = "replay_no_sockets"
+required-features = ["cli"]
+
 [build-dependencies]
 tauri-build = { version = "2.7", features = [] }
 
