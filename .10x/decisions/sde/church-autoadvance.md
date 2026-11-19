@@ -516,3 +516,6 @@ Base f8500e3. ADR first (42abe5c), then code with tests. No backend change: `src
 
 ## 2026-11-19 — Q8 verifier fixes on `q8/base`
 ef84473 row 9 needs a position inside the song (`src/simple/logic.js:22`, `:38`); 3f75c09 and b191945 are test-only (`tests/gui/e2e.mjs`). Simple mode row 341 / 600 unchanged; `src-tauri/`, `main.js`, `index.html` unchanged. ADR-017 row 9 and § 6 updated to match. Checks and gates in the QA record.
+
+## 2026-11-19 — Q8 verifier round 2 on `q8/base`
+bb46628 the 20-second test waits for the Listen click to settle and stops what it started, even a late start (`src/simple/firstrun.js:173-218`); 9ef8937 and 808f14b are test-only (`tests/gui/e2e.mjs`: the light's computed colour; `seen()` for clicks and the three controls). Simple mode row 341 → 352 / 600; GUI row 2,780 unchanged; `src-tauri/`, `main.js`, `index.html` unchanged. Known limit: an error toast from elsewhere during the start window would end the wait early; nothing else toasts an error while the guide is open and listening has not started. ADR-017 § 4 (test row) and § 6 updated. Checks and gates in the QA record.
