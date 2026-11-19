@@ -64,6 +64,10 @@ recognizer = total(["transcription/"])
 # the voxxa-eval binary (fixture scoring, Q5) gets its own row instead of
 # raising "everything else", which stays at 2500.
 voxxa_eval = total(["cli/voxxa-eval/"])
+# Recorded deviation from ADR-010 Decision 3 (ADR-017, user decision 2026-11-18):
+# Simple mode and the first-run flow get their own row for src/simple/ instead
+# of raising the GUI row, which stays at 3000 and no longer counts it.
+simple = sum(n for f, n in gui.items() if f.startswith("src/simple/"))
 rest = sum(rust.values()) - conductor - evidence - presenters - importers - voxxad - recognizer - voxxa_eval
 
 checks = [
@@ -75,7 +79,8 @@ checks = [
     ("voxxad binary (src/cli/voxxad/)", voxxad, 600),
     ("recognizer (transcription/ + recognizer code)", recognizer, 700),
     ("voxxa-eval (src/cli/voxxa-eval/)", voxxa_eval, 600),
-    ("GUI (src/, index.html, stage.html)", sum(gui.values()), 3000),
+    ("GUI (src/, index.html, stage.html; without src/simple/)", sum(gui.values()) - simple, 3000),
+    ("Simple mode (src/simple/*)", simple, 600),
 ]
 for f, n in sorted(rust.items()):
     if f.startswith(RUST + "presenters/") and not f.endswith("/mod.rs"):

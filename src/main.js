@@ -1,13 +1,13 @@
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+export const { invoke } = window.__TAURI__.core;
+export const { listen } = window.__TAURI__.event;
 
 // --- State ---
-let isListening = false;
+export let isListening = false;
 let slides = [];
 let currentSlideIndex = 0;
 // Full setlist (array of {title, slides: [...]}) — kept so we can re-export
 // what was loaded.
-let currentSongs = [];
+export let currentSongs = [];
 
 // --- DOM ---
 const statusBadge = document.getElementById("status-badge");
@@ -508,7 +508,7 @@ renderRecentSetlists();
 // Song-jump strip: one button per song in the loaded setlist. Hidden for
 // single-song setlists since there's nothing to navigate.
 const songStripEl = document.getElementById("song-strip");
-let songOffsets = [];
+export let songOffsets = [];
 
 function renderSongStrip() {
   if (!songStripEl) return;
@@ -690,7 +690,7 @@ async function saveSlideEdit(globalIndex, text) {
 // --- Listening Toggle ---
 listenBtn.addEventListener("click", toggleListening);
 
-async function toggleListening() {
+export async function toggleListening() {
   try {
     if (isListening) {
       await invoke("stop_listening");
@@ -703,6 +703,7 @@ async function toggleListening() {
     console.error("Listen toggle error:", err);
     toast(String(err), "error", 6000);
     setListeningState(false);
+    return String(err);
   }
 }
 
@@ -1331,7 +1332,7 @@ function ensureToastContainer() {
   return c;
 }
 
-function toast(message, kind = "info", timeoutMs = 4000) {
+export function toast(message, kind = "info", timeoutMs = 4000) {
   const container = ensureToastContainer();
   const el = document.createElement("div");
   el.className = `toast toast-${kind}`;
@@ -1349,62 +1350,6 @@ function dismissToast(el) {
   if (!el || el.classList.contains("fading")) return;
   el.classList.add("fading");
   setTimeout(() => el.remove(), 300);
-}
-
-// --- First-launch welcome ---
-const FIRST_LAUNCH_KEY = "voxxa.firstLaunchDone";
-const welcomeOverlay = document.getElementById("welcome-overlay");
-const welcomeDetect = document.getElementById("welcome-detect");
-const welcomeModel = document.getElementById("welcome-model");
-const welcomeSetlist = document.getElementById("welcome-setlist");
-const welcomeDismiss = document.getElementById("welcome-dismiss");
-
-function dismissWelcome() {
-  if (welcomeOverlay) welcomeOverlay.hidden = true;
-  try {
-    localStorage.setItem(FIRST_LAUNCH_KEY, "1");
-  } catch {
-    // Ignore — localStorage can be disabled in some WebKit configurations.
-  }
-}
-
-function maybeShowWelcome() {
-  let seen = false;
-  try {
-    seen = localStorage.getItem(FIRST_LAUNCH_KEY) === "1";
-  } catch {
-    seen = false;
-  }
-  if (!seen && welcomeOverlay) {
-    welcomeOverlay.hidden = false;
-  }
-}
-
-if (welcomeDismiss) welcomeDismiss.addEventListener("click", dismissWelcome);
-
-if (welcomeDetect) {
-  welcomeDetect.addEventListener("click", () => {
-    dismissWelcome();
-    // Switch to Settings tab and trigger discovery.
-    const settingsTab = document.querySelector('.tab[data-tab="settings"]');
-    if (settingsTab) settingsTab.click();
-    if (discoverBtn) discoverBtn.click();
-  });
-}
-
-if (welcomeModel) {
-  welcomeModel.addEventListener("click", () => {
-    dismissWelcome();
-    const modelsTab = document.querySelector('.tab[data-tab="models"]');
-    if (modelsTab) modelsTab.click();
-  });
-}
-
-if (welcomeSetlist) {
-  welcomeSetlist.addEventListener("click", () => {
-    dismissWelcome();
-    if (fileInput) fileInput.click();
-  });
 }
 
 // --- Smart-blanking threshold tuning ---
@@ -1443,7 +1388,7 @@ async function loadSmartConfig() {
 const SMART_STORAGE_KEY = "voxxa.smartConfig";
 const PRESENTER_STORAGE_KEY = "voxxa.presenterForm";
 
-function readJsonStorage(key) {
+export function readJsonStorage(key) {
   try {
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
@@ -1452,7 +1397,7 @@ function readJsonStorage(key) {
   }
 }
 
-function writeJsonStorage(key, value) {
+export function writeJsonStorage(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
@@ -1677,4 +1622,3 @@ function showShortcutHelp() {
 setupListeners();
 loadPresenterPanel();
 restoreLastSession();
-maybeShowWelcome();
