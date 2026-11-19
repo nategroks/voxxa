@@ -1,11 +1,15 @@
 # Current Handoff
 
-## User decisions for Q7 (2026-11-18, before the unattended run)
-- **Full Whisper eval:** a separate, report-only CI workflow (`workflow_dispatch`, plus `pull_request` with a paths filter on that workflow file only, so it can run before it reaches `main`). It downloads Whisper Tiny pinned by SHA-256, runs `voxxa-eval --full` and uploads the table; it never fails the PR. The PR gate stays replay plus the determinism test, on all three OSes.
-- **Shipping the CLI:** `voxxad` and `voxxa-eval` do **not** ship in installers yet. If the Tauri bundle would include them, exclude them and prove it; CI and `cargo test` must still build and test both. Release notes for the CLI are a file in the repo; **no tag and no GitHub release**.
-- **Pre-approved:** push `q7/base`, open a draft PR against `main`, fix CI forward; run the manual full-eval job; merge once Q7's exit criteria are met and every CI job is green; file Q7 tickets as GitHub issues (label `q7`); agents may stop processes they started, by PID.
-- **QA mode** (as in Q2–Q6): no microphone, no keystroke dispatch; `--shadow`, `--replay` or `--presenter none` only; public-domain text only, and agents never echo hymn text; `ggml-tiny.bin` is present.
-- The decisions for Q6 are in git history (a60d1ce).
+## User decisions for Q8 (2026-11-18, before the unattended run)
+- **Line budget:** Simple mode and the first-run flow go in ONE new recorded row in `scripts/loc_budget.py`, "Simple mode (src/simple/*)", capped at **600**, for a dedicated directory `src/simple/`, subtracted from the GUI row like the other rows. The GUI row (`src/`, `index.html`, `stage.html`) stays capped at 3,000, and the existing panels must not grow: the "Advanced" move should cost few lines (delete before you add). Record the row as a deviation in `loc_budget.py` and the ADR. No other budget is raised, and the GUI stays free of npm runtime dependencies. This supersedes the "49 lines left" warning below.
+- **GUI testing, two ways:**
+  - (a) Browser with a mocked backend: a test-only `invoke()` and event shim, kept out of the shipped bundle. Listen, the 20-second test and every audio path are exercised **only** here.
+  - (b) The real app, guarded: a scratch build that is never committed. Each lane uses its own identifier (never `com.voxxa.app`) and WebView2 remote debugging through `additionalBrowserArgs`. Before the first launch, confirm from the code that startup opens no audio input; if anything does, do not launch. In the real app: never press Listen, never start the 20-second test, never pick the keystroke presenter, never open the stage window on a second display, never enable the HTTP API. Delete the scratch identifier's `%LOCALAPPDATA%` folder afterwards.
+- **Usability:** agents walk through the research plan's usability script on the mocked GUI (and on the guarded real app where safe) and record each step. The founder's own run on their machine is a founder checklist item and a Q8 ticket; **the merge does not wait for it**.
+- **Backend:** no change to backend commands (signatures or behaviour) and no new commands; delete no panel. The ADR is **ADR-017**.
+- **Pre-approved:** push `q8/base`, open a draft PR against `main`, fix CI forward; merge once Q8's exit criteria are met (except the founder's run) and every CI job is green; file Q8 tickets as GitHub issues (label `q8`); agents may stop processes they started, by PID.
+- **Content:** public-domain text only; agents never write or echo hymn text (mocks use placeholder words).
+- The decisions for Q7 are in git history (c448139).
 
 ---
 
@@ -24,7 +28,8 @@
 ### Numbers at the finish (unchanged from Q6)
 Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double advances, median 2,310 ms, p95 4,870 ms (budget 2,500 ms, #84), blank 7,280 ms, unblank 2,490 ms. `baseline.json` is unchanged. Tests: 210 passed with `--features cli` (56 unit + 154 integration), plus 1 ignored helper.
 
-### Next for the orchestrator (pre-approved), before Q8 starts
+### Next for the orchestrator (pre-approved), before Q8 starts — done 2026-11-19
+PR #95 merged as c448139 (CI green on all 5 jobs at a7f6c89, run 44545240949; on `main`, run 44548298909). The first CI run's Windows socket failure was fixed in 5d69368, the mutant proof is f18ab4c/fc93326, and the Node 24 pins are in 230a42e (QA report §12-§13). The manual full-eval on `main` (run 44548333928) was green on 3 OSes and equal to replay. Q7 tickets #96–#107 are filed; #47 and #75 are closed. The original list follows.
 1. Push `q7/base` and open a draft PR against `main`.
 2. **The first CI run must show** (QA report and security review, §9-§11):
    - (a) the `ubuntu-22.04` and `windows-latest` jobs pass `replay_no_sockets` (a pass proves strace inside `unshare -rn` and ETW respectively; no `--nocapture` run is needed);
