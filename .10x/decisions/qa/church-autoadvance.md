@@ -325,3 +325,30 @@ Three findings, one commit each, each with a check that fails without it.
 - A second write without a new review was refused. `open_runbook("../../evil")` was refused.
 
 **Not tested:** the real `open` of a mail program and Explorer (never triggered, by rule). Only the URL and the folder it would open are tested, in Rust. CI has not run Q9 yet.
+
+## 2026-11-19 — Q9 finish on `q9/base`: exit demo re-taken
+**(a) Mocked browser.**
+- `npm run test:gui:e2e` passed 160/160, with screenshots 01-26.
+- New since the 10x lane: when the e-mail step fails, the message says the folder is open. When the error starts with `folder: `, it says the folder did not open.
+- `test:gui` passed 7/7.
+
+**(b) The real app, guarded.**
+- **Build:** a scratch build with identifier `com.voxxa.qa9finish` and CDP on port 9353, from a config outside git, built with `npm run tauri build -- --no-bundle --config`.
+- **Startup check, before the first launch:** the input stream opens only in `audio.start()`. Its only caller is `start_listening` (`src-tauri/src/commands/mod.rs:229`), which runs on Listen (`src/main.js:700`), the tray toggle or the HTTP API. None of these was used.
+- **Run:** started with `VOXXA_HELP_DIR=<scratch>` and a placeholder session log in `<scratch>/sessions`. Driven by `scripts/qa/call-for-help-real-app.mjs`: 10/10 passed.
+- **The review screen listed:** `diagnostic-report.json (0.7 KB)`, `operator-settings.json (0.4 KB)` and `words-last-2-minutes.txt (0.1 KB)`, with the box on (screenshot `02-real-review`).
+- **Box checked:** `voxxa-help-20261119-221649.zip` (1,125 bytes, deflate) holds three files: the report (713 bytes), the settings (370 bytes) and the words (142 bytes). The words file has only the lines at 130.0 s and 170.0 s. The earlier line and the `window` line are not in it.
+- **Box unchecked:** `voxxa-help-20261119-221650.zip` (886 bytes) holds the report and the settings only.
+- **In both zips:**
+  - the 3 placeholder secrets are `[redacted]`;
+  - the setlists are left out;
+  - there is no `Heard:` line.
+- **Refusals:** a second write without a new review, and `open_runbook("../../evil")`.
+- **Never done:** Save, the e-mail step, the folder step, Listen, the 20-second test, a presenter, the stage window and the HTTP API.
+- **Cleanup:**
+  - The app was stopped by PID (11816).
+  - `%LOCALAPPDATA%\com.voxxa.qa9finish` and both scratch zips were deleted.
+  - The real Desktop had no `voxxa-help-*.zip` before or after.
+  - `src-tauri/Cargo.toml` (line endings only) was restored after the build.
+
+**Not tested:** the real `open` of a mail program and Explorer, by rule. CI has not run the finished `q9/base` yet.

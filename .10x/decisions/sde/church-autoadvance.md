@@ -621,3 +621,30 @@ The first draft of `help/mod.rs` measured 2,571 after rustfmt (over by 71). It w
 | Q9-08 | low | The words file may come from an old `voxxad` session; only its header names the date | |
 
 Q9 fixes #102 (close it at merge).
+
+## 2026-11-19 — Q9 finish on `q9/base` (merge of `q9/10x`, grafts and review fixes)
+**Merge:** cd28ab5, `git merge --no-ff q9/10x`.
+
+**Commits after the merge, one per graft or fix:**
+1. 064c4c8: the OpenSong API key is entered again after every start, in `presentation-app-not-reachable.md`. Graft from the ponytail review, finding 3: the key goes out as `args.password` (`src/main.js:1283-1284`) and is never saved (`src/main.js:1297-1303`).
+2. 42ca27f: the same runbook covers a presentation app on another computer: both computers on the same network, and Host set to that computer's address. Graft from the ponytail runbook. The runbook is now 52 lines.
+3. 82d24e9: `pub fn runbook_url(name) -> Option<String>` replaces the private `RUNBOOK_URL`, and `open_runbook` uses it. The test checks the exact URL for `no-audio-device` and that `../../evil` and `no-audio-device.md` give `None`. Graft from the ponytail review, nit 7.
+4. caa67b1: `recent_words` compares `t` with `end.saturating_sub(120000)`. The new test case (`t` near `u64::MAX`) panicked with "attempt to add with overflow" on the old line. Graft from the ponytail review, nit 9.
+5. 9917115: `open_help_email` opens the folder first and the draft second, and returns `Result<(), String>`. A folder error starts with `folder: `, and then the draft is not tried. `help.js`'s fallback message says the folder is open, or that it is not. The mock returns nothing, and e2e checks both failure messages. 10x review should-fix and nit. ADR-018 § 5, § 6 and § 9 are updated.
+
+**Budget:**
+
+| Row | Value | Change |
+|---|---|---|
+| everything else in src-tauri/src | 2,486 / 2,500 | +2 net: `runbook_url` +1, `open_help_email` +1 |
+| Simple mode (src/simple/*) | 436 / 600 | +3, the fallback message |
+| GUI (without src/simple/) | 2,780 / 3,000 | unchanged |
+
+No cap was raised and no row was added.
+
+**Gates at the finish (Windows, rustc 1.99.1), all pass:**
+- `npm ci && npm run build`, fmt, clippy `-D warnings` without and with `cli`;
+- `cargo test --features cli`: 218 passed, 0 failed, 1 ignored. `tests/help_bundle.rs` keeps 8 tests, with more cases in two of them;
+- `cargo-deny`, budgets and the dictat grep (prints nothing);
+- the CI eval step: 21/21 hits, precision and recall 1.00, 0 false, median 2,310 ms, p95 4,870 ms, unchanged;
+- `test:gui` 7/7, and e2e 160/160 (2 new checks).
