@@ -143,3 +143,41 @@ Details: `reviews/2026-11-19-qa-report.md` section 9.
 - **Re-proved at the finish:** gates 1-7 and the CI eval step pass (table unchanged, exit 0); determinism passes, and a 1 ms change to one logged action fails it at that fixture only; the socket mutant fails the socket test (11 AFD events) and passes after the revert; the NSIS script names neither tool (control with `--features cli` names both).
 - **QA position: ready to merge once the first CI run shows** the evidence listed in the QA report section 9: the Linux and Windows socket-test lines, the Linux mutant red then green, and full-eval green or warning on three OSes, with times and the Node 20 check. Increment 1′ stays a developer preview, not a church release.
 - **How to rerun (replaces the line above):** `cargo test --features cli --test replay_determinism`; full mode with `2> >(grep '^voxxa-eval' >&2)` in bash, not `2>/dev/null`, which also hid voxxa-eval's own errors.
+
+## 2026-11-19 — Q8: Simple mode and the first-run flow (`q8/10x`, ADR-017)
+**Method (user decisions 2 and 3).**
+- (a) The built GUI in headless Edge with a scripted backend: `npm run build && npm run test:gui:e2e -- <dir>`. Listen, the 20-second test and every audio path ran only here, with placeholder words.
+- (b) The real app as a scratch build (`com.voxxa.qa10x`, CDP on port 9341), driven by `scripts/qa/simple-mode-real-app.mjs` with an allow-list of clicks: never Listen, the test, Next/Prev/Blank/Stage, key events, the keystroke presenter, the HTTP API or a model load. A ProPresenter mock (`scripts/qa/mock_pro7.py 1025`) stood in for the presentation app.
+- (c) The pure light table in CI: `npm run test:gui`.
+
+**Usability walk-through.** The research plan's usability test (`specs/2026-10-24-user-research-plan.md` § 2; objective O7: "go from download to green with the quick-start card and no call"; the § 4 reaction prompts), run as tasks. Screenshots: mock `01`-`21`, real `r01`-`r11`.
+
+| # | Task | Mocked GUI | Real app (guarded) |
+|---|---|---|---|
+| U1 | First launch shows the set-up guide | pass (01) | pass (r01) |
+| U2 | Choose the microphone | pass: list, choice saved, Settings shows it (20) | pass: 1 real device listed (names not recorded), Next with Default; no stream opened |
+| U3 | Find the presentation app | pass both ways: none found says "arrow keys, keep your presentation app in front" (04); found, one click connects (05) | pass: auto-detect found the mock on 127.0.0.1:1025; one click connected; the presenter changed from keystroke to ProPresenter REST (r02, r03) |
+| U4 | Get the voice model | pass: Tiny download with a progress bar, then "ready" (06) | partial: "Tiny (75MB) is on this computer." shown (r04); "Use it" not pressed (a failed load renames the user's model file, Q2-50) |
+| U5 | Load this Sunday's songs | pass: the test step asks first and opens the existing file picker (07) | partial: the request is shown (r05); no songs loaded |
+| U6 | 20-second test reaches green | pass: silence fails with "I couldn't hear anything…" (09); sound and words pass with "You're ready" (10); no heard text shown | not run (forbidden) |
+| U7 | Start following, see song and slide | pass: Songs, then amber "Waiting for a song" (12), then green "Following <title>, slide 2 of 3" and "Song 2 of 3" (13) | not run (forbidden) |
+| U8 | "What does amber mean?" | the sentence answers it: waiting for a song, talking not a song (14), or the screen is blank | grey sentence shown (r06) |
+| U9 | "What would you do when it turns red?" | each red sentence names the action: check the cable, check the app is open (15, 16) | no red state reachable safely |
+| U10 | Stop | pass: Off stops listening, grey (11) | not run (never started) |
+| U11 | Find a setting | pass: Advanced, one click, every old panel (18-21) | pass (r08-r10); HTTP API left off |
+| U12 | "No call" | Call for help says the bundle comes in the next update and to call the tech lead; no command runs (17) | same (r07) |
+| U13 | Three controls only | pass: mode switch, Call for help, Advanced; Songs + Scripture disabled | pass (r06) |
+
+**Verdict.** Every task completes on the mocked GUI. On the real app, every task that is safe without a microphone passes. Not proven: the device step on real audio, the 20-second test, Listen to green, Off (U6, U7, U10) and the model load (U4). They belong to the founder's run, which is not a merge gate (user decision 3): a founder checklist item and ticket Q8-01 below.
+
+**Defect found:** the `hidden` attribute did not hide flex boxes, so the diagnostic modal and the welcome overlay covered the window at every start, and every presenter form showed at once. Fixed in Q8 (SDE record). The founder should still look through the old panels once.
+
+**Tickets for the orchestrator (label `q8`):**
+- Q8-01 (medium) The founder's usability run: the research plan's script on the founder's machine with a real microphone and presentation app (U2-U10 above); then five volunteers (O7).
+- Q8-02 (low) Red "Lyrics don't match what I hear" is not mapped: `blank_hold` is amber because a prayer looks the same. Decide a time-based rule from pilot data.
+- Q8-03 (low) Songs are loaded only in Advanced or the first-run test step; Simple mode has no song step for later Sundays. Read the presentation app's playlist (strategy: priority 1).
+- Q8-04 (low) The browser test runs in CI on Windows only.
+- Q8-05 (low) `main.js`'s own listening flag can drift when the HTTP API starts or stops listening. The Simple switch follows the backend, but its click goes through the old Listen button, which then needs two clicks (pre-existing).
+- Q8-06 (low) The first-run model download checks no hash (same as Models, #9).
+
+**Gates:** all pass. (1) `npm ci && npm run build`; (2) `cargo fmt --check`; (3) `cargo clippy --all-targets -- -D warnings`, with and without `--features cli`; (4) `cargo test --features cli` with `VOXXA_REQUIRE_SOCKET_TRACE=1`: 210 passed (56 unit + 154 integration), 1 ignored, 0 failed, unchanged from Q7; (5) `cargo-deny check licenses advisories bans`: ok; (6) `python scripts/loc_budget.py`: all OK; (7) the `dictat` grep prints nothing. The CI eval step: "OK: no metric is worse". `npm run test:gui`: 6/6. `npm run test:gui:e2e`: 77/77. Only binaries match the control-byte grep.

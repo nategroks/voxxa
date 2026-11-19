@@ -61,6 +61,7 @@ First matching row wins:
 - The diagnostic modal moves out of `#app` (same lines) so it still opens while `#app` is hidden.
 - `main.js` gains one line: `loadSetlist` dispatches a `voxxa-setlist` DOM event with the songs, so Simple mode can count slides inside a song. The welcome overlay (markup, CSS, JS) is deleted because the first-run flow replaces it; that frees about 180 GUI lines.
 - The app always opens in Simple mode; it does not remember Advanced.
+- Found while building it: `main.css` gives `#app`, `.modal-overlay`, `.slide-view` and other hidden-toggled boxes `display: flex`, which beats the browser's `[hidden]` rule, so `hidden` hid none of them (the diagnostic modal and the welcome overlay covered the window at every start). One rule in `src/simple/simple.css`, `[hidden] { display: none !important; }`, makes the attribute work everywhere; without it `#app` could not be hidden.
 
 ### 4. First-run flow (replaces the welcome overlay)
 An overlay in `src/simple/firstrun.js`. States:
@@ -83,7 +84,7 @@ An overlay in `src/simple/firstrun.js`. States:
 
 ### 6. Testing
 1. **Pure logic in CI:** `tests/gui/simple_logic.test.mjs` (Node's built-in `node:test`, no dependency) covers every row of the status table, row order, `testVerdict` and the in-song slide count. `ci.yml` runs it after the frontend build on all three OSes.
-2. **Browser with a mocked backend (local):** `tests/gui/e2e.mjs` serves the built `dist/` with `tests/gui/mock-tauri.js` injected before the app's scripts (it is never in the bundle), drives headless Edge or Chrome over the DevTools protocol, scripts every command and event, checks the default view's controls, each Advanced panel one click away, the first-run flow including the 20-second test, and the status rows, and saves screenshots. Listen, the 20-second test and every audio path run only here.
+2. **Browser with a mocked backend (locally, and in CI on Windows):** `tests/gui/e2e.mjs` serves the built `dist/` with `tests/gui/mock-tauri.js` injected before the app's scripts (it is never in the bundle), drives headless Edge or Chrome over the DevTools protocol, scripts every command and event, checks the default view's controls, each Advanced panel one click away, the first-run flow including the 20-second test, and the status rows, and saves screenshots. Listen, the 20-second test and every audio path run only here.
 3. **The real app, guarded (manual, never committed):** a scratch build with identifier `com.voxxa.qa10x` and WebView2 remote debugging through `additionalBrowserArgs`, driven over CDP. Never Listen, never the 20-second test, no keystroke presenter, no stage window, no HTTP API.
 4. **The founder's usability run** of the research plan's script is a founder checklist item and a Q8 ticket, not a merge gate.
 
@@ -99,7 +100,7 @@ An overlay in `src/simple/firstrun.js`. States:
 | Playwright for the browser test | Not available offline; Node 22+ has `fetch` and `WebSocket`, which is all CDP needs. |
 
 ## Consequences
-Good: a volunteer sees three controls and one sentence; every old panel is one click away and unchanged; the light is a pure, tested function of existing signals; the GUI row shrinks. Bad: songs are still loaded in Advanced (the presenter's own playlist is not read yet); one more polling loop (two cheap commands a second); Call for help is a placeholder until Q9; the browser test runs locally, not in CI. Risks: `main.js`'s own listening flag can drift from the backend when the HTTP API starts listening (existing); the switch follows the backend through polling, but the old Listen button may need two clicks then.
+Good: a volunteer sees three controls and one sentence; every old panel is one click away and unchanged; the light is a pure, tested function of existing signals; the GUI row shrinks. Bad: songs are still loaded in Advanced (the presenter's own playlist is not read yet); one more polling loop (two cheap commands a second); Call for help is a placeholder until Q9; the browser test runs in CI on Windows only. Risks: `main.js`'s own listening flag can drift from the backend when the HTTP API starts listening (existing); the switch follows the backend through polling, but the old Listen button may need two clicks then.
 
 ## Review trigger
 Re-open when Q9 wires Call for help, when Increment 4′ enables `Songs + Scripture`, when the founder's usability run fails a task, or if the pilots show the amber `blank_hold` hides a real failure.

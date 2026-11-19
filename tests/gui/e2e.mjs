@@ -71,7 +71,9 @@ async function shutdown(code) {
   } catch {}
   if (browser.exitCode === null) browser.kill();
   server.close();
-  for (let i = 0; i < 5; i++) { try { fs.rmSync(profile, { recursive: true, force: true }); break; } catch { await sleep(500); } }
+  // Edge's helper processes can hold the profile for a few seconds after the browser exits.
+  for (let i = 0; i < 20 && fs.existsSync(profile); i++) { try { fs.rmSync(profile, { recursive: true, force: true }); } catch { await sleep(1000); } }
+  if (fs.existsSync(profile)) console.log(`could not delete the browser profile ${profile}`);
   process.exit(code);
 }
 
