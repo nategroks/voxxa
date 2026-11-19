@@ -513,3 +513,6 @@ Base f8500e3. ADR first (42abe5c), then code with tests. No backend change: `src
 
 ## 2026-11-19 — Q8 finish on `q8/base`
 `q8/10x` merged (b4eacca), then the 10x review's fixes and four ponytail grafts, one commit each (3ab4b6c..21b5b77; list and checks in the QA record). Deviation from the review: must-fix 1 said to ignore switch clicks while a toggle is pending, but its own 150 ms check (Songs, then Off) must end stopped, so a click while pending is kept and sent once the first toggle settled (when `get_status` and the Listen button's `active` class both show it); after 3 polls without that, the switch shows the real state and drops the click. Simple mode row 302 → 341 / 600; GUI row 2,780 unchanged; `main.js` and `src-tauri/` unchanged. ADR-017 §§ 1, 2, 4, 6 and Consequences match the code.
+
+## 2026-11-19 — Q8 verifier fixes on `q8/base`
+ef84473 row 9 needs a position inside the song (`src/simple/logic.js:22`, `:38`); 3f75c09 and b191945 are test-only (`tests/gui/e2e.mjs`). Simple mode row 341 / 600 unchanged; `src-tauri/`, `main.js`, `index.html` unchanged. ADR-017 row 9 and § 6 updated to match. Checks and gates in the QA record.
