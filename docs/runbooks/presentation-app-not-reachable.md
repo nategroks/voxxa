@@ -22,7 +22,8 @@ or "Your presentation app"):
    while Voxxa's window is in front are refused on purpose.
 3. **If Voxxa talks to the app over the network:** in the app, check that its remote control or
    network option is on. Voxxa looks on this computer at the usual ports: ProPresenter 1025,
-   FreeShow 5506, OpenLP 4316, OpenSong 8082.
+   FreeShow 5506, OpenLP 4316, OpenSong 8082. If the app runs on another computer, both computers
+   must be on the same network, and **Host** is that computer's address, not 127.0.0.1.
 4. In Voxxa, press **Advanced**, then the **Settings** tab. Under **Presentation App**, press
    **Auto-detect**, or pick your app, check the host and port, type the password if it has one,
    and press **Connect**.
