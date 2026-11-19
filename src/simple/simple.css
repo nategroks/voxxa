@@ -1,0 +1,31 @@
+/* Simple mode and the first-run flow (ADR-017). Colours come from main.css. */
+/* main.css gives several hidden-toggled boxes (#app, .modal-overlay, .slide-view…) display: flex,
+   which beats the browser's own [hidden] rule; make the attribute win everywhere. */
+[hidden] { display: none !important; }
+
+#simple { display: flex; flex-direction: column; gap: 16px; height: 100vh; padding: 20px 16px; overflow-y: auto; }
+.s-switch { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.s-switch button { padding: 14px 4px; border: none; border-radius: 9px; background: none; color: var(--text-dim); font-size: 15px; font-weight: 600; cursor: pointer; }
+.s-switch button[aria-checked="true"] { background: var(--accent); color: #fff; }
+.s-switch button:disabled { opacity: 0.4; cursor: not-allowed; }
+.s-status { display: flex; align-items: center; gap: 14px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); font-size: 15px; line-height: 1.4; }
+.s-light { flex: none; width: 24px; height: 24px; border-radius: 50%; background: #6b7280; }
+.s-light.amber { background: #f59e0b; }
+.s-light.green { background: var(--success); }
+.s-light.red { background: var(--danger); }
+.s-now { padding: 0 4px; }
+#s-song { font-size: 17px; font-weight: 600; }
+#s-slide { margin-top: 4px; color: var(--text-dim); }
+.s-help { margin-top: auto; padding: 14px; border: 1px solid var(--danger); border-radius: var(--radius); background: none; color: var(--text); font-size: 15px; font-weight: 600; cursor: pointer; }
+.s-help-msg { font-size: 13px; line-height: 1.4; color: var(--text-dim); }
+.s-link { align-self: center; background: none; border: none; color: var(--text-dim); font-size: 13px; text-decoration: underline; cursor: pointer; }
+.s-link:hover { color: var(--text); }
+.s-back { display: flex; gap: 10px; margin-left: auto; padding-left: 10px; }
+
+.fr { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(10, 10, 15, 0.92); }
+.fr-card { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 380px; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; font-size: 14px; line-height: 1.45; }
+.fr-step { font-size: 12px; color: var(--text-dim); }
+.fr-extra { display: flex; flex-direction: column; gap: 8px; }
+.fr-extra select, .fr-extra progress { width: 100%; }
+.fr-extra select { padding: 8px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
+.fr-actions { display: flex; justify-content: space-between; align-items: center; }

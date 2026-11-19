@@ -63,6 +63,19 @@ jobs:
       - name: Build frontend
         run: npm ci && npm run build
 
+      # Q8 / ADR-017: Simple mode's status-light table and test verdict are
+      # pure functions (src/simple/logic.js); node:test, no dependency.
+      - name: GUI logic tests
+        run: npm run test:gui
+
+      # Q8 / ADR-017: the built GUI in headless Edge with a mocked backend
+      # (tests/gui/mock-tauri.js, never shipped): Simple mode, the first-run
+      # flow, the status light and every Advanced panel. Windows only, where
+      # it was verified; it needs no audio device.
+      - name: GUI in a browser with a mocked backend
+        if: runner.os == 'Windows'
+        run: npm run test:gui:e2e -- "${{ runner.temp }}/gui-e2e"
+
       - name: cargo fmt
         working-directory: src-tauri
         run: cargo fmt --check

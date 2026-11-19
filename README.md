@@ -11,11 +11,12 @@ Voxxa listens to the room and advances the lyric slides for you. It runs beside 
 - Blanks the projected output when the music stops and brings the slide back when the singing resumes.
 - Loads the setlist from a Voxxa JSON file, from files exported by common worship software (see `docs/SETLIST_FORMATS.md`), or from a Planning Center Services plan.
 - Shows the operator which song it hears and a preview of the current and next slide. Previews are for the operator; the projected display stays with your presentation software.
+- Opens in Simple mode, one screen for volunteers: a switch (Off / Songs), a status light with one plain sentence, the current song and slide, and a Call for help button. Every other setting is behind "Advanced". A first-run guide picks the microphone, finds the presentation software, downloads the speech model and runs a 20-second test.
 
 On the roadmap, not in the code yet:
 
-- *Songs + Scripture* mode: hear a spoken reference ("Romans 8, verse 28"), confirm it from the first words read, and ask the presentation software to show the verse.
-- A one-screen Simple mode for volunteers: a three-position switch (Off / Songs / Songs + Scripture), a status light, and a Call for help button.
+- *Songs + Scripture* mode (shown in the switch, not yet selectable): hear a spoken reference ("Romans 8, verse 28"), confirm it from the first words read, and ask the presentation software to show the verse.
+- Call for help sending a support bundle. Today the button tells the volunteer to call their tech lead.
 
 ## What it does not do
 
