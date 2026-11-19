@@ -1,0 +1,157 @@
+# Q7 (user decision 2026-11-18): the full fixture eval with Whisper Tiny on
+# Linux, macOS and Windows. REPORT ONLY: it prints the table, adds it to the
+# job summary and uploads it as an artifact. A metric that differs from
+# fixtures/baseline.json does NOT fail it (Whisper's output may differ by
+# OS); only a broken build, download, checksum or eval run does. The PR gate
+# stays in ci.yml (replay, determinism). Runbook: docs/runbooks/eval-regression.md.
+#
+# Run it from the Actions tab ("Run workflow"). workflow_dispatch works only
+# once this file is on the default branch, so it also runs on a pull request
+# that changes this file.
+name: Full eval (report only)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/full-eval.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The URL the app downloads from (src-tauri/src/transcription/mod.rs,
+  # WhisperModel::download_url). "main" can move, so the file is pinned by
+  # SHA-256 (the Hugging Face LFS pointer's oid, 77,691,713 bytes; equal to
+  # the reference PC's copy on 2026-11-19).
+  MODEL_URL: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
+  MODEL_SHA256: be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21
+
+jobs:
+  full-eval:
+    name: voxxa-eval --full (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    # A debug build of all six fixtures took 38 min on the 4-core reference
+    # PC in Q7 (with another full eval running beside it; about 12 min in Q6
+    # on an idle PC). Hosted runners are slower: 180 min leaves headroom.
+    timeout-minutes: 180
+    steps:
+      # Actions are pinned to commit SHAs (tag in the comment).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16
+        with:
+          toolchain: 1.99.1
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+          key: full-eval
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libxdo-dev
+
+      # tauri::generate_context! embeds ../dist, so the frontend must exist before cargo runs.
+      - name: Build frontend
+        run: npm ci && npm run build
+
+      # Where voxxad looks for models: <data dir>/voxxa/models (dirs::data_dir()).
+      - name: Locate the model folder
+        shell: bash
+        run: |
+          case "$RUNNER_OS" in
+            Linux)   dir="${XDG_DATA_HOME:-$HOME/.local/share}/voxxa/models" ;;
+            macOS)   dir="$HOME/Library/Application Support/voxxa/models" ;;
+            Windows) dir="$APPDATA/voxxa/models" ;;
+          esac
+          mkdir -p "$dir"
+          echo "MODEL_DIR=$dir" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.MODEL_DIR }}/ggml-tiny.bin
+          key: whisper-ggml-tiny-${{ runner.os }}-${{ env.MODEL_SHA256 }}
+
+      # The cached copy is checked too: the pinned hash decides, not the cache.
+      - name: Download Whisper Tiny and verify its SHA-256
+        shell: bash
+        working-directory: ${{ env.MODEL_DIR }}
+        run: |
+          set -euo pipefail
+          if [ ! -f ggml-tiny.bin ]; then
+            curl -fL --proto '=https' --tlsv1.2 --retry 3 -o ggml-tiny.bin.part "$MODEL_URL"
+            mv ggml-tiny.bin.part ggml-tiny.bin
+          fi
+          if command -v sha256sum >/dev/null; then
+            sum=$(sha256sum ggml-tiny.bin | cut -d' ' -f1)
+          else
+            sum=$(shasum -a 256 ggml-tiny.bin | cut -d' ' -f1)
+          fi
+          if [ "$sum" != "$MODEL_SHA256" ]; then
+            rm -f ggml-tiny.bin
+            echo "::error::ggml-tiny.bin has SHA-256 $sum, expected $MODEL_SHA256"
+            exit 1
+          fi
+          echo "ggml-tiny.bin verified: $sum"
+
+      - name: Build voxxad and voxxa-eval
+        working-directory: src-tauri
+        run: cargo build --features cli --bin voxxad --bin voxxa-eval
+
+      # Whisper writes the words it recognises to stderr. Keep them out of the
+      # log: only voxxa-eval's own messages are shown. Exit 0 = no metric worse
+      # than the baseline, 1 = some metric differs (reported, not failed),
+      # anything else = the eval itself broke (fails the job).
+      - name: voxxa-eval --full (report only)
+        working-directory: src-tauri
+        shell: bash
+        run: |
+          set +e
+          ./target/debug/voxxa-eval --full > "$RUNNER_TEMP/full-eval.txt" 2> "$RUNNER_TEMP/stderr.txt"
+          code=$?
+          set -e
+          cp "$RUNNER_TEMP/full-eval.txt" "../full-eval-${{ matrix.os }}.txt"
+          cat "$RUNNER_TEMP/full-eval.txt"
+          grep '^voxxa-eval:' "$RUNNER_TEMP/stderr.txt" | cut -c1-300 || true
+          {
+            echo "### voxxa-eval --full on ${{ matrix.os }} (exit $code)"
+            echo '```'
+            cat "$RUNNER_TEMP/full-eval.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          case "$code" in
+            0) echo "Full eval: no metric is worse than fixtures/baseline.json." ;;
+            1) echo "::warning::Full eval on ${{ matrix.os }}: a metric differs from fixtures/baseline.json (report only; see docs/runbooks/eval-regression.md)." ;;
+            *) echo "::error::voxxa-eval --full failed with exit $code"; exit "$code" ;;
+          esac
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: full-eval-${{ matrix.os }}
+          path: full-eval-${{ matrix.os }}.txt
+          if-no-files-found: warn

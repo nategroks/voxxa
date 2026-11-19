@@ -139,7 +139,7 @@ fn voxxad(args: &[&OsStr], cwd: Option<&Path>) -> Result<String, String> {
         cmd.current_dir(dir);
     }
     let out = (cmd.args(args).stderr(Stdio::inherit()).output())
-        .map_err(|e| format!("{}: {e} (build it: cargo build --bins)", exe.display()))?;
+        .map_err(|e| format!("{}: {e} (cargo build --features cli --bins)", exe.display()))?;
     let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
     match out.status.success() {
         true => Ok(stdout),

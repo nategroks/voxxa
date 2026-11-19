@@ -47,11 +47,13 @@ evidence = total(["aligner/evidence/"])
 conductor = total(["aligner/"]) - evidence
 presenters = total(["presenters/"])
 importers = total(["importers/", "planning_center/"])
+# Q7: both CLI tools moved from src/bin/ to src/cli/ so the installers leave
+# them out (Cargo.toml, [[bin]] entries); the rows count the same files.
 # Recorded deviation from ADR-010 Decision 3 (ADR-013, user decision 2026-11-12):
 # the voxxad CLI binary gets its own row instead of raising "everything else".
 # The listening loop it shares with the GUI lives in the library and counts in
 # "everything else", which stays at 2500.
-voxxad = total(["bin/voxxad.rs", "bin/voxxad/"])
+voxxad = total(["cli/voxxad/"])
 # Recorded deviation from ADR-010 Decision 3 (ADR-014, user decision 2026-11-12):
 # the Whisper engine (transcription/, 251 code lines before Q4) and the new
 # recognizer code (Recognizer trait, Hypothesis, the rolling window, all in
@@ -61,7 +63,7 @@ recognizer = total(["transcription/"])
 # Recorded deviation from ADR-010 Decision 3 (ADR-015, user decision 2026-11-13):
 # the voxxa-eval binary (fixture scoring, Q5) gets its own row instead of
 # raising "everything else", which stays at 2500.
-voxxa_eval = total(["bin/voxxa-eval.rs", "bin/voxxa-eval/"])
+voxxa_eval = total(["cli/voxxa-eval/"])
 rest = sum(rust.values()) - conductor - evidence - presenters - importers - voxxad - recognizer - voxxa_eval
 
 checks = [
@@ -70,9 +72,9 @@ checks = [
     ("presenters/ total", presenters, 2000),
     ("importers/ + planning_center/", importers, 1600),
     ("everything else in src-tauri/src", rest, 2500),
-    ("voxxad binary (src/bin/voxxad*)", voxxad, 600),
+    ("voxxad binary (src/cli/voxxad/)", voxxad, 600),
     ("recognizer (transcription/ + recognizer code)", recognizer, 700),
-    ("voxxa-eval (src/bin/voxxa-eval*)", voxxa_eval, 600),
+    ("voxxa-eval (src/cli/voxxa-eval/)", voxxa_eval, 600),
     ("GUI (src/, index.html, stage.html)", sum(gui.values()), 3000),
 ]
 for f, n in sorted(rust.items()):

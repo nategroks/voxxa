@@ -29,10 +29,17 @@ fixtures/
 From the repository root (Windows, macOS or Linux):
 
 ```sh
-cargo build --manifest-path src-tauri/Cargo.toml --bin voxxad --bin voxxa-eval
-cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval            # replay (CI)
-cargo run --manifest-path src-tauri/Cargo.toml --bin voxxa-eval -- --full  # Whisper Tiny
+cargo build --manifest-path src-tauri/Cargo.toml --features cli --bin voxxad --bin voxxa-eval
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval            # replay (CI)
+cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full  # Whisper Tiny
 ```
+
+Both tools need the `cli` feature (off by default, so the installers leave
+them out; Q7). The tests that run them need it too:
+`cargo test --manifest-path src-tauri/Cargo.toml --features cli`, as CI runs it.
+CI's separate "Full eval" workflow (`.github/workflows/full-eval.yml`, run
+by hand) runs `--full` with a checksum-pinned Whisper Tiny on Linux, macOS
+and Windows and only reports the table; see `docs/runbooks/eval-regression.md`.
 
 `voxxa-eval` runs the `voxxad` binary built beside it on every folder in
 `fixtures/recordings` (or the folders given as arguments), reads the
@@ -46,16 +53,25 @@ row per fixture plus a total, and checks each row against `baseline.json`.
   `SmartConfig` stored in each log's start line (`info.config`), not from
   today's defaults: a change to a `SmartConfig` default is not seen by
   replay (or CI) until the logs are re-recorded, or their start-line config
-  is edited (ticket Q5-07). Fields missing from a log's start-line config
-  do take today's defaults: today that is the ADR-016 `evidence` block in 4
-  of the 6 logs (only `refrain-it-is-well` and `prayer-before-first-song`
-  record it), so retuning an `EvidenceConfig` default moves CI for those 4.
+  is edited (ticket Q5-07, #78). Fields missing from a log's start-line
+  config take today's defaults, but since Q7 all six logs store the whole
+  `SmartConfig`, the ADR-016 `evidence` block included. So a change to any
+  `SmartConfig` or `EvidenceConfig` default moves no replay until the logs
+  are re-recorded: such a PR must re-record them (below).
+- **Determinism (CI on three OSes, `src-tauri/tests/replay_determinism.rs`):**
+  every committed log must replay to its own `action` lines, byte for byte,
+  and two replays of it must agree. So a conductor PR that changes actions
+  must re-record the affected logs with `voxxa-eval --full --record
+  fixtures/recordings/<name>`, and its commit must say why; their recogniser
+  lines stay the same. `docs/runbooks/eval-regression.md` tells such a
+  re-record from a real regression.
 - **Full (`--full`, local):** `voxxad --stdin-audio audio.wav --setlist setlist.json
   --shadow --model tiny`, at file speed. When the fixture has an `audio.json`,
   `audio.wav` is rebuilt from it first. Needs `ggml-tiny.bin` (download it in
   the app). A debug build takes about 2 s per second of audio; a release
-  build on Windows is much slower (Q4-01). Whisper's own log goes to stderr;
-  add `2>/dev/null` to hide it.
+  build on Windows is much slower (Q4-01). Whisper's own log (the words it
+  hears) goes to stderr; keep only `voxxa-eval`'s lines with
+  `2> >(grep '^voxxa-eval' >&2)` (bash), as `full-eval.yml` does.
 - **Re-recording (`--full --record`):** also saves the session log as the
   fixture's `session.jsonl`. `voxxad` runs in a temporary folder with
   `--log-dir .`, so the `log` path on the start line is relative

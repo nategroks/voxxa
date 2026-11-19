@@ -1,5 +1,16 @@
 # QA — church-autoadvance
 
+## 2026-11-19 — Q7 final (`q7/base` @ 6386f6b; both verifiers passed)
+Details: `reviews/2026-11-19-qa-report.md` §11; the lanes and rulings: `reviews/2026-11-19-ponytail-q7.md`.
+- **Both verifiers passed at 6386f6b.** Gates 1-7 and the CI eval step pass (210 passed, 1 ignored; the table unchanged from Q6). The socket mutants (TCP connect, and a UDP socket that never connects) fail the zero-sockets test; a 1 ms change to one logged action fails the determinism test at that fixture only; the NSIS script names neither tool. No test is hidden from CI: all 201 base tests still run with `--features cli`, plus 10 new.
+- **Decision: the QA position is final.** Ready to merge once the PR's first CI run shows the evidence in QA report §9-§10 (Linux and Windows socket tests green, the Linux mutant red then green, full-eval green or warning on three OSes with times and the Node 20 check). Then the orchestrator runs full-eval once by hand on `main` (`workflow_dispatch`) and records its tables.
+- **Release readiness of Increment 1′:** complete as a developer preview of the CLI; not a church release (p95 4.87 s against 2.5 s, #84; synthetic speech only, #73; founder checklist open).
+- **Tickets:** 12 open (1 medium, 11 low), including Q7-08 to Q7-13 added at the close; Q7 closes #47 and #75.
+
+## 2026-11-19 — Q7 verifier fixes (aa16e90)
+- Gate 4 was flaky on Windows: `replay_opens_no_socket` counted Winsock-AFD events by pid alone. Fixed: only socket and connect events inside each child's start-to-exit window count (security review §10), with unit tests that fail if the window or the event filter is removed.
+- Re-proved at aa16e90: 4 of 4 full `cargo test --features cli` runs pass (210 passed, 1 ignored); the CI eval step exits 0 with the table unchanged; the socket mutant fails; the determinism mutant fails; the NSIS installer names neither tool (control names both). QA report §10.
+
 ## 2026-10-24 — Windows verification of Increment 0 (local Windows session, handoff task 1)
 
 Machine: Windows 11 Pro 10.0.26300, AMD Ryzen 3 1200 (4 cores, no SMT), fresh toolchain
@@ -108,3 +119,27 @@ All seven pass on Windows: 45 unit + 33 integration tests; budgets GUI 2951/3000
 - **Verifiers:** after two more rounds with findings (c5ae273, d57f060), both verifiers passed at 97cc21b. Verifier A checked every goto against the audio segments, no goto during a prayer, and replay byte-identical across CRLF and LF checkouts. Verifier B ran 51 mutants; four non-blocking survivors are tickets Q6-13 and Q6-14.
 - **QA position: ready to merge** once CI is green on all jobs. The latency limb of the budget is still missed (Q6-03), and all six fixtures are still synthetic speech (Q5-01).
 - **Note for Q7:** `voxxa-eval --full` writes recognised words to stderr. Redirect it (`2>/dev/null`) so no recognised text reaches an agent's output.
+
+## 2026-11-19 — Q7: close of Increment 1′ (`q7/10x`)
+Report: `reviews/2026-11-19-qa-report.md`. Tickets: `reviews/2026-11-19-q7-tickets.md`.
+- **Full fixture eval:**
+  - On the Windows reference PC, Whisper Tiny at the head gives exactly the replay table on all six fixtures: 21/21 hits, 0 false, 0 double, median 2,310 ms, p95 4,870 ms, blank 7,280 ms, unblank 2,490 ms, exit 0.
+  - On three OSes in CI, it runs as `.github/workflows/full-eval.yml`. That job is report-only (user decision), uses a SHA-256-pinned model, and has not run on GitHub yet; its first run is on the Q7 PR.
+- **Replay determinism is a PR-gate test on three OSes:** `tests/replay_determinism.rs`.
+  - Every committed log must replay to its own action lines byte for byte, and two replays must agree byte for byte.
+  - Four logs held the 733c7e1 conductor's actions. They were re-recorded (20e3301). Their recogniser lines were identical (576/926/482/343 lines), and the table was unchanged, so `baseline.json` is unchanged.
+  - Mutation: replay printing the wall time fails it on all seven logs.
+- **Decision: the determinism contract is "a log's actions are today's conductor's".** A conductor change that moves actions must re-record the affected logs in the same PR, with the reason in the commit; the runbook says how. Since Q7, all six logs store their whole `SmartConfig`.
+- **Gates at the head:** all pass, with 207 tests under `--features cli` (56 unit + 151 integration). Plain `cargo test` passes 147 and skips the four CLI test files (Q7-04).
+- **QA position:** ready to merge once CI is green on all jobs, the new full-eval job included (it may warn, but must not fail). Increment 1′ is complete as a developer preview. It is not ready for churches: p95 is 4.87 s against a 2.5 s budget (#84), the fixtures are synthetic speech only (#73), and the founder checklist is open.
+- **How to rerun:** `cargo test --features cli --test replay_determinism`; `voxxa-eval --full` with stderr filtered to `voxxa-eval:` lines (see the finish entry below); see `docs/runbooks/eval-regression.md`.
+
+## 2026-11-19 — Q7 finish on `q7/base` (merge of `q7/10x`, grafts, review fixes)
+Details: `reviews/2026-11-19-qa-report.md` section 9.
+- **Decision: a plain `cargo test` fails the CLI tests, on purpose (closes Q7-04).** The `[[test]] required-features` blocks are gone. Each test file that runs `voxxad` or `voxxa-eval` checks `cfg!(feature = "cli")` and panics with "run: cargo test --features cli". Plain run: 197 passed, 10 failed with the hint; `--features cli` (CI): 207 passed.
+- **Not grafted as written:** ponytail's `option_env!("CARGO_BIN_EXE_voxxad")` guard. Cargo 1.99.1 sets that variable even for a bin that `required-features` skips. So the guard never fires, and a stale binary can pass the tests (seen here: `replay_determinism` 2/2 on an old `voxxad.exe`).
+- **One log list:** `tests/common/mod.rs` `committed_logs()` feeds both `replay_determinism` and `replay_no_sockets`.
+- **The determinism rule is in `fixtures/README.md` now:** every committed log replays to its own action lines; an action-changing conductor PR re-records the affected logs with `voxxa-eval --full --record` and says why; all six logs store the whole `SmartConfig`, so a default change needs a re-record (#78).
+- **Re-proved at the finish:** gates 1-7 and the CI eval step pass (table unchanged, exit 0); determinism passes, and a 1 ms change to one logged action fails it at that fixture only; the socket mutant fails the socket test (11 AFD events) and passes after the revert; the NSIS script names neither tool (control with `--features cli` names both).
+- **QA position: ready to merge once the first CI run shows** the evidence listed in the QA report section 9: the Linux and Windows socket-test lines, the Linux mutant red then green, and full-eval green or warning on three OSes, with times and the Node 20 check. Increment 1′ stays a developer preview, not a church release.
+- **How to rerun (replaces the line above):** `cargo test --features cli --test replay_determinism`; full mode with `2> >(grep '^voxxa-eval' >&2)` in bash, not `2>/dev/null`, which also hid voxxa-eval's own errors.

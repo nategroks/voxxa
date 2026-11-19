@@ -3,15 +3,25 @@
 //! `fixtures/baseline.json`). No Whisper model or audio device is needed.
 
 #[allow(dead_code)]
-#[path = "../src/bin/voxxa-eval/audio.rs"]
+#[path = "../src/cli/voxxa-eval/audio.rs"]
 mod audio;
 #[allow(dead_code)]
-#[path = "../src/bin/voxxa-eval/score.rs"]
+#[path = "../src/cli/voxxa-eval/score.rs"]
 mod score;
 
 use score::{check, parse_actions, parse_truth, score, table, At, Cue, Metrics};
 use serde_json::json;
 use std::process::Command;
+
+/// The binary is built only with `--features cli`. Cargo sets `CARGO_BIN_EXE_voxxa-eval`
+/// even when it skips the binary, and the path may hold a stale build,
+/// so the feature is checked: a plain `cargo test` fails here, loudly.
+fn eval_exe() -> &'static str {
+    if !cfg!(feature = "cli") {
+        panic!("run: cargo test --features cli");
+    }
+    env!("CARGO_BIN_EXE_voxxa-eval")
+}
 
 fn slide(t: u64, s: usize) -> At {
     song(t, 0, s)
@@ -530,10 +540,7 @@ fn the_audio_recipe_refuses_a_wav_that_is_not_16_khz_mono_16_bit() {
 }
 
 fn eval(args: &[&str]) -> (String, i32) {
-    let out = Command::new(env!("CARGO_BIN_EXE_voxxa-eval"))
-        .args(args)
-        .output()
-        .unwrap();
+    let out = Command::new(eval_exe()).args(args).output().unwrap();
     (
         String::from_utf8(out.stdout).unwrap(),
         out.status.code().unwrap(),
@@ -625,10 +632,7 @@ fn a_session_log_recorded_with_another_setlist_is_an_error_not_a_score() {
     ] {
         std::fs::copy(from.join(src).join(file), fixture.join(file)).unwrap();
     }
-    let out = Command::new(env!("CARGO_BIN_EXE_voxxa-eval"))
-        .arg(&fixture)
-        .output()
-        .unwrap();
+    let out = Command::new(eval_exe()).arg(&fixture).output().unwrap();
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert_eq!(out.status.code(), Some(2), "{stderr}");
     assert!(stderr.contains("different setlist"), "{stderr}");

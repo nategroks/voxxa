@@ -6,8 +6,8 @@ authors = ["nategroks"]
 license = "GPL-3.0-or-later"
 edition = "2021"
 rust-version = "1.90"
-# `voxxad` (src/bin/voxxad/) is the second binary; `cargo run` and `tauri dev`
-# keep starting the app.
+# `cargo run` and `tauri dev` keep starting the app. The developer tools
+# `voxxad` and `voxxa-eval` need `--features cli` (see [features]).
 default-run = "voxxa"
 
 [lib]
@@ -17,6 +17,22 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [[bin]]
 name = "voxxa"
 path = "src/main.rs"
+
+# Q7 (user decision 2026-11-18): the CLI tools do not ship in the installers.
+# tauri-cli bundles every [[bin]] whose required features are on, and every
+# entry of src/bin/, so the tools live in src/cli/ and need the off-by-default
+# `cli` feature. `tauri build` passes no feature: the installers carry voxxa
+# only. CI passes it; run `cargo test --features cli` (a plain `cargo test`
+# fails the tests that run the tools, on purpose).
+[[bin]]
+name = "voxxad"
+path = "src/cli/voxxad/main.rs"
+required-features = ["cli"]
+
+[[bin]]
+name = "voxxa-eval"
+path = "src/cli/voxxa-eval/main.rs"
+required-features = ["cli"]
 
 [build-dependencies]
 tauri-build = { version = "2.7", features = [] }
@@ -93,6 +109,8 @@ mdns-sd = "0.13"
 
 [features]
 default = []
+# Builds the developer tools voxxad and voxxa-eval (see the [[bin]] entries).
+cli = []
 
 [profile.release]
 strip = true

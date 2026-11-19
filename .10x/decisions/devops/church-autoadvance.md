@@ -1,5 +1,62 @@
 # DevOps — church-autoadvance
 
+## 2026-11-19 — Q7 final (`q7/base` @ 6386f6b; both verifiers passed)
+- **Both verifiers passed at 6386f6b.** At the head, `npx tauri build --debug --bundles nsis` gives an `installer.nsi` that names neither tool, with fresh `voxxad.exe` and `voxxa-eval.exe` in the target folder; the `--features cli` control names both. `build.yml` passes no feature. `ci.yml` lints and tests with `--features cli`.
+- **Correction:** the entry below said full-eval "runs once on the PR that adds it". It runs on **every push** to that PR, because the paths filter looks at the whole PR diff; `cancel-in-progress` stops the older run. After the merge it runs only by hand (`workflow_dispatch`).
+- **Release path (decided, not yet done; for the orchestrator):** push `q7/base`, open a draft PR, get every job green (full-eval may warn), merge, then run full-eval once by hand on `main` and record its three tables and times in the QA report. No tag and no GitHub release (user decision 3).
+- **Open, for the first CI run:** the Node 20 check on the older pins (below); record the per-OS run time.
+
+## 2026-11-19 — Q7 verifier fixes (aa16e90)
+- **`ci.yml`:** the `cargo test` step also sets `VOXXA_REQUIRE_NETNS: ${{ runner.os == 'Linux' && '1' || '' }}`. The matrix comment no longer says to read the `traced with` line in the log. That line shows only with `--nocapture`, and a missing `unshare -rn` now fails the job instead.
+- **Installer exclusion re-proved at aa16e90:** the NSIS script names neither tool, and the `--features cli` control names both. The head installer was rebuilt last.
+
+## 2026-11-19 — Q7 finish on `q7/base`
+- **`Cargo.toml`:** the four `[[test]] required-features = ["cli"]` blocks are deleted (c9271f0). CI already runs `cargo test --features cli`, so CI does not change. A plain `cargo test` now fails the CLI tests with "run: cargo test --features cli" instead of skipping them. The `[[bin]]` comment now reads "CI passes it; run `cargo test --features cli`" (171ad76).
+- **Exclusion re-proved at the head.** `npx tauri build --debug --bundles nsis` produced an `installer.nsi` whose "Copy external binaries" section is empty, and the file names neither tool. Fresh `voxxad.exe` and `voxxa-eval.exe` sat in the target folder during the build. Control: with `--features cli`, both tools are listed. The head installer was rebuilt last (14,245,540 bytes).
+- **`ci.yml`:** a comment pins the reason for `ubuntu-22.04` (5fa4c76).
+- **`full-eval.yml`:** the timing comment now gives the measured times: 38 min in Q7 on a shared PC, and about 12 min on an idle PC in Q6 (911d56c). `timeout-minutes` stays 180.
+- **Open, for the first CI run:** check the full-eval run for Node 20 deprecation warnings on checkout v4.2.2, rust-cache v2.7.8, cache v4.2.3, setup-node v4.4.0 and upload-artifact v4.6.2. Bump any pin that warns, keeping it SHA-pinned. Record the per-OS run time.
+
+## 2026-11-19 — Q7: the CLI stays out of the installers; full eval in its own workflow; release notes as a file
+
+### Decisions
+- **`voxxad` and `voxxa-eval` do not ship (user decision 2026-11-18; Q3-03 #47, Q5-03 #75).** They moved from `src-tauri/src/bin/` to `src-tauri/src/cli/`, with explicit `[[bin]]` entries that carry `required-features = ["cli"]`. The `cli` feature is off by default. `tauri build` (locally, or `build.yml`'s tauri-action) passes no feature, so the installers carry `voxxa` only. CI lints with and without the feature, and runs `cargo test --features cli` and the eval step with it. Commit b9692c5.
+- **Why both a move and a feature:** tauri-cli 2.10.1 picks the binaries to bundle in `get_binaries` (`src/interface/rust.rs`). It takes every `[[bin]]` whose required features are enabled, **and every entry of `src/bin/` it has not already seen**, whatever that entry's features. A feature alone would not have removed a tool that lives in `src/bin/`. The same list feeds every bundle type (NSIS, MSI, deb, AppImage, `.app`).
+- **A defect that was already there:** at 46cb6d1 the NSIS installer carried `voxxa-eval.exe`, so Q5-03 was real. `voxxad` was left out only by accident. tauri-cli adds `src/bin` entries with no source path, and `Path::ends_with("")` is true for any path, so the second `src/bin` folder in the listing is skipped. Which one comes second depends on the OS's directory order (NTFS lists `voxxa-eval` first). On Linux or macOS the installers could have carried `voxxad` instead.
+- **Regression guard:** `src-tauri/tests/packaging.rs` runs without the feature. It checks that both tools need `cli` and live under `src/cli/`, that `cli` is not a default feature, and that `src/bin/` does not exist.
+- **Full eval, report only (user decision):** `.github/workflows/full-eval.yml`.
+  - **Triggers:** `workflow_dispatch`, plus `pull_request` with `paths: [.github/workflows/full-eval.yml]`, so it runs on the PR that adds it (on every push to that PR; see "Q7 final").
+  - **Runners:** ubuntu-22.04, windows-latest and macos-latest, with `fail-fast: false` and a 180-minute timeout.
+  - **Model:** it downloads `ggml-tiny.bin` from the app's own URL (`transcription/mod.rs`, `download_url`) into each OS's model folder and caches it (key = OS + SHA-256). It always re-checks the pinned SHA-256 `be07e048…1b21`. That hash equals the Hugging Face LFS pointer's oid (77,691,713 bytes) and the reference PC's copy.
+  - **Run:** a debug build (release on Windows is slower, Q4-01), then `voxxa-eval --full`. Exit 0 or 1 passes. Exit 1 means a metric differs: the job prints a `::warning::` and the table, and never fails for it. Any other exit fails the job.
+  - **Output:** stderr is dropped except the `voxxa-eval:` lines, so recognised words stay out of the CI log. The table goes to the job summary and to an artifact (`full-eval-<os>`).
+  - **Hardening:** `permissions: contents: read`, `persist-credentials: false`, and every action pinned to a commit SHA.
+- **CI hardening:** `ci.yml` gained `permissions: contents: read`, and installs `strace` for the socket test. Its actions still use tags (ticket Q7-03).
+- **Release notes are a file (user decision: no tag, no GitHub release):** `docs/releases/voxxad-cli-preview.md`. It covers:
+  - what changed in Q3-Q7;
+  - how to build from source (`--features cli`; debug on Windows);
+  - the model and its SHA-256;
+  - safe first runs (`--shadow`) and the keystroke warning;
+  - 16 kHz conversion with ffmpeg;
+  - the privacy of session logs in the roaming `%APPDATA%` (`--log-dir`), and the network statement;
+  - known limits.
+- **Companion:** `docs/INTEGRATIONS.md`, "Driving `voxxad` from Bitfocus Companion". It gives start and stop scripts (a single-instance check, `--shadow` first, `pkill -INT` or `taskkill /F`), the keystroke warning "focus the presentation app", and the privacy and network notes. It names no Companion feature beyond "an action that runs a local program", and tells the reader to check their Companion version.
+
+### Proof of the exclusion (Windows, `npx tauri build --debug --bundles nsis`, tauri-cli 2.10.1)
+The table shows the "Copy external binaries" section of the generated `installer.nsi`. Every run had a stale `voxxad.exe` and `voxxa-eval.exe` in the target folder, so the bundler had files to copy if it wanted them.
+
+| Tree | Lines under "Copy external binaries" |
+|---|---|
+| 46cb6d1 (before) | `File /a "/oname=voxxa-eval.exe" …\debug\voxxa-eval.exe` |
+| b9692c5 (after) | none |
+| b9692c5 with `--features cli` (control) | `voxxa-eval.exe` and `voxxad.exe` |
+
+The installer built (`Voxxa_0.1.0_x64-setup.exe`, 14,244,652 bytes after the change). MSI, deb, AppImage and `.app` were not built locally; they take their binary list from the same `get_binaries`.
+
+### Not done
+- No tag, no release and no signing (user decision). `build.yml` is unchanged, and it now builds no tool.
+- The full-eval workflow has not run on GitHub yet. It runs on the Q7 PR (paths filter), and that first run on each OS is also its test.
+
 ## 2026-10-24 — Signing and Store prep (local Windows session, handoff task 5)
 
 ### Built

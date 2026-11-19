@@ -4,10 +4,10 @@
 //! device (the recogniser's decoder is faked), so they run in CI.
 
 #[allow(dead_code)]
-#[path = "../src/bin/voxxad/cli.rs"]
+#[path = "../src/cli/voxxad/cli.rs"]
 mod cli;
 #[allow(dead_code)]
-#[path = "../src/bin/voxxad/events.rs"]
+#[path = "../src/cli/voxxad/events.rs"]
 mod events;
 
 use events::{expired, fingerprint, replay, status, Act, Kind, Line, Recorder};
@@ -21,6 +21,16 @@ use tokio::sync::Mutex;
 use voxxa_lib::listen::{self, Event, Input};
 use voxxa_lib::transcription::{Decode, Hypothesis, Recognizer, Rolling, Word};
 use voxxa_lib::{Action, Conductor, MachineState, Setlist, SmartConfig, Song, VadEngine};
+
+/// The binary is built only with `--features cli`. Cargo sets `CARGO_BIN_EXE_voxxad`
+/// even when it skips the binary, and the path may hold a stale build,
+/// so the feature is checked: a plain `cargo test` fails here, loudly.
+fn voxxad_exe() -> &'static str {
+    if !cfg!(feature = "cli") {
+        panic!("run: cargo test --features cli");
+    }
+    env!("CARGO_BIN_EXE_voxxad")
+}
 
 const SETLIST: &str = "tests/fixtures/voxxad/pd-hymns-setlist.json";
 /// A real `voxxad --stdin-audio … --shadow` session (Whisper Tiny on
@@ -1395,10 +1405,7 @@ fn the_mic_meter_reports_peak_and_rms_per_33_ms_window_of_audio() {
 }
 
 fn voxxad(args: &[&str]) -> (String, bool) {
-    let out = Command::new(env!("CARGO_BIN_EXE_voxxad"))
-        .args(args)
-        .output()
-        .unwrap();
+    let out = Command::new(voxxad_exe()).args(args).output().unwrap();
     (String::from_utf8(out.stdout).unwrap(), out.status.success())
 }
 
@@ -1482,7 +1489,7 @@ fn voxxad_reports_bad_input_as_one_error_line() {
     // The 8 kHz file stops both runs before a presenter is built.
     let stderr = |extra: &[&str]| {
         let args = ["--stdin-audio", &k8, "--setlist", SETLIST, "--presenter"];
-        let out = Command::new(env!("CARGO_BIN_EXE_voxxad"))
+        let out = Command::new(voxxad_exe())
             .args(args.iter().chain(["keystroke"].iter()).chain(extra))
             .output()
             .unwrap();
@@ -1509,10 +1516,7 @@ fn shadow_never_connects_to_the_presenter() {
         a.into_iter().map(String::from).collect::<Vec<_>>()
     };
     let error = |args: Vec<String>| {
-        let out = Command::new(env!("CARGO_BIN_EXE_voxxad"))
-            .args(args)
-            .output()
-            .unwrap();
+        let out = Command::new(voxxad_exe()).args(args).output().unwrap();
         assert!(!out.status.success());
         let stdout = String::from_utf8(out.stdout).unwrap();
         match serde_json::from_str::<Line>(stdout.trim()).unwrap().kind {
