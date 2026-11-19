@@ -1,15 +1,18 @@
 # Current Handoff
 
-## User decisions for Q8 (2026-11-18, before the unattended run)
-- **Line budget:** Simple mode and the first-run flow go in ONE new recorded row in `scripts/loc_budget.py`, "Simple mode (src/simple/*)", capped at **600**, for a dedicated directory `src/simple/`, subtracted from the GUI row like the other rows. The GUI row (`src/`, `index.html`, `stage.html`) stays capped at 3,000, and the existing panels must not grow: the "Advanced" move should cost few lines (delete before you add). Record the row as a deviation in `loc_budget.py` and the ADR. No other budget is raised, and the GUI stays free of npm runtime dependencies. This supersedes the "49 lines left" warning below.
-- **GUI testing, two ways:**
-  - (a) Browser with a mocked backend: a test-only `invoke()` and event shim, kept out of the shipped bundle. Listen, the 20-second test and every audio path are exercised **only** here.
-  - (b) The real app, guarded: a scratch build that is never committed. Each lane uses its own identifier (never `com.voxxa.app`) and WebView2 remote debugging through `additionalBrowserArgs`. Before the first launch, confirm from the code that startup opens no audio input; if anything does, do not launch. In the real app: never press Listen, never start the 20-second test, never pick the keystroke presenter, never open the stage window on a second display, never enable the HTTP API. Delete the scratch identifier's `%LOCALAPPDATA%` folder afterwards.
-- **Usability:** agents walk through the research plan's usability script on the mocked GUI (and on the guarded real app where safe) and record each step. The founder's own run on their machine is a founder checklist item and a Q8 ticket; **the merge does not wait for it**.
-- **Backend:** no change to backend commands (signatures or behaviour) and no new commands; delete no panel. The ADR is **ADR-017**.
-- **Pre-approved:** push `q8/base`, open a draft PR against `main`, fix CI forward; merge once Q8's exit criteria are met (except the founder's run) and every CI job is green; file Q8 tickets as GitHub issues (label `q8`); agents may stop processes they started, by PID.
-- **Content:** public-domain text only; agents never write or echo hymn text (mocks use placeholder words).
-- The decisions for Q7 are in git history (c448139).
+## User decisions for Q9 (2026-11-19, before the unattended run)
+- **Privacy first:** fix #102 (Q7-08) before anything else, in its own commit with a test, so that no transcript text reaches the diagnostics buffer or `generate_diagnostic_report`.
+  - The help bundle carries the last 2 minutes of recognised words **only** as a separate file in the zip.
+  - A review screen is shown before anything is written. It lists every file and shows the words file. A checkbox, **on by default**, "Include the last 2 minutes of words the app heard", controls that file; unchecked means the file is not written at all.
+  - Secrets (presenter passwords, the HTTP API token, Planning Center credentials, anything named like token/secret/password/key) are redacted from the operator-state export, with a test.
+  - Nothing is written before the user confirms. No network call of any kind.
+- **Support e-mail:** the draft has **no recipient yet**; the address is one named constant left empty (a Q9 ticket). A `mailto:` link cannot attach files, so after writing, open the draft (subject plus a body saying which file to attach and where it is) and open the zip's folder.
+- **Line budget:** fit the existing rows: backend in "everything else in src-tauri/src", GUI in "Simple mode (src/simple/*)" (or the GUI row, without growing existing panels). No cap is raised and no row is added; if it cannot fit, stop and report the shortfall.
+- **GUI testing:** as in Q8 (mocked browser plus a guarded scratch build of the real app with its own identifier). In the real app, a test bundle may be written only to a scratch folder, **never the user's Desktop**, and the e-mail draft and open-folder step are **never** triggered there.
+- **Backend:** new commands for the bundle are allowed. Existing command signatures and behaviour stay unchanged, apart from the #102 fix. Reuse `zip` and `dirs`. The ADR is **ADR-018**.
+- **Pre-approved:** push `q9/base`, open a draft PR against `main`, fix CI forward; merge once Q9's exit criteria are met and every CI job is green; file Q9 tickets as GitHub issues (label `q9`) and close the earlier issues Q9 fixes (e.g. #102); agents may stop processes they started, by PID.
+- **Content:** public-domain text only; agents never write or echo hymn text or real recognised words (fixtures use placeholder words).
+- The decisions for Q8 are in git history (a3967e8).
 
 ---
 
