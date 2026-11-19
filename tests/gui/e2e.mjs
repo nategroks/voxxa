@@ -111,6 +111,14 @@ try {
       && getComputedStyle(document.getElementById("s-light")).backgroundColor === c[${JSON.stringify(want)}] && ${re}.test(document.getElementById("s-sentence").textContent)`, 3000);
     check(`light ${name}`, ok, `${await sentence()} | ${await ev(`return getComputedStyle(document.getElementById("s-light")).backgroundColor`)}`);
   };
+  // The "What to do" link under the sentence (ADR-018 § 7): shown on the runbook rows only;
+  // a click asks the backend to open that runbook (the mock records the name).
+  const runbook = async (row, want) => {
+    const shown = await waitFor(`return document.getElementById("s-runbook").checkVisibility() === ${!!want}`, 2000);
+    if (!want) return check(`${row}: no "What to do" link`, shown);
+    await click("#s-runbook");
+    check(`${row}: "What to do" opens ${want}`, shown && (await waitFor(`return __mock.st.runbooks.at(-1) === ${JSON.stringify(want)}`, 2000)), await ev(`return JSON.stringify(__mock.st.runbooks)`));
+  };
   // What a user can see: not hidden, transparent or invisible, and inside the window.
   const SEEN = `const seen = (e) => { if (!e.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
     const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth; };
@@ -308,24 +316,29 @@ try {
   await onlySimple("following a song");
   check("no slide text in Simple mode", !(await ev(`return document.getElementById("simple").textContent.includes("echo foxtrot") || document.getElementById("simple").textContent.includes("golf hotel")`)));
   await shot("13-simple-green-following");
+  await runbook("row 9 (green)", null);
   await ev(`__mock.machine("blank_hold", true); return true`);
   await light("amber", "row 7 (talking)", /talking/);
   await shot("14-simple-amber-talking");
+  await runbook("row 7 (amber)", null);
   await ev(`__mock.machine("singing", true); return true`);
   await light("amber", "row 8 (blanked)", /screen is blank/);
   // The keystroke driver's refusal while Voxxa has the focus (src-tauri/src/dispatch.rs:24).
   await ev(`__mock.presenterError("focus your presentation app: Voxxa's own window has the keyboard"); return true`);
   await light("red", "row 5 (presenter error, with the reason)", /ProPresenter 7\.9\+ didn't take the last slide change: focus your presentation app: Voxxa's own window has the keyboard\.$/);
   await shot("15-simple-red-presenter-error");
+  await runbook("row 5 (red)", "presentation-app-not-reachable");
   await ev(`__mock.goto(4); return true`);
   await light("green", "a delivered slide clears row 5", /slide 3 of 3/);
   await ev(`__mock.st.presenter.connected = false; return true`);
   await light("red", "row 6 (presenter not found)", /not found/);
+  await runbook("row 6 (red)", "presentation-app-not-reachable");
   await ev(`__mock.st.presenter.connected = true; return true`);
   await ev(`__mock.micLost(); return true`);
   await light("red", "row 1 (mic lost)", /Can't hear the mic/);
   check("mic lost: switch back on Off", await waitFor(`return document.querySelector('[data-mode="off"]').getAttribute("aria-checked") === "true"`));
   await shot("16-simple-red-mic-lost");
+  await runbook("row 1 (red)", "no-audio-device");
   await click('[data-mode="songs"]');
   await light("amber", "starting again clears row 1", /Waiting for a song/);
   await click('[data-mode="off"]');
@@ -347,16 +360,113 @@ try {
   await sleep(1500);
   check("Off 150 ms after Songs: still stopped, switch on Off", !(await ev(`return __mock.st.running`)) && (await calls("start_listening")) === starts + 2 && (await ev(`return document.querySelector('[data-mode="off"]').getAttribute("aria-checked")`)) === "true");
   await light("grey", "Off 150 ms after Songs: grey", /Choose Songs/);
+  await runbook("row 4 (grey)", null);
+  // Row 3, the voice model missing (grey, not red): its link is the model runbook (ADR-018 § 7).
+  await ev(`__mock.models.forEach((m) => (m.loaded = false)); return true`);
+  await light("grey", "row 3 (no model)", /Download the voice model/);
+  await runbook("row 3 (grey)", "model-missing");
+  await shot("17-simple-grey-model-missing");
+  await ev(`__mock.models[0].loaded = true; return true`);
+  await light("grey", "model back: row 4", /Choose Songs/);
 
-  // 6. Call for help: a message, no command.
-  const before = await ev(`return __mock.calls.filter((c) => !["get_status", "get_presenter_info"].includes(c.cmd)).length`);
+  // 6. Call for help (ADR-018): every file is shown before anything is written; Save writes
+  // the zip (without the words file when its box is unchecked), then opens the e-mail draft.
+  const helpShown = () => ev(`return document.getElementById("help").checkVisibility()`);
+  const helpFiles = () => ev(`return [...document.querySelectorAll("#help-files summary")].map((s) => s.textContent.split(" (")[0]).join("|")`);
+  const helpMsg = () => ev(`return document.getElementById("help-msg").textContent`);
+  const helpReady = (n) => waitFor(`return !document.getElementById("help-save").disabled && document.querySelectorAll("#help-files li").length === ${n}`);
+  const ALL = "diagnostic-report.json|operator-settings.json|words-last-2-minutes.txt";
   const startsBeforeHelp = await calls("start_listening");
   await space("#s-help"); // Space presses Call for help; it must not reach the Listen shortcut
-  await sleep(300);
+  check("Space on Call for help opens the review screen", await waitFor(`return document.getElementById("help").checkVisibility()`));
   check("Space on Call for help: no start_listening", (await calls("start_listening")) === startsBeforeHelp && !(await ev(`return __mock.st.running`)));
-  check("Call for help shows the next-update message", (await visible("#s-help-msg")) && /next update/.test(await ev(`return document.getElementById("s-help-msg").textContent`)));
-  check("Call for help calls no command", (await ev(`return __mock.calls.filter((c) => !["get_status", "get_presenter_info"].includes(c.cmd)).length`)) === before && (await calls("generate_diagnostic_report")) === 0);
-  await shot("17-simple-call-for-help");
+  check("Save waits for the files", await ev(`return document.getElementById("help-save").disabled`));
+  // Tab cannot reach Simple mode's switch behind the review, so Enter on it cannot start listening.
+  check("review open: Simple mode behind it is inert", await ev(`return document.getElementById("simple").inert`));
+  const tab = { key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 };
+  let tabbedIn = 0;
+  for (let i = 1; i <= 8 && !tabbedIn; i++) {
+    await send("Input.dispatchKeyEvent", { type: "keyDown", ...tab });
+    await send("Input.dispatchKeyEvent", { type: "keyUp", ...tab });
+    if (await ev(`return document.getElementById("simple").contains(document.activeElement)`)) tabbedIn = i;
+  }
+  check("review open: Tab never reaches Simple mode", !tabbedIn, tabbedIn ? `after ${tabbedIn} Tab presses` : "");
+  check("the review screen lists every file", (await helpReady(3)) && (await helpFiles()) === ALL, await helpFiles());
+  check("each file shows its size", await ev(`return [...document.querySelectorAll("#help-files summary")].every((s) => / [(][0-9]+[.][0-9] KB[)]$/.test(s.textContent))`));
+  check("the words file's content is shown", await ev(`const d = document.querySelectorAll("#help-files details")[2]; return d.open && d.querySelector("pre").checkVisibility() && /alpha bravo charlie delta/.test(d.querySelector("pre").textContent)`));
+  check("the other files' content is one click away", await ev(`const d = document.querySelectorAll("#help-files details"); return !d[0].open && !d[1].open && d[0].querySelector("pre").textContent.includes("voxxa_version")`));
+  check("the words box: on by default, the agreed label", await ev(`const b = document.getElementById("help-words"); return b.checked && b.closest("label").textContent.trim() === "Include the last 2 minutes of words the app heard"`));
+  check("the review says nothing is sent", /Nothing is sent/.test(await helpMsg()), await helpMsg());
+  check("the operator's localStorage goes to the preview", await ev(`const s = __mock.st.help.storage; return !!s && s["voxxa.firstLaunchDone"] === "1" && s["voxxa.audioDevice"] === '"Desk USB input"'`));
+  check("nothing written before Save", (await calls("write_help_bundle")) === 0 && (await calls("open_help_email")) === 0);
+  await shot("18-help-review");
+  // The dialog stops main.js's shortcut keys wherever focus is, like the guide (Q8-10).
+  const stageBeforeHelpKeys = await calls("toggle_stage_display");
+  await keyOnBody(" ");
+  await keyOnBody("s");
+  await sleep(300);
+  check("review open, focus on the page: Space starts nothing", (await calls("start_listening")) === startsBeforeHelp && !(await ev(`return __mock.st.running`)));
+  check("review open, focus on the page: s opens no stage window", (await calls("toggle_stage_display")) === stageBeforeHelpKeys);
+  await click("#help-cancel");
+  check("Cancel closes the review and writes nothing", !(await helpShown()) && !(await ev(`return document.getElementById("simple").inert`)) && (await calls("write_help_bundle")) === 0 && (await calls("open_help_email")) === 0);
+  await onlySimple("after Cancel");
+  await click("#s-help");
+  await helpReady(3);
+  await ev(`document.activeElement.blur(); return true`);
+  const esc = { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 };
+  await send("Input.dispatchKeyEvent", { type: "keyDown", ...esc });
+  await send("Input.dispatchKeyEvent", { type: "keyUp", ...esc });
+  check("Escape closes the review and writes nothing", (await waitFor(`return !document.getElementById("help").checkVisibility()`, 2000)) && (await calls("write_help_bundle")) === 0);
+
+  // Unchecked: the words file is left out of the zip; a slow save cannot be pressed twice.
+  await click("#s-help");
+  await helpReady(3);
+  await click("#help-words");
+  check("unchecked: the words file is marked as left out", await ev(`return !document.getElementById("help-words").checked && document.getElementById("help-words").closest("li").classList.contains("off")`));
+  await shot("19-help-words-unchecked");
+  await ev(`__mock.st.help.writeDelay = 1200; return true`);
+  await click("#help-save");
+  await sleep(200);
+  check("saving: Save is disabled", await ev(`return document.getElementById("help-save").disabled`));
+  await ev(`document.getElementById("help-save").click(); return true`); // a second press while it saves
+  check("unchecked: the zip has no words file", (await waitFor(`return __mock.st.help.written.length === 1`, 4000)) && (await ev(`return __mock.st.help.written[0].join("|")`)) === "diagnostic-report.json|operator-settings.json", await ev(`return JSON.stringify(__mock.st.help.written)`));
+  check("Save is sent once and asks for no words", (await calls("write_help_bundle")) === 1 && (await ev(`return __mock.calls.find((c) => c.cmd === "write_help_bundle").args.includeWords`)) === false);
+  check("after saving: the e-mail draft and folder are opened once", (await waitFor(`return __mock.st.help.opened === 1`)) && (await ev(`const c = __mock.calls.map((c) => c.cmd); return c.lastIndexOf("open_help_email") > c.lastIndexOf("write_help_bundle")`)));
+  check("after saving: the path and what to do next are shown", (await helpMsg()).startsWith("Saved C:\\Users\\booth\\Desktop\\voxxa-help-20261119-101500.zip. Your e-mail program opens now: type your tech lead's address, drag that file"), await helpMsg());
+  check("after saving: only Close is left", !(await visible("#help-save")) && (await ev(`return document.getElementById("help-cancel").textContent`)) === "Close" && (await helpFiles()) === "");
+  await shot("20-help-saved");
+  await click("#help-cancel");
+  await ev(`__mock.st.help.writeDelay = 200; return true`);
+
+  // Checked (the default): the zip has the words file.
+  await click("#s-help");
+  await helpReady(3);
+  await click("#help-save");
+  check("checked: the zip has all three files", (await waitFor(`return __mock.st.help.written.length === 2`, 3000)) && (await ev(`return __mock.st.help.written[1].join("|")`)) === ALL);
+  check("checked: Save asks for the words", (await ev(`return __mock.calls.filter((c) => c.cmd === "write_help_bundle")[1].args.includeWords`)) === true);
+  await waitFor(`return __mock.st.help.opened === 2`);
+  await click("#help-cancel");
+
+  // A refused save: the reason is shown, Save works again, and no e-mail is opened.
+  await ev(`__mock.st.help.writeError = "No Desktop folder"; return true`);
+  await click("#s-help");
+  await helpReady(3);
+  await click("#help-save");
+  check("refused save: the reason is shown", await waitFor(`return /couldn't save the file: No Desktop folder/.test(document.getElementById("help-msg").textContent)`, 3000), await helpMsg());
+  check("refused save: Save works again, no e-mail", !(await ev(`return document.getElementById("help-save").disabled`)) && (await ev(`return __mock.st.help.opened`)) === 2);
+  await ev(`__mock.st.help.writeError = null; return true`);
+  await click("#help-cancel");
+
+  // No session log: no words file, no checkbox, and the review says so.
+  await ev(`__mock.st.help.words = null; return true`);
+  await click("#s-help");
+  await helpReady(2);
+  check("no session log: two files and no words box", (await helpFiles()) === "diagnostic-report.json|operator-settings.json" && !(await ev(`return !!document.getElementById("help-words")`)));
+  check("no session log: the review says so", /no record of words it heard/.test(await helpMsg()), await helpMsg());
+  await shot("21-help-no-words");
+  await click("#help-cancel");
+  check("Call for help never writes without Save", (await calls("write_help_bundle")) === 3 && (await ev(`return __mock.st.help.written.length`)) === 2);
+  await onlySimple("after Call for help");
 
   // 7. Advanced: every old panel, unchanged, one click away.
   await click("#s-advanced");
@@ -366,16 +476,16 @@ try {
   }
   await ev(`__mock.emit("song-detection", { rows: [{ song_title: "Alpha Hymn", probability: 0.7 }] }); return true`);
   check("Advanced → Slides: confidence bars", await waitFor(`return document.getElementById("detect-section").checkVisibility()`));
-  await shot("18-advanced-slides");
+  await shot("22-advanced-slides");
   await click('.tab[data-tab="models"]');
   check("Advanced → Models: model list", await waitFor(`return document.querySelectorAll("#model-list .model-item").length === 3`));
-  await shot("19-advanced-models");
+  await shot("23-advanced-models");
   await click('.tab[data-tab="settings"]');
   for (const [sel, what] of [["#select-presenter", "presenter connection"], ["#discover-btn", "auto-detect"], ["#select-device", "audio device"], ["#select-language", "language"], ["#smart-silence", "smart blanking"], ["#privacy-card", "privacy counter"], ["#http-api-toggle", "HTTP API"], ["#diag-btn", "diagnostics"]]) {
     check(`Advanced → Settings: ${what}`, await visible(sel));
   }
   check("Settings shows the device chosen in the first run", await waitFor(`return document.getElementById("select-device").value === "Desk USB input"`));
-  await shot("20-advanced-settings");
+  await shot("24-advanced-settings");
   await click("#diag-btn");
   check("diagnostic modal opens outside #app", await waitFor(`return document.getElementById("diag-overlay").checkVisibility()`));
   await click("#diag-close");
@@ -388,7 +498,7 @@ try {
   for (const [sel, what] of [["#setlist-loader", "imports"], ["#hymnary-section", "Hymnary"], ["#pco-section", "Planning Center"], ["#recent-section", "recent setlists"]]) {
     check(`Advanced → Slides: ${what}`, await visible(sel));
   }
-  await shot("21-advanced-loader");
+  await shot("25-advanced-loader");
   await click("#s-simple");
   check("Simple mode link goes back", (await visible("#simple")) && !(await visible("#app")));
   await onlySimple("back from Advanced");
@@ -401,7 +511,7 @@ try {
   await ev(`__mock.goto(3); return true`);
   await light("green", "row 9 after a reload: no position", /^Following the song\.$/);
   check("after a reload: the song's title, no slide count", (await ev(`return document.getElementById("s-song").textContent + " / " + document.getElementById("s-slide").textContent`)) === "Bravo Hymn / ");
-  await shot("22-simple-reload-mid-song");
+  await shot("26-simple-reload-mid-song");
 } catch (err) {
   check("e2e ran to the end", false, String(err && err.stack || err));
 }

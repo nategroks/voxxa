@@ -3,20 +3,23 @@
 // "ProPresenter 7.9+ (REST API)" -> "ProPresenter 7.9+".
 export const appName = (p) => ((p && p.display_name) || "Your presentation app").replace(/\s*\(.*\)\s*$/, "");
 
-// The status light: ADR-017 § 2, first matching row wins.
+// The runbook a row links to (ADR-018 § 7): docs/runbooks/<name>.md, opened on GitHub by the backend.
+export const RUNBOOKS = { mic: "no-audio-device", app: "presentation-app-not-reachable", model: "model-missing" };
+
+// The status light: ADR-017 § 2, first matching row wins: [colour, sentence, runbook (rows 1, 3, 5, 6)].
 export function statusLight(s) {
   const following = s.state === "singing" || s.state === "inter_verse_silence";
-  if (s.micLost) return ["red", "Can't hear the mic. Check the cable, then choose Songs again."];
+  if (s.micLost) return ["red", "Can't hear the mic. Check the cable, then choose Songs again.", RUNBOOKS.mic];
   if (!s.running && !s.setlist) return ["grey", "Off. Load this week's songs in Advanced first."];
-  if (!s.running && !s.model) return ["grey", "Off. Download the voice model in Advanced first."];
+  if (!s.running && !s.model) return ["grey", "Off. Download the voice model in Advanced first.", RUNBOOKS.model];
   if (!s.running) return ["grey", "Off. Choose Songs to start following."];
   if (s.presenterError) {
     const why = typeof s.presenterError === "string" && s.presenterError.trim();
-    return ["red", why ? `${appName(s.presenter)} didn't take the last slide change: ${why.replace(/\.?$/, ".")}` : `${appName(s.presenter)} didn't take the last slide change. Check that it is open.`];
+    return ["red", why ? `${appName(s.presenter)} didn't take the last slide change: ${why.replace(/\.?$/, ".")}` : `${appName(s.presenter)} didn't take the last slide change. Check that it is open.`, RUNBOOKS.app];
   }
   // Connected, and to the app last chosen: a failed reconnect leaves the keystroke default.
   const chosenOk = !s.chosen || (!!s.presenter && s.presenter.kind === s.chosen);
-  if (!s.presenter || !s.presenter.connected || !chosenOk) return ["red", `${appName(chosenOk ? s.presenter : null)} not found. Voxxa can't change slides.`];
+  if (!s.presenter || !s.presenter.connected || !chosenOk) return ["red", `${appName(chosenOk ? s.presenter : null)} not found. Voxxa can't change slides.`, RUNBOOKS.app];
   if (s.state === "blank_hold") return ["amber", "Hearing talking, not a song. The screen stays blank."];
   if (following && s.isBlank) return ["amber", "The screen is blank. It comes back when the song does."];
   if (following && s.song && s.song.slides) return ["green", `Following ${s.song.title}, slide ${s.song.slide} of ${s.song.slides}.`];
