@@ -426,6 +426,7 @@ async function loadSetlist(jsonText) {
       }
     }
     currentSlideIndex = 0;
+    document.dispatchEvent(new CustomEvent("voxxa-setlist", { detail: songs })); // Simple mode (ADR-017)
     songTitle.textContent = songs.length > 1
       ? `${songs.length} songs · starting ${title}`
       : title;
@@ -1351,62 +1352,6 @@ function dismissToast(el) {
   setTimeout(() => el.remove(), 300);
 }
 
-// --- First-launch welcome ---
-const FIRST_LAUNCH_KEY = "voxxa.firstLaunchDone";
-const welcomeOverlay = document.getElementById("welcome-overlay");
-const welcomeDetect = document.getElementById("welcome-detect");
-const welcomeModel = document.getElementById("welcome-model");
-const welcomeSetlist = document.getElementById("welcome-setlist");
-const welcomeDismiss = document.getElementById("welcome-dismiss");
-
-function dismissWelcome() {
-  if (welcomeOverlay) welcomeOverlay.hidden = true;
-  try {
-    localStorage.setItem(FIRST_LAUNCH_KEY, "1");
-  } catch {
-    // Ignore — localStorage can be disabled in some WebKit configurations.
-  }
-}
-
-function maybeShowWelcome() {
-  let seen = false;
-  try {
-    seen = localStorage.getItem(FIRST_LAUNCH_KEY) === "1";
-  } catch {
-    seen = false;
-  }
-  if (!seen && welcomeOverlay) {
-    welcomeOverlay.hidden = false;
-  }
-}
-
-if (welcomeDismiss) welcomeDismiss.addEventListener("click", dismissWelcome);
-
-if (welcomeDetect) {
-  welcomeDetect.addEventListener("click", () => {
-    dismissWelcome();
-    // Switch to Settings tab and trigger discovery.
-    const settingsTab = document.querySelector('.tab[data-tab="settings"]');
-    if (settingsTab) settingsTab.click();
-    if (discoverBtn) discoverBtn.click();
-  });
-}
-
-if (welcomeModel) {
-  welcomeModel.addEventListener("click", () => {
-    dismissWelcome();
-    const modelsTab = document.querySelector('.tab[data-tab="models"]');
-    if (modelsTab) modelsTab.click();
-  });
-}
-
-if (welcomeSetlist) {
-  welcomeSetlist.addEventListener("click", () => {
-    dismissWelcome();
-    if (fileInput) fileInput.click();
-  });
-}
-
 // --- Smart-blanking threshold tuning ---
 const smartSilence = document.getElementById("smart-silence");
 const smartSilenceVal = document.getElementById("smart-silence-val");
@@ -1677,4 +1622,3 @@ function showShortcutHelp() {
 setupListeners();
 loadPresenterPanel();
 restoreLastSession();
-maybeShowWelcome();
