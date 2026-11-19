@@ -10,7 +10,10 @@ export function statusLight(s) {
   if (!s.running && !s.setlist) return ["grey", "Off. Load this week's songs in Advanced first."];
   if (!s.running && !s.model) return ["grey", "Off. Download the voice model in Advanced first."];
   if (!s.running) return ["grey", "Off. Choose Songs to start following."];
-  if (s.presenterError) return ["red", `${appName(s.presenter)} didn't take the last slide change. Check that it is open.`];
+  if (s.presenterError) {
+    const why = typeof s.presenterError === "string" && s.presenterError.trim();
+    return ["red", why ? `${appName(s.presenter)} didn't take the last slide change: ${why.replace(/\.?$/, ".")}` : `${appName(s.presenter)} didn't take the last slide change. Check that it is open.`];
+  }
   if (!s.presenter || !s.presenter.connected) return ["red", `${appName(s.presenter)} not found. Voxxa can't change slides.`];
   if (s.state === "blank_hold") return ["amber", "Hearing talking, not a song. The screen stays blank."];
   if (following && s.isBlank) return ["amber", "The screen is blank. It comes back when the song does."];

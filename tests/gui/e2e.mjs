@@ -221,8 +221,9 @@ try {
   await shot("14-simple-amber-talking");
   await ev(`__mock.machine("singing", true); return true`);
   await light("amber", "row 8 (blanked)", /screen is blank/);
-  await ev(`__mock.presenterError("refused"); return true`);
-  await light("red", "row 5 (presenter error)", /ProPresenter 7\.9\+ didn't take/);
+  // The keystroke driver's refusal while Voxxa has the focus (src-tauri/src/dispatch.rs:24).
+  await ev(`__mock.presenterError("focus your presentation app: Voxxa's own window has the keyboard"); return true`);
+  await light("red", "row 5 (presenter error, with the reason)", /ProPresenter 7\.9\+ didn't take the last slide change: focus your presentation app: Voxxa's own window has the keyboard\.$/);
   await shot("15-simple-red-presenter-error");
   await ev(`__mock.goto(4); return true`);
   await light("green", "a delivered slide clears row 5", /slide 3 of 3/);

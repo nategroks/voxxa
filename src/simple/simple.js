@@ -94,7 +94,7 @@ root.querySelector(".s-switch").addEventListener("click", (e) => {
 
 listen("machine-state", (e) => { s.state = e.payload.state; s.isBlank = e.payload.is_blank; render(); });
 listen("listening-stopped", (e) => { if (e.payload && e.payload.disconnected) s.micLost = true; refresh(); });
-listen("presenter-error", () => { s.presenterError = true; render(); });
+listen("presenter-error", (e) => { s.presenterError = e.payload ? String(e.payload) : true; render(); }); // the reason names titles only
 listen("slide-advanced", () => { s.presenterError = false; refresh(); });
 document.addEventListener("voxxa-setlist", (e) => { songs = e.detail || []; refresh(); });
 

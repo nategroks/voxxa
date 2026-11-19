@@ -32,7 +32,7 @@ Inputs, all from existing signals:
 - `state`, `isBlank`: the latest `machine-state` event (`listening` · `singing` · `inter_verse_silence` · `blank_hold`, plus `is_blank`); before any event, `get_status.machine_state` and `is_blank`.
 - `setlist`: `get_status.total_slides > 0`. `model`: `get_status.model_loaded`.
 - `presenter`: `get_presenter_info` (`connected`, `display_name`), polled every second.
-- `presenterError`: set by a `presenter-error` event; cleared by `slide-advanced` (a goto that reached the presenter) and by starting again.
+- `presenterError`: the payload of a `presenter-error` event (the presenter's refusal, e.g. `dispatch.rs:24`'s "focus your presentation app: …"; it names song titles at most, never slide text, `dispatch.rs:130`, so ADR-011 holds); cleared by `slide-advanced` (a goto that reached the presenter) and by starting again.
 - `micLost`: set by `listening-stopped` with `disconnected: true`; cleared by starting again.
 - `song`: the in-song position from `get_status.current_slide` and the loaded setlist.
 
@@ -44,7 +44,7 @@ First matching row wins:
 | 2 | not `running`, no setlist | grey | "Off. Load this week's songs in Advanced first." |
 | 3 | not `running`, no model | grey | "Off. Download the voice model in Advanced first." |
 | 4 | not `running` | grey | "Off. Choose Songs to start following." |
-| 5 | `presenterError` | red | "<app> didn't take the last slide change. Check that it is open." |
+| 5 | `presenterError` | red | "<app> didn't take the last slide change: <reason>." with the `presenter-error` payload; "<app> didn't take the last slide change. Check that it is open." when the payload is empty |
 | 6 | presenter not connected | red | "<app> not found. Voxxa can't change slides." |
 | 7 | `state` = `blank_hold` | amber | "Hearing talking, not a song. The screen stays blank." |
 | 8 | `state` = `singing` or `inter_verse_silence`, `isBlank` | amber | "The screen is blank. It comes back when the song does." |
