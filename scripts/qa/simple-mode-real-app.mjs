@@ -14,12 +14,13 @@
 //   2. npm run tauri build -- --no-bundle --config <scratch config>
 //   3. python scripts/qa/mock_pro7.py 1025   (only if 1025 is free; auto-detect probes it)
 //   4. Start target/release/voxxa.exe, then: node scripts/qa/simple-mode-real-app.mjs <screenshot dir>
+//      (VOXXA_CDP_PORT=<port> when the scratch config uses another port than 9341)
 // Stop the app and the mock by PID afterwards and delete %LOCALAPPDATA%\com.voxxa.qa<lane>.
 import fs from "node:fs";
 import path from "node:path";
 
 const OUT = path.resolve(process.argv[2] || "simple-mode-real-app");
-const CDP = "http://127.0.0.1:9341";
+const CDP = `http://127.0.0.1:${process.env.VOXXA_CDP_PORT || 9341}`; // the scratch config's --remote-debugging-port
 const MOCK = "http://127.0.0.1:1025";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
@@ -121,6 +122,12 @@ try {
   await send("Page.reload");
   await sleep(2500);
   check("first run not shown again after reload", !(await visible("#firstrun")) && (await visible("#simple")));
+  if (found === "found") {
+    // The backend kept the mock connection across the page reload, so this proves only that
+    // the reconnect at start does no harm; the e2e test proves the reconnect itself.
+    const p2 = await ev(`return (await window.__TAURI__.core.invoke("get_presenter_info"))`);
+    check("after reload: still the ProPresenter mock, never keystroke", p2.kind === "pro_presenter7_rest" && p2.connected, JSON.stringify(p2));
+  }
   await shot("r11-simple-after-reload");
   check("guard: never listened", (await running()) === false);
 } catch (err) {
