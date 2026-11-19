@@ -22,7 +22,8 @@ path = "src/main.rs"
 # tauri-cli bundles every [[bin]] whose required features are on, and every
 # entry of src/bin/, so the tools live in src/cli/ and need the off-by-default
 # `cli` feature. `tauri build` passes no feature: the installers carry voxxa
-# only. CI and `cargo test` pass `--features cli`.
+# only. CI passes it; run `cargo test --features cli` (a plain `cargo test`
+# fails the tests that run the tools, on purpose).
 [[bin]]
 name = "voxxad"
 path = "src/cli/voxxad/main.rs"
