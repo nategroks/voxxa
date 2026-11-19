@@ -106,7 +106,11 @@ try {
     const ok = await waitFor(`return document.querySelector("#s-light").classList.contains(${JSON.stringify(want)}) && ${re}.test(document.getElementById("s-sentence").textContent)`, 3000);
     check(`light ${name}`, ok, await sentence());
   };
-  const click = (sel) => ev(`document.querySelector(${JSON.stringify(sel)}).click(); return true;`);
+  // Clicks only what a user could click: element.click() also works on hidden elements, so
+  // a hidden Skip, Help or Advanced control would otherwise pass unnoticed.
+  const PRESS = `const press = (e, what) => { if (!e) throw new Error("no element: " + what); if (!e.checkVisibility()) throw new Error("not visible, a user could not click it: " + what); e.click(); return true; };`;
+  const click = (sel) => ev(`${PRESS} return press(document.querySelector(${JSON.stringify(sel)}), ${JSON.stringify(sel)});`);
+  const clickButton = (container, re) => ev(`${PRESS} return press([...document.querySelectorAll(${JSON.stringify(container + " button")})].find((b) => ${re}.test(b.textContent)), ${JSON.stringify(container + " " + re)});`);
   // Simple mode shows nothing else: no visible control outside #simple (one clipped below the
   // fold by body{overflow:hidden} is still in the focus order), and nothing else on screen.
   const leaks = () => ev(`const simple = document.getElementById("simple"); const name = (e) => e.tagName.toLowerCase() + (e.id ? "#" + e.id : "") + (e.className && typeof e.className === "string" ? "." + e.className.trim().split(/\\s+/).join(".") : "");
@@ -133,6 +137,7 @@ try {
   await load();
   check("first run opens on a fresh profile", await visible("#firstrun"));
   check("first run step 1 is the microphone", (await ev(`return document.getElementById("fr-title").textContent`)) === "Which microphone?");
+  check("Skip is visible on step 1", await visible("#fr-skip"));
   await shot("01-first-run-device");
   await click("#fr-skip");
   check("Skip closes it", !(await visible("#firstrun")));
@@ -172,6 +177,7 @@ try {
   const startsBeforeSpace = await calls("start_listening");
   await space("#fr-next"); // Space presses Next; it must not reach main.js's Listen shortcut
   check("Space on Next: step 2", await waitFor(`return document.getElementById("fr-step").textContent === "Step 2 of 4"`));
+  check("Skip is visible on step 2", await visible("#fr-skip"));
   check("Space on Next: no start_listening", (await calls("start_listening")) === startsBeforeSpace && !(await ev(`return __mock.st.running`)));
   check("device saved for Settings", (await waitFor(`return localStorage.getItem("voxxa.audioDevice")`)) === '"Desk USB input"');
   check("select_audio_device called with it", await ev(`return __mock.calls.some((c) => c.cmd === "select_audio_device" && c.args.device === "Desk USB input")`));
@@ -180,7 +186,7 @@ try {
   check("presenter step: nothing found says keystrokes", await waitFor(`return /arrow keys/.test(document.getElementById("fr-msg").textContent)`, 3000));
   await shot("04-first-run-no-presenter");
   await ev(`__mock.st.found = [{ kind: "pro_presenter7_rest", host: "127.0.0.1", port: 1025, name: "ProPresenter on this computer", source: "localhost" }]; return true`);
-  await ev(`[...document.querySelectorAll("#fr-extra button")].find((b) => b.textContent === "Search again").click(); return true`);
+  await clickButton("#fr-extra", /^Search again$/);
   check("presenter step: app found", await waitFor(`return !!document.querySelector("#fr-extra .discovered-row")`, 3000));
   await shot("05-first-run-presenter-found");
   await click("#fr-extra .discovered-row");
@@ -189,8 +195,9 @@ try {
   await click("#fr-next");
 
   // Model: download Tiny with progress.
+  check("Skip is visible on step 3", await visible("#fr-skip"));
   check("model step offers the download", await waitFor(`return /Tiny \\(75MB\\)/.test(document.getElementById("fr-msg").textContent)`));
-  await ev(`[...document.querySelectorAll("#fr-extra button")].find((b) => b.textContent === "Download").click(); return true`);
+  await clickButton("#fr-extra", /^Download$/);
   check("progress bar shown", await waitFor(`return !!document.querySelector("#fr-extra progress")`));
   check("model ready after download", await waitFor(`return /ready: Tiny/.test(document.getElementById("fr-msg").textContent)`, 3000));
   check("download_model called for Tiny", await ev(`return __mock.calls.some((c) => c.cmd === "download_model" && c.args.modelName === "Tiny")`));
@@ -198,6 +205,7 @@ try {
   await click("#fr-next");
 
   // Test: songs first, then a silent test (fail), then a test with sound and words (pass).
+  check("Skip is visible on step 4", await visible("#fr-skip"));
   check("test step asks for songs first", await waitFor(`return /Load this Sunday's songs/.test(document.getElementById("fr-msg").textContent)`));
   await shot("07-first-run-needs-songs");
   const setlist = { setlist: [
@@ -212,13 +220,13 @@ try {
   check("songs loaded through the existing file input", await waitFor(`return [...document.querySelectorAll("#fr-extra button")].some((b) => /20-second/.test(b.textContent))`, 3000));
   check("keystroke users are told to click into their presentation app", /If Voxxa presses keys for you, click into your presentation app right after you start\.$/.test(await ev(`return document.getElementById("fr-msg").textContent`)));
   await ev(`__mock.st.presenter = { kind: "pro_presenter7_rest", display_name: "ProPresenter 7.9+ (REST API)", connected: true }; return true`);
-  await ev(`[...document.querySelectorAll("#fr-extra button")].find((b) => /20-second/.test(b.textContent)).click(); return true`);
+  await clickButton("#fr-extra", /20-second/);
   check("test starts listening through the Listen button", await waitFor(`return __mock.st.running`, 2000));
   await shot("08-first-run-test-running");
   check("silent test fails", await waitFor(`return document.getElementById("firstrun").dataset.verdict === "fail"`, 25000), await ev(`return document.getElementById("fr-msg").textContent`));
   check("test stopped listening", !(await ev(`return __mock.st.running`)) && (await calls("stop_listening")) === 1);
   await shot("09-first-run-test-silent-fail");
-  await ev(`[...document.querySelectorAll("#fr-extra button")].find((b) => b.textContent === "Try again").click(); return true`);
+  await clickButton("#fr-extra", /^Try again$/);
   await waitFor(`return __mock.st.running`, 2000);
   // Sound, words, and the conductor's slide change reaching the presenter (slide-advanced).
   for (let i = 0; i < 6; i++) { await sleep(1500); await ev(`__mock.hear(0.2, "alpha bravo"); ${i === 3 ? "__mock.goto(0); " : ""}return true`); }
