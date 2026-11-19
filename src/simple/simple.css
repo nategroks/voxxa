@@ -30,7 +30,7 @@
 .fr-actions { display: flex; justify-content: space-between; align-items: center; }
 
 /* Call for help's review screen (ADR-018), in the guide's overlay. */
-#help .fr-card { max-height: 100%; overflow-y: auto; }
+#help .fr-card { max-height: 100%; overflow-y: auto; overflow-wrap: anywhere; } /* long folder paths wrap */
 .help-files { display: flex; flex-direction: column; gap: 8px; }
 .help-files pre { max-height: 140px; overflow: auto; margin: 6px 0 0; padding: 8px; background: var(--surface-2); border-radius: 8px; font-size: 12px; white-space: pre-wrap; }
 .help-check { display: flex; gap: 8px; align-items: center; font-weight: 600; }

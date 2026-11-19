@@ -376,6 +376,7 @@ try {
   check("review: the words box is on by default", (await ev(`return document.getElementById("help-words").checked`)) && /^Include the last 2 minutes of words the app heard$/.test((await ev(`return document.querySelector(".help-check").textContent`)).trim()));
   check("review: no secret in the settings shown", await ev(`const t = document.getElementById("help-files").textContent; return t.includes("voxxa.httpApiToken") && !t.includes("tok-mock-secret")`));
   check("review: nothing written, nothing opened", (await calls("write_help_bundle")) === 0 && (await calls("open_help_email")) === 0);
+  check("review: a long folder path wraps inside the box", await ev(`const c = document.querySelector("#help .fr-card"); return c.scrollWidth <= c.clientWidth`));
   await shot("17a-help-review");
   const helpStage = await calls("toggle_stage_display");
   await keyOnBody(" ");
@@ -386,7 +387,7 @@ try {
   check("Save writes the reviewed files with the words", (await waitFor(`return __mock.st.bundles.length === 1`)) && (await ev(`return __mock.st.bundles[0].map((f) => f[0]).join(",")`)) === "report.json,settings.json,words.txt");
   check("the written settings have no secret", !(await ev(`return JSON.stringify(__mock.st.bundles[0])`)).includes("tok-mock-secret"));
   check("then the e-mail draft and the folder open, for the zip's name", await waitFor(`return JSON.stringify(__mock.st.opened.filter((o) => o[0] === "email")) === '[["email","voxxa-help-20261119120001.zip"]]'`));
-  check("the user is told where the file is", /^Saved voxxa-help-20261119120001\.zip in C:\\Users\\mock\\Desktop\. Attach it/.test(await ev(`return document.getElementById("help-msg").textContent`)));
+  check("the user is told where the file is", /^Saved voxxa-help-20261119120001\.zip in C:\\Users\\mock\\OneDrivePlaceholderChurchWithAVeryLongFolderName\\Desktop\. Attach it/.test(await ev(`return document.getElementById("help-msg").textContent`)));
   await shot("17b-help-saved");
   await click("#help-cancel");
   check("Close closes it", !(await visible("#help")));
