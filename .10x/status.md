@@ -1,9 +1,9 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Increment 2′, **Q8 (Simple mode) done on `q8/base`** @ ee431ce, plus the state commit "state(implementation): Q8 Simple mode". **Not merged yet: verifier A failed round 3** (ticket Q8-10, the set-up guide lets shortcut keys through). Next for the orchestrator: fix Q8-10 and have a verifier confirm it, then CI, PR and merge (pre-approved), then **Q9** (Call for help, runbooks, quick-start). Q7 was merged into `main` (PR #95, c448139): Increment 1′ is closed.
+**Current Phase:** Increment 2′, **Q8 (Simple mode) done on `q8/base`**. Verifier A's round-3 blocker (Q8-10) is fixed in 88aa63b, confirmed by a verifier, and its survivor is killed in fce3e58. Next for the orchestrator: CI, PR and merge (pre-approved), then **Q9** (Call for help, runbooks, quick-start). Q7 was merged into `main` (PR #95, c448139): Increment 1′ is closed.
 **Last Updated:** 2026-11-19 by 10x-team orchestrator
-**Health:** At Risk (one merge blocker open: Q8-10)
+**Health:** On Track
 
 ## Progress
 
@@ -254,13 +254,13 @@
   4. [x] full-eval run by hand on `main` (run 44548333928, at c448139): green on all three OSes; each table equals the replay table (QA report §13).
   5. [x] Filed the 12 open Q7 tickets as #96–#107 (label `q7`); notes added to the nine earlier issues. #47 closed by the merge, #75 closed by hand. The notes were added to #48, #49, #54, #78, #9, #77, #69, #89 and #70 (tickets file, last section).
 - [x] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 merged (a60d1ce); Q7 merged (c448139). **Increment 1′ closed 2026-11-19.**
-- [ ] **Q8 close-out (orchestrator).** The push, PR, CI fixes, merge and filing are pre-approved (handoff, "User decisions for Q8"), **but do not merge yet.**
-  1. [ ] **Merge blocker, Q8-10.** In `src/simple/firstrun.js`, replace the key block on the overlay box (line 31) with a capture-phase `keydown` listener on `window` while the guide is shown. Add e2e checks with the focus on `document.body`: on step 1, Space and `s` call neither `start_listening` nor `toggle_stage_display`; during the 20-second test, Space does not call `stop_listening` and the verdict is unchanged. Each check must fail on ee431ce.
-  2. [ ] A verifier re-runs the gates, `npm run test:gui` and `npm run test:gui:e2e`, and confirms the fix. Record the result in the QA record and in `reviews/2026-11-19-ponytail-q8.md` § 6.
+- [ ] **Q8 close-out (orchestrator).** The push, PR, CI fixes, merge and filing are pre-approved (handoff, "User decisions for Q8").
+  1. [x] **Merge blocker, Q8-10.** Done in 88aa63b (see below). Original plan: In `src/simple/firstrun.js`, replace the key block on the overlay box (line 31) with a capture-phase `keydown` listener on `window` while the guide is shown. Add e2e checks with the focus on `document.body`: on step 1, Space and `s` call neither `start_listening` nor `toggle_stage_display`; during the 20-second test, Space does not call `stop_listening` and the verdict is unchanged. Each check must fail on ee431ce.
+  2. [x] Q8-10 was fixed by the orchestrator in 88aa63b: a capture-phase `keydown` listener on `window` blocks every key while the guide is shown. Four new e2e checks press Space and `s` with the focus on the page body, on step 1 and during the 20-second test. All four fail on the old code (41 passed, 6 failed) and pass with the fix. An independent verifier confirmed it at 88aa63b: 13 shortcut keys were blocked with the focus on the body, the buttons and the select, and the guide's own keyboard controls still work. The old-code mutant and the bubble-phase mutant both fail. The verifier's one survivor, keys blocked even after the guide closes, is killed by fce3e58 ("s reaches main.js again" after Skip; 117 e2e checks). Original plan: a verifier re-runs the gates, `npm run test:gui` and `npm run test:gui:e2e`, and confirms the fix. Record the result in the QA record and in `reviews/2026-11-19-ponytail-q8.md` § 6.
   3. [ ] Push `q8/base` and open a draft PR against `main`. Every CI job must be green, including the GUI logic test on 3 OSes and the browser test on Windows, which has never run on GitHub (Q8-04).
   4. [ ] Merge.
   5. [ ] File the open Q8 tickets as issues (label `q8`), apart from Q8-10 if its fix closed it. Add the comments to #7, #44, #34, #9, #102 and #37.
-- [ ] Increment 2′ (Q8–Q11): Q8 done on `q8/base`, merge on hold (Q8-10); next Q9 (Call for help, runbooks, quick-start)
+- [ ] Increment 2′ (Q8–Q11): Q8 done on `q8/base` (Q8-10 fixed), CI + PR + merge next; then Q9 (Call for help, runbooks, quick-start)
   - [x] 2026-11-13 Q5 verifier fixes on `q5/base`: every surviving mutant named by the verifier is now killed by a test (song not compared, false advance lowering recall, EARLY_MS 999 and `<=`→`<`, the total row's false/double sums, unblank not resetting the blank, a failing `voxxad` read as success); a metric with a value but no threshold now fails the gate (ADR-015 D8 amended); voxxa-eval exits 2 when `voxxad` ran in the wrong mode (a replay that ran Whisper); both session logs re-recorded with the final `--full --record` (only the start line's `log` field changed).
   - [x] 2026-11-13 Q5 second verifier pass on `q5/base`: tests now kill the round-2 survivors: M42 (main.rs checking only the total row; a binary-level test breaks only per-fixture thresholds and needs both FAIL lines and no FAIL total), M25/M26 (one metric's comparison reversed), M37 (the table's count cells) and M47/M48 (the audio recipe's 16 kHz mono 16-bit check and header byte rate). Each test was run against its mutant and fails. No product code changed; voxxa_eval tests 23 to 26.
   - [x] 2026-11-13 Q5 verifier round 3 at c10e963: verifier A passed; verifier B failed on six surviving mutants (Q5-08 … Q5-10). The four that mattered were closed with tests in 5858872 (orchestrator, checked against each mutant); M57 and M68 deferred (Q5-10).
@@ -268,7 +268,7 @@
 - [ ] Phases 4–6 per increment
 
 ### Blocked
-- The Q8 merge waits on ticket Q8-10 (verifier A, round 3) and a verifier's confirmation of its fix. The work is the orchestrator's; no user decision is needed.
+- None.
 
 ## Risks
 - R8 **Closed (Q2).** Unreviewed May-branch code: Q2 ran QA and security over the merged base; all 12 Q0 must-fix defects and every new crash, data-loss and wrong-slide defect are fixed with tests; the rest are 43 tracked tickets (GitHub issues #2–#44).

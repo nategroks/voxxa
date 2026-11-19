@@ -15,7 +15,7 @@
 
 ## From: Q8 → To: Q9 (Call for help, runbooks, quick-start)
 **Date:** 2026-11-19
-**Phase:** Q8 (Phase 4, Simple mode, ADR-017) is done on `q8/base`: head **ee431ce**, plus the state commit "state(implementation): Q8 Simple mode". **It is not merged, and must not be merged yet.** In verifier round 3 at ee431ce, verifier B passed and **verifier A failed** (ticket **Q8-10**, below). Next for the orchestrator: fix Q8-10 and have a verifier confirm it; then CI, PR and merge (pre-approved above); then Q9.
+**Phase:** Q8 (Phase 4, Simple mode, ADR-017) is done on `q8/base`: head **ee431ce**, plus the state commit "state(implementation): Q8 Simple mode". In verifier round 3 at ee431ce, verifier B passed and verifier A failed (ticket Q8-10, below). The orchestrator fixed it afterwards (88aa63b, fce3e58), and a verifier confirmed the fix. Next: CI, PR and merge (pre-approved above); then Q9.
 
 ### What Q8 did
 - **Process:** two lanes from f8500e3. `q8/10x` (6 commits, ADR first) was merged as the comparator's base (b4eacca). `q8/ponytail` (4 commits, bdc3348) stays local for reference. Then came the 10x review's fixes, four ponytail grafts and two verifier rounds of fixes, one commit each. Record: `reviews/2026-11-19-ponytail-q8.md`.
@@ -31,7 +31,8 @@
   - `decisions/{sde,qa}/church-autoadvance.md` ("Q8 final"; the QA record has the usability walk-through table) and `decisions/architect/_index.md`;
   - `reviews/2026-11-19-q8-tickets.md`: 16 open, 2 medium and 14 low. Q8 closes no earlier issue outright; #7 is fixed in part.
 
-### Open before the merge: Q8-10 (the merge blocker)
+### Q8-10, the merge blocker: fixed 2026-11-19
+Q8-10 was fixed by the orchestrator in 88aa63b: a capture-phase `keydown` listener on `window` blocks every key while the guide is shown. Four new e2e checks press Space and `s` with the focus on the page body, on step 1 and during the 20-second test. All four fail on the old code (41 passed, 6 failed) and pass with the fix. An independent verifier confirmed it at 88aa63b: 13 shortcut keys were blocked with the focus on the body, the buttons and the select, and the guide's own keyboard controls still work. The old-code mutant and the bubble-phase mutant both fail. The verifier's one survivor, keys blocked even after the guide closes, is killed by fce3e58 ("s reaches main.js again" after Skip; 117 e2e checks). The original description follows.
 The guide's key block sits on the overlay box (`src/simple/firstrun.js:31`). With the focus on the page body, `main.js`'s document shortcuts (`src/main.js:1563`) still act. The focus is on the body when the guide opens on a fresh profile, and during the 20-second test after `#fr-extra` is cleared (`firstrun.js:174`). Space then starts listening behind the guide before a microphone is chosen, or stops the test and gives a false "I couldn't hear anything" verdict, and `s` opens the stage window.
 
 Fix: a capture-phase `window` keydown listener while the guide is shown, plus e2e checks with the focus on `document.body` that fail on ee431ce. Then a verifier confirms. Then push, draft PR, every CI job green (the browser test has never run on GitHub, Q8-04), merge, and file the tickets (label `q8`; Q8-10 only if it is still open). Add the comments to #7, #44, #34, #9, #102 and #37 (tickets file, last section).
