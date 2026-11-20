@@ -10,6 +10,15 @@ on:
 permissions:
   contents: read
 
+# whisper.cpp builds with GGML_NATIVE (-march=native) by default, so the
+# cached whisper-rs-sys build only runs on CPUs like the runner that built it.
+# A main run crashed with STATUS_ILLEGAL_INSTRUCTION in model_download after
+# rust-cache restored a build from another runner. WHISPER_NATIVE=OFF (passed on
+# as GGML_NATIVE by whisper-rs-sys) gives a portable AVX2 build. The cache key
+# names it, because rust-cache does not hash WHISPER_* variables.
+env:
+  WHISPER_NATIVE: "OFF"
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -40,6 +49,7 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          key: portable-ggml
 
       - uses: actions/setup-node@v4
         with:
