@@ -202,7 +202,8 @@ async fn keystrokes_are_refused_while_voxxa_has_focus() {
         sent,
         Sent {
             global: Some(0),
-            song: None,
+            // Stepping drivers record the song too since Q9W (ADR-019 § 3).
+            song: Some(0),
             blank: false
         }
     );

@@ -525,6 +525,58 @@ try {
   await light("green", "row 9 after a reload: no position", /^Following the song\.$/);
   check("after a reload: the song's title, no slide count", (await ev(`return document.getElementById("s-song").textContent + " / " + document.getElementById("s-slide").textContent`)) === "Bravo Hymn / ");
   await shot("26-simple-reload-mid-song");
+
+  // 9. WorshipTools Presenter (ADR-019): found by its process, used at once in step 2, the two
+  // amber asks word for word, no blank, and its key profile reconnected after a restart.
+  // The mock presses no key; titles are placeholders.
+  const WT = { kind: "keystroke", keystroke_profile: "worship_tools_presenter", host: "", port: 0, name: "WorshipTools Presenter", source: "process" };
+  const WT_SAYS = "Found WorshipTools Presenter. It has no remote control, so Voxxa presses its keys for you. Keep WorshipTools Presenter in front during the service.";
+  const wtConnects = () => ev(`return __mock.calls.filter((c) => c.cmd === "connect_presenter" && c.args.args.kind === "keystroke" && c.args.args.keystroke_profile === "worship_tools_presenter" && !("host" in c.args.args)).length`);
+  await ev(`__mock.st.found = [${JSON.stringify(WT)}]; return true`);
+  await click("#s-advanced");
+  await click("#s-guide");
+  await click("#fr-next");
+  check("WorshipTools: step 2 names it in plain words", await waitFor(`return document.getElementById("fr-msg").textContent === ${JSON.stringify(WT_SAYS)}`, 3000), await ev(`return document.getElementById("fr-msg").textContent`));
+  check("WorshipTools: used at once with its key profile, no host", (await wtConnects()) === 1 && (await ev(`return __mock.st.presenter.capabilities.can_blank`)) === false);
+  check("WorshipTools: saved for the next start", JSON.stringify(JSON.parse(await ev(`return localStorage.getItem("voxxa.presenterForm")`))) === JSON.stringify({ kind: "keystroke", keystroke_profile: "worship_tools_presenter" }));
+  await shot("27-first-run-worshiptools-found");
+  // Found next to a network app: a pick, its button without host:port, and the same sentence.
+  await ev(`__mock.st.found = [{ kind: "pro_presenter7_rest", host: "127.0.0.1", port: 1025, name: "ProPresenter on this computer", source: "localhost" }, ${JSON.stringify(WT)}]; return true`);
+  await clickButton("#fr-extra", /^Search again$/);
+  check("WorshipTools next to another app: a pick", (await waitFor(`return [...document.querySelectorAll("#fr-extra .discovered-row")].map((b) => b.textContent).join("|")`, 3000)) === "ProPresenter on this computer · 127.0.0.1:1025|WorshipTools Presenter");
+  await clickButton("#fr-extra", /^WorshipTools Presenter$/);
+  check("WorshipTools picked: the same sentence", await waitFor(`return document.getElementById("fr-msg").textContent === ${JSON.stringify(WT_SAYS)}`, 2000) && (await wtConnects()) === 2);
+  await click("#fr-skip");
+  await click("#s-simple");
+  // The page has no song list since the reload in section 8, so row 9 has no position.
+  await ev(`__mock.st.songs = ${JSON.stringify(setlist.setlist)}; __mock.st.running = true; __mock.goto(0); return true`);
+  await light("green", "WorshipTools: following", /^Following the song\.$/);
+  await ev(`__mock.presenterError("Bring WorshipTools Presenter to the front."); return true`);
+  await light("amber", "WorshipTools: the guard's sentence, word for word", /^Bring WorshipTools Presenter to the front\.$/);
+  await runbook("WorshipTools guard (amber)", null);
+  await shot("28-simple-amber-bring-to-front");
+  await ev(`__mock.goto(1); return true`);
+  await light("green", "a delivered slide clears the guard's sentence", /^Following the song\.$/);
+  await ev(`__mock.presenterError('Put "Bravo Hymn" live in Presenter.'); return true`);
+  await light("amber", "WorshipTools: the song-change ask, word for word", /^Put "Bravo Hymn" live in Presenter\.$/);
+  await runbook("WorshipTools song change (amber)", null);
+  check("WorshipTools: the asks' toasts are not error toasts", await ev(`const t = [...document.querySelectorAll(".toast")].filter((e) => /^(Bring WorshipTools|Put ")/.test(e.textContent));
+    return t.length === 2 && t.every((e) => e.classList.contains("toast-info") && !e.classList.contains("toast-error"))`));
+  await shot("29-simple-amber-put-song-live");
+  await ev(`__mock.goto(3); return true`);
+  await light("green", "the next slide inside the song clears the ask", /^Following the song\.$/);
+  // A prayer: the backend skips the blank (no presenter-error); the light says the screen stays.
+  await ev(`__mock.machine("blank_hold", true); return true`);
+  await light("amber", "WorshipTools: can't clear the screen", /^Hearing talking, not a song\. Voxxa can't clear WorshipTools Presenter's screen, so the slide stays up\.$/);
+  await shot("30-simple-amber-cannot-blank");
+  // A restart: the saved WorshipTools profile is reconnected (the backend starts on universal keys).
+  await load();
+  check("restart: the WorshipTools profile is reconnected", (await waitFor(`return __mock.calls.some((c) => c.cmd === "connect_presenter" && c.args.args.keystroke_profile === "worship_tools_presenter")`)) && (await ev(`return __mock.st.presenter.capabilities.can_blank`)) === false);
+  // The universal keystroke form is not: the backend already starts on it.
+  await ev(`localStorage.setItem("voxxa.presenterForm", JSON.stringify({ kind: "keystroke", keystroke_profile: "universal" })); return true`);
+  await load();
+  await sleep(500);
+  check("restart: a universal keystroke form is not reconnected", (await calls("connect_presenter")) === 0);
 } catch (err) {
   check("e2e ran to the end", false, String(err && err.stack || err));
 }

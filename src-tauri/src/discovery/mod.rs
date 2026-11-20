@@ -1,29 +1,36 @@
 //! Auto-discovery of presentation apps on the local machine and LAN.
 //!
-//! Two strategies in parallel:
+//! Three strategies in parallel:
 //!   - localhost port probes against the known defaults of every API-capable
-//!     driver (ProPresenter 7.9+ REST, FreeShow, OpenLP v2)
+//!     driver (ProPresenter 7.9+ REST, FreeShow, OpenLP v2, OpenSong)
 //!   - mDNS browsing for ProPresenter's `_pro7stagedsply._tcp.local.` service
 //!     announcement, which gives us host candidates for REST probing on 1025
+//!   - on Windows, the running processes, for WorshipTools Presenter, which has
+//!     no API and is driven by keys (ADR-019 § 1)
 //!
 //! Total wall-time is bounded by `timeout`; localhost probes finish in
 //! milliseconds, mDNS browse runs to the budget.
 
-use crate::presenters::PresenterKind;
+use crate::presenters::keystroke::{is_presenter_exe, process_paths};
+use crate::presenters::{KeystrokeProfile, PresenterKind};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DiscoverySource {
     Localhost,
     Mdns,
+    /// A running process: no host or port (`host` is empty, `port` 0).
+    Process,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DiscoveredService {
     pub kind: PresenterKind,
+    /// The keystroke profile to connect with; None for the network probes.
+    pub keystroke_profile: Option<KeystrokeProfile>,
     pub host: String,
     pub port: u16,
     /// Display string for the picker UI.
@@ -31,12 +38,36 @@ pub struct DiscoveredService {
     pub source: DiscoverySource,
 }
 
+/// WorshipTools Presenter, when one of these executable paths is its process
+/// (test card T1). It is found as the keystroke driver with its own profile.
+pub fn presenter_process(paths: &[String]) -> Option<DiscoveredService> {
+    paths
+        .iter()
+        .any(|p| is_presenter_exe(p))
+        .then(|| DiscoveredService {
+            kind: PresenterKind::Keystroke,
+            keystroke_profile: Some(KeystrokeProfile::WorshipToolsPresenter),
+            host: String::new(),
+            port: 0,
+            name: "WorshipTools Presenter".into(),
+            source: DiscoverySource::Process,
+        })
+}
+
+/// The process list is read on a blocking thread; off Windows it is empty.
+async fn find_process() -> Option<DiscoveredService> {
+    let found = tokio::task::spawn_blocking(|| presenter_process(&process_paths())).await;
+    found.ok().flatten()
+}
+
 /// Run all discovery strategies in parallel and return the union of results.
 pub async fn discover_all(timeout: Duration) -> Vec<DiscoveredService> {
-    let (mut local, mut mdns) = tokio::join!(probe_localhost(), browse_mdns(timeout));
-    let mut all = Vec::with_capacity(local.len() + mdns.len());
+    let (mut local, mut mdns, process) =
+        tokio::join!(probe_localhost(), browse_mdns(timeout), find_process());
+    let mut all = Vec::with_capacity(local.len() + mdns.len() + 1);
     all.append(&mut local);
     all.append(&mut mdns);
+    all.extend(process);
 
     // Dedupe on (kind, host, port) — a host might surface via both localhost
     // probing and mDNS if the user is running everything on one machine.
@@ -76,6 +107,7 @@ async fn probe_opensong(host: &str, port: u16) -> Option<DiscoveredService> {
     }
     Some(DiscoveredService {
         kind: PresenterKind::OpenSong,
+        keystroke_profile: None,
         host: host.to_string(),
         port,
         name: format!("OpenSong on {host}"),
@@ -101,6 +133,7 @@ async fn probe_pro7_rest(host: &str, port: u16) -> Option<DiscoveredService> {
     }
     Some(DiscoveredService {
         kind: PresenterKind::ProPresenter7Rest,
+        keystroke_profile: None,
         host: host.to_string(),
         port,
         name: format!("ProPresenter on {host}"),
@@ -126,6 +159,7 @@ async fn probe_freeshow(host: &str, port: u16) -> Option<DiscoveredService> {
     }
     Some(DiscoveredService {
         kind: PresenterKind::FreeShow,
+        keystroke_profile: None,
         host: host.to_string(),
         port,
         name: format!("FreeShow on {host}"),
@@ -147,6 +181,7 @@ async fn probe_openlp(host: &str, port: u16) -> Option<DiscoveredService> {
     }
     Some(DiscoveredService {
         kind: PresenterKind::OpenLpV2,
+        keystroke_profile: None,
         host: host.to_string(),
         port,
         name: format!("OpenLP on {host}"),
@@ -204,6 +239,7 @@ fn browse_mdns_blocking(timeout: Duration) -> Vec<DiscoveredService> {
                     }
                     out.push(DiscoveredService {
                         kind: PresenterKind::ProPresenter7Rest,
+                        keystroke_profile: None,
                         host,
                         port,
                         name: format!("ProPresenter on {hostname}"),

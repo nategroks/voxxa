@@ -2,7 +2,7 @@ mod aligner;
 mod audio;
 mod commands;
 mod diagnostics;
-mod discovery;
+pub mod discovery;
 mod dispatch;
 pub mod help;
 mod http_api;

@@ -97,3 +97,13 @@ Full review: `reviews/2026-11-11-security-review.md`; tickets: `reviews/2026-11-
 4. Both windows may listen to events; no other plugin API is granted.
 5. Imports run off the UI thread; a malformed PDF returns an error.
 6. A second launch focuses the running Voxxa.
+
+## 2026-11-20 — Q9W (10x lane, `q9w/10x`): WorshipTools Presenter by process, keys guarded
+ADR-019 §§ 1-4. Security Engineer review of the new surface.
+- **Process enumeration is read-only.** `presenters/keystroke.rs:67-115` opens each process with `PROCESS_QUERY_LIMITED_INFORMATION` only, reads its image path with `QueryFullProcessImageNameW`, and closes the handle. No window is read, nothing is injected, no process is signalled. Processes the user may not query are skipped. Kernel32 FFI only: no new crate; `Cargo.toml`, `Cargo.lock`, `deny.toml` and `capabilities/default.json` are unchanged; cargo-deny passes.
+- **What leaves the process list:** one fixed name ("WorshipTools Presenter") when an image path matches; the paths themselves are not logged, stored or sent to the webview.
+- **Keys only to Presenter.** With this profile, `tap()` (`keystroke.rs:222`) checks the front window's process path before every key; a key aimed at any other window is not sent. Narrower than before. Off Windows the guard passes (ADR-019 amendment); the pilot is Windows.
+- **Accepted risk: name match.** Any executable named `Presenter.exe` in front counts as Presenter (test card T1; R0 item 18). A wrong match can only receive Right or Left. The founder's M15 checks the real booth PC.
+- **Accepted risk: Presenter run as administrator.** Windows (UIPI) drops the keys silently and Voxxa cannot tell; documented in the runbook and in M15. Voxxa never asks for elevation.
+- **Key map:** F10, F11, F12, Up, Down and numpad +/- are never sent (unit test); "." is gone; the blank is off until the founder confirms the unblank key.
+- **Guarded real-app run:** scratch identifier `com.voxxa.qa9wx` (checked in the binary; `com.voxxa.app` absent), CDP on 9361, no microphone (startup only builds `AudioEngine::new()`; capture opens only in `start_listening_with_state`), no key dispatch; Presenter's process was enumerated, never touched; scratch data deleted afterwards.

@@ -73,3 +73,8 @@
 - The founder confirms an unblank key for F10: switch `can_blank` on in a follow-up.
 - Keys fail at the pilot more than once a service (focus lost, wrong item): reopen MIDI (Decision 5).
 - WorshipTools ships a local API: move Presenter to Tier 1 or 2 under ADR-006.
+
+## Amendment (Q9W Phase 2 check, 2026-11-20)
+The Architect and the Staff Engineer re-read every code reference above at `b154a55`. Each still matches: `firstrun.js:77,107`, `discovery/mod.rs:48-53,159`, `keystroke.rs:42,83-88,147-149,202-205`, `commands/mod.rs:284`, `logic.js:16-19`, `lib.rs:80-87`, `dispatch.rs:140,141-160`, and the budget figures. Two amendments:
+1. **§ 10, the numbers.** `src/discovery/` is 183 code lines at `b154a55` (tokei). The new row "discovery (src/discovery/)" is capped at **250**, which leaves 67 lines for the process source, the profile field and the call. "Everything else in src-tauri/src" stops counting those 183 lines, so its cap goes **down from 2500 to 2317**. Its headroom stays the 6 lines this section names: moving discovery out does not hand it 183 free lines. No cap is raised.
+2. **§ 2, off Windows.** The process check runs only on Windows (`foreground_pid()` is 0 elsewhere). Off Windows the guard passes, as the own-window guard does there (`keystroke.rs:32-36`). The pilot runs Windows.

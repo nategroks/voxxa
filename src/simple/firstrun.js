@@ -68,15 +68,27 @@ export async function applySavedDevice() {
 }
 
 // The presentation app chosen here (or in Settings) is reconnected at every start, apart from
-// the device restore so a failed device list cannot skip it. Never the keystroke driver (it is
-// the default) and never a form that needs a secret: passwords are never saved (main.js:1131-
-// 1133), so that reconnect would fail every launch; row 6 of the light shows it instead.
+// the device restore so a failed device list cannot skip it. Never the keystroke driver's
+// universal profile (the backend starts on it) and never a form that needs a secret: passwords
+// are never saved (main.js:1131-1133), so that reconnect would fail every launch; row 6 of the
+// light shows it instead. Any other keystroke profile is reconnected, so WorshipTools Presenter's
+// guard, song rule and key map survive a restart (ADR-019 § 2a).
 export const savedPresenter = () => read("voxxa.presenterForm");
 export function reconnectPresenter() {
   const form = savedPresenter();
-  if (!form || !form.kind || form.kind === "keystroke" || /_ws$/.test(form.kind) || form.username) return;
+  const universal = form && form.kind === "keystroke" && (form.keystroke_profile || "universal") === "universal";
+  if (!form || !form.kind || universal || /_ws$/.test(form.kind) || form.username) return;
   invoke("connect_presenter", { args: form }).catch(() => {});
 }
+
+// Step 2 connects a found app and saves it for the next start. An app found by its process
+// (WorshipTools Presenter, ADR-019 § 1) has no host: it connects with its key profile.
+async function use(svc) {
+  const args = svc.keystroke_profile ? { kind: svc.kind, keystroke_profile: svc.keystroke_profile } : { kind: svc.kind, host: svc.host, port: svc.port };
+  await invoke("connect_presenter", { args });
+  write("voxxa.presenterForm", args);
+}
+const pressesKeys = (svc) => `Found ${svc.name}. It has no remote control, so Voxxa presses its keys for you. Keep ${svc.name} in front during the service.`;
 
 async function device() {
   say("Pick the input that carries the music, usually the sound desk's USB or line input.");
@@ -99,7 +111,7 @@ async function device() {
 
 async function presenter() {
   const i = step;
-  say("Looking for ProPresenter, FreeShow, OpenLP and OpenSong on this computer and network…");
+  say("Looking for ProPresenter, FreeShow, OpenLP, OpenSong and WorshipTools Presenter on this computer and network…");
   let found = [];
   try { found = (await invoke("discover_presenters", { timeoutMs: 2500 })) || []; } catch {}
   if (!still(i)) return;
@@ -108,14 +120,19 @@ async function presenter() {
     button("Search again", () => go(i));
     return;
   }
+  // Only WorshipTools Presenter: there is nothing to pick, so it is used at once. Otherwise
+  // a Next without a pick would leave the universal keys, without its guard and song rule.
+  if (found.length === 1 && found[0].source === "process") {
+    try { await use(found[0]); if (still(i)) say(pressesKeys(found[0])); } catch (err) { if (still(i)) say(`Found ${found[0].name}, but couldn't connect: ${err}`); }
+    if (still(i)) button("Search again", () => go(i));
+    return;
+  }
   say("Found. Pick yours:");
   for (const svc of found) {
-    button(`${svc.name} · ${svc.host}:${svc.port}`, async () => {
-      const args = { kind: svc.kind, host: svc.host, port: svc.port };
+    button(svc.source === "process" ? svc.name : `${svc.name} · ${svc.host}:${svc.port}`, async () => {
       try {
-        await invoke("connect_presenter", { args });
-        write("voxxa.presenterForm", args);
-        say(`Connected to ${svc.name}.`);
+        await use(svc);
+        say(svc.source === "process" ? pressesKeys(svc) : `Connected to ${svc.name}.`);
       } catch (err) { say("Couldn't connect: " + err); }
     }, "discovered-row");
   }

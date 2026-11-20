@@ -373,3 +373,19 @@ Three findings, one commit each, each with a check that fails without it.
 **Not tested:** the real launch of a mail program and Explorer (by rule; Q9-12); CI has not run Q9 yet; the browser test still runs only on Windows (Q8-04).
 
 **Tickets:** 16 open (1 medium, 15 low). The test and tooling ones: Q9-07, Q9-11, Q9-12, Q9-15.
+
+## 2026-11-20 — Q9W (10x lane, `q9w/10x`): exit demo
+ADR-019 and the Q9W exit list. Placeholder titles only ("Song A", "Bravo Hymn"); no recognised words anywhere.
+
+**Unit tests (Rust, fake presenters and pure helpers; no test creates enigo or presses a key):**
+- Discovery by process with a fake process list: `src-tauri/tests/worshiptools.rs:108` (hit with kind, profile, source, empty host and port 0, and the JSON the GUI reads; misses on an empty list and on look-alikes). Name matching: `presenters/keystroke.rs` test `presenter_is_known_by_its_process_name_or_path`.
+- The foreground guard: `keystroke.rs` test `worshiptools_keys_go_only_to_presenter_in_front` (`keys_allowed`; unreadable front window refused; other profiles unaffected; `FRONT_MSG` word for word).
+- No step across songs: `worshiptools.rs:148` (inside a song: Rights; song change: no key, the ask, first slide recorded; a mid-song landing; a chip back to an earlier song); `:179` raw Next/Prev unchanged; `:193` other profiles still step across.
+- `can_blank` false with no red error: `worshiptools.rs:203` (conductor blank skipped, operator blank "not supported", no key) and `:224` (through `gui_sink`: a prayer emits no `presenter-error`; the song change emits only the ask).
+- The exact key map: `keystroke.rs` tests `the_worshiptools_key_map_is_right_left_and_no_blank` (never F10/F11/F12/Up/Down/numpad +/-/".") and `other_profiles_keep_their_keys`; `can_blank_and_the_song_end_stop_come_from_the_profile`.
+
+**GUI, mocked backend:** `tests/gui/simple_logic.test.mjs:143,160` (both amber sentences word for word, look-alikes stay red, the can't-clear sentences); `tests/gui/e2e.mjs:529-579`, section 9 (step 2 names WorshipTools Presenter and connects with its profile, the pick next to another app, amber guard and song-change ask on the light, info toasts, the can't-clear row, the restart reconnect, and no reconnect for a universal form). Results: `test:gui` 9/9, e2e 176/176.
+
+**GUI, the real app (guarded scratch build):** identifier `com.voxxa.qa9wx` (inlined in the binary; `com.voxxa.app` absent), CDP 9361, built with `npm run tauri build -- --no-bundle --config <scratch>`, never committed. Startup opens no audio input (checked in code first). With WorshipTools Presenter running on LHMEZPC01, step 2 ("Find your presentation app") showed "Found WorshipTools Presenter. It has no remote control, so Voxxa presses its keys for you. Keep WorshipTools Presenter in front during the service." and saved `{"kind":"keystroke","keystroke_profile":"worship_tools_presenter"}`; `get_presenter_info` then reported `can_blank: false`. After the app was stopped by PID and started again, `can_blank` was false at once (the profile was reconnected). Only "Next" on step 1, "Skip setup", "Advanced" and "Set-up guide" were clicked; Listen, the test, Next/Previous/Blank, the HTTP API and the stage window were never touched; Presenter's process was never touched. Both PIDs stopped; `%LOCALAPPDATA%\com.voxxa.qa9wx` deleted. (The first CDP pass read step 1 before step 2 rendered and skipped the guide; the second pass reopened the guide and is the one recorded.)
+
+**Not tested here:** a real key reaching Presenter, the guard against a real foreground switch, Presenter as administrator, and the F10 unblank; these are founder checklist M15 and M16 (in `handoff.md`). CI has not run Q9W yet.
