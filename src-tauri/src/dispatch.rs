@@ -98,10 +98,6 @@ pub async fn drive(
 ) -> Result<(), CtlError> {
     let (song, slide, target, title) = match action {
         Action::Noop => return Ok(()),
-        Action::Blank | Action::Unblank => {
-            let want = matches!(action, Action::Blank);
-            return set_blank(p, sent, want, voxxa_focused).await;
-        }
         Action::Goto {
             song_index,
             slide_in_song,
@@ -114,6 +110,13 @@ pub async fn drive(
             *global_index as i64,
             song_title,
         ),
+        // Blank or unblank. With an app Voxxa can't blank, the conductor's is
+        // skipped (no red light at every prayer) and the operator's is refused.
+        _ if !operator && !p.capabilities().can_blank => return Ok(()),
+        Action::Blank | Action::Unblank => {
+            let want = matches!(action, Action::Blank);
+            return set_blank(p, sent, want, voxxa_focused).await;
+        }
     };
     // Focus is checked only where a key is really pressed: a Goto that sends
     // nothing must still record where the screen is.
@@ -137,10 +140,16 @@ pub async fn drive(
         if new_song || sent.global != Some(target) {
             p.goto_slide(slide).await?;
         }
-        sent.song = Some(song);
     } else if let Some(cur) = sent.global {
         // Keystroke-style drivers step through the setlist with next/prev.
         // With nothing sent yet the position is unknown, so nothing is pressed.
+        // A driver that must not step across songs (ADR-019 § 3) presses
+        // nothing at a song change, asks the operator, and records the new
+        // song's first slide: the app shows it once the song is put live.
+        if let Some(ask) = p.song_change_ask(title).filter(|_| sent.song != Some(song)) {
+            (sent.global, sent.song) = (Some(target - slide as i64), Some(song));
+            return Err(CtlError::Other(ask));
+        }
         let delta = target - cur;
         if delta != 0 {
             refuse_if_focused(p, voxxa_focused)?;
@@ -160,6 +169,7 @@ pub async fn drive(
         }
     }
     sent.global = Some(target);
+    sent.song = Some(song);
     if sent.blank {
         set_blank(p, sent, false, voxxa_focused).await?;
     }

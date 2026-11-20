@@ -154,6 +154,14 @@ pub trait PresentationController: Send + Sync {
     async fn connect(&mut self, cfg: PresenterConfig) -> Result<(), CtlError>;
     async fn disconnect(&mut self) -> Result<(), CtlError>;
 
+    /// None: keystroke dispatch may step past a song's last slide into the
+    /// next song. Some(sentence): it must not (in WorshipTools Presenter that
+    /// Right shows the next service item, ADR-019 § 3), so dispatch presses
+    /// nothing at a song change and asks the operator this instead.
+    fn song_change_ask(&self, _title: &str) -> Option<String> {
+        None
+    }
+
     async fn next_slide(&self) -> Result<(), CtlError>;
     async fn prev_slide(&self) -> Result<(), CtlError>;
 

@@ -4,8 +4,8 @@
 //! (EasyWorship, MediaShout, SongShow Plus, WorshipTools Presenter, VideoPsalm)
 //! and for users who don't want to enable the network APIs on supported apps.
 //!
-//! The receiving app's window must be in the foreground; we can't detect that
-//! from here, but the caller can warn.
+//! The receiving app's window must be in the foreground. Only the WorshipTools
+//! Presenter profile checks that the foreground app is the target (ADR-019 § 2).
 
 use async_trait::async_trait;
 use enigo::{Enigo, Key, Keyboard, Settings};
@@ -33,6 +33,75 @@ pub fn foreground_pid() -> u32 {
 #[cfg(not(windows))]
 pub fn foreground_pid() -> u32 {
     0
+}
+
+/// Running processes as (pid, exe name), from a Toolhelp snapshot: no process
+/// is opened, so WorshipTools Presenter is only listed, never touched.
+#[cfg(windows)]
+pub fn processes() -> Vec<(u32, String)> {
+    use std::ffi::c_void;
+    #[repr(C)]
+    struct Entry {
+        size: u32,
+        usage: u32,
+        pid: u32,
+        heap: usize,
+        module: u32,
+        threads: u32,
+        parent: u32,
+        priority: i32,
+        flags: u32,
+        exe: [u16; 260],
+    }
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn CreateToolhelp32Snapshot(flags: u32, pid: u32) -> *mut c_void;
+        fn Process32FirstW(snap: *mut c_void, entry: *mut Entry) -> i32;
+        fn Process32NextW(snap: *mut c_void, entry: *mut Entry) -> i32;
+        fn CloseHandle(handle: *mut c_void) -> i32;
+    }
+    let mut out = Vec::new();
+    // SAFETY: TH32CS_SNAPPROCESS (2) snapshots the process list; `size` is set
+    // as the API requires, and the snapshot handle is closed.
+    unsafe {
+        let snap = CreateToolhelp32Snapshot(2, 0);
+        if snap as isize == -1 {
+            return out;
+        }
+        let mut e: Entry = std::mem::zeroed();
+        e.size = std::mem::size_of::<Entry>() as u32;
+        let mut ok = Process32FirstW(snap, &mut e);
+        while ok != 0 {
+            let len = e.exe.iter().position(|&c| c == 0).unwrap_or(e.exe.len());
+            out.push((e.pid, String::from_utf16_lossy(&e.exe[..len])));
+            ok = Process32NextW(snap, &mut e);
+        }
+        CloseHandle(snap);
+    }
+    out
+}
+
+/// Off Windows nothing is found by process (ADR-019 § 1).
+#[cfg(not(windows))]
+pub fn processes() -> Vec<(u32, String)> {
+    Vec::new()
+}
+
+/// WorshipTools Presenter's process (T1: `Presenter`, from
+/// `C:\Program Files\Presenter\Presenter.exe`): its name, exe name or path.
+pub fn is_presenter(exe: &str) -> bool {
+    let name = exe.rsplit(['\\', '/']).next().unwrap_or(exe);
+    name.eq_ignore_ascii_case("Presenter.exe") || name.eq_ignore_ascii_case("Presenter")
+}
+
+/// The foreground guard's sentence, shown amber word for word (ADR-019 § 2).
+pub const FRONT_MSG: &str = "Bring WorshipTools Presenter to the front.";
+
+/// The foreground window belongs to a WorshipTools Presenter process.
+pub fn presenter_in_front(foreground_pid: u32, processes: &[(u32, String)]) -> bool {
+    processes
+        .iter()
+        .any(|(pid, exe)| *pid == foreground_pid && is_presenter(exe))
 }
 
 /// Synthetic keys would land in Voxxa: one of its webviews has focus, or the
@@ -80,12 +149,18 @@ impl KeystrokeProfile {
             | Self::OpenLp
             | Self::MediaShout
             | Self::SongShowPlus
-            | Self::WorshipToolsPresenter
             | Self::Proclaim
             | Self::FreeShow => KeyMap {
                 next: Key::RightArrow,
                 prev: Key::LeftArrow,
                 blank: Some(Key::Unicode('.')),
+            },
+            // ADR-019 § 4: `.` does nothing in Presenter (T4). F10 clears its lyrics
+            // but the way back is untested, so it is only the candidate: no blank.
+            Self::WorshipToolsPresenter => KeyMap {
+                next: Key::RightArrow,
+                prev: Key::LeftArrow,
+                blank: None,
             },
             Self::EasyWorship => KeyMap {
                 next: Key::RightArrow,
@@ -127,6 +202,14 @@ impl KeystrokeDriver {
     }
 
     fn tap(&self, key: Key) -> Result<(), CtlError> {
+        // shortcut: off Windows the foreground app is unknown and keys go out as
+        // before; add a macOS check if a Mac church pilots Presenter.
+        if cfg!(windows)
+            && self.profile == KeystrokeProfile::WorshipToolsPresenter
+            && !presenter_in_front(foreground_pid(), &processes())
+        {
+            return Err(CtlError::Other(FRONT_MSG.into()));
+        }
         // A fresh Enigo per call sidesteps Send/Sync issues with the cached handle on
         // platforms where `Enigo` is not Send.
         let mut enigo = Enigo::new(&Settings::default())
@@ -145,7 +228,15 @@ impl PresentationController for KeystrokeDriver {
     }
 
     fn capabilities(&self) -> Capabilities {
-        Capabilities::KEYSTROKE
+        Capabilities {
+            can_blank: self.profile.keymap().blank.is_some(),
+            ..Capabilities::KEYSTROKE
+        }
+    }
+
+    fn song_change_ask(&self, title: &str) -> Option<String> {
+        (self.profile == KeystrokeProfile::WorshipToolsPresenter)
+            .then(|| format!("Put \"{title}\" live in Presenter."))
     }
 
     fn is_connected(&self) -> bool {
@@ -218,5 +309,90 @@ mod tests {
         assert!(own_window_focused(std::process::id(), false));
         assert!(own_window_focused(0, true));
         assert!(!own_window_focused(0, false));
+    }
+
+    #[test]
+    fn presenter_is_known_by_its_process_name_or_path() {
+        use super::is_presenter;
+        assert!(is_presenter(r"C:\Program Files\Presenter\Presenter.exe"));
+        assert!(is_presenter("Presenter.exe"));
+        assert!(is_presenter("PRESENTER.EXE"));
+        assert!(is_presenter("Presenter"));
+        for other in ["ProPresenter.exe", "Presenter.exe.bak", "explorer.exe", ""] {
+            assert!(!is_presenter(other), "{other}");
+        }
+    }
+
+    #[test]
+    fn keys_go_to_presenter_only_when_it_is_in_front() {
+        use super::presenter_in_front;
+        let procs = [
+            (10, "explorer.exe".to_string()),
+            (20, "Presenter.exe".to_string()),
+        ];
+        assert!(presenter_in_front(20, &procs));
+        assert!(!presenter_in_front(10, &procs), "another app in front");
+        assert!(!presenter_in_front(0, &procs), "no foreground window");
+        assert!(!presenter_in_front(20, &[]), "Presenter not running");
+    }
+
+    /// No key is pressed here: only the key maps, capabilities and a blank
+    /// that fails before any key.
+    #[tokio::test]
+    async fn worshiptools_gets_right_and_left_and_no_blank() {
+        use super::*;
+        let km = KeystrokeProfile::WorshipToolsPresenter.keymap();
+        assert_eq!(
+            (km.next, km.prev, km.blank),
+            (Key::RightArrow, Key::LeftArrow, None)
+        );
+        // F10-F12 clear Presenter's screen; Up, Down and numpad +/- change the service item.
+        #[allow(unused_mut)]
+        let mut never = vec![Key::F10, Key::F11, Key::F12, Key::UpArrow, Key::DownArrow];
+        #[cfg(windows)]
+        never.extend([Key::Add, Key::Subtract]);
+        for k in [km.next, km.prev].into_iter().chain(km.blank) {
+            assert!(!never.contains(&k), "{k:?}");
+        }
+        let cfg = |p| PresenterConfig {
+            keystroke_profile: Some(p),
+            ..Default::default()
+        };
+        let mut d = KeystrokeDriver::new();
+        d.connect(cfg(KeystrokeProfile::WorshipToolsPresenter))
+            .await
+            .unwrap();
+        assert!(!d.capabilities().can_blank);
+        assert_eq!(
+            d.song_change_ask("Song A").as_deref(),
+            Some("Put \"Song A\" live in Presenter.")
+        );
+        let r = d.blank().await;
+        assert!(matches!(r, Err(CtlError::Unsupported("blank"))), "{r:?}");
+        // Every other profile keeps its keys, its blank and its song steps.
+        use KeystrokeProfile::*;
+        for p in [
+            Universal,
+            ProPresenter,
+            EasyWorship,
+            OpenLp,
+            MediaShout,
+            SongShowPlus,
+            PowerPoint,
+            Keynote,
+            VideoPsalm,
+            Proclaim,
+            FreeShow,
+        ] {
+            let km = p.keymap();
+            assert_eq!((km.next, km.prev), (Key::RightArrow, Key::LeftArrow));
+            assert!(km.blank.is_some(), "{p:?}");
+            d.connect(cfg(p)).await.unwrap();
+            assert!(
+                d.capabilities().can_blank && d.song_change_ask("Song A").is_none(),
+                "{p:?}"
+            );
+        }
+        assert_eq!(Universal.keymap().blank, Some(Key::Unicode('.')));
     }
 }

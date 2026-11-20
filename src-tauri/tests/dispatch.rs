@@ -20,6 +20,8 @@ struct Fake {
     /// black). The toggle blacks out and back; while black, any key only
     /// ends the black.
     screen: Mutex<(i64, bool)>,
+    /// Must not step across songs, as WorshipTools Presenter (ADR-019 § 3).
+    one_song: bool,
 }
 
 impl Fake {
@@ -30,6 +32,18 @@ impl Fake {
             presentation: Mutex::new(None),
             calls: Mutex::new(Vec::new()),
             screen: Mutex::new((0, false)),
+            one_song: false,
+        }
+    }
+    /// The WorshipTools Presenter profile: keys, no blank, no step across songs.
+    fn worshiptools() -> Self {
+        let caps = Capabilities {
+            can_blank: false,
+            ..Capabilities::KEYSTROKE
+        };
+        Self {
+            one_song: true,
+            ..Self::new(PresenterKind::Keystroke, caps)
         }
     }
     /// The default Keystroke driver: '.' toggles blank, no goto.
@@ -71,6 +85,10 @@ impl PresentationController for Fake {
     fn is_connected(&self) -> bool {
         true
     }
+    fn song_change_ask(&self, title: &str) -> Option<String> {
+        self.one_song
+            .then(|| format!("Put \"{title}\" live in Presenter."))
+    }
     async fn connect(&mut self, _: PresenterConfig) -> Result<(), CtlError> {
         Ok(())
     }
@@ -84,6 +102,9 @@ impl PresentationController for Fake {
         self.log("prev".into())
     }
     async fn blank(&self) -> Result<(), CtlError> {
+        if !self.caps.can_blank {
+            return Err(CtlError::Unsupported("blank"));
+        }
         self.log("blank".into())
     }
     async fn unblank(&self) -> Result<(), CtlError> {
@@ -202,7 +223,7 @@ async fn keystrokes_are_refused_while_voxxa_has_focus() {
         sent,
         Sent {
             global: Some(0),
-            song: None,
+            song: Some(0),
             blank: false
         }
     );
@@ -385,4 +406,69 @@ async fn a_prev_below_the_first_song_keeps_the_deck_position_known() {
     }
     assert_eq!(p.screen.lock().unwrap().0, 4, "Be Thou My Vision slide 0");
     assert_eq!(p.take(), ["prev", "next", "next", "next", "next", "next"]);
+}
+
+/// Goto into two placeholder songs of three slides each.
+fn ab(song: usize, slide: usize) -> Action {
+    Action::Goto {
+        song_index: song,
+        slide_in_song: slide,
+        global_index: 3 * song + slide,
+        slide_text: String::new(),
+        next_slide_text: None,
+        song_title: ["Song A", "Song B"][song].into(),
+    }
+}
+
+#[tokio::test]
+async fn worshiptools_never_gets_a_key_across_a_song_boundary() {
+    // T2 (ADR-019 § 3): Right on a song's last slide shows Presenter's next
+    // service item, which may not be the next song.
+    let p = Fake::worshiptools();
+    let mut sent = Sent::default();
+    auto(&p, &mut sent, ab(0, 0)).await.unwrap();
+    auto(&p, &mut sent, ab(0, 2)).await.unwrap();
+    assert_eq!(p.take(), ["next", "next"], "inside a song: as before");
+    // Song A's last slide -> Song B slide 1: no key, ask, record B's first slide.
+    let err = auto(&p, &mut sent, ab(1, 1)).await.unwrap_err();
+    assert_eq!(err.to_string(), "Put \"Song B\" live in Presenter.");
+    assert_eq!(p.take(), Vec::<String>::new(), "no key across the boundary");
+    assert_eq!((sent.global, sent.song), (Some(3), Some(1)));
+    // The operator put Song B live (its first slide): steps inside it work.
+    auto(&p, &mut sent, ab(1, 2)).await.unwrap();
+    assert_eq!(p.take(), ["next", "next"]);
+    // Back to Song A: no Left either.
+    assert!(auto(&p, &mut sent, ab(0, 2)).await.is_err());
+    assert_eq!(p.take(), Vec::<String>::new());
+    assert_eq!((sent.global, sent.song), (Some(0), Some(0)));
+    // The operator's raw Next/Prev is the operator's own choice: unchanged.
+    step(&p, &mut sent, 1, false).await.unwrap();
+    step(&p, &mut sent, -1, false).await.unwrap();
+    assert_eq!(p.take(), ["next", "prev"]);
+    // The same song changes with the default profile still step (other profiles unchanged).
+    let p = Fake::toggle();
+    let mut sent = Sent::default();
+    for action in [ab(0, 2), ab(1, 1)] {
+        auto(&p, &mut sent, action).await.unwrap();
+    }
+    assert_eq!(p.take(), ["next", "next"]);
+}
+
+#[tokio::test]
+async fn an_app_voxxa_cannot_blank_raises_no_error_at_a_conductor_blank() {
+    // ADR-019 § 4: a prayer must not turn the light red.
+    let p = Fake::worshiptools();
+    let mut sent = Sent::default();
+    auto(&p, &mut sent, ab(0, 0)).await.unwrap();
+    auto(&p, &mut sent, Action::Blank).await.unwrap();
+    auto(&p, &mut sent, Action::Unblank).await.unwrap();
+    auto(&p, &mut sent, ab(0, 1)).await.unwrap();
+    assert_eq!(p.take(), ["next"], "no blank key, the slide still moves");
+    assert!(!sent.blank);
+    // The operator's Blank (button, tray, HTTP) says it is not supported.
+    let err = drive(&p, &mut sent, &Action::Blank, false, true)
+        .await
+        .unwrap_err();
+    assert!(err.to_string().contains("not supported"), "{err}");
+    assert_eq!((p.take(), sent.blank), (vec![], false));
 }

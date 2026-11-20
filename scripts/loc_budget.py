@@ -68,7 +68,11 @@ voxxa_eval = total(["cli/voxxa-eval/"])
 # Simple mode and its first-run flow get their own row for src/simple/ instead
 # of raising the GUI row, which stays at 3000 and no longer counts it.
 simple = sum(n for f, n in gui.items() if f.startswith("src/simple/"))
-rest = sum(rust.values()) - conductor - evidence - presenters - importers - voxxad - recognizer - voxxa_eval
+# Recorded deviation from ADR-010 Decision 3 (ADR-019 § 10, user decision D5, 2026-11-20):
+# discovery (port probes, mDNS, and WorshipTools Presenter found by process) gets its
+# own row instead of raising "everything else", which stays at 2500 and no longer counts it.
+discovery = total(["discovery/"])
+rest = sum(rust.values()) - conductor - evidence - presenters - importers - voxxad - recognizer - voxxa_eval - discovery
 
 checks = [
     ("conductor (aligner/)", conductor, 1200),
@@ -76,6 +80,7 @@ checks = [
     ("presenters/ total", presenters, 2000),
     ("importers/ + planning_center/", importers, 1600),
     ("everything else in src-tauri/src", rest, 2500),
+    ("discovery (src/discovery/)", discovery, 250),
     ("voxxad binary (src/cli/voxxad/)", voxxad, 600),
     ("recognizer (transcription/ + recognizer code)", recognizer, 700),
     ("voxxa-eval (src/cli/voxxa-eval/)", voxxa_eval, 600),

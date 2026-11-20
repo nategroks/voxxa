@@ -1,15 +1,17 @@
 //! Auto-discovery of presentation apps on the local machine and LAN.
 //!
-//! Two strategies in parallel:
+//! Three strategies:
 //!   - localhost port probes against the known defaults of every API-capable
-//!     driver (ProPresenter 7.9+ REST, FreeShow, OpenLP v2)
+//!     driver (ProPresenter 7.9+ REST, FreeShow, OpenLP v2, OpenSong)
 //!   - mDNS browsing for ProPresenter's `_pro7stagedsply._tcp.local.` service
 //!     announcement, which gives us host candidates for REST probing on 1025
+//!   - the running processes, for WorshipTools Presenter, which has no API
+//!     (Windows only, ADR-019 § 1)
 //!
 //! Total wall-time is bounded by `timeout`; localhost probes finish in
 //! milliseconds, mDNS browse runs to the budget.
 
-use crate::presenters::PresenterKind;
+use crate::presenters::{keystroke, KeystrokeProfile, PresenterKind};
 use serde::Serialize;
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
@@ -19,13 +21,17 @@ use std::time::{Duration, Instant};
 pub enum DiscoverySource {
     Localhost,
     Mdns,
+    Process,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DiscoveredService {
     pub kind: PresenterKind,
-    pub host: String,
-    pub port: u16,
+    /// None for an app found by process: it is driven by keys.
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    /// The keystroke driver's profile for an app found by process.
+    pub keystroke_profile: Option<KeystrokeProfile>,
     /// Display string for the picker UI.
     pub name: String,
     pub source: DiscoverySource,
@@ -34,15 +40,31 @@ pub struct DiscoveredService {
 /// Run all discovery strategies in parallel and return the union of results.
 pub async fn discover_all(timeout: Duration) -> Vec<DiscoveredService> {
     let (mut local, mut mdns) = tokio::join!(probe_localhost(), browse_mdns(timeout));
-    let mut all = Vec::with_capacity(local.len() + mdns.len());
+    let mut all = Vec::with_capacity(local.len() + mdns.len() + 1);
     all.append(&mut local);
     all.append(&mut mdns);
+    all.extend(by_process(&keystroke::processes()));
 
     // Dedupe on (kind, host, port) — a host might surface via both localhost
     // probing and mDNS if the user is running everything on one machine.
     all.sort_by(|a, b| (a.kind as u8, &a.host, a.port).cmp(&(b.kind as u8, &b.host, b.port)));
     all.dedup_by(|a, b| a.kind == b.kind && a.host == b.host && a.port == b.port);
     all
+}
+
+/// WorshipTools Presenter, when one of `processes` (pid, exe name) is it.
+fn by_process(processes: &[(u32, String)]) -> Option<DiscoveredService> {
+    let found = processes
+        .iter()
+        .any(|(_, exe)| keystroke::is_presenter(exe));
+    found.then(|| DiscoveredService {
+        kind: PresenterKind::Keystroke,
+        host: None,
+        port: None,
+        keystroke_profile: Some(KeystrokeProfile::WorshipToolsPresenter),
+        name: "WorshipTools Presenter".into(),
+        source: DiscoverySource::Process,
+    })
 }
 
 async fn probe_localhost() -> Vec<DiscoveredService> {
@@ -76,8 +98,9 @@ async fn probe_opensong(host: &str, port: u16) -> Option<DiscoveredService> {
     }
     Some(DiscoveredService {
         kind: PresenterKind::OpenSong,
-        host: host.to_string(),
-        port,
+        host: Some(host.to_string()),
+        port: Some(port),
+        keystroke_profile: None,
         name: format!("OpenSong on {host}"),
         source: DiscoverySource::Localhost,
     })
@@ -101,8 +124,9 @@ async fn probe_pro7_rest(host: &str, port: u16) -> Option<DiscoveredService> {
     }
     Some(DiscoveredService {
         kind: PresenterKind::ProPresenter7Rest,
-        host: host.to_string(),
-        port,
+        host: Some(host.to_string()),
+        port: Some(port),
+        keystroke_profile: None,
         name: format!("ProPresenter on {host}"),
         source: DiscoverySource::Localhost,
     })
@@ -126,8 +150,9 @@ async fn probe_freeshow(host: &str, port: u16) -> Option<DiscoveredService> {
     }
     Some(DiscoveredService {
         kind: PresenterKind::FreeShow,
-        host: host.to_string(),
-        port,
+        host: Some(host.to_string()),
+        port: Some(port),
+        keystroke_profile: None,
         name: format!("FreeShow on {host}"),
         source: DiscoverySource::Localhost,
     })
@@ -147,8 +172,9 @@ async fn probe_openlp(host: &str, port: u16) -> Option<DiscoveredService> {
     }
     Some(DiscoveredService {
         kind: PresenterKind::OpenLpV2,
-        host: host.to_string(),
-        port,
+        host: Some(host.to_string()),
+        port: Some(port),
+        keystroke_profile: None,
         name: format!("OpenLP on {host}"),
         source: DiscoverySource::Localhost,
     })
@@ -204,8 +230,9 @@ fn browse_mdns_blocking(timeout: Duration) -> Vec<DiscoveredService> {
                     }
                     out.push(DiscoveredService {
                         kind: PresenterKind::ProPresenter7Rest,
-                        host,
-                        port,
+                        host: Some(host),
+                        port: Some(port),
+                        keystroke_profile: None,
                         name: format!("ProPresenter on {hostname}"),
                         source: DiscoverySource::Mdns,
                     });
@@ -217,4 +244,29 @@ fn browse_mdns_blocking(timeout: Duration) -> Vec<DiscoveredService> {
     }
     let _ = mdns.shutdown();
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn worshiptools_presenter_is_found_by_process() {
+        let list = |names: &[&str]| -> Vec<(u32, String)> {
+            (1..).zip(names.iter().map(|n| n.to_string())).collect()
+        };
+        let found = by_process(&list(&["System", "explorer.exe", "Presenter.exe"])).unwrap();
+        assert_eq!(found.kind, PresenterKind::Keystroke);
+        assert_eq!(
+            found.keystroke_profile,
+            Some(KeystrokeProfile::WorshipToolsPresenter)
+        );
+        assert_eq!((found.host, found.port), (None, None));
+        let json = serde_json::to_value(by_process(&list(&["Presenter.exe"]))).unwrap();
+        assert_eq!(json["source"], "process");
+        assert_eq!(json["keystroke_profile"], "worship_tools_presenter");
+        for none in [&[][..], &["explorer.exe", "ProPresenter.exe"][..]] {
+            assert!(by_process(&list(none)).is_none(), "{none:?}");
+        }
+    }
 }
