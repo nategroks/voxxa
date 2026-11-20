@@ -52,12 +52,20 @@ finds it in step 2 and says so. After a restart, Voxxa uses Presenter's keys aga
 - **Keep Presenter in front.** Voxxa presses a key only while a Presenter window is in front.
   Otherwise nothing is pressed and the light is amber: "Bring WorshipTools Presenter to the
   front." Click into Presenter's window. The next slide change goes through.
+  If Voxxa's own window is in front, the light is **red** instead and ends "focus your
+  presentation app: Voxxa's own window has the keyboard." The fix is the same: click into
+  Presenter's window.
 - **Put each new song live yourself.** In Presenter, Right on a song's last slide moves on to the
   next service item, which may be a reading or an announcement. So Voxxa never presses a key from
   one song into the next. When the next song starts, the light is amber: "Put "`<song>`" live in
   Presenter." Click that song in Presenter's service list. Voxxa then follows it from its first
   slide. Voxxa can't see Presenter's screen: if the song is not put live, its next key still goes
   to whatever item Presenter shows.
+  If the light goes green but Presenter shows the wrong item, Voxxa did not see you put the song
+  live: put it live, then click the slide being sung in Presenter. Voxxa goes on from there.
+  Don't use Voxxa's song button for that song: Voxxa thinks the song is already live, so the
+  button presses Left back to its first slide, and Left on Presenter's first slide may leave the
+  song.
 - **Voxxa can't clear Presenter's screen yet.** F10 clears the lyrics, but how to bring them back
   has not been tested, so Voxxa doesn't press it. During a prayer the slide stays up and the light
   says so. Clear it in Presenter yourself if you need to. Voxxa never presses F11 or F12 (they
