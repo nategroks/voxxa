@@ -373,6 +373,37 @@ async fn drivers_without_a_per_song_slide_index_step_across_songs() {
 }
 
 #[tokio::test]
+async fn pro_presenter_ws_skips_the_conductors_blank_and_refuses_the_operators() {
+    // ADR-019 § 4's rule is shared, so it changes the drivers that had no
+    // blank before Q9W: ProPresenter 7 and 6 over WebSocket. The conductor's
+    // blank at a prayer used to come back "not supported" (a red light); now
+    // it is skipped. The operator's Blank is still refused, before any focus
+    // check.
+    use PresenterKind::*;
+    for kind in [ProPresenter7Ws, ProPresenter6Ws] {
+        let caps = make_controller(kind).capabilities();
+        assert!(!caps.can_blank, "{kind:?}");
+        let p = Fake::new(kind, caps);
+        let mut sent = Sent::default();
+        auto(&p, &mut sent, goto(0, 0)).await.unwrap();
+        auto(&p, &mut sent, goto(0, 1)).await.unwrap();
+        p.take();
+        auto(&p, &mut sent, Action::Blank).await.unwrap();
+        auto(&p, &mut sent, Action::Unblank).await.unwrap();
+        assert_eq!(p.take(), Vec::<String>::new(), "{kind:?}: no blank call");
+        assert!(!sent.blank, "{kind:?}");
+        for focused in [false, true] {
+            let r = drive(&p, &mut sent, &Action::Blank, focused, true).await;
+            assert!(
+                matches!(r, Err(CtlError::Unsupported("blank"))),
+                "{kind:?}: {r:?}"
+            );
+        }
+        assert_eq!(p.take(), Vec::<String>::new(), "{kind:?}");
+    }
+}
+
+#[tokio::test]
 async fn a_prev_below_the_first_song_keeps_the_deck_position_known() {
     // Announcement slides before the first song: the operator's Prev on
     // Amazing Grace slide 0 lands on one. Global -1 used to mean "unknown",
