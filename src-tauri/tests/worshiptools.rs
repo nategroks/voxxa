@@ -11,8 +11,8 @@ use std::sync::Mutex;
 use voxxa_lib::discovery::{merge, presenter_process, DiscoveredService, DiscoverySource};
 use voxxa_lib::listen::Event;
 use voxxa_lib::{
-    drive, gui_sink, make_controller, step, Action, Capabilities, CtlError, KeystrokeProfile,
-    PresentationController, PresenterConfig, PresenterKind, Sent,
+    drive, gui_sink, make_controller, step, tell_gui, Action, Capabilities, CtlError,
+    KeystrokeProfile, PresentationController, PresenterConfig, PresenterKind, Sent,
 };
 
 struct Fake {
@@ -241,42 +241,59 @@ async fn worshiptools_never_steps_across_a_song() {
     assert_eq!((sent.global, sent.song), (Some(0), Some(0)));
 }
 
-/// `commands::dispatch` tells the GUI (`slide-advanced`) when `drive` is Ok
-/// or moved the song or slide in `sent`. The song-change ask moves it, so the
-/// stage and the song strip follow the new song (the conductor's change and
-/// the operator's song chip); the guard's refusal does not, so they stay with
-/// the screen. tests/gui/e2e.mjs section 9 checks what the GUI then shows.
+/// `commands::dispatch` tells the GUI (`slide-advanced`) when `tell_gui` says
+/// so: `drive` was Ok, or it moved the song or slide in `sent`. The song-change
+/// ask moves it, so the stage and the song strip follow the new song (the
+/// conductor's change and the operator's song chip); the guard's refusal does
+/// not, so they stay with the screen. tests/gui/e2e.mjs section 9 checks what
+/// the GUI then shows.
 #[tokio::test]
-async fn the_song_change_ask_moves_sent_and_the_guards_refusal_does_not() {
+async fn the_song_change_ask_tells_the_gui_and_the_guards_refusal_does_not() {
     let p = worship().await;
     let mut sent = Sent::default();
-    auto(&p, &mut sent, goto(0, 0)).await.unwrap();
-    auto(&p, &mut sent, goto(0, 1)).await.unwrap();
+    // Drive as commands::dispatch does; true when it would emit slide-advanced.
+    async fn told(p: &Fake, sent: &mut Sent, action: Action, operator: bool) -> (String, bool) {
+        let before = *sent;
+        let r = drive(p, sent, &action, false, operator).await;
+        let tell = tell_gui(r.is_ok(), before, *sent);
+        (r.err().map(|e| e.to_string()).unwrap_or_default(), tell)
+    }
+    assert_eq!(
+        told(&p, &mut sent, goto(0, 0), false).await,
+        (String::new(), true)
+    );
+    assert_eq!(
+        told(&p, &mut sent, goto(0, 1), false).await,
+        (String::new(), true)
+    );
     p.take();
     // Presenter behind another window: refused, nothing pressed, nothing moved.
     p.behind.store(true, Ordering::SeqCst);
     let before = sent;
-    let r = auto(&p, &mut sent, goto(0, 2)).await;
-    assert_eq!(r.unwrap_err().to_string(), FRONT);
-    assert_eq!(sent, before, "no slide-advanced for a refusal");
-    // A song change presses no key, so it asks even then, and moves `sent`.
-    let r = auto(&p, &mut sent, goto(1, 0)).await;
-    assert_eq!(r.unwrap_err().to_string(), put_live("Song B"));
+    let r = told(&p, &mut sent, goto(0, 2), false).await;
     assert_eq!(
-        (sent.global, sent.song),
-        (Some(4), Some(1)),
-        "slide-advanced"
+        r,
+        (FRONT.to_string(), false),
+        "no slide-advanced for a refusal"
     );
+    assert_eq!(sent, before);
+    // A song change presses no key, so it asks even then, and moves `sent`.
+    let r = told(&p, &mut sent, goto(1, 0), false).await;
+    assert_eq!(r, (put_live("Song B"), true), "slide-advanced");
+    assert_eq!((sent.global, sent.song), (Some(4), Some(1)));
     // The operator's song chip: the same.
     p.behind.store(false, Ordering::SeqCst);
-    let r = drive(&p, &mut sent, &goto(2, 0), false, true).await;
-    assert_eq!(r.unwrap_err().to_string(), put_live("Song C"));
-    assert_eq!(
-        (sent.global, sent.song),
-        (Some(8), Some(2)),
-        "slide-advanced"
-    );
+    let r = told(&p, &mut sent, goto(2, 0), true).await;
+    assert_eq!(r, (put_live("Song C"), true), "slide-advanced");
+    assert_eq!((sent.global, sent.song), (Some(8), Some(2)));
     assert_eq!(p.take(), Vec::<&str>::new());
+    // A refusal that changed only the blank (a goto driver's "select …"
+    // blanks first) tells nothing.
+    let blanked = Sent {
+        blank: true,
+        ..sent
+    };
+    assert!(!tell_gui(false, sent, blanked));
 }
 
 #[tokio::test]

@@ -78,14 +78,20 @@ async fn presentation_is(p: &dyn PresentationController, title: &str, operator: 
     // Planning Center lists it) is often not in the app's name.
     let want = norm(title.split('(').next().unwrap_or(title));
     match p.current_state().await.map(|s| s.presentation_name) {
-        Ok(Some(name)) => {
-            let have = norm(&name);
-            // The app's name may add to the title ("Be Thou My Vision (Irish)"),
-            // never drop from it: "Grace" is not "Amazing Grace".
-            !want.is_empty() && have.contains(&want)
-        }
+        // The app's name may add to the title ("Be Thou My Vision (Irish)"),
+        // never drop from it: "Grace" is not "Amazing Grace".
+        Ok(Some(name)) => !want.is_empty() && norm(&name).contains(&want),
         _ => false,
     }
+}
+
+/// Does `commands::dispatch` tell the GUI (`slide-advanced`)? When `drive`
+/// was Ok, or a refusal still moved the song or slide in `sent`: the
+/// song-change ask records the new song's first slide (ADR-019 § 3), so the
+/// stage and the song strip follow. The guard's refusal and the goto drivers'
+/// "select …" leave the position as it was (a blank may change) and tell nothing.
+pub fn tell_gui(ok: bool, before: Sent, after: Sent) -> bool {
+    ok || (before.global, before.song) != (after.global, after.song)
 }
 
 /// Send one conductor action. `operator` marks button, tray, HTTP and
@@ -170,8 +176,7 @@ pub async fn drive(
         }
     }
     // Every driver records the song, the stepping ones too (ADR-019 § 3).
-    sent.song = Some(song);
-    sent.global = Some(target);
+    (sent.global, sent.song) = (Some(target), Some(song));
     if sent.blank {
         set_blank(p, sent, false, voxxa_focused).await?;
     }

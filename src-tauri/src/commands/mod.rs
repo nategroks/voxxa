@@ -305,11 +305,8 @@ pub async fn dispatch(
     let focused = voxxa_focused(app);
     let p = presenter.lock().await;
     let mut sent = sent.lock().await;
-    // A refusal that still moved `sent` (ADR-019 § 3: a song change records the
-    // new song's first slide with the amber ask) tells the GUI too, so the
-    // stage and the song strip follow. The guard's refusal and the goto
-    // drivers' "select …" leave the position as it was and tell nothing.
-    let before = (sent.global, sent.song);
+    // A refusal that still moved `sent` tells the GUI too (dispatch::tell_gui).
+    let before = *sent;
     let r = dispatch::drive(p.as_ref(), &mut sent, &action, focused, operator).await;
     if let Some(Action::Goto {
         global_index,
@@ -317,7 +314,7 @@ pub async fn dispatch(
         next_slide_text,
         song_title,
         ..
-    }) = (r.is_ok() || (sent.global, sent.song) != before).then_some(action)
+    }) = dispatch::tell_gui(r.is_ok(), before, *sent).then_some(action)
     {
         let _ = app.emit(
             "slide-advanced",
