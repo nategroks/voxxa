@@ -10,6 +10,16 @@ on:
 permissions:
   contents: read
 
+# whisper.cpp builds with GGML_NATIVE (-march=native) by default, so the
+# cached whisper-rs-sys build only runs on CPUs like the runner that built it.
+# A main run crashed with STATUS_ILLEGAL_INSTRUCTION in model_download after
+# rust-cache restored a build from another runner. whisper-rs-sys 0.11 passes
+# only WHISPER_* and CMAKE_* variables to CMake, and WHISPER_NATIVE=OFF is
+# ignored, so src-tauri/cmake/ggml-portable.cmake sets GGML_NATIVE off: the
+# portable AVX/AVX2/FMA/F16C build. The cache key names it.
+env:
+  CMAKE_PROJECT_INCLUDE: ${{ github.workspace }}/src-tauri/cmake/ggml-portable.cmake
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -40,6 +50,7 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          key: portable-ggml
 
       - uses: actions/setup-node@v4
         with:
