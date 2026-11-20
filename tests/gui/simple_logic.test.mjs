@@ -58,6 +58,30 @@ test("first matching row wins", () => {
   assert.deepEqual(light({ presenter: null }), ["red", "Your presentation app not found. Voxxa can't change slides.", "presentation-app-not-reachable"]);
 });
 
+// ADR-019 § 2-4: WorshipTools Presenter, driven by keys with its own profile.
+const wt = { kind: "keystroke", connected: true, display_name: "Keystroke (any app)", capabilities: { can_blank: false, can_goto_slide: false, can_query_state: false } };
+test("WorshipTools Presenter: the guard and the song change are amber, word for word", () => {
+  for (const ask of ["Bring WorshipTools Presenter to the front.", 'Put "Song A" live in Presenter.', 'Put "Song B (Live)" live in Presenter.']) {
+    assert.deepEqual(light({ presenter: wt, presenterError: ask, state: "singing", isBlank: false, song }), ["amber", ask]);
+  }
+  // Anything else the app refuses stays red, with its reason.
+  assert.deepEqual(light({ presenter: wt, presenterError: "focus your presentation app: Voxxa's own window has the keyboard" }),
+    ["red", "Keystroke didn't take the last slide change: focus your presentation app: Voxxa's own window has the keyboard.", "presentation-app-not-reachable"]);
+  assert.equal(light({ presenterError: "Put Song A live in Presenter." })[0], "red", "only the exact sentence");
+  // Off still beats the ask.
+  assert.equal(light({ running: false, presenterError: "Bring WorshipTools Presenter to the front." })[0], "grey");
+});
+
+test("an app Voxxa can't blank: the blank rows say so, never red", () => {
+  assert.deepEqual(light({ presenter: wt, state: "blank_hold" }), ["amber", "Hearing talking, not a song. Voxxa can't clear Presenter's screen."]);
+  // The conductor's blank was skipped, so the slide is still up: not "the screen is blank".
+  assert.deepEqual(light({ presenter: wt, state: "singing", isBlank: true, song }), ["green", "Following Alpha Bravo, slide 2 of 6."]);
+  const ws = { kind: "pro_presenter7_ws", connected: true, display_name: "ProPresenter 7.0–7.8 (WebSocket)", capabilities: { can_blank: false } };
+  assert.deepEqual(light({ presenter: ws, state: "blank_hold" }), ["amber", "Hearing talking, not a song. Voxxa can't clear ProPresenter 7.0–7.8's screen."]);
+  // Apps that can blank keep their sentences.
+  assert.deepEqual(light({ presenter: { ...pro, capabilities: { can_blank: true } }, state: "blank_hold" }), ["amber", "Hearing talking, not a song. The screen stays blank."]);
+});
+
 test("every light colour is one of the four", () => {
   const states = [null, "listening", "singing", "inter_verse_silence", "blank_hold"];
   for (const running of [false, true]) for (const state of states) for (const isBlank of [false, true]) for (const micLost of [false, true]) {

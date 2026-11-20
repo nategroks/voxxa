@@ -525,6 +525,54 @@ try {
   await light("green", "row 9 after a reload: no position", /^Following the song\.$/);
   check("after a reload: the song's title, no slide count", (await ev(`return document.getElementById("s-song").textContent + " / " + document.getElementById("s-slide").textContent`)) === "Bravo Hymn / ");
   await shot("26-simple-reload-mid-song");
+
+  // 9. WorshipTools Presenter (ADR-019): found by process in first-run step 2 and in
+  // Advanced, the restart reconnect, the two amber sentences and the blank sentence.
+  // Scripted results only: the mock presses no key anywhere.
+  const WT = { kind: "keystroke", host: null, port: null, keystroke_profile: "worship_tools_presenter", name: "WorshipTools Presenter", source: "process" };
+  await load();
+  await ev(`__mock.st.found = [${JSON.stringify(WT)}]; return true`);
+  await click("#s-advanced");
+  await click("#s-guide");
+  await click("#fr-next");
+  check("first-run step 2 names WorshipTools Presenter in plain words", await waitFor(`return /^Found WorshipTools Presenter\\. It has no remote control, so Voxxa presses its arrow keys for you\\. Keep Presenter in front during the service\\./.test(document.getElementById("fr-msg").textContent)`, 3000), await ev(`return document.getElementById("fr-msg").textContent`));
+  check("its button names it, with no host or port", (await ev(`return document.querySelector("#fr-extra .discovered-row").textContent`)) === "WorshipTools Presenter");
+  await shot("27-first-run-worshiptools-found");
+  await click("#fr-extra .discovered-row");
+  check("connect_presenter: keystroke with the WorshipTools profile", await waitFor(`return __mock.calls.some((c) => c.cmd === "connect_presenter" && c.args.args.kind === "keystroke" && c.args.args.keystroke_profile === "worship_tools_presenter" && c.args.args.host == null)`));
+  check("connected: keep it in front", await waitFor(`return /^Connected to WorshipTools Presenter\\. .*Keep Presenter in front/.test(document.getElementById("fr-msg").textContent)`));
+  await click("#fr-skip");
+  // A restart reconnects the saved WorshipTools form, or the guard is off (ADR-019 § 2a).
+  await load();
+  check("restart reconnects the WorshipTools Presenter profile", await waitFor(`return __mock.calls.some((c) => c.cmd === "connect_presenter" && c.args.args.keystroke_profile === "worship_tools_presenter") && __mock.st.presenter.capabilities.can_blank === false`));
+  await ev(`__mock.st.songs = ${JSON.stringify(setlist.setlist)}; __mock.st.running = true; __mock.st.machine = "listening"; return true`);
+  await light("amber", "WorshipTools: listening", /Waiting for a song/);
+  await ev(`__mock.presenterError("Bring WorshipTools Presenter to the front."); return true`);
+  await light("amber", "WorshipTools guard, word for word", /^Bring WorshipTools Presenter to the front\.$/);
+  await runbook("WorshipTools guard (amber)", null);
+  await shot("28-simple-amber-bring-presenter-to-front");
+  await ev(`__mock.presenterError('Put "Bravo Hymn" live in Presenter.'); return true`);
+  await light("amber", "WorshipTools song change, word for word", /^Put "Bravo Hymn" live in Presenter\.$/);
+  await shot("29-simple-amber-put-song-live");
+  await ev(`__mock.goto(3); return true`);
+  await light("green", "a delivered slide clears the ask", /^Following/);
+  await ev(`__mock.machine("blank_hold", true); return true`);
+  await light("amber", "WorshipTools at a prayer: can't clear, not red", /^Hearing talking, not a song\. Voxxa can't clear Presenter's screen\.$/);
+  await shot("30-simple-amber-cannot-blank");
+  // Advanced → Settings → Auto-detect lists it by process and picks its key profile.
+  await ev(`__mock.st.running = false; __mock.st.found = [${JSON.stringify(WT)}]; return true`);
+  await click("#s-advanced");
+  await click('.tab[data-tab="settings"]');
+  await click("#discover-btn");
+  check("Advanced auto-detect: found by process, no host or port", await waitFor(`const m = document.querySelector("#discovered-list .discovered-meta"); return !!m && m.textContent === "process"`, 3000));
+  await click("#discovered-list .discovered-row");
+  check("Advanced auto-detect: the keystroke driver with its profile", (await ev(`return document.getElementById("select-presenter").value + " " + document.getElementById("select-keystroke-profile").value`)) === "keystroke worship_tools_presenter");
+  await shot("31-advanced-worshiptools-found");
+  // The universal keystroke default is still not reconnected.
+  await ev(`localStorage.setItem("voxxa.presenterForm", JSON.stringify({ kind: "keystroke", keystroke_profile: "universal" })); return true`);
+  await load();
+  await sleep(1000);
+  check("restart does not reconnect the universal keystroke default", (await calls("connect_presenter")) === 0);
 } catch (err) {
   check("e2e ran to the end", false, String(err && err.stack || err));
 }

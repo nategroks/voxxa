@@ -1238,7 +1238,7 @@ function renderDiscovered(found) {
     row.innerHTML =
       '<div class="discovered-name">' + escapeHtml(svc.name) + "</div>" +
       '<div class="discovered-meta">' +
-      escapeHtml(svc.host) + ":" + svc.port + " · " + escapeHtml(svc.source) +
+      (svc.host ? escapeHtml(svc.host) + ":" + svc.port + " · " : "") + escapeHtml(svc.source) +
       "</div>";
     row.addEventListener("click", () => useDiscovered(svc));
     discoveredList.appendChild(row);
@@ -1254,6 +1254,8 @@ function useDiscovered(svc) {
   } else if (svc.kind === "open_lp_v2") {
     inputOpenLpHost.value = svc.host;
     inputOpenLpPort.value = svc.port;
+  } else if (svc.kind === "keystroke") {
+    selectKeystrokeProfile.value = svc.keystroke_profile; // found by process (ADR-019 § 1)
   } else if (svc.kind === "open_song") {
     inputOpenSongHost.value = svc.host;
     inputOpenSongPort.value = svc.port;

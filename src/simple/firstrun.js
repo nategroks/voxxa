@@ -68,13 +68,16 @@ export async function applySavedDevice() {
 }
 
 // The presentation app chosen here (or in Settings) is reconnected at every start, apart from
-// the device restore so a failed device list cannot skip it. Never the keystroke driver (it is
-// the default) and never a form that needs a secret: passwords are never saved (main.js:1131-
-// 1133), so that reconnect would fail every launch; row 6 of the light shows it instead.
+// the device restore so a failed device list cannot skip it. Never the universal keystroke
+// driver (it is the default); a keystroke profile such as WorshipTools Presenter's is, or its
+// guard and song rule are off after a restart (ADR-019 § 2a). Never a form that needs a secret:
+// passwords are never saved (main.js:1131-1133), so that reconnect would fail every launch; row
+// 6 of the light shows it instead.
 export const savedPresenter = () => read("voxxa.presenterForm");
 export function reconnectPresenter() {
   const form = savedPresenter();
-  if (!form || !form.kind || form.kind === "keystroke" || /_ws$/.test(form.kind) || form.username) return;
+  const universal = form && form.kind === "keystroke" && (form.keystroke_profile || "universal") === "universal";
+  if (!form || !form.kind || universal || /_ws$/.test(form.kind) || form.username) return;
   invoke("connect_presenter", { args: form }).catch(() => {});
 }
 
@@ -99,7 +102,7 @@ async function device() {
 
 async function presenter() {
   const i = step;
-  say("Looking for ProPresenter, FreeShow, OpenLP and OpenSong on this computer and network…");
+  say("Looking for ProPresenter, FreeShow, OpenLP, OpenSong and WorshipTools Presenter on this computer and network…");
   let found = [];
   try { found = (await invoke("discover_presenters", { timeoutMs: 2500 })) || []; } catch {}
   if (!still(i)) return;
@@ -108,14 +111,16 @@ async function presenter() {
     button("Search again", () => go(i));
     return;
   }
-  say("Found. Pick yours:");
+  // WorshipTools Presenter is found by process (ADR-019 § 1): no host or port, a key profile.
+  const keys = "It has no remote control, so Voxxa presses its arrow keys for you. Keep Presenter in front during the service.";
+  say(found.some((svc) => svc.source === "process") ? `Found WorshipTools Presenter. ${keys} Pick yours:` : "Found. Pick yours:");
   for (const svc of found) {
-    button(`${svc.name} · ${svc.host}:${svc.port}`, async () => {
-      const args = { kind: svc.kind, host: svc.host, port: svc.port };
+    button(svc.host ? `${svc.name} · ${svc.host}:${svc.port}` : svc.name, async () => {
+      const { name, source, ...args } = svc; // kind with host and port, or with keystroke_profile
       try {
         await invoke("connect_presenter", { args });
         write("voxxa.presenterForm", args);
-        say(`Connected to ${svc.name}.`);
+        say(`Connected to ${svc.name}.${svc.host ? "" : " " + keys}`);
       } catch (err) { say("Couldn't connect: " + err); }
     }, "discovered-row");
   }

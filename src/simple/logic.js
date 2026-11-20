@@ -13,6 +13,8 @@ export function statusLight(s) {
   if (!s.running && !s.setlist) return ["grey", "Off. Load this week's songs in Advanced first."];
   if (!s.running && !s.model) return ["grey", "Off. Download the voice model in Advanced first.", RUNBOOKS.model];
   if (!s.running) return ["grey", "Off. Choose Songs to start following."];
+  // WorshipTools Presenter's guard and song change (ADR-019 § 2-3) ask the operator: amber, word for word.
+  if (/^(Bring WorshipTools Presenter to the front|Put ".*" live in Presenter)\.$/.test(s.presenterError)) return ["amber", s.presenterError];
   if (s.presenterError) {
     const why = typeof s.presenterError === "string" && s.presenterError.trim();
     return ["red", why ? `${appName(s.presenter)} didn't take the last slide change: ${why.replace(/\.?$/, ".")}` : `${appName(s.presenter)} didn't take the last slide change. Check that it is open.`, RUNBOOKS.app];
@@ -20,8 +22,11 @@ export function statusLight(s) {
   // Connected, and to the app last chosen: a failed reconnect leaves the keystroke default.
   const chosenOk = !s.chosen || (!!s.presenter && s.presenter.kind === s.chosen);
   if (!s.presenter || !s.presenter.connected || !chosenOk) return ["red", `${appName(chosenOk ? s.presenter : null)} not found. Voxxa can't change slides.`, RUNBOOKS.app];
-  if (s.state === "blank_hold") return ["amber", "Hearing talking, not a song. The screen stays blank."];
-  if (following && s.isBlank) return ["amber", "The screen is blank. It comes back when the song does."];
+  // An app Voxxa can't blank (ADR-019 § 4) keeps its slide up; keystroke means WorshipTools Presenter.
+  const noBlank = !!s.presenter.capabilities && s.presenter.capabilities.can_blank === false;
+  const who = s.presenter.kind === "keystroke" ? "Presenter" : appName(s.presenter);
+  if (s.state === "blank_hold") return ["amber", noBlank ? `Hearing talking, not a song. Voxxa can't clear ${who}'s screen.` : "Hearing talking, not a song. The screen stays blank."];
+  if (following && s.isBlank && !noBlank) return ["amber", "The screen is blank. It comes back when the song does."];
   if (following && s.song && s.song.slides) return ["green", `Following ${s.song.title}, slide ${s.song.slide} of ${s.song.slides}.`];
   if (following) return ["green", "Following the song."];
   return ["amber", "Listening. Waiting for a song from the list."];
