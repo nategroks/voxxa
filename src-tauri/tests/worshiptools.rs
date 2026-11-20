@@ -8,7 +8,7 @@
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use voxxa_lib::discovery::{presenter_process, DiscoverySource};
+use voxxa_lib::discovery::{merge, presenter_process, DiscoveredService, DiscoverySource};
 use voxxa_lib::listen::Event;
 use voxxa_lib::{
     drive, gui_sink, make_controller, step, Action, Capabilities, CtlError, KeystrokeProfile,
@@ -141,8 +141,52 @@ fn presenter_is_found_by_its_process() {
     assert!(presenter_process(&running(&[
         r"C:\Program Files\Presenter\PresenterUpdate.exe",
         r"C:\Program Files\Voxxa\voxxa.exe",
+        r"C:\Program Files\Renewed Vision\ProPresenter\ProPresenter.exe",
+        "ProPresenter",
     ]))
     .is_none());
+}
+
+#[test]
+fn discovery_keeps_the_process_hit_beside_the_network_hits() {
+    let net = |kind, port, source| DiscoveredService {
+        kind,
+        keystroke_profile: None,
+        host: "127.0.0.1".into(),
+        port,
+        name: "App on 127.0.0.1".into(),
+        source,
+    };
+    let pro7 = |source| net(PresenterKind::ProPresenter7Rest, 1025, source);
+    let process = presenter_process(&["Presenter".to_string()]);
+    // ProPresenter seen twice (this computer and mDNS) is listed once.
+    let all = merge(
+        vec![
+            pro7(DiscoverySource::Localhost),
+            net(PresenterKind::OpenLpV2, 4316, DiscoverySource::Localhost),
+        ],
+        vec![pro7(DiscoverySource::Mdns)],
+        process,
+    );
+    let found: Vec<_> = all.iter().map(|s| (s.kind, s.source)).collect();
+    assert_eq!(found.len(), 3, "{found:?}");
+    let wt: Vec<_> = all
+        .iter()
+        .filter(|s| s.keystroke_profile == Some(KeystrokeProfile::WorshipToolsPresenter))
+        .collect();
+    assert_eq!(wt.len(), 1, "{found:?}");
+    assert_eq!(
+        (wt[0].kind, wt[0].source),
+        (PresenterKind::Keystroke, DiscoverySource::Process)
+    );
+    // Presenter alone (first-run step 2 then uses it at once).
+    let alone = merge(
+        Vec::new(),
+        Vec::new(),
+        presenter_process(&["Presenter".to_string()]),
+    );
+    assert_eq!(alone.len(), 1);
+    assert_eq!(alone[0].source, DiscoverySource::Process);
 }
 
 #[tokio::test]

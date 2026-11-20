@@ -62,8 +62,18 @@ async fn find_process() -> Option<DiscoveredService> {
 
 /// Run all discovery strategies in parallel and return the union of results.
 pub async fn discover_all(timeout: Duration) -> Vec<DiscoveredService> {
-    let (mut local, mut mdns, process) =
+    let (local, mdns, process) =
         tokio::join!(probe_localhost(), browse_mdns(timeout), find_process());
+    merge(local, mdns, process)
+}
+
+/// The union of the three strategies' results, deduplicated. The process
+/// hit has no host or port, so it is never merged away.
+pub fn merge(
+    mut local: Vec<DiscoveredService>,
+    mut mdns: Vec<DiscoveredService>,
+    process: Option<DiscoveredService>,
+) -> Vec<DiscoveredService> {
     let mut all = Vec::with_capacity(local.len() + mdns.len() + 1);
     all.append(&mut local);
     all.append(&mut mdns);
