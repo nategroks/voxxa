@@ -401,3 +401,15 @@ ADR-019 and the Q9W exit list. Placeholder titles only ("Song A", "Bravo Hymn");
 - Only Next on step 1, Skip setup and read-only invokes were used. Listen, the 20-second test, Next/Previous/Blank, the HTTP API and the stage window were never touched. Both PIDs (9912, 14300) were stopped. `%LOCALAPPDATA%\com.voxxa.qa9wf` was deleted. The installed Voxxa that was already running (not started here) was left alone.
 
 **Not tested here:** the same as the lane (M15, M16). Also untested: what Left does on Presenter's first slide (added to M16). CI has not run `q9w/base` yet.
+
+## 2026-11-20 — Q9W base (`q9w/base`): exit demo re-taken after the verifier fixes (4fb1346)
+**Gates** (Windows, `CARGO_TARGET_DIR=C:/dev/q3-10x-target`). npm ci and the build pass. fmt passes. clippy `-D warnings` passes with and without `--features cli`. `cargo test --features cli`: 236 passed, 0 failed, 1 ignored (`tests/worshiptools.rs` 9; the keystroke unit tests are 6, and the call-site test runs on Windows only). cargo-deny: advisories, bans and licences pass. The budget passes: everything else 2315 / 2317, discovery 217 / 250, presenters 1374 / 2000, keystroke.rs 396 / 400, GUI 2784 / 3000, Simple mode 450 / 600. The `dictat` grep is empty. The CI eval step: "OK: no metric is worse". `test:gui`: 9/9. e2e: 185/185. No GUI file changed.
+
+**Mutants re-run** (each must now fail a test): the guard call deleted, `cfg!(windows)` flipped, the guard result ignored, `ends_with("presenter.exe")`, the process hit dropped from the merge, and `tell_gui` reduced to `ok` or comparing the whole `Sent`. All six fail. Every keystroke test driver records keys, so none could press one.
+
+**GUI, the real app (guarded scratch build).** Identifier `com.voxxa.qa9wf`. Neither `com.voxxa.app` nor `xa.app` is in the binary. CDP on 9363. Built with `npm run tauri build -- --no-bundle --config <scratch>`, never committed. Startup still opens no audio input: `lib.rs:73` builds `AudioEngine::new()` only, and capture opens only in `start_listening_with_state` (`commands/mod.rs:229`). WorshipTools Presenter was running (8 `Presenter` processes, untouched).
+- Run 1 (fresh profile): step 2 said "Found WorshipTools Presenter. It has no remote control, so Voxxa presses its keys for you. Keep WorshipTools Presenter in front during the service." It saved `{"kind":"keystroke","keystroke_profile":"worship_tools_presenter"}`, and `can_blank` changed from true to false. The log shows `profile=WorshipToolsPresenter`. Skip setup was pressed.
+- Run 2 (restart): the first run stayed closed, and `can_blank` was false from the start (the profile was reconnected).
+- Only Next on step 1, Skip setup and read-only invokes were used. Listen, the 20-second test, Next/Previous/Blank, the HTTP API and the stage window were never touched. Both PIDs (7232, 12656) were stopped. `%LOCALAPPDATA%\com.voxxa.qa9wf` was deleted. The installed Voxxa that was already running (PID 10228, not started here) was left alone.
+
+**Not tested here:** the same as before (M15, M16, and Left on Presenter's first slide). CI has not run `q9w/base` yet.
