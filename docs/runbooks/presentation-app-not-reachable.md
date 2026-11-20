@@ -14,6 +14,9 @@ or "Your presentation app"):
   The reason "focus your presentation app: Voxxa's own window has the keyboard" means Voxxa is
   pressing the arrow keys for you and its own window was in front.
 
+With WorshipTools Presenter the light can also be amber and ask you to do something in
+Presenter: see [WorshipTools Presenter](#worshiptools-presenter) below.
+
 ## Steps
 
 1. Make sure the presentation app is open and a presentation is loaded.
@@ -38,6 +41,29 @@ App > API key (optional)** and press **Connect**. Voxxa never saves passwords or
 red light after each start until you connect in step 4.
 
 While you fix it, move the slides by hand in your presentation app.
+
+## WorshipTools Presenter
+
+WorshipTools Presenter has no remote control on this computer, so Voxxa presses its arrow keys:
+Right for the next slide, Left for the one before. The set-up guide finds Presenter when it is
+running and says so in step 2. Choose it there, or in **Advanced > Settings** choose
+**Keystroke** with the key profile **WorshipTools Presenter**.
+
+- **Keep Presenter in front** during the service. Voxxa sends a key only while a Presenter window
+  is the one in front. Otherwise it sends nothing, and the light is **amber**: "Bring WorshipTools
+  Presenter to the front." Click into Presenter.
+- **At a song change Voxxa presses nothing.** In Presenter, Right on a song's last slide goes to
+  the next service item, which may be a reading or an announcement. So when the next song starts,
+  the light is **amber**: "Put "`<song>`" live in Presenter." Click that song in Presenter. Voxxa
+  then counts from its first slide. If you don't, the next Right goes to whatever item comes next
+  in Presenter.
+- **Voxxa can't blank Presenter.** At a prayer the light says "Voxxa can't clear Presenter's
+  screen." Clear it by hand if you need to. F10 clears the lyrics in Presenter, but how to bring
+  them back has not been checked yet, so Voxxa doesn't use it. F11 and F12 clear the background
+  and everything, and Up, Down and the number pad's + and − change the service item: Voxxa never
+  sends any of them. **Blank** in Voxxa says it is not supported.
+- **Don't run Presenter as administrator.** Windows then drops Voxxa's keys without any message,
+  and the slides never move. Start Presenter the normal way.
 
 ## When to Call for help
 

@@ -173,6 +173,25 @@ with mido.open_input() as port:
                 requests.post(f"{VOXXA}/api/v1/{action}", headers=HEADERS)
 ```
 
+## WorshipTools Presenter (Tier 3: keys)
+
+WorshipTools Presenter has no local API (ADR-006): its Remote and Stage Display apps go
+through WorshipTools' cloud. Voxxa drives it as a Tier 3 app, with the keystroke driver and
+the **WorshipTools Presenter** key profile (ADR-019):
+
+- On Windows, auto-detect finds it by its running process (`Presenter.exe`), with no host
+  or port.
+- Voxxa sends Right and Left only, and only while a Presenter window is in front. It has no
+  blank key, so `POST /api/v1/blank` returns an error saying blanking is not supported.
+- Voxxa never presses a key across a song change: Right on a song's last slide would show
+  Presenter's next service item. The operator puts each song live in Presenter.
+
+Presenter also accepts MIDI In through loopMIDI or rtpMIDI. Voxxa sending MIDI to
+Presenter is **deferred** (ADR-019 Decision 5): it is the next step if keys prove
+unreliable at the pilot. This is separate from the MIDI-to-HTTP bridge above, which drives
+Voxxa, not Presenter. The volunteer steps are in
+[the runbook](runbooks/presentation-app-not-reachable.md#worshiptools-presenter).
+
 ## Shell automation
 
 Manual cron-like triggers, or one-off cues from any terminal:
