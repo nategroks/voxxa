@@ -201,11 +201,39 @@ impl KeystrokeProfile {
     }
 }
 
+/// The WorshipTools guard as the driver applies it: Ok when a key may go to
+/// the front window, else the amber sentence (ADR-019 § 2).
+pub fn guard(profile: KeystrokeProfile, front_exe: Option<&str>) -> Result<(), CtlError> {
+    keys_allowed(profile, front_exe)
+        .then_some(())
+        .ok_or_else(|| CtlError::Other(FRONT_MSG.into()))
+}
+
+/// The executable of the front window's process.
+fn front_exe() -> Option<String> {
+    process_path(foreground_pid())
+}
+
+/// Presses one key in the front window.
+fn enigo_send(key: Key) -> Result<(), CtlError> {
+    // A fresh Enigo per call sidesteps Send/Sync issues with the cached handle on
+    // platforms where `Enigo` is not Send.
+    let mut enigo = Enigo::new(&Settings::default())
+        .map_err(|e| CtlError::Other(format!("enigo init: {e:?}")))?;
+    enigo
+        .key(key, enigo::Direction::Click)
+        .map_err(|e| CtlError::Other(format!("enigo key: {e:?}")))
+}
+
 pub struct KeystrokeDriver {
     profile: KeystrokeProfile,
     /// Keystroke driver is "connected" from the moment a profile is chosen — there's no
     /// real connection to maintain.
     connected: bool,
+    /// The front window's executable and the key sender. Tests swap both, so
+    /// a test of tap() never reaches enigo or a real window.
+    front: fn() -> Option<String>,
+    send: fn(Key) -> Result<(), CtlError>,
 }
 
 impl KeystrokeDriver {
@@ -213,23 +241,18 @@ impl KeystrokeDriver {
         Self {
             profile: KeystrokeProfile::default(),
             connected: false,
+            front: front_exe,
+            send: enigo_send,
         }
     }
 
     fn tap(&self, key: Key) -> Result<(), CtlError> {
         // shortcut: off Windows the front process is unknown and the guard passes
         // (ADR-019 amendment); the own-window guard in dispatch still applies.
-        if cfg!(windows) && !keys_allowed(self.profile, process_path(foreground_pid()).as_deref()) {
-            return Err(CtlError::Other(FRONT_MSG.into()));
+        if cfg!(windows) {
+            guard(self.profile, (self.front)().as_deref())?;
         }
-        // A fresh Enigo per call sidesteps Send/Sync issues with the cached handle on
-        // platforms where `Enigo` is not Send.
-        let mut enigo = Enigo::new(&Settings::default())
-            .map_err(|e| CtlError::Other(format!("enigo init: {e:?}")))?;
-        enigo
-            .key(key, enigo::Direction::Click)
-            .map_err(|e| CtlError::Other(format!("enigo key: {e:?}")))?;
-        Ok(())
+        (self.send)(key)
     }
 }
 
@@ -323,10 +346,28 @@ mod tests {
         assert!(!own_window_focused(0, false));
     }
 
-    // ADR-019. No test here presses a key: tap() is never reached (the
-    // WorshipTools blank returns before it), and enigo is never created.
+    // ADR-019. No test here presses a key: every driver below has a fake front
+    // window and a recording sender, so tap() never reaches enigo.
     use super::*;
+    use std::cell::RefCell;
     const PRESENTER: &str = r"C:\Program Files\Presenter\Presenter.exe";
+
+    thread_local! {
+        static KEYS: RefCell<Vec<Key>> = const { RefCell::new(Vec::new()) };
+    }
+    fn record(key: Key) -> Result<(), CtlError> {
+        KEYS.with_borrow_mut(|k| k.push(key));
+        Ok(())
+    }
+    fn recorded() -> Vec<Key> {
+        KEYS.with_borrow_mut(std::mem::take)
+    }
+    fn presenter_in_front() -> Option<String> {
+        Some(PRESENTER.into())
+    }
+    fn explorer_in_front() -> Option<String> {
+        Some(r"C:\Windows\explorer.exe".into())
+    }
     const ALL: [KeystrokeProfile; 12] = {
         use KeystrokeProfile::*;
         [
@@ -349,7 +390,45 @@ mod tests {
         KeystrokeDriver {
             profile,
             connected: true,
+            front: presenter_in_front,
+            send: record,
         }
+    }
+
+    #[tokio::test]
+    async fn the_driver_asks_the_guard_before_every_key() {
+        use KeystrokeProfile::*;
+        let behind = KeystrokeDriver {
+            front: explorer_in_front,
+            ..driver(WorshipToolsPresenter)
+        };
+        // Off Windows the front process is unknown and the guard passes.
+        for r in [behind.next_slide().await, behind.prev_slide().await] {
+            if cfg!(windows) {
+                assert_eq!(r.unwrap_err().to_string(), FRONT_MSG);
+            } else {
+                r.unwrap();
+            }
+        }
+        let none: &[Key] = if cfg!(windows) {
+            &[]
+        } else {
+            &[Key::RightArrow, Key::LeftArrow]
+        };
+        assert_eq!(recorded(), none, "no key while Presenter is behind");
+        // Presenter in front: Right, then Left.
+        let d = driver(WorshipToolsPresenter);
+        d.next_slide().await.unwrap();
+        d.prev_slide().await.unwrap();
+        assert_eq!(recorded(), [Key::RightArrow, Key::LeftArrow]);
+        // Another profile is not checked.
+        let other = KeystrokeDriver {
+            front: explorer_in_front,
+            ..driver(Universal)
+        };
+        other.next_slide().await.unwrap();
+        assert_eq!(recorded(), [Key::RightArrow]);
+        assert_eq!(guard(WorshipToolsPresenter, Some(PRESENTER)).ok(), Some(()));
     }
 
     #[test]
@@ -366,6 +445,8 @@ mod tests {
             r"C:\Program Files\Presenter\PresenterUpdate.exe",
             r"C:\Windows\explorer.exe",
             r"C:\Presenter\Voxxa.exe",
+            r"C:\Program Files\Renewed Vision\ProPresenter\ProPresenter.exe",
+            "ProPresenter",
             "",
         ] {
             assert!(!is_presenter_exe(miss), "{miss}");
@@ -447,10 +528,12 @@ mod tests {
             assert_eq!(d.stops_at_song_end(), wt, "{p:?}");
             assert!(!d.capabilities().can_goto_slide && !d.capabilities().can_query_state);
         }
-        // The operator's blank: "not supported", and no key is pressed.
+        // The operator's blank: "not supported", and no key is pressed (the
+        // sender only records, so even a regression could press nothing real).
         let r = driver(KeystrokeProfile::WorshipToolsPresenter)
             .blank()
             .await;
         assert!(matches!(r, Err(CtlError::Unsupported("blank"))), "{r:?}");
+        assert_eq!(recorded(), Vec::<Key>::new());
     }
 }
