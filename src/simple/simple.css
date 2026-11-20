@@ -17,7 +17,7 @@
 #s-song { font-size: 17px; font-weight: 600; }
 #s-slide { margin-top: 4px; color: var(--text-dim); }
 .s-help { margin-top: auto; padding: 14px; border: 1px solid var(--danger); border-radius: var(--radius); background: none; color: var(--text); font-size: 15px; font-weight: 600; cursor: pointer; }
-.s-help-msg { font-size: 13px; line-height: 1.4; color: var(--text-dim); }
+.s-what { margin-top: -10px; }
 .s-link { align-self: center; background: none; border: none; color: var(--text-dim); font-size: 13px; text-decoration: underline; cursor: pointer; }
 .s-link:hover { color: var(--text); }
 .s-back { display: flex; gap: 10px; margin-left: auto; padding-left: 10px; }
@@ -29,3 +29,12 @@
 .fr-extra select, .fr-extra progress { width: 100%; }
 .fr-extra select { padding: 8px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
 .fr-actions { display: flex; justify-content: space-between; align-items: center; }
+
+/* Call for help's review screen (ADR-018 § 3): every file, scrollable inside the window. */
+#help .fr-card { max-height: 100%; }
+#help-msg { overflow-wrap: anywhere; }
+.help-files { flex: 0 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.help-files summary { cursor: pointer; }
+.help-files pre { max-height: 150px; overflow: auto; margin: 6px 0 0; padding: 8px; background: var(--surface-2); border-radius: 8px; font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.help-words { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; font-weight: 600; }
+.help-files .off details { opacity: 0.45; text-decoration: line-through; }

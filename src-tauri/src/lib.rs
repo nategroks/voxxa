@@ -4,6 +4,7 @@ mod commands;
 mod diagnostics;
 mod discovery;
 mod dispatch;
+pub mod help;
 mod http_api;
 mod hymnary;
 mod importers;
@@ -22,6 +23,7 @@ pub use aligner::evidence;
 pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, Song};
 pub use audio::{choose_config, AudioEngine, Resampler};
 pub use commands::{gui_event, gui_sink, presenter_error, GuiEvent, Sessions};
+pub use diagnostics::{init_logger, recent_log};
 pub use dispatch::{drive, step, Sent};
 pub use http_api::{authorize, resolve_token};
 pub use presenters::{
@@ -158,6 +160,10 @@ pub fn run() {
             commands::get_http_api_status,
             commands::start_http_api,
             commands::stop_http_api,
+            help::help_bundle_preview,
+            help::write_help_bundle,
+            help::open_help_email,
+            help::open_runbook,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

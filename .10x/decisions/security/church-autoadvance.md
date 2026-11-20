@@ -1,5 +1,16 @@
 # Security — church-autoadvance
 
+## 2026-11-19 — Q9 final (`q9/base` @ 89f4ccb; both verifiers passed)
+Details: the Q9 section below; ADR-018; `reviews/2026-11-19-ponytail-q9.md` § 6.
+- **Decision: no Critical or High finding is open; the security position for Q9 is final.** Ready to merge once CI is green.
+- **#102 (Q7-08) is fixed** (2c28c15) and can be closed at merge. Verifier B's mutants on it: `Heard: <text>` at Info and a `warn!` of the window text are both killed. One survivor: the same text at Debug reaches the ring buffer only under `RUST_LOG=debug`, because the test's logger runs at Info (Q9-11, low). ADR-018 § 1 says the text is never logged at any level; the code holds to that today.
+- **Redaction widened after verifier round 1** (3e3efd7): any name containing `key` (once `keystroke` is removed), plus `applicationid`, `clientid` and `bearer`. Verifier A checked 18 placeholder secrets in a real written zip, all redacted, with harmless fields kept. Redaction is by property name only (Q9-16, low); no secret is stored under a harmless name today.
+- **No network, no new capability, no new crate.** Verifier B found no network code in the new files. The only targets opened are the zip's folder, the recipient-free `mailto:` and the whitelisted GitHub runbook URL. `capabilities/default.json`, `Cargo.toml`, `Cargo.lock`, `deny.toml` and the workflows are unchanged.
+- **Nothing written before Save, and Save writes only what was shown:** proved by `tests/help_commands.rs` running the real preview and Save steps (round 1 survivors M2b and M5b are now killed), and in the guarded real app.
+- **The QA override `VOXXA_HELP_DIR` ships in the backend.** It opens nothing and only moves the folder; whoever can set the process environment already runs code as the user. Accepted (ADR-018 § 6).
+- **Accepted risks, unchanged:** CSP is still null (#8; Q10 sets a strict CSP), so a compromised webview could preview any `storage` and write it to the Desktop under the fixed name; the report lists audio device names and song titles (Q9-14, for Q11's over-collection review); the words file can come from an old `voxxad` session (Q9-08).
+- **Next:** Q11's security review covers the support bundle for over-collection; the shell plugin's deprecated `open` moves to `tauri-plugin-opener` in its own PR (Q9-03).
+
 ## 2026-11-19 — Q7 final (`q7/base` @ 6386f6b; both verifiers passed)
 Details: `reviews/2026-11-19-security-review.md` §11; the ponytail audit: `reviews/2026-11-19-ponytail-q7.md` §3.
 - **Both verifiers passed at 6386f6b.** A TCP-connect mutant and a UDP-socket mutant in the replay branch each fail the zero-sockets test on Windows (ETW); the model hash and every action pin were re-checked; product code changed only by the `src/bin` → `src/cli` rename and one error string.
@@ -18,6 +29,24 @@ Full text: `reviews/2026-11-19-security-review.md` section 9.
 - **Decision: Linux CI stays on `ubuntu-22.04`** until `unshare -rn` is shown to work on a newer image (Ubuntu 24.04's AppArmor default refuses it, and the test would fall back to strace with networking enabled). Comment in `ci.yml` (5fa4c76).
 - **Re-proof at the finish (Windows, ETW):** pass; the replay-branch TCP connect mutant fails with 11 AFD events; pass again after the revert.
 - **Before merge (must-fix evidence, not yet run):** in the first CI run, (a) Linux and Windows print `traced with strace inside unshare -rn` and `traced with ETW`; (b) the throwaway mutant commit turns Linux red and its revert green; (c) full-eval green or warning on three OSes with only the table in the summary and artifact. Record the run URLs in both reports.
+
+## 2026-11-19 — Q9: Call for help (the help bundle), #102, runbook links (10x lane, `q9/10x`)
+ADR-018. Security Engineer review of the new surface, written with the ADR and checked again at the finish.
+- **#102 (Q7-08, Q7-S6) fixed first, in its own commit (2c28c15).** `listen.rs` logs `Heard N words` at Info instead of the text, and no longer logs the text at any level (Debug would still reach the ring buffer under `RUST_LOG=debug`, because the ring logger takes its level from `RUST_LOG`). All 70 `log::` calls in `src-tauri/src` outside `cli/` were read. None carries recognised text: the conductor logs indices, scores and titles, the presenters log slide indices, and dispatch errors name titles at most. `tests/help_bundle.rs::no_recognised_text_reaches_the_diagnostics_buffer` runs the shared loop with four placeholder words and checks the buffer, which is the report's `recent_log`. It fails on the old line.
+- **Where the heard words go now.** Only into the optional `words-last-2-minutes.txt`. It is built from the newest `voxxad` session log (the GUI writes none, #53), shown in full on the review screen, and controlled by a checkbox that is on by default. Unchecked, the file is absent from the zip (Rust test and e2e).
+- **Nothing is written before the user confirms.** `help_bundle_preview` builds the files in memory (Rust test: the folder is unchanged). `write_help_bundle` writes exactly the pending files that were shown, with `File::create_new` (no overwrite), and removes a half-written file. A second write without a new review is refused (shown in the real app).
+- **Redaction (operator settings).** Only `voxxa.*` keys go in. `voxxa.recentSetlists` (whole setlists, slide text included) is replaced by a placeholder. A property, at any depth, whose name reads as a secret is replaced by `[redacted]`: after `keystroke` is removed from it, the name contains token, secret, pass, pwd, credential, authoriz, appid, applicationid, clientid, bearer or key, or ends in auth or pat (widened after the Q9 verifier found `apiKeys`, `privateKeyPem`, `key_id`, `application_id` and `clientId` unredacted). The rule is tested on nested, top-level, camelCase, snake_case and upper-case names. The test also checks that no `SmartConfig` field and no stored key is redacted. The first version missed `passphrase`; the test caught it and the rule was widened. Passwords and the HTTP API token are not in `localStorage` today (`src/main.js:1131-1133,1492`), and Planning Center credentials are kept in memory only (`src/main.js:157`), so this is a second line of defence.
+- **No network, no new capability.** `capabilities/default.json` is unchanged (`core:event:default`; `tests/capabilities.rs` passes). The e-mail draft, the folder and the runbook URL are opened from Rust with `tauri-plugin-shell`'s `open`, which applies no scope when called from Rust. The webview cannot choose what is opened:
+  - `open_help_email` takes no argument and opens only `mailto:` + the empty `SUPPORT_EMAIL` + a subject, plus a body built from the zip this process wrote, percent-encoded (Rust test: only unreserved characters and `%XX`), and then that zip's folder;
+  - `open_runbook` accepts three fixed names (`../../evil` was refused in the real app).
+
+  A `mailto:` link hands the draft to the mail program, which sends nothing until the user presses Send. There is no upload and no telemetry.
+- **QA override `VOXXA_HELP_DIR`.** The zip is written to that folder, session logs are read from `<dir>/sessions`, and nothing is opened. Whoever can set this process's environment already runs code as the user. Accepted.
+- **Accepted risks:**
+  - A compromised webview (CSP is off, as before) could ask for a preview with any `storage` and write it to the Desktop under the fixed `voxxa-help-<UTC>.zip` name.
+  - The report lists audio device names, which can contain a person's name. They are shown on the review screen before anything is written.
+  - The words file can come from an old `voxxad` session. Its header names the log file, so the date is visible.
+- **The real app was never allowed to open anything:** the guarded run wrote both zips through `write_help_bundle` into the scratch folder and never called `open_help_email`; no zip appeared on the real Desktop.
 
 ## 2026-11-19 — Q7: the CLI surface, the zero-sockets test, the full-eval workflow's supply chain
 Full review: `reviews/2026-11-19-security-review.md`. Tickets: `reviews/2026-11-19-q7-tickets.md` (Q7-01, -03, -05, -06 and -07 are security-tagged).

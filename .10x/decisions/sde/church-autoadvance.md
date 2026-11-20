@@ -557,3 +557,150 @@ Behind it, `#app` is hidden and unchanged. `main.js` gained one line, the welcom
 **Next:** fix Q8-10 and have a verifier confirm it. Then the orchestrator pushes `q8/base`, opens the draft PR, gets CI green and merges. Then the orchestrator files the tickets, apart from Q8-10 if the fixing commit closes it.
 
 **Q8-10 closed (2026-11-19, orchestrator).** Q8-10 was fixed by the orchestrator in 88aa63b: a capture-phase `keydown` listener on `window` blocks every key while the guide is shown. Four new e2e checks press Space and `s` with the focus on the page body, on step 1 and during the 20-second test. All four fail on the old code (41 passed, 6 failed) and pass with the fix. An independent verifier confirmed it at 88aa63b: 13 shortcut keys were blocked with the focus on the body, the buttons and the select, and the guide's own keyboard controls still work. The old-code mutant and the bubble-phase mutant both fail. The verifier's one survivor, keys blocked even after the guide closes, is killed by fce3e58 ("s reaches main.js again" after Skip; 117 e2e checks). SDE position: ready to merge once CI is green. U6 (the 20-second test) now also passes by keyboard.
+
+## 2026-11-19 — Q9 (10x lane, `q9/10x` from 7797556): Call for help, runbooks, quick-start
+**ADR first:** ADR-018 (f105973), then code. ADR-017 is amended (§ 1 Call for help, § 2 runbook column).
+
+**Commits:**
+1. f105973: ADR-018.
+2. 2c28c15: #102 fix, in its own commit with its test (first code commit).
+3. c268b49: docs.
+4. b9b6749: GUI.
+5. 581d314: backend.
+6. fed3e22: `inert` fix.
+7. 675c2ac: ADR-017 amendment and the real-app driver.
+8. This record.
+
+**Built:**
+- **#102:** `listen.rs` logs `Heard N words`, never the text; `voxxa_lib::recent_log` exposes the buffer for the test.
+- **`src-tauri/src/help/mod.rs`, four new commands.** No existing command signature or behaviour changed.
+  - `help_bundle_preview { storage }` builds three files in memory: the report, the redacted `voxxa.*` settings, and the words of the newest session log's last 120,000 ms. The words file is left out when there is no log.
+  - `write_help_bundle { includeWords }` writes the shown files as `voxxa-help-<UTC>.zip` on the Desktop (deflate, `create_new`). Unchecked, the words file is absent.
+  - `open_help_email` opens the `mailto:` draft with no recipient (`SUPPORT_EMAIL = ""`), then the zip's folder.
+  - `open_runbook { name }` opens one of three runbooks on GitHub.
+
+  Openers go through `tauri-plugin-shell`'s `open` from Rust. `#[allow(deprecated)]`: the plugin points to `tauri-plugin-opener`, which would be a new crate. `zip` and `dirs` are reused, and there is no new crate.
+- **`VOXXA_HELP_DIR`** is a QA override: write there, read `<dir>/sessions`, open nothing.
+- **`src/simple/help.js`:** the review screen, with each file's name, size and text content; the words file is open, with its checkbox on by default. Then Save, the path, and the e-mail step. While it is shown there is a capture-phase key block, `#simple` is inert, and Escape or Cancel closes it.
+- **`statusLight`** returns a runbook on rows 1, 3, 5 and 6, shown as a "What to do" link. No sentence changed.
+- **Docs:** `docs/quick-start.md` (58 lines including blanks; one printed page); `docs/runbooks/{no-audio-device,presentation-app-not-reachable,model-missing}.md` (42-50 lines each). Every UI label, message and path was checked against the code (`index.html`, `main.js`, `firstrun.js`, `audio/mod.rs`, `commands/mod.rs:214-221`, `transcription/mod.rs`, `discovery/mod.rs:50-53`).
+
+**Budget (no cap raised, no row added):**
+
+| Row | Before | After | Cap |
+|---|---|---|---|
+| everything else in src-tauri/src | 2,309 | 2,484 (+175) | 2,500 |
+| Simple mode (src/simple/*) | 352 | 433 (+81) | 600 |
+| GUI (without src/simple/) | 2,780 | 2,780 (unchanged) | 3,000 |
+
+The first draft of `help/mod.rs` measured 2,571 after rustfmt (over by 71). It was compacted to fit, without dropping any function: one-line constant lists, tuple files, and shorter chains.
+
+**Gates at the finish (Windows, rustc 1.99.1), all pass:**
+- `npm ci && npm run build`, fmt, clippy `-D warnings` without and with `cli`;
+- `cargo test --features cli`: **218 passed, 1 ignored** (Q8: 210; +8 in `tests/help_bundle.rs`);
+- `cargo-deny`, budgets and the dictat grep;
+- the CI eval step: 21/21 hits, precision and recall 1.00, 0 false, median 2,310 ms, p95 4,870 ms, unchanged;
+- `test:gui` 7/7, e2e **158/158**.
+
+**Deviations:**
+- The GUI writes no session log (#53), so the words file exists only where `voxxad` ran. On a GUI-only machine the review says so, and no checkbox is shown.
+- "Model missing" is grey, not red, so its link sits on grey row 3.
+- The zip is written by the backend (Desktop). The webview passes its `localStorage`, because only the webview can read it.
+
+**Tickets (to file, label `q9`):**
+
+| Ticket | Severity | Description | Where |
+|---|---|---|---|
+| Q9-01 | low | `SUPPORT_EMAIL` is empty; fill it when a support address exists | `src-tauri/src/help/mod.rs:16` |
+| Q9-02 | medium | No words file on GUI-only machines until the GUI writes session logs | #53 |
+| Q9-03 | low | Move from the deprecated shell `open` to `tauri-plugin-opener` when the shell plugin drops it | |
+| Q9-04 | low | Runbook links need a browser and the internet (GitHub); an offline booth cannot open them. Consider shipping the runbooks with the app | |
+| Q9-05 | low | The zip name is in UTC (a 15:27 local save is named `…-2127xx.zip`) | |
+| Q9-06 | low | The set-up guide overlay is not `inert` behind: Tab can reach the switch behind it, and Enter then presses it. The same gap was fixed for Call for help in fed3e22 | `src/simple/firstrun.js` |
+| Q9-07 | low | The founder's usability run should include Call for help and a red light's "What to do" | Q8-01 |
+| Q9-08 | low | The words file may come from an old `voxxad` session; only its header names the date | |
+
+Q9 fixes #102 (close it at merge).
+
+## 2026-11-19 — Q9 finish on `q9/base` (merge of `q9/10x`, grafts and review fixes)
+**Merge:** cd28ab5, `git merge --no-ff q9/10x`.
+
+**Commits after the merge, one per graft or fix:**
+1. 064c4c8: the OpenSong API key is entered again after every start, in `presentation-app-not-reachable.md`. Graft from the ponytail review, finding 3: the key goes out as `args.password` (`src/main.js:1283-1284`) and is never saved (`src/main.js:1297-1303`).
+2. 42ca27f: the same runbook covers a presentation app on another computer: both computers on the same network, and Host set to that computer's address. Graft from the ponytail runbook. The runbook is now 52 lines.
+3. 82d24e9: `pub fn runbook_url(name) -> Option<String>` replaces the private `RUNBOOK_URL`, and `open_runbook` uses it. The test checks the exact URL for `no-audio-device` and that `../../evil` and `no-audio-device.md` give `None`. Graft from the ponytail review, nit 7.
+4. caa67b1: `recent_words` compares `t` with `end.saturating_sub(120000)`. The new test case (`t` near `u64::MAX`) panicked with "attempt to add with overflow" on the old line. Graft from the ponytail review, nit 9.
+5. 9917115: `open_help_email` opens the folder first and the draft second, and returns `Result<(), String>`. A folder error starts with `folder: `, and then the draft is not tried. `help.js`'s fallback message says the folder is open, or that it is not. The mock returns nothing, and e2e checks both failure messages. 10x review should-fix and nit. ADR-018 § 5, § 6 and § 9 are updated.
+
+**Budget:**
+
+| Row | Value | Change |
+|---|---|---|
+| everything else in src-tauri/src | 2,486 / 2,500 | +2 net: `runbook_url` +1, `open_help_email` +1 |
+| Simple mode (src/simple/*) | 436 / 600 | +3, the fallback message |
+| GUI (without src/simple/) | 2,780 / 3,000 | unchanged |
+
+No cap was raised and no row was added.
+
+**Gates at the finish (Windows, rustc 1.99.1), all pass:**
+- `npm ci && npm run build`, fmt, clippy `-D warnings` without and with `cli`;
+- `cargo test --features cli`: 218 passed, 0 failed, 1 ignored. `tests/help_bundle.rs` keeps 8 tests, with more cases in two of them;
+- `cargo-deny`, budgets and the dictat grep (prints nothing);
+- the CI eval step: 21/21 hits, precision and recall 1.00, 0 false, median 2,310 ms, p95 4,870 ms, unchanged;
+- `test:gui` 7/7, and e2e 160/160 (2 new checks).
+
+## 2026-11-19 — Q9 finish on `q9/base`: verifier fixes (redaction, survivors M2b/M5b/M5c, quick-start)
+
+Five verifier failures, each fixed in a new commit with a test that fails without it:
+
+1. 3e3efd7, redaction: `is_secret` caught `key` only at the end of a name and did not know `application_id`, `clientId` or `bearer`. Any name containing `key` is now a secret once `keystroke` is removed from it (the keystroke presenter's profile); `applicationid`, `clientid` and `bearer` join the contains-list. The export test adds `apiKeys`, `privateKeyPem`, `key_id`, `application_id`, `clientId`, `bearer` and `PrivateKey`, nested and at the top level, and keeps `keystroke_profile` and `keystrokeProfile` readable. It failed on the old rule with those five values in the output. ADR-018 § 4 and the security record state the new rule.
+2. 5ba1c00, survivors M2b and M5b: the body of `help_bundle_preview` after the report is built is now `help::preview(report, storage, root)` (it sets the pending bundle); the command is three lines of glue. `tests/help_commands.rs` (its own process, because it sets `VOXXA_HELP_DIR` to a temp folder) calls `help::preview` and the real `write_help_bundle` command: the destination holds only `sessions` after the preview, Save unchecked writes a zip with no words file, a second Save is refused ("Press Call for help again"), and a checked box writes it. Mutants run by hand: `include_words || true` in `write_help_bundle` fails it at the unchecked-zip check; a `write_zip` after the pending bundle is set, into the QA folder or into `root`, fails it at the preview check. What is left untested: the three glue lines of `help_bundle_preview` (generating the report and choosing the folder), which need a Tauri `State`. `scripts/qa/call-for-help-real-app.mjs` checks each written zip for the words file's name (5ba1c00) and stores three more placeholder secrets, `application_id`, `clientId` and `apiKeys` (64fc4a0).
+3. 708fa62, survivor M5c: the preview test lists the folder before the first `bundle_files` call and after each call. The M5c mutant (a fixed-name `pre.zip` beside the logs) now fails it at the first call.
+4. 84ca89c, quick-start: 58 lines and two printed pages became 40 lines on one page. Printed through headless Edge (Letter and A4, 0.4 in margins) in the verifier's GitHub-like 16 px style and its compact 11 pt style: one page each; at 16 px on Letter the content is 969 of 979 px. A test keeps the file at no more than 50 lines of no more than 100 characters.
+
+**Budget:** everything else in src-tauri/src 2,494 / 2,500 (+8: the secret rule +1, `preview` +7 net). Simple mode 436 / 600 and GUI 2,780 / 3,000 unchanged. No cap was raised and no row was added.
+
+**Gates, all pass:** `npm ci && npm run build`; fmt; clippy `-D warnings` without and with `cli`; `cargo test --features cli` 220 passed, 0 failed, 1 ignored (`help_bundle.rs` 9 tests, `help_commands.rs` 1); `cargo-deny`; budgets; the dictat grep prints nothing; the CI eval step 21/21, unchanged; `test:gui` 7/7; e2e 160/160.
+
+**Exit demo, re-taken:** mocked browser (e2e above). The guarded real app (scratch build `com.voxxa.qa9finish`, WebView2 port 9353, `VOXXA_HELP_DIR` a scratch folder; startup opens no audio input: `AudioEngine::start` is reached only from `start_listening`, `commands/mod.rs:229`, which only the Listen toggle invokes, `main.js:700`): 12/12 checks, including both new zip checks. The zips held three and two entries, no placeholder secret (6 values redacted), no slide text, and only the words within the last 2 minutes. Never Listen, the 20-second test, a presenter, the HTTP API or the e-mail and folder step. The app was stopped by PID; `%LOCALAPPDATA%\com.voxxa.qa9finish` and the scratch zips were deleted.
+
+## 2026-11-19 — Q9 finish on `q9/base`: the quick-start's install step (verifier)
+
+- 82ff710: `docs/quick-start.md:3-5` no longer sends the volunteer to the GitHub releases page, which has no release (Q7 user decision: no tag, no GitHub release). It says there is no download page yet: the tech lead gives out the `.msi` or `-setup.exe` installer, built from the repository with `npm install` then `npm run tauri build` (`bundle.targets` "all", `src-tauri/tauri.conf.json:54`). The page is 41 lines. A new test in `tests/help_bundle.rs` fails while the quick-start points to `/releases` (it failed before the fix).
+- Not fixed, to ticket (no gh write in this step): `README.md:42` still says "Download from the releases page"; it predates Q9. `docs/index.html` links to `/releases/latest` too.
+
+**Gates, all pass:** `npm ci && npm run build`; fmt; clippy `-D warnings` without and with `cli`; `cargo test --features cli` 221 passed, 0 failed, 1 ignored (`help_bundle.rs` 10 tests); `cargo-deny`; budgets (everything else in src-tauri/src 2,494 / 2,500, Simple mode 436 / 600, GUI 2,780 / 3,000, unchanged); the dictat grep prints nothing; the CI eval step 21/21, no metric worse than the baseline; `test:gui` 7/7; e2e 160/160.
+
+**Exit demo, re-taken:** mocked browser, e2e 160/160. Guarded real app (scratch build `com.voxxa.qa9finish`, port 9353, `VOXXA_HELP_DIR` a scratch folder; startup opens no audio input: `AudioEngine::start` is reached only through `start_listening_with_state`, `commands/mod.rs:229`, from the Listen toggle, `main.js:700`, or the HTTP API, which stays off): 12/12 checks. The first run passed 11/12: the driver was given the long form of the scratch path and the app the 8.3 form, so the folder check compared two spellings of the same folder; the re-run with the app's own spelling passed 12/12. Each zip held three entries (box checked) or two (unchecked), no placeholder secret (6 values redacted), no slide text, no recognised words in the report, and only the words within the last 2 minutes. Never Listen, the 20-second test, a presenter, the HTTP API or the e-mail and folder step. The app was stopped by PID; `%LOCALAPPDATA%\com.voxxa.qa9finish` and the scratch zips were deleted.
+
+## 2026-11-19 — Q9 final: Call for help, runbooks, quick-start on `q9/base` (head 89f4ccb)
+**Head:** `q9/base` @ 89f4ccb, 23 commits on 7797556, plus the state commit "state(implementation): Q9 Call for help, runbooks, quick-start":
+- the 10x lane (f105973..dadcdbb, ADR-018 first, #102 in the first code commit, 2c28c15), merged as cd28ab5;
+- four ponytail grafts (064c4c8, 42ca27f, 82d24e9, caa67b1) and the 10x review's fix (9917115), with records in 8ade143;
+- verifier round 1 fixes (3e3efd7, 5ba1c00, 708fa62, 84ca89c) and records (64fc4a0, c0fae68);
+- the verifier round 2 fix (82ff710) and its record (89f4ccb).
+
+`q9/10x` (dadcdbb) and `q9/ponytail` (8f87206) stay local for reference. Process record: `reviews/2026-11-19-ponytail-q9.md`.
+
+**Built:**
+- **#102 fixed** (2c28c15): `src-tauri/src/listen.rs:182-184` logs `Heard N words`, never the text.
+- **`src-tauri/src/help/mod.rs`**, four new commands: `help_bundle_preview` (builds the files in memory as the pending bundle), `write_help_bundle { includeWords }` (writes exactly those files as a new zip on the Desktop; the words file absent when unchecked), `open_help_email` (the zip's folder first, then a `mailto:` draft with the empty `SUPPORT_EMAIL`), `open_runbook` (three names, through `runbook_url`). No existing command changed. `VOXXA_HELP_DIR` sandboxes it for QA and opens nothing.
+- **`src/simple/help.js`**, the review screen; `statusLight`'s runbook column and the "What to do" link.
+- **Docs:** `docs/quick-start.md` (41 lines, one printed page, kept so by a test) and the three runbooks (42, 45 and 52 lines).
+
+**Budgets:** everything else in `src-tauri/src` 2,309 → **2,494 / 2,500 (6 left)**; Simple mode 352 → **436 / 600**; GUI 2,780 / 3,000 unchanged. No cap raised, no row added, no runtime npm dependency, no new crate.
+
+**Gates at 89f4ccb:** all pass (finisher; verifiers A and B). `cargo test --features cli` (with `VOXXA_REQUIRE_SOCKET_TRACE=1`): 221 passed, 0 failed, 1 ignored (Q8: 210; `help_bundle.rs` 10, `help_commands.rs` 1). `test:gui` 7/7. e2e 160/160. The CI eval step: 21/21 hits, precision and recall 1.00, median 2,310 ms, p95 4,870 ms, "OK: no metric is worse". Only binaries match the control-byte grep.
+
+**Verifier rounds:** round 1 (8ade143) and round 2 (c0fae68) did not pass; each finding was fixed with a test that fails without it. **Round 3 at 89f4ccb: both passed.** Verifier B killed 29 of 30 mutants; the survivor is a Debug-level heard-text line (Q9-11).
+
+**Deviations (recorded in ADR-018):**
+- the words file comes only from `voxxad` logs, because the GUI writes none (#53, Q9-02);
+- the "model missing" link sits on the grey row 3, because ADR-017 has no red row for it;
+- in the real app the bundle was written by calling `write_help_bundle` over CDP, never with Save (the e-mail and folder step is forbidden there);
+- the zip name is in UTC (Q9-05);
+- the usability script was re-run only for the Call-for-help step (U12) and the "What to do" part of U9.
+
+**Tickets:** 16 open (1 medium, 15 low), `reviews/2026-11-19-q9-tickets.md`, including "Set the support e-mail address" (Q9-01). Q9 fixes #102 (close it at merge) and adds comments to #53, #49, #99, #116, #109, #34, #8 and #121.
+
+**SDE position: ready to merge once CI is green.** Next: the orchestrator pushes `q9/base`, opens the draft PR, gets every CI job green, merges, files the tickets and closes #102. The scratch `voxxa.exe` in `C:/dev/q3-10x-target/release/` carries verifier A's QA identifier (`com.voxxa.qa9va`); never ship it.

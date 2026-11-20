@@ -4,6 +4,7 @@
 import "./simple.css";
 import { statusLight, songPosition } from "./logic.js";
 import { openFirstRun, maybeFirstRun, applySavedDevice, reconnectPresenter, savedPresenter } from "./firstrun.js";
+import { openHelp } from "./help.js";
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -20,9 +21,9 @@ root.innerHTML = `
     <button role="radio" data-mode="scripture" disabled title="Scripture comes in a later update">Songs + Scripture</button>
   </div>
   <div class="s-status" role="status" aria-live="polite"><span class="s-light" id="s-light"></span><span id="s-sentence"></span></div>
+  <button class="s-link s-what" id="s-runbook" hidden>What to do</button>
   <div class="s-now"><div id="s-song"></div><div id="s-slide"></div></div>
   <button class="s-help" id="s-help">Call for help</button>
-  <p class="s-help-msg" id="s-help-msg" hidden>Call for help comes in the next update. Until then, call your tech lead and read them the sentence next to the light.</p>
   <button class="s-link" id="s-advanced">Advanced</button>`;
 document.body.insertBefore(root, advanced);
 advanced.querySelector(".header").insertAdjacentHTML("beforeend",
@@ -32,7 +33,9 @@ const show = (adv) => { advanced.hidden = !adv; root.hidden = adv; };
 $("s-advanced").onclick = () => show(true);
 $("s-simple").onclick = () => show(false);
 $("s-guide").onclick = openFirstRun;
-$("s-help").onclick = () => { $("s-help-msg").hidden = false; };
+$("s-help").onclick = openHelp;
+// The runbook for a red (or model-missing) row, opened on GitHub by the backend (ADR-018 § 7).
+$("s-runbook").onclick = () => invoke("open_runbook", { name: $("s-runbook").dataset.runbook }).catch((err) => console.error("open_runbook:", err));
 // Space or Enter on Simple mode's own buttons presses the button, not main.js's shortcut.
 root.addEventListener("keydown", (e) => { if (e.target.tagName === "BUTTON" && (e.key === " " || e.key === "Enter")) e.stopPropagation(); });
 
@@ -48,7 +51,9 @@ let pending = null, want = null, polls = 0;
 const put = (el, t) => { if (el.textContent !== t) el.textContent = t; };
 
 function render() {
-  const [light, sentence] = statusLight(s);
+  const [light, sentence, runbook] = statusLight(s);
+  $("s-runbook").hidden = !runbook;
+  $("s-runbook").dataset.runbook = runbook || "";
   $("s-light").className = `s-light ${light}`;
   root.dataset.light = light;
   put($("s-sentence"), sentence);

@@ -2,7 +2,8 @@
 // Mock data uses placeholder words only.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appName, statusLight, songPosition, testVerdict, SOUND_RMS } from "../../src/simple/logic.js";
+import fs from "node:fs";
+import { appName, statusLight, songPosition, testVerdict, SOUND_RMS, RUNBOOKS } from "../../src/simple/logic.js";
 
 const pro = { kind: "pro_presenter7_rest", connected: true, display_name: "ProPresenter 7.9+ (REST API)" };
 const song = { title: "Alpha Bravo", slide: 2, slides: 6 };
@@ -12,16 +13,16 @@ const light = (over) => statusLight({ ...base, ...over });
 
 test("ADR-017 table, one case per row", () => {
   const rows = [
-    [1, { micLost: true }, "red", "Can't hear the mic. Check the cable, then choose Songs again."],
+    [1, { micLost: true }, "red", "Can't hear the mic. Check the cable, then choose Songs again.", "no-audio-device"],
     [2, { running: false, setlist: false }, "grey", "Off. Load this week's songs in Advanced first."],
-    [3, { running: false, model: false }, "grey", "Off. Download the voice model in Advanced first."],
+    [3, { running: false, model: false }, "grey", "Off. Download the voice model in Advanced first.", "model-missing"],
     [4, { running: false }, "grey", "Off. Choose Songs to start following."],
-    [5, { presenterError: "connection refused" }, "red", "ProPresenter 7.9+ didn't take the last slide change: connection refused."],
-    [5, { presenterError: true }, "red", "ProPresenter 7.9+ didn't take the last slide change. Check that it is open."],
-    [5, { presenterError: " " }, "red", "ProPresenter 7.9+ didn't take the last slide change. Check that it is open."],
-    [6, { presenter: { ...pro, connected: false } }, "red", "ProPresenter 7.9+ not found. Voxxa can't change slides."],
+    [5, { presenterError: "connection refused" }, "red", "ProPresenter 7.9+ didn't take the last slide change: connection refused.", "presentation-app-not-reachable"],
+    [5, { presenterError: true }, "red", "ProPresenter 7.9+ didn't take the last slide change. Check that it is open.", "presentation-app-not-reachable"],
+    [5, { presenterError: " " }, "red", "ProPresenter 7.9+ didn't take the last slide change. Check that it is open.", "presentation-app-not-reachable"],
+    [6, { presenter: { ...pro, connected: false } }, "red", "ProPresenter 7.9+ not found. Voxxa can't change slides.", "presentation-app-not-reachable"],
     // ProPresenter was chosen, the reconnect at start failed: the keystroke default is connected.
-    [6, { chosen: "pro_presenter7_rest", presenter: { kind: "keystroke", display_name: "Keystroke (any app)", connected: true } }, "red", "Your presentation app not found. Voxxa can't change slides."],
+    [6, { chosen: "pro_presenter7_rest", presenter: { kind: "keystroke", display_name: "Keystroke (any app)", connected: true } }, "red", "Your presentation app not found. Voxxa can't change slides.", "presentation-app-not-reachable"],
     [7, { state: "blank_hold" }, "amber", "Hearing talking, not a song. The screen stays blank."],
     [8, { state: "singing", isBlank: true, song }, "amber", "The screen is blank. It comes back when the song does."],
     [9, { state: "singing", isBlank: false, song }, "green", "Following Alpha Bravo, slide 2 of 6."],
@@ -30,8 +31,8 @@ test("ADR-017 table, one case per row", () => {
     [10, { state: "listening" }, "amber", "Listening. Waiting for a song from the list."],
     [10, { state: null, isBlank: false }, "amber", "Listening. Waiting for a song from the list."],
   ];
-  for (const [row, over, colour, sentence] of rows) {
-    assert.deepEqual(light(over), [colour, sentence], `row ${row}: ${JSON.stringify(over)}`);
+  for (const [row, over, colour, sentence, runbook] of rows) {
+    assert.deepEqual(light(over), runbook ? [colour, sentence, runbook] : [colour, sentence], `row ${row}: ${JSON.stringify(over)}`);
   }
 });
 
@@ -54,7 +55,7 @@ test("first matching row wins", () => {
   // The app last chosen is the one connected: not row 6.
   assert.equal(light({ chosen: "pro_presenter7_rest" })[0], "amber");
   // A missing presenter counts as not connected.
-  assert.deepEqual(light({ presenter: null }), ["red", "Your presentation app not found. Voxxa can't change slides."]);
+  assert.deepEqual(light({ presenter: null }), ["red", "Your presentation app not found. Voxxa can't change slides.", "presentation-app-not-reachable"]);
 });
 
 test("every light colour is one of the four", () => {
@@ -66,6 +67,23 @@ test("every light colour is one of the four", () => {
     if (!running && !micLost) assert.equal(c, "grey");
     if (c === "green") assert.ok(running && !isBlank && (state === "singing" || state === "inter_verse_silence"));
   }
+});
+
+// ADR-018 § 7: rows 1, 3, 5 and 6 link a runbook, and each one is a file in the repository
+// (the backend opens it on GitHub; src-tauri/tests/help_bundle.rs checks its own list).
+test("each runbook link resolves to a file in docs/runbooks", () => {
+  assert.deepEqual(Object.values(RUNBOOKS).sort(), ["model-missing", "no-audio-device", "presentation-app-not-reachable"]);
+  for (const name of Object.values(RUNBOOKS)) {
+    assert.ok(fs.existsSync(new URL(`../../docs/runbooks/${name}.md`, import.meta.url)), `docs/runbooks/${name}.md`);
+  }
+  const states = [null, "listening", "singing", "blank_hold"];
+  const linked = new Set();
+  for (const over of [{ micLost: true }, { running: false, model: false }, { presenterError: "x" }, { presenter: null }, ...states.map((state) => ({ state }))]) {
+    const [colour, , runbook] = light(over);
+    if (runbook) linked.add(runbook);
+    if (colour === "red") assert.ok(runbook, `every red row links a runbook: ${JSON.stringify(over)}`);
+  }
+  assert.equal(linked.size, 3);
 });
 
 test("appName drops the bracketed detail", () => {

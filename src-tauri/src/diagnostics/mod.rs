@@ -91,6 +91,11 @@ pub fn init_logger() {
     log::set_max_level(level);
 }
 
+/// The ring buffer's lines, oldest first: the report's `recent_log`.
+pub fn recent_log() -> Vec<String> {
+    LOGGER.get().map(|l| l.snapshot()).unwrap_or_default()
+}
+
 #[derive(Debug, Serialize)]
 pub struct DiagnosticReport {
     pub generated_at: String,
@@ -150,7 +155,7 @@ pub async fn generate_report(state: &AppState) -> DiagnosticReport {
         is_blank,
         is_running: state.sessions.is_running(),
         outbound_requests: crate::net_stats::snapshot().outbound_requests,
-        recent_log: LOGGER.get().map(|l| l.snapshot()).unwrap_or_default(),
+        recent_log: recent_log(),
     }
 }
 

@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Increment 2′, **Q8 (Simple mode) done on `q8/base`**. Verifier A's round-3 blocker (Q8-10) is fixed in 88aa63b, confirmed by a verifier, and its survivor is killed in fce3e58. Next for the orchestrator: CI, PR and merge (pre-approved), then **Q9** (Call for help, runbooks, quick-start). Q7 was merged into `main` (PR #95, c448139): Increment 1′ is closed.
+**Current Phase:** Increment 2′, **Q9 (Call for help, runbooks, quick-start) done on `q9/base`** (head 89f4ccb, plus the state commit "state(implementation): Q9 Call for help, runbooks, quick-start"); both verifiers passed in round 3. Next for the orchestrator: CI, PR and merge (pre-approved in handoff, "User decisions for Q9"), file the Q9 tickets and close #102; then **Q10** (Windows signing, winget, updater hardening). Q8 merged into `main` (PR #108, a3967e8). Q7 was merged into `main` (PR #95, c448139): Increment 1′ is closed.
 **Last Updated:** 2026-11-19 by 10x-team orchestrator
 **Health:** On Track
 
@@ -196,6 +196,32 @@
     - **Round 3 at ee431ce: verifier B passed** (scope clean, 26 of 28 mutants killed, two minor survivors: Q8-11, Q8-12). **Verifier A failed:** with the focus on the page body, the set-up guide lets `main.js`'s shortcut keys through. Space starts listening behind the guide before a microphone is chosen, and during the 20-second test Space stops listening (a false "couldn't hear" verdict) and `s` opens the stage window (`src/simple/firstrun.js:31`; Q8-10).
   - **Tickets:** 16 open (2 medium, 14 low), not filed yet (label `q8`). Q8 closes no earlier issue outright: #7 is fixed in part (fa87345), and comments go to #7, #44, #34, #9, #102 and #37 (tickets file, last sections).
 
+- [x] 2026-11-19: **Q9** Call for help, runbooks, quick-start (Phase 4: ADR-018), with the ponytail lane. Records:
+  - `reviews/2026-11-19-ponytail-q9.md`: both lanes, the cross-reviews, the comparator's ruling, the grafts, the disagreements, the verifier rounds, and which checks ran in the mocked browser, in Rust tests and in the guarded real app;
+  - `reviews/2026-11-19-q9-tickets.md`;
+  - `adrs/018-call-for-help-bundle-runbooks-quick-start.md` (ADR-017 §§ 1 and 2 amended);
+  - `decisions/{sde,qa,security}/church-autoadvance.md` ("Q9 final") and `decisions/architect/_index.md`.
+
+  **Done; not merged yet.** Both exit criteria are met: the bundle is produced, and the links resolve.
+  - **Final head:** `q9/base` @ **89f4ccb** (23 commits on 7797556, including the merge), plus the state commit. `q9/10x` (dadcdbb) and `q9/ponytail` (8f87206) stay local for reference.
+  - **History:**
+    - the 10x lane (f105973..dadcdbb; ADR-018 first, and #102 fixed in the first code commit, 2c28c15, with its test), merged as cd28ab5, the comparator's base;
+    - ponytail grafts 064c4c8 (OpenSong's API key in the runbook), 42ca27f (a presentation app on another computer), 82d24e9 (`runbook_url`, exact URL tested) and caa67b1 (no overflow in the words window);
+    - the 10x review's fix 9917115 (the folder opens first, whatever happens to the e-mail draft); records 8ade143;
+    - round 1 fixes 3e3efd7 (redaction), 5ba1c00 and 708fa62 (the real preview and Save steps tested), 84ca89c (quick-start on one page); records 64fc4a0 and c0fae68;
+    - round 2 fix 82ff710 (no releases page in the quick-start); record 89f4ccb.
+  - **Built:**
+    - #102: the listening loop logs `Heard N words`, never the text, so no recognised text reaches the diagnostics buffer or report.
+    - Call for help (`src-tauri/src/help/mod.rs`, `src/simple/help.js`): a review screen lists every file (the diagnostic report, the redacted `voxxa.*` settings, and the last 2 minutes of words from the newest `voxxad` log, behind a checkbox that is on by default) and writes one zip to the Desktop only on Save. Unchecked, the words file is absent. Then the zip's folder opens, and an e-mail draft with no recipient names the file.
+    - Four new commands, no existing command changed, no capability change, no new crate, no network call. `VOXXA_HELP_DIR` sandboxes it for QA and opens nothing.
+    - "What to do" links on red rows 1, 5 and 6 and grey row 3 open the matching runbook on GitHub.
+    - `docs/quick-start.md` (one printed page) and `docs/runbooks/{no-audio-device,presentation-app-not-reachable,model-missing}.md`.
+  - **Gates on Windows** (rustc 1.99.1) at 89f4ccb, all pass (finisher; verifiers A and B): frontend, fmt, clippy with and without `--features cli`; `cargo test --features cli` 221 passed, 1 ignored; cargo-deny; the loc budget; the `dictat` grep; the CI eval step 21/21, "OK: no metric is worse"; `test:gui` 7/7; e2e 160/160. Only binaries match the control-byte grep.
+  - **Budgets:** everything else in `src-tauri/src` 2,309 → **2,494 / 2,500 (6 left)**; Simple mode 352 → **436 / 600**; GUI 2,780 / 3,000 unchanged. No cap raised, no row added (user decision 3).
+  - **Testing:** (a) mocked browser: every Call for help path, including Save and the e-mail and folder step, and every runbook link; (b) Rust tests with temp folders, including the real preview and Save commands; (c) the guarded real app (scratch identifiers, `VOXXA_HELP_DIR` a scratch folder): the review screen and the bundle written by the real backend. The real app never listened, never pressed Save, and never opened a mail program or Explorer; nothing was written to the real Desktop.
+  - **Verifier rounds:** round 1 (8ade143) and round 2 (c0fae68) did not pass; each finding was fixed with a test that fails without it. **Round 3 at 89f4ccb: both passed** (verifier B: 29 of 30 mutants killed; the survivor is Q9-11).
+  - **Tickets:** 16 open (1 medium, 15 low), not filed yet (label `q9`). Q9 fixes **#102** (close it at merge); comments go to #53, #49, #99, #116, #109, #34, #8 and #121 (tickets file, last sections).
+
 ### Release readiness (2026-11-19, Increment 1′ after Q7)
 - **What Increment 1′ delivers:** `voxxad`, a headless listening loop with a replayable JSON-lines session log (ADR-013); Whisper behind a recogniser trait with a 1 s hop (ADR-014); `voxxa-eval` with six fixtures and a CI gate (ADR-015); the evidence tracker in the conductor (ADR-016); and in Q7 a determinism test, a zero-sockets test, a report-only full eval on three OSes, release notes, a Companion guide and the runbook "eval shows regression".
 - **Ready to merge** once the first CI run shows: the Linux and Windows jobs pass `replay_no_sockets`; a throwaway mutant turns Linux red and its revert green; full-eval is green or warns on three OSes with only the table, its times recorded and the Node 20 check done. Then one manual full-eval run on `main`.
@@ -229,7 +255,8 @@
 ### Pending
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
 - [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
-- [ ] Founder: run the usability script from the research plan on the founder's machine (Q8-01; user decision 3, not a merge gate). Use a fresh profile (clear `%LOCALAPPDATA%\com.voxxa.app`, keep `%APPDATA%\voxxa\models\ggml-tiny.bin`). Run U1-U13 from `decisions/qa/church-autoadvance.md` ("Q8 final") with a real microphone and presentation app. Look through every old panel once (the `[hidden]` fix changed what shows), and confirm amber for `blank_hold`.
+- [ ] Founder: run the usability script from the research plan on the founder's machine (Q8-01; user decision 3, not a merge gate). Use a fresh profile (clear `%LOCALAPPDATA%\com.voxxa.app`, keep `%APPDATA%\voxxa\models\ggml-tiny.bin`). Run U1-U13 from `decisions/qa/church-autoadvance.md` ("Q8 final") with a real microphone and presentation app. Look through every old panel once (the `[hidden]` fix changed what shows), and confirm amber for `blank_hold`. Add Call for help and a red light's "What to do" to the run (Q9-07): press Save once with the installed mail program and once on a PC without one (Q9-12), then delete the zip.
+- [ ] **Founder: set the support e-mail address** (Q9-01; user decision 2 of Q9). Choose the address Call for help's e-mail draft should go to (a support inbox, or one per church). Then `SUPPORT_EMAIL` (`src-tauri/src/help/mod.rs:16`), its test, the quick-start's Call for help section and the dialog's sentence change together. Until then, the volunteer types the tech lead's address.
 - [x] Q4 close-out (orchestrator): PR #58 CI green (5/5 jobs at 2807ed7); merged into `main` as 571cf0d; 13 Q4 tickets filed as #59–#71 (label `q4`); #46 and #52 closed.
 - [x] **Q5 close-out (orchestrator).**
   1. [x] Tests for Q5-08 (M65), Q5-09 (M66) and Q5-10's M52 and M55 added in 5858872 (test-only); each mutant applied by hand fails `cargo test --test voxxa_eval` (26 tests). M57 and M68 deferred with a reason (Q5-10).
@@ -254,13 +281,18 @@
   4. [x] full-eval run by hand on `main` (run 44548333928, at c448139): green on all three OSes; each table equals the replay table (QA report §13).
   5. [x] Filed the 12 open Q7 tickets as #96–#107 (label `q7`); notes added to the nine earlier issues. #47 closed by the merge, #75 closed by hand. The notes were added to #48, #49, #54, #78, #9, #77, #69, #89 and #70 (tickets file, last section).
 - [x] Increment 1′ (Q4–Q7) … per the 2026-11-11 prompt pack; Q4 merged (571cf0d); Q5 merged (69f7d27); Q6 merged (a60d1ce); Q7 merged (c448139). **Increment 1′ closed 2026-11-19.**
-- [ ] **Q8 close-out (orchestrator).** The push, PR, CI fixes, merge and filing are pre-approved (handoff, "User decisions for Q8").
+- [x] **Q8 close-out (orchestrator).** The push, PR, CI fixes, merge and filing are pre-approved (handoff, "User decisions for Q8").
   1. [x] **Merge blocker, Q8-10.** Done in 88aa63b (see below). Original plan: In `src/simple/firstrun.js`, replace the key block on the overlay box (line 31) with a capture-phase `keydown` listener on `window` while the guide is shown. Add e2e checks with the focus on `document.body`: on step 1, Space and `s` call neither `start_listening` nor `toggle_stage_display`; during the 20-second test, Space does not call `stop_listening` and the verdict is unchanged. Each check must fail on ee431ce.
   2. [x] Q8-10 was fixed by the orchestrator in 88aa63b: a capture-phase `keydown` listener on `window` blocks every key while the guide is shown. Four new e2e checks press Space and `s` with the focus on the page body, on step 1 and during the 20-second test. All four fail on the old code (41 passed, 6 failed) and pass with the fix. An independent verifier confirmed it at 88aa63b: 13 shortcut keys were blocked with the focus on the body, the buttons and the select, and the guide's own keyboard controls still work. The old-code mutant and the bubble-phase mutant both fail. The verifier's one survivor, keys blocked even after the guide closes, is killed by fce3e58 ("s reaches main.js again" after Skip; 117 e2e checks). Original plan: a verifier re-runs the gates, `npm run test:gui` and `npm run test:gui:e2e`, and confirms the fix. Record the result in the QA record and in `reviews/2026-11-19-ponytail-q8.md` § 6.
-  3. [ ] Push `q8/base` and open a draft PR against `main`. Every CI job must be green, including the GUI logic test on 3 OSes and the browser test on Windows, which has never run on GitHub (Q8-04).
-  4. [ ] Merge.
-  5. [ ] File the open Q8 tickets as issues (label `q8`), apart from Q8-10 if its fix closed it. Add the comments to #7, #44, #34, #9, #102 and #37.
-- [ ] Increment 2′ (Q8–Q11): Q8 done on `q8/base` (Q8-10 fixed), CI + PR + merge next; then Q9 (Call for help, runbooks, quick-start)
+  3. [x] Pushed `q8/base`, PR #108; CI green on all 5 jobs at 0dffe86 (run 44607712336), including the browser test's first GitHub run on Windows (117 passed). Original plan: push `q8/base` and open a draft PR against `main`. Every CI job must be green, including the GUI logic test on 3 OSes and the browser test on Windows, which has never run on GitHub (Q8-04).
+  4. [x] Merged into `main` as a3967e8 (2026-11-19).
+  5. [x] Filed the 15 open Q8 tickets as #109–#123 (label `q8`; Q8-10 closed, not filed); comments added. Original plan: file the open Q8 tickets as issues (label `q8`), apart from Q8-10 if its fix closed it. Add the comments to #7, #44, #34, #9, #102 and #37.
+- [ ] **Q9 close-out (orchestrator).** The push, PR, CI fixes, merge, filing and closing #102 are pre-approved (handoff, "User decisions for Q9").
+  1. [ ] Push `q9/base` (with the `gh` credential helper, as before) and open a draft PR against `main`. Every CI job must be green, including the GUI logic test on 3 OSes and the browser test on Windows. Q9 has not run in CI yet.
+  2. [ ] Merge. After the merge, check that the three runbook URLs open on GitHub (they return 404 until then).
+  3. [ ] File the 16 open Q9 tickets (`reviews/2026-11-19-q9-tickets.md`) as issues with label `q9` (create the label first). Close #102 with the commit (2c28c15). Add the comments to #53, #49, #99, #116, #109, #34, #8 and #121.
+  4. [ ] Housekeeping: four headless Edge root processes with `%TEMP%\voxxa-verifya3-*` profiles were still running at the end of Q9 (PIDs 14608, 14632, 14872, 18796; started 1:16-1:18 PM, 2026-11-19). No Q9 agent started them. Stop them by PID if they are still there and nobody claims them.
+- [ ] Increment 2′ (Q8–Q11): Q8 merged (a3967e8); Q9 done on `q9/base` (89f4ccb), merge pending; next Q10 (Windows signing, winget, updater hardening), then Q11 (close Increment 2′)
   - [x] 2026-11-13 Q5 verifier fixes on `q5/base`: every surviving mutant named by the verifier is now killed by a test (song not compared, false advance lowering recall, EARLY_MS 999 and `<=`→`<`, the total row's false/double sums, unblank not resetting the blank, a failing `voxxad` read as success); a metric with a value but no threshold now fails the gate (ADR-015 D8 amended); voxxa-eval exits 2 when `voxxad` ran in the wrong mode (a replay that ran Whisper); both session logs re-recorded with the final `--full --record` (only the start line's `log` field changed).
   - [x] 2026-11-13 Q5 second verifier pass on `q5/base`: tests now kill the round-2 survivors: M42 (main.rs checking only the total row; a binary-level test breaks only per-fixture thresholds and needs both FAIL lines and no FAIL total), M25/M26 (one metric's comparison reversed), M37 (the table's count cells) and M47/M48 (the audio recipe's 16 kHz mono 16-bit check and header byte rate). Each test was run against its mutant and fails. No product code changed; voxxa_eval tests 23 to 26.
   - [x] 2026-11-13 Q5 verifier round 3 at c10e963: verifier A passed; verifier B failed on six surviving mutants (Q5-08 … Q5-10). The four that mattered were closed with tests in 5858872 (orchestrator, checked against each mutant); M57 and M68 deferred (Q5-10).
@@ -282,6 +314,8 @@
   - GUI 2,951/3,000 (**49 left**; Q6-01's fix needs about 6); presenters 1,149/2,000; importers 1,386/1,600 (214 left; +24 in Q6).
 
   After Q8 (ee431ce): GUI 2,780 / 3,000 (220 left; the welcome overlay was deleted), and the new row Simple mode (`src/simple/*`) 352 / 600 (248 left; Q8 user decision 1, ADR-017 § 5). Every Rust row is unchanged.
+
+  After Q9 (89f4ccb): **everything else in `src-tauri/src` 2,494 / 2,500 (6 left)**; Simple mode 436 / 600 (164 left); GUI 2,780 / 3,000 unchanged. No cap raised (Q9 user decision 3). The backend row is now the tightest: any new backend code outside its own rows needs lines removed first or a budget decision before code.
 
   Mitigation: keep new tests in `src-tauri/tests/` (uncounted; Q6's 32 conductor tests are there: `conductor_evidence` 25, `conductor_scripted` 5, `conductor_unchanged` 2). No cap was raised in Q6. The GUI row is now the tightest: any GUI change (Q6-01, Q8's simple mode) needs code removed first or a budget decision before code, never a silent raise.
 - R13 (new, Q1) Fragile CI gates.

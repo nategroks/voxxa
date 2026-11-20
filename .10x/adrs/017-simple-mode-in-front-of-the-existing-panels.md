@@ -30,6 +30,8 @@ So a volunteer sees three controls (mode switch, Call for help, Advanced) and on
 
 **Call for help (Q8):** shows "Call for help comes in the next update. Until then, call your tech lead and read them the sentence next to the light." It calls no command. `generate_diagnostic_report` fits technically, but it would show every heard transcript to any volunteer (Q7-08). Q9 builds the help bundle after Q7-08 is fixed.
 
+**Amended by ADR-018 (Q9, 2026-11-19):** Q7-08 (#102) is fixed, and Call for help now opens a review screen that lists every file of a help bundle, writes it as one zip on the Desktop only on Save, and then opens an e-mail draft and the zip's folder (ADR-018 §§ 2-5). The message above is gone; the review screen blocks every key from reaching `main.js`, like the guide.
+
 ### 2. Status light: the mapping (pure function `statusLight` in `src/simple/logic.js`, tested row by row)
 Inputs, all from existing signals:
 - `running`: `get_status.is_running`.
@@ -59,6 +61,8 @@ First matching row wins:
 `<app>` is the presenter's display name without its bracketed detail ("ProPresenter 7.9+"). The keystroke driver always reports `connected`, so row 6 comes only from network presenters and from a reconnect that did not happen; row 5 also from the keystroke driver's refusal while Voxxa has the focus (#44).
 
 **Reconnect at start.** The backend starts on the keystroke driver at every launch. Simple mode reconnects the saved `voxxa.presenterForm` once at start (`reconnectPresenter` in `firstrun.js`, apart from the device restore so a failed device list cannot skip it), except the keystroke driver itself and any form that needs a secret: passwords are never saved (`main.js:1131-1133`), so the ProPresenter WebSocket kinds (`*_ws`) and a form with a username are not reconnected. A failed or skipped reconnect leaves the keystroke driver connected, which is not the kind chosen, so row 6 turns red instead of a false green; the operator reconnects in Advanced → Settings.
+
+**Runbook links (ADR-018 § 7, Q9):** rows 1 (`no-audio-device`), 3 (`model-missing`, the grey row, because "model missing" is not red here), 5 and 6 (`presentation-app-not-reachable`) carry a third value, the runbook; a "What to do" link under the sentence opens `docs/runbooks/<name>.md` on GitHub. No sentence changed.
 
 **Not mapped (recorded):** the strategy's red "Lyrics don't match what I hear". No existing signal tells a wrong setlist from a prayer or a sermon: both are `blank_hold`, which is the conductor's designed behaviour, so row 7 is amber. Ticket for a time-based rule once the pilots show what "lost" looks like.
 

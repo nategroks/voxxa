@@ -251,3 +251,125 @@ Three findings, one commit each, each with a check that fails without it.
 **Tickets:** 16 open (2 medium, 14 low), `reviews/2026-11-19-q8-tickets.md`. The six listed in the Q8 section above are Q8-01 to Q8-06 there, and the three from the finish are Q8-07 to Q8-09. New: Q8-10 (the merge blocker), Q8-11 and Q8-12 from verifier B, and Q8-13 to Q8-16 from the comparator and the lane reports. Q8 closes no earlier issue outright; #7 is fixed in part (fa87345).
 
 **Q8-10 closed (2026-11-19, orchestrator).** Q8-10 was fixed by the orchestrator in 88aa63b: a capture-phase `keydown` listener on `window` blocks every key while the guide is shown. Four new e2e checks press Space and `s` with the focus on the page body, on step 1 and during the 20-second test. All four fail on the old code (41 passed, 6 failed) and pass with the fix. An independent verifier confirmed it at 88aa63b: 13 shortcut keys were blocked with the focus on the body, the buttons and the select, and the guide's own keyboard controls still work. The old-code mutant and the bubble-phase mutant both fail. The verifier's one survivor, keys blocked even after the guide closes, is killed by fce3e58 ("s reaches main.js again" after Skip; 117 e2e checks). QA position: ready to merge once CI is green. U6 (the 20-second test) now also passes by keyboard.
+
+## 2026-11-19 — Q9 (10x lane, `q9/10x`): Call for help, runbook links, the exit demo
+**Method:** as in Q8, with both ways of GUI testing.
+
+**(a) Mocked browser.** `tests/gui/e2e.mjs` (158 checks; Q8: 117) and `tests/gui/mock-tauri.js`. The mock gained the four Q9 commands, with configurable preview and save delays and a refused save. It writes and opens nothing; it records the calls.
+
+**(b) The real app, guarded.**
+- **Build:** a scratch build with identifier `com.voxxa.qa9x` and CDP on port 9351, from a config outside git, built with `npm run tauri build -- --no-bundle --config`.
+- **Run:** started with `VOXXA_HELP_DIR=<scratch>`, and a placeholder `voxxad` session log in `<scratch>/sessions`. Driven by `scripts/qa/call-for-help-real-app.mjs`.
+- **Startup check, before the first launch:** `audio.start()` is called only from `start_listening` (`src-tauri/src/commands/mod.rs:229`). `select_audio_device` only stores a name, and the preview's report only lists devices.
+- **Never done in the real app:** Listen, the 20-second test, the keystroke presenter, the stage window, the HTTP API, a model button, Save (which would call `open_help_email`) or a real runbook link.
+- **Cleanup:** the app was stopped by PID (8304). `%LOCALAPPDATA%\com.voxxa.qa9x` and the scratch bundles were deleted afterwards. No `voxxa-help-*.zip` appeared on the real Desktop. `src-tauri/Cargo.toml` and `gen/schemas` were restored after each build (#91).
+
+**Rust tests (`src-tauri/tests/help_bundle.rs`, 8 tests, on all three OSes in CI):**
+- **#102:** fails on the old `Heard: {text}` line.
+- **Redaction:** found a real gap, `passphrase`, which was fixed before the commit.
+- **The words window:** newest log by name, `-10` after `-2`, the 120 s cut, `window` lines left out, no log, and a log with no words.
+- **The preview writes nothing.**
+- **The zip:** with and without the words file (absent, not empty); never overwrites; a failed write leaves no file.
+- **The mailto:** no recipient; only encoded characters; names the file and its path; the folder is the second target.
+- **Links resolve:** the backend's three names and `logic.js`'s `RUNBOOKS` are files in `docs/runbooks/`, and every relative link in the four new docs exists.
+
+**Logic test (`test:gui`, 7 tests):**
+- the runbook column in the row table;
+- every red row links a runbook;
+- each runbook file exists.
+
+**E2E Call for help (mocked):**
+- Space on the button opens the review and starts nothing.
+- Save waits for the files.
+- `#simple` is inert, and 8 Tab presses never reach it.
+- Every file is listed with its size.
+- The words are shown, with the box on by default and the agreed label.
+- The other files are one click away.
+- `localStorage` reaches the preview.
+- Nothing is written before Save.
+- With the dialog open, Space and `s` on the page body do nothing.
+- Cancel and Escape write nothing.
+- Unchecked, the zip has no words file. A slow save pressed twice is sent once.
+- After the write, `open_help_email` is called once, and the path and the next steps are shown.
+- Checked, the zip has all three files.
+- A refused save shows its reason, Save works again, and no e-mail is opened.
+- With no log, there are two files, no box, and a sentence saying so.
+
+**E2E runbook links:** rows 1, 3, 5 and 6 show "What to do" and call `open_runbook` with the right name; rows 4, 7 and 9 show no link.
+
+**Mutation checks:**
+
+| Mutant | Result |
+|---|---|
+| `inert` removed | 2 e2e checks fail (inert; Tab reached `#simple` after 1 press) |
+| The old `Heard:` line | `no_recognised_text_reaches_the_diagnostics_buffer` fails |
+
+**Usability script, only the Call-for-help step (user decision 4):**
+
+| # | Task | Mocked GUI | Real app (guarded) |
+|---|---|---|---|
+| U12 | "No call": Call for help | pass: review → Save → path shown and the e-mail draft and folder opened once (screenshots 18-21) | pass up to the review screen (02, 03); the bundle was written through the real backend into the scratch folder; Save and the e-mail step were not pressed (rule) |
+| U9 (part) | "What would you do when it turns red?" | each red sentence now has "What to do", which opens the matching runbook (15, 16) | no red state reachable safely |
+
+**Exit demo, the real backend in the guarded app, placeholder words:**
+- The review screen listed `diagnostic-report.json (0.7 KB)`, `operator-settings.json (0.4 KB)` and `words-last-2-minutes.txt (0.2 KB)`.
+- Box checked, `voxxa-help-20261119-212707.zip` (1,143 bytes) holds:
+  - report, 713 bytes;
+  - settings, 370 bytes;
+  - words, 168 bytes. Only the two `hypothesis` lines within 120 s of the log's end (130.0 s and 170.0 s) are in it. The earlier line and the `window` line are not.
+- Box unchecked, `voxxa-help-20261119-212709.zip` (889 bytes) has the report and the settings only.
+- In both zips:
+  - the presenter password, `voxxa.pcoSecret` and the HTTP API `token` are `[redacted]`;
+  - `recentSetlists` is left out;
+  - the report's `recent_log` has no `Heard:` line.
+- A second write without a new review was refused. `open_runbook("../../evil")` was refused.
+
+**Not tested:** the real `open` of a mail program and Explorer (never triggered, by rule). Only the URL and the folder it would open are tested, in Rust. CI has not run Q9 yet.
+
+## 2026-11-19 — Q9 finish on `q9/base`: exit demo re-taken
+**(a) Mocked browser.**
+- `npm run test:gui:e2e` passed 160/160, with screenshots 01-26.
+- New since the 10x lane: when the e-mail step fails, the message says the folder is open. When the error starts with `folder: `, it says the folder did not open.
+- `test:gui` passed 7/7.
+
+**(b) The real app, guarded.**
+- **Build:** a scratch build with identifier `com.voxxa.qa9finish` and CDP on port 9353, from a config outside git, built with `npm run tauri build -- --no-bundle --config`.
+- **Startup check, before the first launch:** the input stream opens only in `audio.start()`. Its only caller is `start_listening` (`src-tauri/src/commands/mod.rs:229`), which runs on Listen (`src/main.js:700`), the tray toggle or the HTTP API. None of these was used.
+- **Run:** started with `VOXXA_HELP_DIR=<scratch>` and a placeholder session log in `<scratch>/sessions`. Driven by `scripts/qa/call-for-help-real-app.mjs`: 10/10 passed.
+- **The review screen listed:** `diagnostic-report.json (0.7 KB)`, `operator-settings.json (0.4 KB)` and `words-last-2-minutes.txt (0.1 KB)`, with the box on (screenshot `02-real-review`).
+- **Box checked:** `voxxa-help-20261119-221649.zip` (1,125 bytes, deflate) holds three files: the report (713 bytes), the settings (370 bytes) and the words (142 bytes). The words file has only the lines at 130.0 s and 170.0 s. The earlier line and the `window` line are not in it.
+- **Box unchecked:** `voxxa-help-20261119-221650.zip` (886 bytes) holds the report and the settings only.
+- **In both zips:**
+  - the 3 placeholder secrets are `[redacted]`;
+  - the setlists are left out;
+  - there is no `Heard:` line.
+- **Refusals:** a second write without a new review, and `open_runbook("../../evil")`.
+- **Never done:** Save, the e-mail step, the folder step, Listen, the 20-second test, a presenter, the stage window and the HTTP API.
+- **Cleanup:**
+  - The app was stopped by PID (11816).
+  - `%LOCALAPPDATA%\com.voxxa.qa9finish` and both scratch zips were deleted.
+  - The real Desktop had no `voxxa-help-*.zip` before or after.
+  - `src-tauri/Cargo.toml` (line endings only) was restored after the build.
+
+**Not tested:** the real `open` of a mail program and Explorer, by rule. CI has not run the finished `q9/base` yet.
+
+## 2026-11-19 — Q9 final (`q9/base` @ 89f4ccb): verifier round 3, both passed
+**QA position: ready to merge once CI is green.** Both exit criteria are met. **Bundle produced:** the real backend, in the guarded real app, wrote the zip into a scratch folder with the box checked (three files) and unchecked (two files, the words file absent), with every placeholder secret redacted and no heard text in the report. **Links resolve:** `every_runbook_link_resolves` (Rust) and "each runbook link resolves to a file in docs/runbooks" (Node) check the three runbooks, the four docs' relative links and, through `runbook_url`, the exact GitHub URL. Full record: `reviews/2026-11-19-ponytail-q9.md` §§ 6-7; tickets: `reviews/2026-11-19-q9-tickets.md`.
+
+**Verifier rounds.**
+- **Round 1 (8ade143): did not pass.** Five findings: redaction missed names with `key` in the middle and Planning Center's application and client IDs (3e3efd7); survivors M2b and M5b, because the Rust tests called only the pure helpers (5ba1c00, new `tests/help_commands.rs` running the real preview and Save steps); survivor M5c (708fa62); the quick-start printed on two pages (84ca89c, now 41 lines and kept to one page by a test).
+- **Round 2 (c0fae68): did not pass.** The quick-start sent the volunteer to a releases page with no release (82ff710, with a test).
+- **Round 3 (89f4ccb): both passed.**
+  - **Verifier A** (exit criteria, privacy, real app): every gate, `cargo test --features cli` with `VOXXA_REQUIRE_SOCKET_TRACE=1` 221 passed; e2e 160/160; its own mocked harness 21/21, with a layer that really writes the zip; a scratch Rust crate 30/30 over 7 runs (18 placeholder secrets, the 129,999 / 130,000 ms cut, the newer `-2` log, both zips, a second Save refused, `runbook_url`). Every label and message in the quick-start and the runbooks matched the code. Guarded real app `com.voxxa.qa9va` (CDP 9354, PID 13408): 14/14, both zips in the scratch folder, Save never pressed.
+  - **Verifier B** (scope, network, privacy, mutants): every gate; no manifest, lock file, capability, config, budget script or workflow changed; no network code; `dist/` holds no mock. 30 mutants, 29 killed. The survivor, a Debug-level heard-text line (M1c), reaches the buffer only under `RUST_LOG=debug` (Q9-11).
+
+**Where each check ran.**
+- **Mocked browser:** every Call for help path, including Save, the e-mail and folder step, both failure messages, both box states, no log, Cancel, Escape, the key block, `inert`, and every runbook link click. Listen, the 20-second test and the audio paths ran only here.
+- **Rust tests with temp folders:** #102, redaction, the words window, the zip with and without the words file, no overwrite, a failed write, the preview and Save commands for real (`VOXXA_HELP_DIR`), the `mailto:` URL, `runbook_url`, links resolve, and the quick-start's length and install step.
+- **Guarded real app** (four scratch identifiers across the run: `qa9x`, `qa9p`, `qa9finish`, `qa9va`): Simple mode, Call for help up to the review screen, and the bundle written through the real `write_help_bundle` into a scratch folder. Never Listen, the 20-second test, a presenter, the stage window, the HTTP API, a model button, Save, a runbook link or the e-mail and folder step. Each app was stopped by PID and its `%LOCALAPPDATA%` folder deleted. No `voxxa-help-*.zip` appeared on the real Desktop.
+
+**Usability script, Call-for-help step only (user decision 4):** U12 passes in the mock end to end, and in the real app up to the review screen and the backend write. The "What to do" part of U9 passes in the mock. The founder's run should add both (Q9-07, Q9-12).
+
+**Not tested:** the real launch of a mail program and Explorer (by rule; Q9-12); CI has not run Q9 yet; the browser test still runs only on Windows (Q8-04).
+
+**Tickets:** 16 open (1 medium, 15 low). The test and tooling ones: Q9-07, Q9-11, Q9-12, Q9-15.
