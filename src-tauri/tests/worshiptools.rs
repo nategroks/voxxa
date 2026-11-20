@@ -6,6 +6,7 @@
 //! sets them; no test presses a key. Titles are placeholders.
 
 use async_trait::async_trait;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use voxxa_lib::discovery::{presenter_process, DiscoverySource};
 use voxxa_lib::listen::Event;
@@ -18,6 +19,9 @@ struct Fake {
     caps: Capabilities,
     stops: bool,
     calls: Mutex<Vec<&'static str>>,
+    /// Presenter is not in front: next and prev refuse with the guard's
+    /// sentence, as the real driver does, and press nothing.
+    behind: AtomicBool,
 }
 
 impl Fake {
@@ -33,9 +37,13 @@ impl Fake {
             caps: real.capabilities(),
             stops: real.stops_at_song_end(),
             calls: Mutex::new(Vec::new()),
+            behind: AtomicBool::new(false),
         }
     }
     fn log(&self, call: &'static str) -> Result<(), CtlError> {
+        if self.behind.load(Ordering::SeqCst) && matches!(call, "next" | "prev") {
+            return Err(CtlError::Other(FRONT.into()));
+        }
         self.calls.lock().unwrap().push(call);
         Ok(())
     }
@@ -103,6 +111,9 @@ async fn auto(p: &Fake, sent: &mut Sent, action: Action) -> Result<(), CtlError>
 fn put_live(title: &str) -> String {
     format!("Put \"{title}\" live in Presenter.")
 }
+
+/// The guard's sentence (`presenters/keystroke.rs`, FRONT_MSG).
+const FRONT: &str = "Bring WorshipTools Presenter to the front.";
 
 #[test]
 fn presenter_is_found_by_its_process() {
@@ -173,6 +184,44 @@ async fn worshiptools_never_steps_across_a_song() {
     assert_eq!(r.unwrap_err().to_string(), put_live("Song A"));
     assert_eq!(p.take(), Vec::<&str>::new());
     assert_eq!((sent.global, sent.song), (Some(0), Some(0)));
+}
+
+/// `commands::dispatch` tells the GUI (`slide-advanced`) when `drive` is Ok
+/// or moved the song or slide in `sent`. The song-change ask moves it, so the
+/// stage and the song strip follow the new song (the conductor's change and
+/// the operator's song chip); the guard's refusal does not, so they stay with
+/// the screen. tests/gui/e2e.mjs section 9 checks what the GUI then shows.
+#[tokio::test]
+async fn the_song_change_ask_moves_sent_and_the_guards_refusal_does_not() {
+    let p = worship().await;
+    let mut sent = Sent::default();
+    auto(&p, &mut sent, goto(0, 0)).await.unwrap();
+    auto(&p, &mut sent, goto(0, 1)).await.unwrap();
+    p.take();
+    // Presenter behind another window: refused, nothing pressed, nothing moved.
+    p.behind.store(true, Ordering::SeqCst);
+    let before = sent;
+    let r = auto(&p, &mut sent, goto(0, 2)).await;
+    assert_eq!(r.unwrap_err().to_string(), FRONT);
+    assert_eq!(sent, before, "no slide-advanced for a refusal");
+    // A song change presses no key, so it asks even then, and moves `sent`.
+    let r = auto(&p, &mut sent, goto(1, 0)).await;
+    assert_eq!(r.unwrap_err().to_string(), put_live("Song B"));
+    assert_eq!(
+        (sent.global, sent.song),
+        (Some(4), Some(1)),
+        "slide-advanced"
+    );
+    // The operator's song chip: the same.
+    p.behind.store(false, Ordering::SeqCst);
+    let r = drive(&p, &mut sent, &goto(2, 0), false, true).await;
+    assert_eq!(r.unwrap_err().to_string(), put_live("Song C"));
+    assert_eq!(
+        (sent.global, sent.song),
+        (Some(8), Some(2)),
+        "slide-advanced"
+    );
+    assert_eq!(p.take(), Vec::<&str>::new());
 }
 
 #[tokio::test]
