@@ -672,3 +672,35 @@ Five verifier failures, each fixed in a new commit with a test that fails withou
 **Gates, all pass:** `npm ci && npm run build`; fmt; clippy `-D warnings` without and with `cli`; `cargo test --features cli` 221 passed, 0 failed, 1 ignored (`help_bundle.rs` 10 tests); `cargo-deny`; budgets (everything else in src-tauri/src 2,494 / 2,500, Simple mode 436 / 600, GUI 2,780 / 3,000, unchanged); the dictat grep prints nothing; the CI eval step 21/21, no metric worse than the baseline; `test:gui` 7/7; e2e 160/160.
 
 **Exit demo, re-taken:** mocked browser, e2e 160/160. Guarded real app (scratch build `com.voxxa.qa9finish`, port 9353, `VOXXA_HELP_DIR` a scratch folder; startup opens no audio input: `AudioEngine::start` is reached only through `start_listening_with_state`, `commands/mod.rs:229`, from the Listen toggle, `main.js:700`, or the HTTP API, which stays off): 12/12 checks. The first run passed 11/12: the driver was given the long form of the scratch path and the app the 8.3 form, so the folder check compared two spellings of the same folder; the re-run with the app's own spelling passed 12/12. Each zip held three entries (box checked) or two (unchecked), no placeholder secret (6 values redacted), no slide text, no recognised words in the report, and only the words within the last 2 minutes. Never Listen, the 20-second test, a presenter, the HTTP API or the e-mail and folder step. The app was stopped by PID; `%LOCALAPPDATA%\com.voxxa.qa9finish` and the scratch zips were deleted.
+
+## 2026-11-19 — Q9 final: Call for help, runbooks, quick-start on `q9/base` (head 89f4ccb)
+**Head:** `q9/base` @ 89f4ccb, 23 commits on 7797556, plus the state commit "state(implementation): Q9 Call for help, runbooks, quick-start":
+- the 10x lane (f105973..dadcdbb, ADR-018 first, #102 in the first code commit, 2c28c15), merged as cd28ab5;
+- four ponytail grafts (064c4c8, 42ca27f, 82d24e9, caa67b1) and the 10x review's fix (9917115), with records in 8ade143;
+- verifier round 1 fixes (3e3efd7, 5ba1c00, 708fa62, 84ca89c) and records (64fc4a0, c0fae68);
+- the verifier round 2 fix (82ff710) and its record (89f4ccb).
+
+`q9/10x` (dadcdbb) and `q9/ponytail` (8f87206) stay local for reference. Process record: `reviews/2026-11-19-ponytail-q9.md`.
+
+**Built:**
+- **#102 fixed** (2c28c15): `src-tauri/src/listen.rs:182-184` logs `Heard N words`, never the text.
+- **`src-tauri/src/help/mod.rs`**, four new commands: `help_bundle_preview` (builds the files in memory as the pending bundle), `write_help_bundle { includeWords }` (writes exactly those files as a new zip on the Desktop; the words file absent when unchecked), `open_help_email` (the zip's folder first, then a `mailto:` draft with the empty `SUPPORT_EMAIL`), `open_runbook` (three names, through `runbook_url`). No existing command changed. `VOXXA_HELP_DIR` sandboxes it for QA and opens nothing.
+- **`src/simple/help.js`**, the review screen; `statusLight`'s runbook column and the "What to do" link.
+- **Docs:** `docs/quick-start.md` (41 lines, one printed page, kept so by a test) and the three runbooks (42, 45 and 52 lines).
+
+**Budgets:** everything else in `src-tauri/src` 2,309 → **2,494 / 2,500 (6 left)**; Simple mode 352 → **436 / 600**; GUI 2,780 / 3,000 unchanged. No cap raised, no row added, no runtime npm dependency, no new crate.
+
+**Gates at 89f4ccb:** all pass (finisher; verifiers A and B). `cargo test --features cli` (with `VOXXA_REQUIRE_SOCKET_TRACE=1`): 221 passed, 0 failed, 1 ignored (Q8: 210; `help_bundle.rs` 10, `help_commands.rs` 1). `test:gui` 7/7. e2e 160/160. The CI eval step: 21/21 hits, precision and recall 1.00, median 2,310 ms, p95 4,870 ms, "OK: no metric is worse". Only binaries match the control-byte grep.
+
+**Verifier rounds:** round 1 (8ade143) and round 2 (c0fae68) did not pass; each finding was fixed with a test that fails without it. **Round 3 at 89f4ccb: both passed.** Verifier B killed 29 of 30 mutants; the survivor is a Debug-level heard-text line (Q9-11).
+
+**Deviations (recorded in ADR-018):**
+- the words file comes only from `voxxad` logs, because the GUI writes none (#53, Q9-02);
+- the "model missing" link sits on the grey row 3, because ADR-017 has no red row for it;
+- in the real app the bundle was written by calling `write_help_bundle` over CDP, never with Save (the e-mail and folder step is forbidden there);
+- the zip name is in UTC (Q9-05);
+- the usability script was re-run only for the Call-for-help step (U12) and the "What to do" part of U9.
+
+**Tickets:** 16 open (1 medium, 15 low), `reviews/2026-11-19-q9-tickets.md`, including "Set the support e-mail address" (Q9-01). Q9 fixes #102 (close it at merge) and adds comments to #53, #49, #99, #116, #109, #34, #8 and #121.
+
+**SDE position: ready to merge once CI is green.** Next: the orchestrator pushes `q9/base`, opens the draft PR, gets every CI job green, merges, files the tickets and closes #102. The scratch `voxxa.exe` in `C:/dev/q3-10x-target/release/` carries verifier A's QA identifier (`com.voxxa.qa9va`); never ship it.

@@ -352,3 +352,24 @@ Three findings, one commit each, each with a check that fails without it.
   - `src-tauri/Cargo.toml` (line endings only) was restored after the build.
 
 **Not tested:** the real `open` of a mail program and Explorer, by rule. CI has not run the finished `q9/base` yet.
+
+## 2026-11-19 — Q9 final (`q9/base` @ 89f4ccb): verifier round 3, both passed
+**QA position: ready to merge once CI is green.** Both exit criteria are met. **Bundle produced:** the real backend, in the guarded real app, wrote the zip into a scratch folder with the box checked (three files) and unchecked (two files, the words file absent), with every placeholder secret redacted and no heard text in the report. **Links resolve:** `every_runbook_link_resolves` (Rust) and "each runbook link resolves to a file in docs/runbooks" (Node) check the three runbooks, the four docs' relative links and, through `runbook_url`, the exact GitHub URL. Full record: `reviews/2026-11-19-ponytail-q9.md` §§ 6-7; tickets: `reviews/2026-11-19-q9-tickets.md`.
+
+**Verifier rounds.**
+- **Round 1 (8ade143): did not pass.** Five findings: redaction missed names with `key` in the middle and Planning Center's application and client IDs (3e3efd7); survivors M2b and M5b, because the Rust tests called only the pure helpers (5ba1c00, new `tests/help_commands.rs` running the real preview and Save steps); survivor M5c (708fa62); the quick-start printed on two pages (84ca89c, now 41 lines and kept to one page by a test).
+- **Round 2 (c0fae68): did not pass.** The quick-start sent the volunteer to a releases page with no release (82ff710, with a test).
+- **Round 3 (89f4ccb): both passed.**
+  - **Verifier A** (exit criteria, privacy, real app): every gate, `cargo test --features cli` with `VOXXA_REQUIRE_SOCKET_TRACE=1` 221 passed; e2e 160/160; its own mocked harness 21/21, with a layer that really writes the zip; a scratch Rust crate 30/30 over 7 runs (18 placeholder secrets, the 129,999 / 130,000 ms cut, the newer `-2` log, both zips, a second Save refused, `runbook_url`). Every label and message in the quick-start and the runbooks matched the code. Guarded real app `com.voxxa.qa9va` (CDP 9354, PID 13408): 14/14, both zips in the scratch folder, Save never pressed.
+  - **Verifier B** (scope, network, privacy, mutants): every gate; no manifest, lock file, capability, config, budget script or workflow changed; no network code; `dist/` holds no mock. 30 mutants, 29 killed. The survivor, a Debug-level heard-text line (M1c), reaches the buffer only under `RUST_LOG=debug` (Q9-11).
+
+**Where each check ran.**
+- **Mocked browser:** every Call for help path, including Save, the e-mail and folder step, both failure messages, both box states, no log, Cancel, Escape, the key block, `inert`, and every runbook link click. Listen, the 20-second test and the audio paths ran only here.
+- **Rust tests with temp folders:** #102, redaction, the words window, the zip with and without the words file, no overwrite, a failed write, the preview and Save commands for real (`VOXXA_HELP_DIR`), the `mailto:` URL, `runbook_url`, links resolve, and the quick-start's length and install step.
+- **Guarded real app** (four scratch identifiers across the run: `qa9x`, `qa9p`, `qa9finish`, `qa9va`): Simple mode, Call for help up to the review screen, and the bundle written through the real `write_help_bundle` into a scratch folder. Never Listen, the 20-second test, a presenter, the stage window, the HTTP API, a model button, Save, a runbook link or the e-mail and folder step. Each app was stopped by PID and its `%LOCALAPPDATA%` folder deleted. No `voxxa-help-*.zip` appeared on the real Desktop.
+
+**Usability script, Call-for-help step only (user decision 4):** U12 passes in the mock end to end, and in the real app up to the review screen and the backend write. The "What to do" part of U9 passes in the mock. The founder's run should add both (Q9-07, Q9-12).
+
+**Not tested:** the real launch of a mail program and Explorer (by rule; Q9-12); CI has not run Q9 yet; the browser test still runs only on Windows (Q8-04).
+
+**Tickets:** 16 open (1 medium, 15 low). The test and tooling ones: Q9-07, Q9-11, Q9-12, Q9-15.

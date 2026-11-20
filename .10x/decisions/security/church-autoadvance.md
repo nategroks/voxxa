@@ -1,5 +1,16 @@
 # Security — church-autoadvance
 
+## 2026-11-19 — Q9 final (`q9/base` @ 89f4ccb; both verifiers passed)
+Details: the Q9 section below; ADR-018; `reviews/2026-11-19-ponytail-q9.md` § 6.
+- **Decision: no Critical or High finding is open; the security position for Q9 is final.** Ready to merge once CI is green.
+- **#102 (Q7-08) is fixed** (2c28c15) and can be closed at merge. Verifier B's mutants on it: `Heard: <text>` at Info and a `warn!` of the window text are both killed. One survivor: the same text at Debug reaches the ring buffer only under `RUST_LOG=debug`, because the test's logger runs at Info (Q9-11, low). ADR-018 § 1 says the text is never logged at any level; the code holds to that today.
+- **Redaction widened after verifier round 1** (3e3efd7): any name containing `key` (once `keystroke` is removed), plus `applicationid`, `clientid` and `bearer`. Verifier A checked 18 placeholder secrets in a real written zip, all redacted, with harmless fields kept. Redaction is by property name only (Q9-16, low); no secret is stored under a harmless name today.
+- **No network, no new capability, no new crate.** Verifier B found no network code in the new files. The only targets opened are the zip's folder, the recipient-free `mailto:` and the whitelisted GitHub runbook URL. `capabilities/default.json`, `Cargo.toml`, `Cargo.lock`, `deny.toml` and the workflows are unchanged.
+- **Nothing written before Save, and Save writes only what was shown:** proved by `tests/help_commands.rs` running the real preview and Save steps (round 1 survivors M2b and M5b are now killed), and in the guarded real app.
+- **The QA override `VOXXA_HELP_DIR` ships in the backend.** It opens nothing and only moves the folder; whoever can set the process environment already runs code as the user. Accepted (ADR-018 § 6).
+- **Accepted risks, unchanged:** CSP is still null (#8; Q10 sets a strict CSP), so a compromised webview could preview any `storage` and write it to the Desktop under the fixed name; the report lists audio device names and song titles (Q9-14, for Q11's over-collection review); the words file can come from an old `voxxad` session (Q9-08).
+- **Next:** Q11's security review covers the support bundle for over-collection; the shell plugin's deprecated `open` moves to `tauri-plugin-opener` in its own PR (Q9-03).
+
 ## 2026-11-19 — Q7 final (`q7/base` @ 6386f6b; both verifiers passed)
 Details: `reviews/2026-11-19-security-review.md` §11; the ponytail audit: `reviews/2026-11-19-ponytail-q7.md` §3.
 - **Both verifiers passed at 6386f6b.** A TCP-connect mutant and a UDP-socket mutant in the replay branch each fail the zero-sockets test on Windows (ETW); the model hash and every action pin were re-checked; product code changed only by the `src/bin` → `src/cli` rename and one error string.
