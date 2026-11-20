@@ -1,7 +1,7 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Increment 2′, **R0 done** (WorshipTools revision, planning only, ADR-019, branch `plan/worshiptools`). Next: **Q9W** (WorshipTools Presenter: find it, guard the keys, never step past a song), then **Q9V** (private See a Victory fixture and the media guard), then **Q10**. Q9 merged into `main` (PR #124, e9328e2); main CI green after the ggml fix (PR #141, df40328).
+**Current Phase:** Increment 2′, **R0 done** (WorshipTools revision, planning only, ADR-019, branch `plan/worshiptools`). **Q9W built on `q9w/base`** (10x lane merged, review must-fix 1, nit 2 and four ponytail grafts; all gates and GUI tests green locally; push, PR and CI next). Then **Q9V** (private See a Victory fixture and the media guard), then **Q10**. Q9 merged into `main` (PR #124, e9328e2); main CI green after the ggml fix (PR #141, df40328).
 **Last Updated:** 2026-11-20 by 10x-team orchestrator (R0)
 **Health:** On Track
 
