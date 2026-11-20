@@ -21,8 +21,9 @@ Presenter to the front." or "Put "`<song>`" live in Presenter." See
 ## Steps
 
 1. Make sure the presentation app is open and a presentation is loaded.
-2. **If Voxxa presses keys for you** (no app was found in the set-up guide): click into the
-   presentation app's window right after you choose **Songs**, and leave it in front. Keys sent
+2. **If Voxxa presses keys for you** (no app was found in the set-up guide, or it found
+   WorshipTools Presenter): click into the presentation app's window right after you choose
+   **Songs**, and leave it in front. Keys sent
    while Voxxa's window is in front are refused on purpose.
 3. **If Voxxa talks to the app over the network:** in the app, check that its remote control or
    network option is on. Voxxa looks on this computer at the usual ports: ProPresenter 1025,
@@ -32,7 +33,8 @@ Presenter to the front." or "Put "`<song>`" live in Presenter." See
    **Auto-detect**, or pick your app, check the host and port, type the password if it has one,
    and press **Connect**.
 5. Or press **Advanced > Set-up guide**, go to step 2 ("Find your presentation app"), and pick
-   your app from the list. If it finds nothing, open the app and press **Search again**.
+   your app from the list. If it finds only WorshipTools Presenter, it connects at once. If it
+   finds nothing, open the app and press **Search again**.
 6. Press **Simple mode** and check the light. It turns amber or green once Voxxa is connected,
    and after the next slide change that reaches the app.
 

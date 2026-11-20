@@ -289,9 +289,10 @@ one are **Tier 3**: Voxxa presses their keys. WorshipTools Presenter is Tier 3.
 It has no local API: its Remote and Stage Display apps go through WorshipTools'
 cloud. ADR-019 records how Voxxa drives it:
 
-- **Found by its process.** On Windows, Auto-detect and the set-up guide find a
-  running `Presenter.exe` and connect the keystroke driver with the
-  **WorshipTools Presenter** key profile. There is no host or port. The profile
+- **Found by its process.** On Windows, the set-up guide finds a running
+  `Presenter.exe` and connects the keystroke driver with the **WorshipTools
+  Presenter** key profile. **Advanced > Settings > Auto-detect** lists it too:
+  click it, then press **Connect**. There is no host or port. The profile
   is saved and reconnected at every start.
 - **Keys only when Presenter is in front.** With this profile a key is sent only
   while the front window belongs to Presenter's process. Otherwise nothing is
