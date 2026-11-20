@@ -71,8 +71,8 @@ async function refresh() {
   try {
     const [st, presenter] = await Promise.all([invoke("get_status"), invoke("get_presenter_info")]);
     if (st.is_running && !s.running) s.micLost = s.presenterError = false; // a new session
-    const chosen = (savedPresenter() || {}).kind || null; // connected means: to the app last chosen
-    Object.assign(s, { running: st.is_running, setlist: st.total_slides > 0, model: st.model_loaded, state: st.machine_state, isBlank: !!st.is_blank, presenter, chosen });
+    const form = savedPresenter() || {}; // connected means: to the app last chosen
+    Object.assign(s, { running: st.is_running, setlist: st.total_slides > 0, model: st.model_loaded, state: st.machine_state, isBlank: !!st.is_blank, presenter, chosen: form.kind || null, profile: form.keystroke_profile || null });
     s.song = songPosition(songs, st.current_slide, st.song_title);
     // Settled when the backend and main.js's Listen button (its "active" class) both show it.
     if (pending !== null && st.is_running === pending && $("listen-btn").classList.contains("active") === pending) {

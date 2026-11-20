@@ -1,3 +1,5 @@
+import { AMBER_ASKS } from "./simple/logic.js";
+
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
@@ -868,7 +870,8 @@ async function setupListeners() {
   });
 
   // A refused or failed slide command from the listening loop.
-  await listen("presenter-error", (e) => toast(String(e.payload), "error", 6000));
+  // ADR-019's two asks are the operator's next step, not a failure: not shown as an error.
+  await listen("presenter-error", (e) => toast(String(e.payload), AMBER_ASKS.test(String(e.payload)) ? "info" : "error", 6000));
 
   await listen("tray-toggle-recording", () => {
     toggleListening();
@@ -1238,7 +1241,7 @@ function renderDiscovered(found) {
     row.innerHTML =
       '<div class="discovered-name">' + escapeHtml(svc.name) + "</div>" +
       '<div class="discovered-meta">' +
-      escapeHtml(svc.host) + ":" + svc.port + " · " + escapeHtml(svc.source) +
+      (svc.source === "process" ? "" : escapeHtml(svc.host) + ":" + svc.port + " · ") + escapeHtml(svc.source) +
       "</div>";
     row.addEventListener("click", () => useDiscovered(svc));
     discoveredList.appendChild(row);
@@ -1257,6 +1260,9 @@ function useDiscovered(svc) {
   } else if (svc.kind === "open_song") {
     inputOpenSongHost.value = svc.host;
     inputOpenSongPort.value = svc.port;
+  } else if (svc.keystroke_profile && selectKeystrokeProfile) {
+    // Found by its process (WorshipTools Presenter, ADR-019 § 1): its own key profile.
+    selectKeystrokeProfile.value = svc.keystroke_profile;
   }
 }
 

@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { appName, statusLight, songPosition, testVerdict, SOUND_RMS, RUNBOOKS } from "../../src/simple/logic.js";
+import { appName, statusLight, songPosition, testVerdict, SOUND_RMS, RUNBOOKS, AMBER_ASKS } from "../../src/simple/logic.js";
 
 const pro = { kind: "pro_presenter7_rest", connected: true, display_name: "ProPresenter 7.9+ (REST API)" };
 const song = { title: "Alpha Bravo", slide: 2, slides: 6 };
@@ -134,4 +134,38 @@ test("testVerdict: the 20-second test", () => {
   assert.match(testVerdict({ started: true, lost: true, maxRms: 0, words: 0 })[1], /stopped/);
   assert.equal(testVerdict({ started: true, lost: false, maxRms: 0, words: 5, advanced: 1 })[0], false);
   assert.match(testVerdict({ ...good, words: 0, advanced: 0, refused: 1 })[1], /no words/);
+});
+
+// ADR-019 §§ 2-4: WorshipTools Presenter. Placeholder titles only.
+const wt = { kind: "keystroke", connected: true, display_name: "Keystroke (any app)", capabilities: { can_blank: false, can_goto_slide: false, can_query_state: false } };
+const wtLight = (over) => light({ presenter: wt, chosen: "keystroke", profile: "worship_tools_presenter", ...over });
+
+test("the WorshipTools guard and the song-change ask are amber, word for word", () => {
+  for (const ask of ["Bring WorshipTools Presenter to the front.", 'Put "Song A" live in Presenter.', 'Put "Song B (Live)" live in Presenter.']) {
+    assert.deepEqual(wtLight({ presenterError: ask, state: "singing", isBlank: false, song }), ["amber", ask]);
+    assert.deepEqual(light({ presenterError: ask }), ["amber", ask], "whatever app is connected");
+    assert.ok(AMBER_ASKS.test(ask));
+  }
+  // Anything else stays the red row with its runbook, look-alikes included.
+  for (const other of ["presenter not connected", "Bring WorshipTools Presenter to the front", 'enigo key: Put "Song A" live in Presenter.', "focus your presentation app: Voxxa's own window has the keyboard"]) {
+    const [colour, sentence, runbook] = wtLight({ presenterError: other });
+    assert.equal(colour, "red", other);
+    assert.match(sentence, /didn't take the last slide change/);
+    assert.equal(runbook, "presentation-app-not-reachable");
+  }
+  // A delivered slide clears the ask (simple.js clears presenterError on slide-advanced).
+  assert.deepEqual(wtLight({ state: "singing", isBlank: false, song }), ["green", "Following Alpha Bravo, slide 2 of 6."]);
+});
+
+test("can_blank false: the blank rows say Voxxa can't clear the screen", () => {
+  const cant = "Voxxa can't clear WorshipTools Presenter's screen, so the slide stays up.";
+  assert.deepEqual(wtLight({ state: "blank_hold" }), ["amber", `Hearing talking, not a song. ${cant}`]);
+  assert.deepEqual(wtLight({ state: "singing", isBlank: true, song }), ["amber", cant]);
+  // Another driver without a blank (ProPresenter 6/7 WebSocket) is named by the app.
+  const ws = { kind: "pro_presenter7_ws", connected: true, display_name: "ProPresenter 7.0–7.8 (WebSocket)", capabilities: { can_blank: false } };
+  assert.equal(light({ presenter: ws, state: "blank_hold" })[1], "Hearing talking, not a song. Voxxa can't clear ProPresenter 7.0–7.8's screen, so the slide stays up.");
+  // A driver that can blank, or reports nothing, keeps ADR-017's sentences.
+  for (const capabilities of [{ can_blank: true }, {}, undefined]) {
+    assert.deepEqual(light({ presenter: { ...pro, capabilities }, state: "blank_hold" }), ["amber", "Hearing talking, not a song. The screen stays blank."]);
+  }
 });

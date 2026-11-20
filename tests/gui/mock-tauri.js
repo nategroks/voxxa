@@ -18,7 +18,7 @@
   const emit = (event, payload) => { for (const fn of [...(listeners[event] || [])]) fn({ event, payload }); };
   const total = () => (st.songs ? st.songs.reduce((n, s) => n + s.slides.length, 0) : 0);
   const titleAt = (i) => { let n = 0; for (const s of st.songs || []) { n += s.slides.length; if (i < n) return s.title; } return null; };
-  const presenterOf = (kind) => ({ pro_presenter7_rest: "ProPresenter 7.9+ (REST API)", free_show: "FreeShow", open_lp_v2: "OpenLP (Web Remote v2)" }[kind] || kind);
+  const presenterOf = (kind) => ({ keystroke: "Keystroke (any app)", pro_presenter7_rest: "ProPresenter 7.9+ (REST API)", free_show: "FreeShow", open_lp_v2: "OpenLP (Web Remote v2)" }[kind] || kind);
 
   const handlers = {
     get_status: () => ({
@@ -26,9 +26,11 @@
       total_slides: total(), song_title: st.current === null ? null : titleAt(st.current),
       machine_state: st.songs ? st.machine || "listening" : null, is_blank: st.songs ? st.isBlank : null,
     }),
-    get_presenter_info: () => ({ ...st.presenter, capabilities: {} }),
+    get_presenter_info: () => ({ ...st.presenter, capabilities: st.presenter.capabilities || {} }),
     list_presenters: () => ["keystroke", "pro_presenter7_rest", "free_show", "open_lp_v2"].map((kind) => ({ kind, display_name: presenterOf(kind) })),
-    connect_presenter: ({ args }) => (st.presenter = { kind: args.kind, display_name: presenterOf(args.kind), connected: true }) && { ...st.presenter, capabilities: {} },
+    // The WorshipTools profile has no blank key (ADR-019 § 4), so it reports can_blank false.
+    connect_presenter: ({ args }) => (st.presenter = { kind: args.kind, display_name: presenterOf(args.kind), connected: true,
+      capabilities: args.keystroke_profile === "worship_tools_presenter" ? { can_blank: false, can_goto_slide: false, can_query_state: false } : {} }) && { ...st.presenter },
     discover_presenters: async () => { await new Promise((r) => setTimeout(r, 300)); return st.found; },
     list_audio_devices: () => st.devices,
     select_audio_device: () => null,
