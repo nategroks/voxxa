@@ -22,9 +22,11 @@ fixtures"). They add a repeated chorus, jumps and a prayer between two songs.
 
 **These are stand-ins, not sung recordings.** They are spoken, synthetic
 audio with no music, so they test the pipeline and the scoring, not how well
-Voxxa follows a congregation singing. The founder's two public-domain hymn
-recordings replace them when they exist (ticket Q5-01): add each as a new
-`recordings/<name>/` folder with `audio.wav` kept on Drive (a row here with its
-link, device and date), record its `session.jsonl` with
-`voxxa-eval --full --record`, add its thresholds to `baseline.json`, and then
-delete the stand-ins.
+Voxxa follows a congregation singing. Ticket Q5-01 (#73) planned
+public-domain hymn recordings to replace them in CI. The founder closed it on
+2026-11-20 as "local eval only" (ADR-019 § 9): CI keeps these stand-ins, and
+real sung audio (a licensed song) is evaluated only on the booth PC from
+`fixtures/private/`, never on Drive (README, "Private fixtures"). A
+public-domain recording can still be added here later the same way: a
+`recordings/<name>/` folder, its `audio.wav` on Drive, a row here, and its
+thresholds in `baseline.json`.

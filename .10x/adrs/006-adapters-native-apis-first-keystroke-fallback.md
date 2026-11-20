@@ -25,3 +25,5 @@ Good: real position feedback, setlist import, scripture display via `start_scrip
 
 ## Review trigger
 Re-open if > 25% of support tickets concern one Tier 2/3 app (then promote it: MIDI or a vendor conversation).
+
+**Trigger fired 2026-11-20 (R0), by founder decision:** the only pilot church runs WorshipTools Presenter, a Tier 3 app (keys only); there are no support tickets yet. ADR-019 records how Voxxa drives it: found by process, keys only when Presenter is in front, never a Right past a song's last slide. The foreground guard covers that profile only; for the other keystroke profiles, "sends only when the target app is foreground" above is still not implemented. MIDI stays the named next step (ADR-019 § 5).

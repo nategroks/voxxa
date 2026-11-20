@@ -259,8 +259,12 @@ early tolerance above covers.
 
 - Public-domain songs only for committed fixtures (e.g. "Amazing Grace",
   "Be Thou My Vision"). No CCLI-licensed lyrics in git.
-- No audio in git: `audio.wav` is ignored. Keep a real recording's audio on
-  Google Drive `Voxxa/fixtures/` and record the link in `SOURCES.md`.
+- No audio in git: every audio and video type is ignored (root `.gitignore`,
+  ADR-019 § 8). Keep a **public-domain** recording's audio on Google Drive
+  `Voxxa/fixtures/` and record the link in `SOURCES.md`; licensed songs never
+  go to Drive ("Private fixtures" below). A new synthetic test WAV is ignored
+  too: add it to the media guard's allowlist and `git add -f` it, or its
+  fixture passes locally and fails in CI.
 - Pilot-church recordings stay on the church's machine and one encrypted drive
   (research plan §6), are never committed or uploaded, and are deleted once
   reduced to lyrics-only timing data.
@@ -270,3 +274,12 @@ early tolerance above covers.
   `<data dir>/voxxa/sessions`, on Windows the roaming `%APPDATA%`, which a
   domain profile may copy to a server (`--log-dir` moves them);
   `voxxa-eval --full` sends them to a temporary folder instead.
+
+## Private fixtures (licensed songs)
+
+Licensed songs are tested locally under the church's CCLI licence. Only the licence record and the numbers are committed; the media, audio and lyrics never are. Every local run gets one row in [LICENSED_RUNS.md](LICENSED_RUNS.md) (ADR-019 § 7).
+
+- A licensed fixture lives only in `fixtures/private/<name>/` on the booth PC (LHMEZPC01). Git ignores `fixtures/private/` and every audio and video file type (root `.gitignore`).
+- Nothing made from a licensed song leaves that PC: no commit, no upload, no Google Drive (the Drive folder holds public-domain recordings only).
+- Agents never open, print, copy or move a licensed fixture or its source media. The founder makes the fixture; Q9V adds the commands here (ffmpeg conversion, setlist from the church's own licensed text, a numbers-only `voxxa-eval --full` run).
+- Tests use placeholder words, and eval output for a private fixture is numbers only.

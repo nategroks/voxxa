@@ -25,3 +25,17 @@ models/
 # Signing keys (NEVER commit private keys)
 *.tauri_signing_key
 .tauri_signing_key
+
+# Media never enters the repo (ADR-019 § 8). The 15 public-domain test recordings in
+# src-tauri/tests/fixtures/voxxad/ were tracked before this rule and stay allowed by name
+# (Q9V's media-guard test and CI step).
+*.mp4
+*.mov
+*.m4v
+*.mkv
+*.webm
+*.wav
+*.flac
+*.mp3
+*.m4a
+fixtures/private/
