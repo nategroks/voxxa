@@ -552,9 +552,12 @@ async function jumpToSong(songIndex) {
     // Local state will sync via the slide-advanced event the dispatcher emits.
   } catch (err) {
     console.error("jump_to_song:", err);
-    toast("Failed to jump: " + err, "error");
+    stepFailed("Failed to jump: ", err);
   }
 }
+
+// ADR-019's two asks are the operator's next step, not a failure: the bare sentence, as info.
+const stepFailed = (what, err) => (AMBER_ASKS.test(String(err)) ? toast(String(err), "info", 6000) : toast(what + err, "error"));
 
 // --- Setlist export (.voxxa-set) ---
 const exportSetlistBtn = document.getElementById("export-setlist-btn");
@@ -728,7 +731,7 @@ prevBtn.addEventListener("click", async () => {
     await invoke("prev_slide_manual");
   } catch (err) {
     console.error(err);
-    toast("Previous slide failed: " + err, "error");
+    stepFailed("Previous slide failed: ", err);
   }
 });
 
@@ -737,7 +740,7 @@ nextBtn.addEventListener("click", async () => {
     await invoke("next_slide_manual");
   } catch (err) {
     console.error(err);
-    toast("Next slide failed: " + err, "error");
+    stepFailed("Next slide failed: ", err);
   }
 });
 

@@ -78,7 +78,17 @@
     open_help_email: () => { st.help.opened += 1; if (st.help.openError) throw st.help.openError; },
     open_runbook: ({ name }) => { st.runbooks.push(name); },
     toggle_stage_display: () => false,
-    next_slide_manual: () => null, prev_slide_manual: () => null, blank_manual: () => null, jump_to_song: () => null,
+    // `st.stepError` scripts a refused Next/Prev (the WorshipTools guard's sentence, say).
+    next_slide_manual: () => { if (st.stepError) throw st.stepError; return null; },
+    prev_slide_manual: () => { if (st.stepError) throw st.stepError; return null; },
+    blank_manual: () => null,
+    // With `st.askOnSongChange` (WorshipTools, ADR-019 § 3) the backend sends no key: it records the
+    // song's first slide, tells the GUI (slide-advanced), then returns the amber ask.
+    jump_to_song: ({ songIndex }) => {
+      if (!st.askOnSongChange) return null;
+      window.__mock.goto(st.songs.slice(0, songIndex).reduce((n, s) => n + s.slides.length, 0));
+      throw `Put "${st.songs[songIndex].title}" live in Presenter.`;
+    },
   };
 
   async function invoke(cmd, args = {}) {
