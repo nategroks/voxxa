@@ -490,3 +490,18 @@ fn the_quick_start_fits_one_printed_page() {
     let longest = text.lines().map(|l| l.chars().count()).max().unwrap();
     assert!(longest <= 100, "a line of {longest} characters");
 }
+
+/// The quick-start sends no one to a download page that does not exist.
+/// User decision (Q7): no tag and no GitHub release
+/// (.10x/decisions/devops/church-autoadvance.md), so the releases page is
+/// empty. When the first release is published, change this test with the
+/// page (Q9 verifier).
+#[test]
+fn the_quick_start_names_no_download_page_while_there_is_no_release() {
+    let text = std::fs::read_to_string(repo().join("docs/quick-start.md")).unwrap();
+    assert!(
+        !text.contains("/releases"),
+        "docs/quick-start.md points to the releases page, which has no release"
+    );
+    assert!(text.contains("tech lead gives you the installer"));
+}

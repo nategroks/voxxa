@@ -1,7 +1,8 @@
 # Voxxa quick-start (Windows)
 
-Voxxa listens to the band and moves your slides; nothing you sing leaves this computer. Install it
-from <https://github.com/nategroks/voxxa/releases> (`.msi` or `-setup.exe`) and start **Voxxa**.
+Voxxa listens to the band and moves your slides; nothing you sing leaves this computer. There is
+no download page yet: your tech lead gives you the installer (`.msi` or `-setup.exe`, built from
+this repository with `npm install` then `npm run tauri build`). Run it and start **Voxxa**.
 
 ## 1. The set-up guide (first start)
 
