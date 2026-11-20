@@ -32,4 +32,5 @@ Voxxa never shows lyrics, never uploads audio, never replaces the presentation s
 
 ## Pilot church (confirmed by the user, 2026-10-25)
 - **The Lighthouse, Midlothian** is pilot church #1. To confirm with them before Increment 3: presentation software and version, booth computer OS, how audio reaches the booth, weekly attendance band, who operates slides, and consent for the recorded-service corpus (research plan §6).
+- **2026-11-20 (R0, ADR-019): the pilot runs WorshipTools Presenter** on the booth PC LHMEZPC01. It is Tier 3 (keys only, no read-back), so ADR-006's review trigger fired. Voxxa finds it by process and presses keys only when it is in front, and it never steps past a song's end (Right there jumps to the next service item). Each song change is one operator action ("Put … live in Presenter"). Q9W and Q9V run before Q10.
 - Two further pilots still to recruit, ideally covering the other two Tier 1 apps so all three native adapters get a real install.

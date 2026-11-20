@@ -11,9 +11,10 @@ Sizes and token bands are unchanged from the October plan (S: 5–10 turns, 25�
 | | Count | Output tokens | API list cost |
 |---|---|---|---|
 | S | 9 | 0.2–0.45M | $27–72 |
-| M | 14 | 1.05–2.1M | $140–350 |
+| M | 16 | 1.2–2.4M | $160–400 |
 | L | 5 | 0.75–1.5M | $125–250 |
-| **Pack (28 prompts)** | | **≈ 2.0–4.1M** | **≈ $290–670; ≈ $450–1,000 with rework** |
+| **Pack (30 prompts)** | | **≈ 2.15–4.35M** | **≈ $310–720; ≈ $480–1,070 with rework** |
+| of which added 2026-11-20 | Q9W, Q9V (M each) | 0.15–0.3M | $20–50 |
 
 Per day: part-time 1 prompt ≈ 75–150k output tokens; full-time 2–3 ≈ 150–400k. Calendar: ≈ 18 weeks part-time, ≈ 10 weeks full-time; the pilot (shadow mode from Q14) and signing paperwork still gate the middle of the plan, not tokens.
 
@@ -67,27 +68,53 @@ Phase map per increment: implementation prompts are Phase 4 (SDE + Senior + DBA)
 > /10x-Team:10x-team
 > Phase 4. Wire Call for help to `generate_diagnostic_report` plus an export of the operator's localStorage state and the last 2 minutes of hypotheses from the session log, zipped to the Desktop, shown to the user before writing, then opened in the support e-mail draft. Write `docs/runbooks/{no-audio-device,presentation-app-not-reachable,model-missing}.md` and link each from the matching red status. Write `docs/quick-start.md` (one page, Windows). No telemetry. Exit: bundle produced; links resolve.
 
+**Q9W — WorshipTools Presenter: find it, guard the keys, never step past a song (M)** (inserted by R0, 2026-11-20; `specs/2026-11-20-prompts-worshiptools-revision.md`)
+> /10x-Team:10x-team
+> Phase 2 check, then Phase 4, per ADR-019 and ADR-006. Precondition: ADR-019 Accepted; test card T in `reviews/2026-11-20-worshiptools-founder-test.md`. Two lanes (`q9w/10x`, `q9w/ponytail`) off `main`, then the comparator, cross-reviews and verifiers, as in Q9. Record it in `reviews/YYYY-MM-DD-ponytail-q9w.md`.
+> 1. **Find Presenter by process.** A Windows-only check for a running process named `Presenter` (T1; also accept an executable path ending `\Presenter\Presenter.exe`), in the Win32 FFI style already in `presenters/keystroke.rs`, with no new crate; other OSes return nothing. Discovery returns it as a found app: `kind: Keystroke`, profile `WorshipToolsPresenter`, source "process" (no host or port).
+> 2. **Keys only when Presenter is in front.** Inside `KeystrokeDriver`, for this profile, send a key only when the foreground window belongs to Presenter's process (reuse `foreground_pid()`); otherwise send nothing and return the sentence "Bring WorshipTools Presenter to the front." A pure helper with a unit test, like `own_window_focused`; the own-window guard stays. `statusLight` (`src/simple/logic.js`) shows this sentence and step 3's **amber, word for word**, not as the red "didn't take the last slide change" row, with a GUI test.
+> 3. **Never a Right past a song's last slide** (T2; ADR-019 § 3). The extra Rights come from song changes in keystroke dispatch (`dispatch.rs:141-160`), so the rule lives there: a per-driver flag that the profile sets; `sent.song` tracked in the stepping branch; on a song change, no key, amber "Put "<song title>" live in Presenter.", and the new song's first slide recorded as where the screen is. Steps inside one song and the operator's raw Next/Prev are unchanged. Test with a fake driver: crossing a song boundary sends no key; stepping inside a song still does.
+> 4. **Key map and blanking** (T3, T4; ADR-019 § 4). Remove `.` from this profile; F10 is the candidate, not used until the founder confirms the unblank key. `can_blank` comes from the key map (this profile: false); dispatch skips a conductor blank when it is false (no red error at a prayer); an operator blank returns "not supported"; the light's blank sentence says Voxxa can't clear Presenter's screen. Tests: the exact key map ({Right, Left, no blank}) and that it never includes F11, F12, Up, Down, numpad + or numpad −. Other profiles don't change.
+> 5. **The profile survives a restart** (ADR-019 § 2a). `reconnectPresenter()` (`src/simple/firstrun.js:77`) reconnects a saved keystroke form whose profile is not `universal`, with a GUI test. Otherwise the app starts on `Universal` (`lib.rs:80-87`) and the guard is off after the first restart.
+> 6. **First-run step 2** (Simple mode row). When Presenter is found, the step says in plain words that Voxxa found WorshipTools Presenter, that Presenter has no remote control so Voxxa presses its keys, and that Presenter must stay in front during the service. "No presentation app found" stays for the case where nothing is found.
+> 7. **Docs.** `docs/runbooks/presentation-app-not-reachable.md`: a WorshipTools section (keep Presenter in front; the two amber sentences; F10 clears lyrics, F11 and F12 clear media, so Voxxa never sends them; Presenter run as administrator silently drops Voxxa's keys). `docs/INTEGRATIONS.md`: WorshipTools is Tier 3 (keys), MIDI deferred per ADR-019.
+> Budget (D5, ADR-019 § 10): the process check, guard and key map in the presenters row; discovery in the **one** new row "discovery (src/discovery/)", added to `scripts/loc_budget.py` with its cap; the dispatch rules in the 6 lines left in "everything else", or stop and report. Never raise an existing cap.
+> Safety: no keystroke dispatch, no microphone, never the real identifier `com.voxxa.app`. Test with pure helpers and fake presenters, plus both GUI methods (mocked browser and guarded scratch build). Agents never press keys in Presenter: the live check on LHMEZPC01 is founder checklist items M15 and M16.
+> State files: `decisions/{sde,qa,security}/church-autoadvance.md`, `status.md`, `handoff.md`, Q9W tickets. Exit: unit tests cover discovery-by-process (fake process list), the foreground guard, the no-step-across-songs rule, `can_blank` false with no red error at a blank, and the exact key map; a GUI test covers the amber sentences and the restart reconnect; all gates pass; M15 and M16 are in the founder checklist.
+
+**Q9V — Private "See a Victory" fixture and the media guard (M)** (inserted by R0, 2026-11-20)
+> /10x-Team:10x-team
+> Phase 4 + 5, per ADR-019 § 7–9 and ADR-015. Precondition: Q9W merged. Two lanes plus review, as in Q9W. Record it in `reviews/YYYY-MM-DD-ponytail-q9v.md`. (Video songs were dropped: no video plays in services.)
+> 1. **The repo refuses media.** A test in `src-tauri/tests/` reads `git ls-files -z`, lower-cases each path, and fails if any ends in `.mp4 .mov .m4v .mkv .webm .wav .flac .mp3 .m4a` or sits under `fixtures/private/`, naming the path. It allows exactly the 15 public-domain recordings in `src-tauri/tests/fixtures/voxxad/`, listed by name. Test the pure check with a fake list (an accented folder name, an upper-case extension). Add the same check as a `ci.yml` step, so a PR that adds media goes red even if the test is skipped.
+> 2. **`voxxa-eval --full` prints numbers only.** Today it prints `voxxad`'s stderr (Whisper's log of the words heard), its whole stdout on failure, and a bad line (`cli/voxxa-eval/main.rs:141,146`, `score.rs:305`). In `--full`, stderr goes to null and errors name the exit code or the line number. A test proves a failing run prints no hypothesis text. (A private fixture path already works, `main.rs:54`.)
+> 3. **The private fixture: founder steps in `fixtures/README.md` § Private fixtures.** One folder, `fixtures/private/see-a-victory/`. Agents never open, print, copy or move its contents or the .mp4.
+>    - Audio (the founder supplies the .mp4 path): `ffmpeg -i "<path>" -vn -ar 16000 -ac 1 -c:a pcm_s16le fixtures\private\see-a-victory\audio.wav`.
+>    - `setlist.json` from the church's own licensed text, on LHMEZPC01 only. The txt importer writes no file, so give a BOM-free PowerShell 5.1 snippet (or a tiny `voxxad` subcommand if it fits the budget); `-Encoding utf8` adds a BOM the reader rejects.
+>    - `truth.jsonl` (slide-change times): `voxxa-eval` needs it (`main.rs:80-81`). Give the founder a way to make it for the ffmpeg-made WAV, for example the recording kit's key-tap timing while the WAV plays, or written by hand.
+> 4. **Founder-run eval.** A checklist item: run `voxxa-eval --full fixtures/private/see-a-victory` on LHMEZPC01 and add one row to `fixtures/LICENSED_RUNS.md` with the summary numbers only.
+> State files as in Q9W. Exit: the media guard (test and CI step) passes and catches a planted file in a scratch run; `--full` prints numbers only; `git log --all -- fixtures/private` is empty; the docs give the founder every command.
+
 **Q10 — Windows signing, winget, updater hardening** (M)
 > /10x-Team:10x-team
-> Phase 4 + 6, per ADR-008. In `build.yml`: keep the May branch's Trusted Signing scaffold, add the SignPath Foundation action as the preferred path (skips when secrets are absent), NSIS `perUser`, WebView2 bootstrapper, a `winget` manifest template and release step. In the updater client refuse manifests with a lower version than installed. Set a strict CSP. Unit test the version check. Exit: tag build produces signed NSIS and MSI when secrets exist; CSP no longer null.
+> Phase 4 + 6, per ADR-008. Runs after Q9W and Q9V (ADR-019, D1). In `build.yml`: keep the May branch's Trusted Signing scaffold, add the SignPath Foundation action as the preferred path (skips when secrets are absent), NSIS `perUser`, WebView2 bootstrapper, a `winget` manifest template and release step. In the updater client refuse manifests with a lower version than installed. Set a strict CSP. Unit test the version check. Exit: tag build produces signed NSIS and MSI when secrets exist; CSP no longer null.
 
 **Q11 — Close Increment 2′** (S)
 > /10x-Team:10x-team
-> Phase 5 + 6. QA: run the five-volunteer first-run test from `specs/2026-10-24-user-research-plan.md` §2 on a Windows laptop (coordinate with the Windows session via `.10x/handoff-local-windows.md`); Security: review the support bundle for over-collection; DevOps: first signed pre-release; SRE: on-call runbook for the Sunday window. Reviews and decision files as in Q7.
+> Phase 5 + 6. QA: run the five-volunteer first-run test from `specs/2026-10-24-user-research-plan.md` §2 on LHMEZPC01 with WorshipTools Presenter, including recovery from "Bring WorshipTools Presenter to the front" and "Put "<song>" live in Presenter" (ADR-019); Security: review the support bundle for over-collection; DevOps: first signed pre-release; SRE: on-call runbook for the Sunday window. Reviews and decision files as in Q7.
 
 ## Stage D — Increment 3′: read-back, fixtures, pilots (Phases 4–6)
 
 **Q12 — Presenter read-back and in-app setlist import** (L)
 > /10x-Team:10x-team
-> Phase 4, per ADR-006. Extend `PresentationController` with `current_slide_text() -> Result<Option<(String, Option<String>)>>` (current, next) and `setlist() -> Result<Option<Setlist>>`, capability-flagged. Implement for ProPresenter 7.9+ REST (`/v1/status/slide`, `/v1/playlist/current` + `/v1/presentation/{uuid}`), FreeShow (`get_output_slide_text`, `get_projects`/`get_show`), OpenLP v2 (`/api/v2/controller/live-items`, `/api/v2/service/items`). Add `Conductor::resync(song, slide)` and call it when `current_state`/text disagrees with the conductor twice in a row; the operator always wins. GUI: "Load today's setlist from <app>" in the loader. Extend the parity contract test to the new capabilities. Exit: all three drivers import a setlist from a live install (the founder or the pilot church provides access); resync demonstrated.
+> Phase 4, per ADR-006. Extend `PresentationController` with `current_slide_text() -> Result<Option<(String, Option<String>)>>` (current, next) and `setlist() -> Result<Option<Setlist>>`, capability-flagged. Implement for ProPresenter 7.9+ REST (`/v1/status/slide`, `/v1/playlist/current` + `/v1/presentation/{uuid}`), FreeShow (`get_output_slide_text`, `get_projects`/`get_show`), OpenLP v2 (`/api/v2/controller/live-items`, `/api/v2/service/items`). Add `Conductor::resync(song, slide)` and call it when `current_state`/text disagrees with the conductor twice in a row; the operator always wins. GUI: "Load today's setlist from <app>" in the loader. WorshipTools has no read-back, so Voxxa stays blind for it: for that app the loader offers "Load from file" and "Planning Center" only, and no driver is written (ADR-019). Extend the parity contract test to the new capabilities. Exit: all three drivers import a setlist from a live install (the founder provides access; the pilot runs WorshipTools Presenter, which has no read-back, ADR-019); resync demonstrated.
 
 **Q13 — Recorded-traffic contract fixtures** (M)
 > /10x-Team:10x-team
-> Phase 4 + 5. Build a small in-process HTTP/WS stub that replays request/response fixtures from `src-tauri/tests/fixtures/<driver>/`; add `voxxad --record-adapter` to capture them once against real installs; commit fixtures for ProPresenter REST, FreeShow and OpenLP; make each driver's tests run against the stub in CI. Exit: three drivers covered; CI runs them on all OSes.
+> Phase 4 + 5. Build a small in-process HTTP/WS stub that replays request/response fixtures from `src-tauri/tests/fixtures/<driver>/`; add `voxxad --record-adapter` to capture them once against real installs; commit fixtures for ProPresenter REST, FreeShow and OpenLP; make each driver's tests run against the stub in CI. WorshipTools has no traffic to record: add a key-map contract test per keystroke profile instead (ADR-019). Exit: three drivers covered; CI runs them on all OSes.
 
 **Q14 — Shadow mode for pilots and corpus export** (S)
 > /10x-Team:10x-team
-> Phase 4. Add a "Shadow (log only)" toggle in Advanced that maps to `--shadow`; add `voxxad --export-corpus <dir>` that writes the consented session audio (only when recording was explicitly enabled by the operator), setlist and operator key log into the fixture format. Document the pilot protocol link in `docs/pilot.md`. Exit: The Lighthouse, Midlothian can run shadow mode for a Sunday and hand back a fixture.
+> Phase 4. Add a "Shadow (log only)" toggle in Advanced that maps to `--shadow`; add `voxxad --export-corpus <dir>` that writes the consented session audio (only when recording was explicitly enabled by the operator), setlist and operator key log into the fixture format. Document the pilot protocol link in `docs/pilot.md`. The pilot is WorshipTools Presenter on LHMEZPC01: `--export-corpus` writes licensed songs only under `fixtures/private/`, and nothing from them leaves the machine (ADR-019). Exit: The Lighthouse, Midlothian can run shadow mode for a Sunday; the resulting fixture stays on LHMEZPC01, and only `fixtures/LICENSED_RUNS.md` rows and summary numbers are committed (ADR-019).
 
 **Q15 — Close Increment 3′** (S)
 > /10x-Team:10x-team
@@ -97,7 +124,7 @@ Phase map per increment: implementation prompts are Phase 4 (SDE + Senior + DBA)
 
 **Q16 — Public-domain Bible bundle** (M) — as October P4.1, under ADR-007; confirm ADR-007 before coding.
 **Q17 — Spoken scripture reference grammar** (M) — as October P4.2 (200-case test table; `bibleref` only if it already handles spoken numbers).
-**Q18 — Scripture detection in the conductor and `show_ref` per driver** (L) — as October P4.3 + P4.4, but inside `Conductor` (new `MachineState::Reading` with chapter graph; back to songs on silence > 20 s or a song match); FreeShow `start_scripture`, OpenLP bibles search + live, ProPresenter and keystroke: operator hint. Two spoken-passage fixtures; eval reports reference precision.
+**Q18 — Scripture detection in the conductor and `show_ref` per driver** (L) — for WorshipTools, `show_ref` is an operator hint, as for keystroke (ADR-019); as October P4.3 + P4.4, but inside `Conductor` (new `MachineState::Reading` with chapter graph; back to songs on silence > 20 s or a song match); FreeShow `start_scripture`, OpenLP bibles search + live, ProPresenter and keystroke: operator hint. Two spoken-passage fixtures; eval reports reference precision.
 **Q19 — Close Increment 4′** (S) — Phase 5 + 6 as above.
 
 ## Stage F — Increment 5′: bake-off, Store, support (Phases 4–6)

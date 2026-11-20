@@ -1,8 +1,8 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Increment 2′, **Q9 (Call for help, runbooks, quick-start) done on `q9/base`** (head 89f4ccb, plus the state commit "state(implementation): Q9 Call for help, runbooks, quick-start"); both verifiers passed in round 3. Next for the orchestrator: CI, PR and merge (pre-approved in handoff, "User decisions for Q9"), file the Q9 tickets and close #102; then **Q10** (Windows signing, winget, updater hardening). Q8 merged into `main` (PR #108, a3967e8). Q7 was merged into `main` (PR #95, c448139): Increment 1′ is closed.
-**Last Updated:** 2026-11-19 by 10x-team orchestrator
+**Current Phase:** Increment 2′, **R0 done** (WorshipTools revision, planning only, ADR-019, branch `plan/worshiptools`). Next: **Q9W** (WorshipTools Presenter: find it, guard the keys, never step past a song), then **Q9V** (private See a Victory fixture and the media guard), then **Q10**. Q9 merged into `main` (PR #124, e9328e2); main CI green after the ggml fix (PR #141, df40328).
+**Last Updated:** 2026-11-20 by 10x-team orchestrator (R0)
 **Health:** On Track
 
 ## Progress
@@ -229,14 +229,14 @@
 - **Met:** 0 false and 0 double advances on all six fixtures (21/21 hits, precision and recall 1.00); replay byte-identical and tested on three OSes; replay opens no socket (Linux and Windows in CI); shadow makes no network connection (Windows, locally); no Critical or High security finding.
 - **Not met, so not a church release:**
   - p95 latency 4.87 s against a 2.5 s budget (#84), and it is stream time at file speed, not live (#60);
-  - the fixtures are synthetic speech, not singing (#73);
+  - the fixtures are synthetic speech, not singing (#73 closes as "local eval only": real sung audio is evaluated locally on LHMEZPC01, ADR-019 § 9);
   - no real microphone, booth or presentation app has been used (#51; founder checklist M1–M14 and the security checklist);
   - privacy before any pilot leaves shadow mode: the diagnostics report carries transcripts (Q7-08), session logs sit in the roaming profile (#49), and `voxxad` has no keystroke focus guard (#48).
 - **Not yet run anywhere:** the Linux strace path, ETW on a hosted runner, the full-eval workflow, and MSI, deb, AppImage and `.app` bundles.
 
 ### Release readiness (2026-11-11, after Q2)
 - **Code:** Q2's exit criteria are met. No open crash, data-loss, freeze or wrong-slide defect from the audit or Q2; no open Critical or High security finding.
-- **Not yet ready for a live service.** The fixes are proven against mocks and synthetic audio only. Before a pilot leaves shadow mode, the founder must pass checklist M1–M14 in the QA report (real mic, unplug, Keystroke driver with PowerPoint/ProPresenter, FreeShow/OpenLP/OpenSong, displays, Stream Deck) and the security checklist.
+- **Not yet ready for a live service.** The fixes are proven against mocks and synthetic audio only. Before a pilot leaves shadow mode, the founder must pass checklist M1–M14 in the QA report (real mic, unplug, Keystroke driver with PowerPoint/ProPresenter, M15 Keystroke with WorshipTools Presenter and M16 song change (handoff, R0), FreeShow/OpenLP/OpenSong, displays, Stream Deck) and the security checklist.
 - **Linux/macOS:** first judged by CI on PR #1 (new: single-instance plugin pulls zbus on Linux; timing-based download tests).
 - **Before a public release:** Q2-28 (release pipeline pinning, `.asc`, updater) and the cut-list ADR.
 
@@ -256,6 +256,7 @@
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
 - [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
 - [ ] Founder: run the usability script from the research plan on the founder's machine (Q8-01; user decision 3, not a merge gate). Use a fresh profile (clear `%LOCALAPPDATA%\com.voxxa.app`, keep `%APPDATA%\voxxa\models\ggml-tiny.bin`). Run U1-U13 from `decisions/qa/church-autoadvance.md` ("Q8 final") with a real microphone and presentation app. Look through every old panel once (the `[hidden]` fix changed what shows), and confirm amber for `blank_hold`. Add Call for help and a red light's "What to do" to the run (Q9-07): press Save once with the installed mail program and once on a PC without one (Q9-12), then delete the zip.
+- [ ] **Founder (R0, 2026-11-20):** confirm which key brings the lyric back after F10 in Presenter (T3; then `can_blank` can be switched on). Add the church's CCLI License # to `fixtures/LICENSED_RUNS.md`. In Q9V, give the .mp4 path and make `fixtures/private/see-a-victory/` (ADR-019 § 7).
 - [ ] **Founder: set the support e-mail address** (Q9-01; user decision 2 of Q9). Choose the address Call for help's e-mail draft should go to (a support inbox, or one per church). Then `SUPPORT_EMAIL` (`src-tauri/src/help/mod.rs:16`), its test, the quick-start's Call for help section and the dialog's sentence change together. Until then, the volunteer types the tech lead's address.
 - [x] Q4 close-out (orchestrator): PR #58 CI green (5/5 jobs at 2807ed7); merged into `main` as 571cf0d; 13 Q4 tickets filed as #59–#71 (label `q4`); #46 and #52 closed.
 - [x] **Q5 close-out (orchestrator).**
@@ -287,16 +288,16 @@
   3. [x] Pushed `q8/base`, PR #108; CI green on all 5 jobs at 0dffe86 (run 44607712336), including the browser test's first GitHub run on Windows (117 passed). Original plan: push `q8/base` and open a draft PR against `main`. Every CI job must be green, including the GUI logic test on 3 OSes and the browser test on Windows, which has never run on GitHub (Q8-04).
   4. [x] Merged into `main` as a3967e8 (2026-11-19).
   5. [x] Filed the 15 open Q8 tickets as #109–#123 (label `q8`; Q8-10 closed, not filed); comments added. Original plan: file the open Q8 tickets as issues (label `q8`), apart from Q8-10 if its fix closed it. Add the comments to #7, #44, #34, #9, #102 and #37.
-- [ ] **Q9 close-out (orchestrator).** The push, PR, CI fixes, merge, filing and closing #102 are pre-approved (handoff, "User decisions for Q9").
+- [x] **Q9 close-out (orchestrator), 2026-11-19/20.** PR #124 CI green at 7ad24fc (run 44655529197); merged into `main` as e9328e2. Main CI then crashed on windows-latest with STATUS_ILLEGAL_INSTRUCTION in `model_download`: whisper.cpp was built with `-march=native` and restored from rust-cache on a different CPU. Fixed by PR #141 (df40328, `CMAKE_PROJECT_INCLUDE` → `src-tauri/cmake/ggml-portable.cmake`, GGML_NATIVE off); main CI green (run 44663429693). Ticket #142: installer builds have the same `-march=native` default (Q10). 16 Q9 tickets filed as #125–#140 (label `q9`); #102 closed by the merge; comments on #53, #49, #99, #116, #109, #34, #8 and #121. The four leftover Edge processes were stopped and the Q9 worktrees removed. The items below are the original plan.
   1. [ ] Push `q9/base` (with the `gh` credential helper, as before) and open a draft PR against `main`. Every CI job must be green, including the GUI logic test on 3 OSes and the browser test on Windows. Q9 has not run in CI yet.
   2. [ ] Merge. After the merge, check that the three runbook URLs open on GitHub (they return 404 until then).
   3. [ ] File the 16 open Q9 tickets (`reviews/2026-11-19-q9-tickets.md`) as issues with label `q9` (create the label first). Close #102 with the commit (2c28c15). Add the comments to #53, #49, #99, #116, #109, #34, #8 and #121.
   4. [ ] Housekeeping: four headless Edge root processes with `%TEMP%\voxxa-verifya3-*` profiles were still running at the end of Q9 (PIDs 14608, 14632, 14872, 18796; started 1:16-1:18 PM, 2026-11-19). No Q9 agent started them. Stop them by PID if they are still there and nobody claims them.
-- [ ] Increment 2′ (Q8–Q11): Q8 merged (a3967e8); Q9 done on `q9/base` (89f4ccb), merge pending; next Q10 (Windows signing, winget, updater hardening), then Q11 (close Increment 2′)
+- [ ] Increment 2′ (Q8–Q11, plus Q9W and Q9V from R0): Q8 merged (a3967e8); Q9 merged (e9328e2); R0 done (ADR-019); next Q9W, Q9V, then Q10 (Windows signing, winget, updater hardening), then Q11 (close Increment 2′ on LHMEZPC01 with WorshipTools Presenter)
   - [x] 2026-11-13 Q5 verifier fixes on `q5/base`: every surviving mutant named by the verifier is now killed by a test (song not compared, false advance lowering recall, EARLY_MS 999 and `<=`→`<`, the total row's false/double sums, unblank not resetting the blank, a failing `voxxad` read as success); a metric with a value but no threshold now fails the gate (ADR-015 D8 amended); voxxa-eval exits 2 when `voxxad` ran in the wrong mode (a replay that ran Whisper); both session logs re-recorded with the final `--full --record` (only the start line's `log` field changed).
   - [x] 2026-11-13 Q5 second verifier pass on `q5/base`: tests now kill the round-2 survivors: M42 (main.rs checking only the total row; a binary-level test breaks only per-fixture thresholds and needs both FAIL lines and no FAIL total), M25/M26 (one metric's comparison reversed), M37 (the table's count cells) and M47/M48 (the audio recipe's 16 kHz mono 16-bit check and header byte rate). Each test was run against its mutant and fails. No product code changed; voxxa_eval tests 23 to 26.
   - [x] 2026-11-13 Q5 verifier round 3 at c10e963: verifier A passed; verifier B failed on six surviving mutants (Q5-08 … Q5-10). The four that mattered were closed with tests in 5858872 (orchestrator, checked against each mutant); M57 and M68 deferred (Q5-10).
-- [ ] Founder: record two PD-hymn fixtures; apply to SignPath; open Partner Center; e-mail CCLI; form LLC; start research screener
+- [ ] Founder: apply to SignPath; open Partner Center; e-mail CCLI; form LLC; start research screener
 - [ ] Phases 4–6 per increment
 
 ### Blocked

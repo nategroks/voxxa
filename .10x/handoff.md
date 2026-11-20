@@ -1,5 +1,23 @@
 # Current Handoff
 
+## User decisions for Q9W/Q9V (2026-11-20)
+- **Spec:** `specs/2026-11-20-prompts-worshiptools-revision.md`, with its two founder addenda. **ADR-019** is Accepted. R0 (planning only) added Q9W and Q9V to the pack after Q9 and applied M1–M8.
+- **D1 Order:** Q9W, then Q9V, then Q10. The "From: Q9 → To: Q10" section below still applies to Q10.
+- **D2:** keys only when WorshipTools Presenter is in front (amber "Bring WorshipTools Presenter to the front."). MIDI is deferred and is the named next step.
+- **T2 (end-of-song risk):** Right on a song's last slide moves Presenter to the next service item. Voxxa never sends Right past a song's last slide for this profile. A cross-song Goto presses nothing and asks "Put "<song>" live in Presenter." A test proves it (ADR-019 § 3).
+- **D4/T3/T4:** `.` is removed (it does nothing). F10 clears the lyrics, but the unblank was not tested, so the profile reports `can_blank: false` and F10 is only the candidate.
+- **D3 dropped:** A1 was wrong; no video plays during services. Q9V is the private fixture and the media guard only.
+- **D5 Budget:** detection in the presenters row. The discovery call site and the dispatch change use the 6 lines left in "everything else", or **one** new budget row recorded in ADR-019 and `scripts/loc_budget.py`. Never raise an existing cap.
+- **D6 Pre-approved:** R0: push `plan/worshiptools` and open a draft PR. Q9W and Q9V: push, draft PR, CI fixes, merge when green (R0's planning PR too), file tickets, stop processes the agents started (by PID).
+- **Licensed test audio (addendum 1):**
+  - The "See a Victory" .mp4 stays in Presenter's media folder. Agents never copy, upload, move or open it. The founder converts it to `fixtures/private/see-a-victory/audio.wav` with ffmpeg (path supplied in Q9V). Nothing made from it leaves LHMEZPC01, Google Drive included.
+  - `fixtures/LICENSED_RUNS.md` holds the licence record and the numbers only. See a Victory is CCLI Song # 7129060 (read-only lookup in Presenter's local data). The church's CCLI License # is pending (founder).
+  - The repo refuses media: root `.gitignore` (R0). In Q9V, a `git ls-files` test and a `ci.yml` step. They allow exactly the 15 public-domain recordings already tracked in `src-tauri/tests/fixtures/voxxad/`, by name; history is not rewritten.
+- **#73** closes as "local eval only": a CCLI song in `fixtures/private/` can't run in CI.
+- **R0 ponytail audit adopted** (`reviews/2026-11-20-ponytail-r0.md`): the profile must survive a restart; `can_blank` false must not raise a red error at every prayer; the song-change rule lives in dispatch and records the new song's first slide; the amber sentences are shown word for word; Q9V's eval prints numbers only and needs a `truth.jsonl` route; the media guard uses `git ls-files -z`. Discovery takes D5's new row.
+- **Pilot facts:** the booth PC is LHMEZPC01 (this machine). Presenter's process is `Presenter` (`C:\Program Files\Presenter\Presenter.exe`). Test card T is in `reviews/2026-11-20-worshiptools-founder-test.md`.
+- **Content:** never write, echo, commit or upload the lyrics of any CCLI song, its .mp4, or audio made from either. Agents never press keys in Presenter.
+
 ## User decisions for Q9 (2026-11-19, before the unattended run)
 - **Privacy first:** fix #102 (Q7-08) before anything else, in its own commit with a test, so that no transcript text reaches the diagnostics buffer or `generate_diagnostic_report`.
   - The help bundle carries the last 2 minutes of recognised words **only** as a separate file in the zip.
@@ -101,8 +119,8 @@ Tests in `src-tauri/tests/`, `tests/gui/` and `scripts/qa/` are not counted.
 - CI: keep Linux on `ubuntu-22.04` (the `unshare -rn` comment in `ci.yml`), and keep the Windows socket test's per-child time window.
 
 ### Still open from earlier steps
-- **Founder checklist** before any pilot leaves shadow mode: QA report Q2 §10 (M1–M14), the security checklist, Q3-07 (#51), the usability script on the founder's machine (Q8-01, #109), now with Call for help and "What to do" (Q9-07, Q9-12), and **setting the support e-mail address (Q9-01)**.
-- **Founder:** record the two public-domain hymn fixtures (#73); apply to SignPath; open Partner Center.
+- **Founder checklist** before any pilot leaves shadow mode: QA report Q2 §10 (M1–M14), the security checklist, Q3-07 (#51), the usability script on the founder's machine (Q8-01, #109), now with Call for help and "What to do" (Q9-07, Q9-12), and **setting the support e-mail address (Q9-01)**. **M15 Keystroke with WorshipTools Presenter** on LHMEZPC01 (R0's M8): with Presenter open, step 2 names it; keys are held while Presenter is not in front; F10 once the unblank is confirmed; Presenter not run as administrator (Windows drops Voxxa's keys silently). **M16 Song change:** Voxxa asks to put the next song live and presses nothing across songs. Test card T is done (`reviews/2026-11-20-worshiptools-founder-test.md`).
+- **Founder:** apply to SignPath; open Partner Center. #73 closes as "local eval only" (ADR-019 § 9). Make the private See a Victory fixture in Q9V. Confirm the F10 unblank key (T3). Add the church's CCLI License # to `fixtures/LICENSED_RUNS.md`.
 - **User decisions:** the cut-list ADR-012; Q6-01 (#83) and Q6-10 (#89).
 - **Q1 A15 follow-ups:** Q7-12 (#106); re-run the Windows verification on the merged head (`handoff-local-windows.md`); reconcile `docs/signing-policy.md` with `SIGNING.md`.
 

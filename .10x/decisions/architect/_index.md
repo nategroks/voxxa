@@ -110,3 +110,12 @@ The statements above were checked against the code at `f7b56e6`; the full log is
   - The words file depends on `voxxad`'s logs; the GUI writes none (#53, Q9-02). A GUI session log is an architecture decision (where, how long, permissions; #49, #99), not a Q9 follow-up.
   - CSP is still null (#8). Q10 sets a strict CSP. Call for help's dialog renders file content with `textContent` and has one static `innerHTML` string (`src/simple/help.js:38`), so it needs no inline-script allowance.
 - **Status:** implemented on `q9/base` @ 89f4ccb; both verifiers passed in round 3. Records: `reviews/2026-11-19-ponytail-q9.md`, `reviews/2026-11-19-q9-tickets.md` (16 open: 1 medium, 15 low), and `decisions/{sde,qa,security}/church-autoadvance.md` ("Q9 final"). Review triggers (ADR-018): the support address exists (Q9-01), the GUI writes session logs (#53, Q9-02), the shell plugin drops `open` (Q9-03), or a pilot's bundle misses what support needed.
+
+## 2026-11-20 — R0: ADR-019, WorshipTools Presenter and licensed test audio
+- [STATED 2026-11-20] **F1** The pilot (LHMEZPC01) runs WorshipTools Presenter; first-run step 2 says "No presentation app found…" (`src/simple/firstrun.js:107`). Confirmed.
+- [STATED 2026-11-20] **F2** Discovery probes only ProPresenter 1025 plus mDNS, FreeShow 5506, OpenLP 4316 and OpenSong 8082 (`src-tauri/src/discovery/mod.rs:48-53`, `:159`). Presenter has no local API (ADR-006:6). Confirmed.
+- [STATED 2026-11-20] **F3** Presenter's shortcuts (WorshipTools docs, cited from the spec): Right/Space/Page Down next, Left/Page Up previous, Down/Up and numpad +/− service item, F10/F11/F12 clear slide/background/all; no blank toggle.
+- [STATED 2026-11-20] **F4** `WorshipToolsPresenter` shares the default map (Right, Left, `.`; `presenters/keystroke.rs:83-88`). The only focus check is `own_window_focused` (`keystroke.rs:42`, called at `commands/mod.rs:284`); ADR-006:11's "only when the target app is foreground" is not implemented. Confirmed.
+- [STATED 2026-11-20] **F5/F6** "See a Victory" (Elevation Worship, CCLI Song # 7129060) is in Presenter. Presenter cannot export songs; lyrics come only from Planning Center or the church's own text file (ADR-007).
+- **Keystroke dispatch walks the flat setlist** (`dispatch.rs:141-160`): crossing a song boundary presses Right, which in Presenter is "next service item" (T2). ADR-019 § 3 stops that for this profile.
+- **Budget for Q9W:** presenters 1149/2000; everything else 2494/2500; one new recorded row allowed (D5).

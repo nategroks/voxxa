@@ -2,3 +2,6 @@
 *.wav
 *.flac
 *.mp3
+
+# Licensed fixtures stay on the booth PC (ADR-019 § 7).
+private/
