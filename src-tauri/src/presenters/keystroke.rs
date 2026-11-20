@@ -362,12 +362,6 @@ mod tests {
     fn recorded() -> Vec<Key> {
         KEYS.with_borrow_mut(std::mem::take)
     }
-    fn presenter_in_front() -> Option<String> {
-        Some(PRESENTER.into())
-    }
-    fn explorer_in_front() -> Option<String> {
-        Some(r"C:\Windows\explorer.exe".into())
-    }
     const ALL: [KeystrokeProfile; 12] = {
         use KeystrokeProfile::*;
         [
@@ -390,32 +384,26 @@ mod tests {
         KeystrokeDriver {
             profile,
             connected: true,
-            front: presenter_in_front,
+            front: || Some(PRESENTER.into()),
             send: record,
         }
     }
 
+    /// tap() asks the guard (ADR-019 § 2). Windows only: elsewhere the front
+    /// process is unknown and tap() skips the guard. is_presenter_exe's
+    /// hits and look-alikes: tests/worshiptools.rs, through discovery.
+    #[cfg(windows)]
     #[tokio::test]
     async fn the_driver_asks_the_guard_before_every_key() {
         use KeystrokeProfile::*;
         let behind = KeystrokeDriver {
-            front: explorer_in_front,
+            front: || Some(r"C:\Windows\explorer.exe".into()),
             ..driver(WorshipToolsPresenter)
         };
-        // Off Windows the front process is unknown and the guard passes.
         for r in [behind.next_slide().await, behind.prev_slide().await] {
-            if cfg!(windows) {
-                assert_eq!(r.unwrap_err().to_string(), FRONT_MSG);
-            } else {
-                r.unwrap();
-            }
+            assert_eq!(r.unwrap_err().to_string(), FRONT_MSG);
         }
-        let none: &[Key] = if cfg!(windows) {
-            &[]
-        } else {
-            &[Key::RightArrow, Key::LeftArrow]
-        };
-        assert_eq!(recorded(), none, "no key while Presenter is behind");
+        assert_eq!(recorded(), Vec::<Key>::new(), "no key while behind");
         // Presenter in front: Right, then Left.
         let d = driver(WorshipToolsPresenter);
         d.next_slide().await.unwrap();
@@ -423,34 +411,11 @@ mod tests {
         assert_eq!(recorded(), [Key::RightArrow, Key::LeftArrow]);
         // Another profile is not checked.
         let other = KeystrokeDriver {
-            front: explorer_in_front,
+            front: || None,
             ..driver(Universal)
         };
         other.next_slide().await.unwrap();
         assert_eq!(recorded(), [Key::RightArrow]);
-        assert_eq!(guard(WorshipToolsPresenter, Some(PRESENTER)).ok(), Some(()));
-    }
-
-    #[test]
-    fn presenter_is_known_by_its_process_name_or_path() {
-        for hit in [
-            PRESENTER,
-            r"D:\apps\presenter\PRESENTER.EXE",
-            "Presenter.exe",
-            "Presenter",
-        ] {
-            assert!(is_presenter_exe(hit), "{hit}");
-        }
-        for miss in [
-            r"C:\Program Files\Presenter\PresenterUpdate.exe",
-            r"C:\Windows\explorer.exe",
-            r"C:\Presenter\Voxxa.exe",
-            r"C:\Program Files\Renewed Vision\ProPresenter\ProPresenter.exe",
-            "ProPresenter",
-            "",
-        ] {
-            assert!(!is_presenter_exe(miss), "{miss}");
-        }
     }
 
     #[test]

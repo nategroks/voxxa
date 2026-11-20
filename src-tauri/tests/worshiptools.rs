@@ -136,13 +136,24 @@ fn presenter_is_found_by_its_process() {
     assert_eq!(json["kind"], "keystroke");
     assert_eq!(json["keystroke_profile"], "worship_tools_presenter");
     assert_eq!(json["source"], "process");
+    // The bare process name or a full path, in any case.
+    for other in [
+        r"D:\apps\presenter\PRESENTER.EXE",
+        "Presenter.exe",
+        "Presenter",
+    ] {
+        assert!(presenter_process(&running(&[other])).is_some(), "{other}");
+    }
     // Not running, or only a look-alike name: nothing found.
     assert!(presenter_process(&[]).is_none());
     assert!(presenter_process(&running(&[
         r"C:\Program Files\Presenter\PresenterUpdate.exe",
         r"C:\Program Files\Voxxa\voxxa.exe",
+        r"C:\Presenter\Voxxa.exe",
+        r"C:\Windows\explorer.exe",
         r"C:\Program Files\Renewed Vision\ProPresenter\ProPresenter.exe",
         "ProPresenter",
+        "",
     ]))
     .is_none());
 }
