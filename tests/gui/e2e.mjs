@@ -605,6 +605,24 @@ try {
   await load();
   await sleep(500);
   check("restart: a universal keystroke form is not reconnected", (await calls("connect_presenter")) === 0);
+  // Advanced → Auto-detect: the WorshipTools row sets the keystroke driver and its own key
+  // profile (main.js useDiscovered), so Connect never sends universal keys with no guard.
+  // The selects start elsewhere, so only the row's click can set them.
+  await ev(`__mock.st.found = [${JSON.stringify(WT)}]; return true`);
+  await click("#s-advanced");
+  await click('.tab[data-tab="settings"]');
+  await ev(`const p = document.getElementById("select-presenter"); p.value = "pro_presenter7_rest"; p.dispatchEvent(new Event("change"));
+    document.getElementById("select-keystroke-profile").value = "universal"; return true`);
+  await click("#discover-btn");
+  check("Advanced → Auto-detect: the WorshipTools row, no host:port for a process", (await waitFor(`return [...document.querySelectorAll("#discovered-list .discovered-row")].map((b) => b.querySelector(".discovered-meta").textContent).join("|")`, 3000)) === "process");
+  await clickButton("#discovered-list", /^WorshipTools Presenter/);
+  const advSelects = () => ev(`return document.getElementById("select-presenter").value + "/" + document.getElementById("select-keystroke-profile").value`);
+  check("Advanced → Auto-detect row: keystroke with the WorshipTools key profile", (await advSelects()) === "keystroke/worship_tools_presenter", await advSelects());
+  await click("#connect-presenter-btn");
+  check("Advanced → Connect sends the WorshipTools key profile", await waitFor(`return __mock.calls.some((c) => c.cmd === "connect_presenter" && c.args.args.kind === "keystroke" && c.args.args.keystroke_profile === "worship_tools_presenter")`, 2000),
+    await ev(`return JSON.stringify(__mock.calls.filter((c) => c.cmd === "connect_presenter").map((c) => c.args.args))`));
+  await shot("32-advanced-autodetect-worshiptools");
+  await click("#s-simple");
 } catch (err) {
   check("e2e ran to the end", false, String(err && err.stack || err));
 }
