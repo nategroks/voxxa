@@ -138,6 +138,24 @@ jobs:
           manifest-path: src-tauri/Cargo.toml
           command: check licenses advisories bans
 
+  # Q9V / ADR-019 § 8: the repo refuses media, as tests/media_guard.rs does,
+  # so a PR that adds media goes red even if that test is skipped. -z: git
+  # quotes non-ASCII paths otherwise; -i: X.WAV too. The 15 allowed
+  # recordings are read from the test's ALLOWED list (exact paths); without
+  # that list every recording is named and the job fails.
+  media:
+    name: no media in the repo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: no media file and nothing under fixtures/private/
+        shell: bash
+        run: |
+          bad=$(git ls-files -z | grep -zaiE '\.(mp4|mov|m4v|mkv|webm|wav|flac|mp3|m4a)$|^fixtures/private/' | tr '\0' '\n' |
+            { grep -vxF -f <(grep -o 'src-tauri/tests/fixtures/voxxad/[a-z0-9-]*\.wav' src-tauri/tests/media_guard.rs) || true; })
+          if [ -n "$bad" ]; then echo "Media or fixtures/private/ is tracked (ADR-019 § 8):"; echo "$bad"; exit 1; fi
+          echo "No media tracked beyond the 15 allowed recordings."
+
   budgets:
     name: line budgets
     runs-on: ubuntu-latest
