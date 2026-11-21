@@ -10,8 +10,9 @@
 
 use std::env::consts::EXE_SUFFIX;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 
 /// The refused extensions, as in the root `.gitignore`.
 const MEDIA: [&str; 9] = [
@@ -59,11 +60,19 @@ fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
 }
 
-/// Runs `git` in `dir` and returns its output; panics if it fails.
-fn git(dir: &Path, args: &[&str]) -> Output {
-    let out = (Command::new("git").arg("-C").arg(dir).args(args))
-        .output()
+/// Runs `git` in `dir` with `input` on stdin and returns its output; panics
+/// if it fails.
+fn git(dir: &Path, args: &[&str], input: &str) -> Output {
+    let mut child = (Command::new("git").arg("-C").arg(dir).args(args))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
         .expect("the media guard runs git: git must be on PATH");
+    let mut stdin = child.stdin.take().unwrap();
+    stdin.write_all(input.as_bytes()).unwrap();
+    drop(stdin);
+    let out = child.wait_with_output().unwrap();
     assert!(
         out.status.success(),
         "git {args:?} failed: {}",
@@ -74,23 +83,30 @@ fn git(dir: &Path, args: &[&str]) -> Output {
 
 /// Every path tracked in the repository at `root`, as written.
 fn tracked(root: &Path) -> Vec<String> {
-    let out = git(root, &["ls-files", "-z"]);
+    let out = git(root, &["ls-files", "-z"], "");
     (String::from_utf8_lossy(&out.stdout).split('\0'))
         .filter(|p| !p.is_empty())
         .map(String::from)
         .collect()
 }
 
-/// A temporary git repository with an empty file staged at each path.
+/// A temporary git repository with an empty file staged at each path. Only
+/// the index holds them (`update-index --index-info`), so nothing named like
+/// media is written to disk, and `X.WAV` beside `x.wav` works on a
+/// case-insensitive file system.
 fn repo_with(paths: &[&str]) -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
-    git(dir.path(), &["init", "-q"]);
-    for path in paths {
-        let file = dir.path().join(path);
-        fs::create_dir_all(file.parent().unwrap()).unwrap();
-        fs::write(file, "").unwrap();
-    }
-    git(dir.path(), &["add", "-A"]);
+    git(dir.path(), &["init", "-q"], "");
+    let blob = git(dir.path(), &["hash-object", "-w", "--stdin"], "").stdout;
+    let blob = String::from_utf8(blob).unwrap();
+    let index: String = (paths.iter())
+        .map(|path| format!("100644 {}\t{path}\0", blob.trim()))
+        .collect();
+    git(
+        dir.path(),
+        &["update-index", "--add", "-z", "--index-info"],
+        &index,
+    );
     dir
 }
 
@@ -260,8 +276,10 @@ fn the_ci_step_passes_the_real_tree_and_names_every_planted_file() {
     assert_eq!(code, Some(0), "the real tree fails the CI step:\n{text}");
     assert!(text.contains("media guard: "), "{text}");
 
-    // Empty placeholder files only, in a temporary repository.
+    // Empty placeholder files only, in a temporary repository's index.
     let planted = [
+        "src-tauri/tests/fixtures/voxxad/PRAYER.WAV",
+        "Fixtures/Private/notes.txt",
         "Músicas de adoración/canción.wav",
         "clips/Song A.MP4",
         "media/Song A.Mov",
