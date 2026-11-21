@@ -11,11 +11,11 @@
 
 The eval is `voxxa-eval` (ADR-015). Metric definitions are in `fixtures/README.md`,
 "Metrics". Never paste recognised or song text into an issue or a PR. Quote
-fixture names, metric names, numbers and slide indices only. Run full mode
-with stderr filtered to `voxxa-eval:` lines, as `full-eval.yml` does
-(`2> >(grep '^voxxa-eval' >&2)` in bash): Whisper prints the words it hears to
-stderr, and `2>/dev/null` would also hide `voxxa-eval`'s own exit-2 messages,
-which step 5 needs.
+fixture names, metric names, numbers and slide indices only. Full mode
+prints numbers only (ADR-019 § 7): it discards Whisper's log (the words it
+hears), and its errors name an exit code or a line number. Do not add
+`2>/dev/null`: it would hide `voxxa-eval`'s own exit-2 messages, which step 5
+needs.
 
 ## 1. Read the failure line
 
