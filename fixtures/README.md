@@ -336,7 +336,7 @@ One folder: `fixtures/private/see-a-victory/`, with `audio.wav`, `setlist.json` 
    ```powershell
    cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full fixtures/recordings/prayer-then-reprise
    ```
-   A table means the model and the tools work. "voxxad failed with exit code: 1" here means the model is missing or the tools are not built (step 1).
+   A table means the model and the tools work; a `FAIL total` line after it is normal when only one fixture runs (the baseline's `total` row is for all six). "voxxad failed with exit code: 1" here means the model is missing or the tools are not built (step 1).
 7. **Run the eval** (M17 in the founder checklist):
    ```powershell
    cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full fixtures/private/see-a-victory
