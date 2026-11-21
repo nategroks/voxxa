@@ -450,3 +450,16 @@ Full record: `reviews/2026-11-20-ponytail-q9w.md` §§ 6-8; tickets: `reviews/20
 **Not tested, by rule** (M15, M16): a real key reaching Presenter, a real foreground switch, Presenter as administrator, the F10 unblank, Left on Presenter's first slide. CI has not run Q9W yet.
 
 **Tickets:** 12 open (2 medium, 10 low). The test ones: Q9W-01 (the halfway multi-key step) and Q9W-11 (`discover_all` with the real process list).
+
+## 2026-11-20 — Q9V (10x lane, `q9v/10x`): exit demo
+**QA position: every exit criterion met in this lane.**
+- **The media guard passes on the real tree:** `tests/media_guard.rs` 3/3; the ci.yml `media` step, extracted from the file and run with `bash --noprofile --norc -eo pipefail` as GitHub runs it: "media guard: 286 tracked paths, no media outside the 15 allowed recordings", exit 0.
+- **It catches a planted file:** in a throwaway clone (branch `scratch-plant-never-push`, never pushed, deleted afterwards) three dummies were staged with `git add -f`: `X.WAV` and `Músicas de adoración/canción.mp4` (four zero bytes each) and an empty `fixtures/private/see-a-victory/dummy.txt`. The ci.yml step printed one `::error::` line naming each path and exited 1; `cargo test --test media_guard` failed `no_tracked_path_is_media_or_under_fixtures_private` with `["Músicas de adoración/canción.mp4", "X.WAV", "fixtures/private/see-a-victory/dummy.txt"]`. (Plain `git status` shows the accented path quoted, which is why both read `-z`.)
+- **`--full` prints numbers only:** `tests/eval_numbers_only.rs`, a fake `voxxad` printing "alpha bravo" on stderr and stdout: a failing run, a bad line, an error line and a bad setlist print none of it and name the exit status, line number or line and column; a replay control run does show the words, so the check can see a leak. Written first and seen failing before the fix.
+- **`git log --all -- fixtures/private`** prints nothing.
+- **The docs give the founder every command** (`fixtures/README.md`, 9 steps). The setlist snippet was run exactly as written in a scratch folder with placeholder slides (BOM input, CRLF, a whitespace-only separator, one slide): no BOM out, valid JSON, and `voxxad` loaded it while refusing the same file with a BOM. `tap-truth.ps1` was run with a silent 2 s WAV and piped keys: rows for slide 0, next, a number, a blank and the next song, an unknown key refused, no BOM.
+- **The default CI path is unchanged:** the eval step still prints 21/21, median 2,310 ms, p95 4,870 ms, "OK".
+
+**Mutants (9, all killed):** guard without lower-casing; without the private check; allowlist by file name; the ci.yml step without `-z`; `--full` with stderr inherited; failure showing stdout; error line quoted; bad line quoted; setlist error with serde's message.
+
+**Not tested, by rule:** the real ffmpeg conversion, the real setlist, the real truth taps and the real `--full` run on the private fixture: founder item M17. No GUI change, so no real-app run.

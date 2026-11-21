@@ -780,3 +780,23 @@ Two surviving mutants, each now killed by a new test. Each mutant was re-run aga
 **Tickets:** 12 open (2 medium, 10 low), `reviews/2026-11-20-q9w-tickets.md`, including "Founder: confirm the F10 unblank key (T3)" (Q9W-02) and the halfway multi-key step (Q9W-01). Q9W fixes #117 (close it at merge) and adds comments to #6, #13, #42, #44, #48, #33 and #39.
 
 **SDE position: ready to merge once CI is green.** Next: the orchestrator pushes `q9w/base`, opens the draft PR, gets every CI job green (the Linux and macOS jobs run the off-Windows stubs for the first time), merges, files the tickets and closes #117; then Q9V. Live keys in Presenter stay founder checklist M15 and M16. The scratch `voxxa.exe` in `C:/dev/q3-10x-target/release/` carries a Q9W QA identifier; never ship it.
+
+## 2026-11-20 — Q9V (10x lane, `q9v/10x` from 84a3966): private See a Victory fixture and the media guard
+ADR-019 §§ 7-9 and ADR-015; ADR-019's "Amendment (Q9V)" records the choices below.
+
+**Phase 2 check.** The prompt's references held at 84a3966: `cli/voxxa-eval/main.rs:141` inherited `voxxad`'s stderr, `:146` put its stdout in the failure message, `score.rs:305` quoted a bad line. Three more places could print words: `main.rs:77` (serde's "invalid type" error quotes a setlist value, which may be lyrics), `:101` (`voxxad` error lines, printed whole) and `score.rs:268` (a bad truth line, quoted). R0's `.gitignore:28-41`, `fixtures/README.md` § Private fixtures and `LICENSED_RUNS.md` row 1 were in place; `git ls-files` listed exactly the 15 WAVs and no other media.
+
+**Built** (commits b73a9a9, 7f71681, 5a4bcea, 2584f00):
+- **Media guard.** `src-tauri/tests/media_guard.rs`: `refused()` (`:44`, pure) and three tests: the real tree (`:75`, also fails when an allowed WAV is gone), a fake list (`:94`: accented folders, upper- and mixed-case extensions, private paths at the root and nested, an allowlisted name in another folder or case, a new WAV beside the 15) and ci.yml in step (`:141`). `ci.yml` job `media` (`:157`, ubuntu-22.04, bash).
+- **Numbers-only `--full`.** `main.rs:150` `voxxad(args, cwd, full)`: stderr null and the exit status only on failure when `full`; `:111` error lines by number; `:80` the setlist error by line and column; `score.rs:269,307` bad truth and `voxxad` lines by number. Replay keeps stderr and stdout on failure. `tests/eval_numbers_only.rs` (`harness = false`, `[[test]]` in `Cargo.toml`): the test binary doubles as a fake `voxxad`; 5 checks.
+- **Founder docs.** `fixtures/README.md` "Making the See a Victory fixture", 9 steps: ffmpeg, the BOM-free setlist snippet, `truth.jsonl` by `fixtures/tools/tap-truth.ps1` or by hand, a public-fixture setup check, the `--full` run, the `LICENSED_RUNS.md` row, the pre-commit check. `tap-truth.ps1` fixes #74's two gaps for this route (the first Enter is slide 0; `b` blanks).
+
+**Budgets:** voxxa-eval 469 → **488 / 600**; voxxad 552 / 600 and everything else in src-tauri/src 2315 / 2317, unchanged (no `voxxad` subcommand). No cap raised, no crate added.
+
+**Gates at the records commit's parent (2584f00):** all pass. `cargo test --features cli -j 2`: 240 passed, 0 failed, 1 ignored, plus `eval_numbers_only` 5 checks; fmt; clippy both ways; cargo-deny; budgets; dictat grep empty; the CI eval step 21/21, precision and recall 1.00, median 2,310 ms, p95 4,870 ms, "OK: no metric is worse" (unchanged); the ci.yml media step run locally as written: "286 tracked paths, no media outside the 15"; `test:gui` 9/9; e2e 188/188; control-byte grep empty.
+
+**Deviations:** the CI check is its own job, not a step of `check` (bash 4); truth and `voxxad` bad-line errors and the setlist error are number-only in replay too; a private run exits 1 (no baseline row), documented as a report; the eval files were first edited with a python script fed by a shell heredoc (#56), reviewed by diff before commit.
+
+**Proposed tickets:** guard is name-based (renamed audio, other extensions); lyrics copied out of `fixtures/private/` are not caught; make "media guard" a required check on `main`; `--full` killed mid-run leaves its temporary session log; no `--record` refusal for a private fixture (docs only).
+
+**SDE position: ready for review and the comparator.** Founder checklist item M17 (R0's "M16" for this eval) is proposed in the lane report for the recorder to place.
