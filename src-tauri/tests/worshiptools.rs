@@ -8,7 +8,9 @@
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use voxxa_lib::discovery::{merge, presenter_process, DiscoveredService, DiscoverySource};
+use voxxa_lib::discovery::{
+    discover_with, merge, presenter_process, DiscoveredService, DiscoverySource,
+};
 use voxxa_lib::listen::Event;
 use voxxa_lib::{
     drive, gui_sink, make_controller, step, tell_gui, Action, Capabilities, CtlError,
@@ -198,6 +200,34 @@ fn discovery_keeps_the_process_hit_beside_the_network_hits() {
     );
     assert_eq!(alone.len(), 1);
     assert_eq!(alone[0].source, DiscoverySource::Process);
+}
+
+/// The whole discovery run (what discover_all runs, with a fake process list):
+/// the process strategy is wired in beside the network probes. Whatever the
+/// network probes find on this computer, the process hit is there exactly
+/// when Presenter is in the list.
+#[tokio::test]
+async fn discovery_runs_the_process_strategy() {
+    let short = std::time::Duration::from_millis(50);
+    let processes = |all: &[DiscoveredService]| -> Vec<_> {
+        all.iter()
+            .filter(|s| s.source == DiscoverySource::Process)
+            .map(|s| (s.kind, s.keystroke_profile))
+            .collect()
+    };
+    let with = discover_with(short, || {
+        vec![r"C:\Program Files\Presenter\Presenter.exe".into()]
+    })
+    .await;
+    assert_eq!(
+        processes(&with),
+        [(
+            PresenterKind::Keystroke,
+            Some(KeystrokeProfile::WorshipToolsPresenter)
+        )]
+    );
+    let without = discover_with(short, || vec![r"C:\Windows\explorer.exe".into()]).await;
+    assert!(processes(&without).is_empty());
 }
 
 #[tokio::test]

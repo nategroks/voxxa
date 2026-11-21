@@ -55,15 +55,24 @@ pub fn presenter_process(paths: &[String]) -> Option<DiscoveredService> {
 }
 
 /// The process list is read on a blocking thread; off Windows it is empty.
-async fn find_process() -> Option<DiscoveredService> {
-    let found = tokio::task::spawn_blocking(|| presenter_process(&process_paths())).await;
+async fn find_process(paths: fn() -> Vec<String>) -> Option<DiscoveredService> {
+    let found = tokio::task::spawn_blocking(move || presenter_process(&paths())).await;
     found.ok().flatten()
 }
 
 /// Run all discovery strategies in parallel and return the union of results.
 pub async fn discover_all(timeout: Duration) -> Vec<DiscoveredService> {
+    discover_with(timeout, process_paths).await
+}
+
+/// `discover_all` with the running processes' paths read by `paths`, so a
+/// test can give it a fake process list.
+pub async fn discover_with(
+    timeout: Duration,
+    paths: fn() -> Vec<String>,
+) -> Vec<DiscoveredService> {
     let (local, mdns, process) =
-        tokio::join!(probe_localhost(), browse_mdns(timeout), find_process());
+        tokio::join!(probe_localhost(), browse_mdns(timeout), find_process(paths));
     merge(local, mdns, process)
 }
 
