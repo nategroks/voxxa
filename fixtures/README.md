@@ -13,10 +13,14 @@ fixtures/
     audio.json               recipe that rebuilds audio.wav from committed WAVs
     audio.wav                the audio (never committed; fixtures/.gitignore)
   tools/record-session.ps1   capture desk audio + slide-change truth
+  tools/tap-truth.ps1        slide-change truth for an existing audio.wav
   setlists/pd-hymns.json     the two public-domain hymns, older v1 schema
                              (voxxad does not load it; Q1 A15 follow-up)
   pco/plan-sample.json       anonymised Planning Center plan (no people)
   SOURCES.md                 where each fixture's audio comes from
+  LICENSED_RUNS.md           licence record + numbers of each private run
+  private/<name>/            a licensed song's fixture, booth PC only
+                             (never committed; "Private fixtures" below)
 ```
 
 `fixtures/` commits no audio: a fixture is JSON only. The WAVs an
@@ -69,9 +73,11 @@ row per fixture plus a total, and checks each row against `baseline.json`.
   --shadow --model tiny`, at file speed. When the fixture has an `audio.json`,
   `audio.wav` is rebuilt from it first. Needs `ggml-tiny.bin` (download it in
   the app). A debug build takes about 2 s per second of audio; a release
-  build on Windows is much slower (Q4-01). Whisper's own log (the words it
-  hears) goes to stderr; keep only `voxxa-eval`'s lines with
-  `2> >(grep '^voxxa-eval' >&2)` (bash), as `full-eval.yml` does.
+  build on Windows is much slower (Q4-01). It prints numbers only (Q9V,
+  ADR-019 § 7): Whisper's own log (the words it hears, on `voxxad`'s stderr)
+  goes to null, and an error names `voxxad`'s exit status or a line number,
+  never a line's text. `full-eval.yml` still keeps only `voxxa-eval:` lines of
+  stderr.
 - **Re-recording (`--full --record`):** also saves the session log as the
   fixture's `session.jsonl`. `voxxad` runs in a temporary folder with
   `--log-dir .`, so the `log` path on the start line is relative
@@ -281,5 +287,64 @@ Licensed songs are tested locally under the church's CCLI licence. Only the lice
 
 - A licensed fixture lives only in `fixtures/private/<name>/` on the booth PC (LHMEZPC01). Git ignores `fixtures/private/` and every audio and video file type (root `.gitignore`).
 - Nothing made from a licensed song leaves that PC: no commit, no upload, no Google Drive (the Drive folder holds public-domain recordings only).
-- Agents never open, print, copy or move a licensed fixture or its source media. The founder makes the fixture; Q9V adds the commands here (ffmpeg conversion, setlist from the church's own licensed text, a numbers-only `voxxa-eval --full` run).
-- Tests use placeholder words, and eval output for a private fixture is numbers only.
+- Agents never open, print, copy or move a licensed fixture or its source media. The founder makes the fixture with the steps below.
+- Tests use placeholder words, and eval output for a private fixture is numbers only: `voxxa-eval --full` prints the table and its errors name a file, a line number or `voxxad`'s exit status, never the words heard (ADR-019 § 7).
+- Two checks refuse media in git (ADR-019 § 8): `src-tauri/tests/media_guard.rs` and the "media guard" job in `.github/workflows/ci.yml`. Both fail on any tracked audio or video file and anything under `fixtures/private/`; only the 15 public-domain recordings in `src-tauri/tests/fixtures/voxxad/` are allowed, by name.
+
+### Making the See a Victory fixture (founder, on LHMEZPC01)
+
+One folder: `fixtures/private/see-a-victory/`, with `audio.wav`, `setlist.json` and `truth.jsonl` (plus your `slides.txt`). Run everything in Windows PowerShell from the repository root on LHMEZPC01. You supply the path of the .mp4; nobody else looks for it, and it stays where it is.
+
+1. **Once.** Install ffmpeg (`winget install Gyan.FFmpeg`, then open a new PowerShell window). Download the Whisper Tiny model in Voxxa (Advanced, then Models, then Tiny; it is saved as `%APPDATA%\voxxa\models\ggml-tiny.bin`). Build the tools:
+   ```powershell
+   cargo build --manifest-path src-tauri/Cargo.toml --features cli --bin voxxad --bin voxxa-eval
+   ```
+2. **The folder.**
+   ```powershell
+   New-Item -ItemType Directory -Force fixtures\private\see-a-victory
+   ```
+3. **The audio.** Replace `<path>` with the full path of the .mp4 and keep the quotes:
+   ```powershell
+   ffmpeg -i "<path>" -vn -ar 16000 -ac 1 -c:a pcm_s16le fixtures\private\see-a-victory\audio.wav
+   ```
+   `-vn` drops the picture. The WAV is 16 kHz mono 16-bit, the only format `voxxad` reads (about 1.9 MB per minute).
+4. **The setlist**, from the church's own licensed text. In Notepad, write the song's slides as Presenter shows them during this recording, in the order they are shown (a chorus sung three times is written three times), with one empty line between slides. Save it as `fixtures\private\see-a-victory\slides.txt` (encoding "UTF-8"). Then paste this into PowerShell:
+   ```powershell
+   $dir = (Resolve-Path fixtures\private\see-a-victory).Path
+   $text = [IO.File]::ReadAllText("$dir\slides.txt") -replace "`r`n", "`n"
+   $i = 0
+   $slides = @($text -split "`n\s*`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ } |
+       ForEach-Object { [ordered]@{ id = $i; text = $_ }; $i++ })
+   $setlist = [ordered]@{ setlist = @([ordered]@{ title = "See a Victory"; slides = $slides }) }
+   $json = ConvertTo-Json -InputObject $setlist -Depth 5
+   [IO.File]::WriteAllText("$dir\setlist.json", $json, [Text.UTF8Encoding]::new($false))
+   "setlist.json: $($slides.Count) slides"
+   ```
+   It prints only the number of slides. It writes the file without a byte-order mark: `Set-Content -Encoding utf8` or `Out-File` in Windows PowerShell 5.1 would add one, and `voxxa-eval` then stops with "expected value at line 1 column 1". Slides are numbered from 0 in the order of `slides.txt`.
+5. **The truth** (when each slide went up). Play the WAV and press Enter at each slide change:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File fixtures\tools\tap-truth.ps1 -Wav fixtures\private\see-a-victory\audio.wav
+   ```
+   The WAV plays on the default speakers (use headphones if the sanctuary is in use). Press **Enter** when the first slide's words begin (that is slide 0, so the first slide gets its row; `record-session.ps1` cannot do this, #74), then **Enter** each time the next slide's words begin. **A number** + Enter marks that slide (a slide out of order), **b** + Enter a blank screen, **n** + Enter the next song (not needed for one song), **q** + Enter stops. It writes `truth.jsonl` next to the WAV and refuses to overwrite one. A key press lands about 200-400 ms late; the eval accepts an action up to 1 s early.
+
+   By hand instead: play the WAV in any player, note when each slide's words begin, and write one line per slide in Notepad, in time order (the format is § truth.jsonl above; `t_ms` is milliseconds from the start of `audio.wav`, `song` is 0, `slide` counts the paragraphs of `slides.txt` from 0). Save it as `fixtures\private\see-a-victory\truth.jsonl`, encoding "UTF-8" (not "UTF-8 with BOM"):
+   ```json
+   {"t_ms":4200,"song":0,"slide":0}
+   {"t_ms":19850,"song":0,"slide":1}
+   ```
+6. **Check the setup** on a public fixture (numbers only, nothing private):
+   ```powershell
+   cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full fixtures/recordings/prayer-then-reprise
+   ```
+   A table means the model and the tools work. "voxxad failed with exit code: 1" here means the model is missing or the tools are not built (step 1).
+7. **Run the eval** (M17 in the founder checklist):
+   ```powershell
+   cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full fixtures/private/see-a-victory
+   ```
+   It takes about 2 s per second of audio and prints `mode: full (Whisper Tiny)`, a table with the rows `see-a-victory` and `total`, and `FAIL` lines. The committed `baseline.json` has no thresholds for a private fixture, so the `FAIL` lines and exit code 1 are expected: this run is a report, not a gate. Exit code 2 is an error; it names a file, a line number or `voxxad`'s exit status only. Do not add `--record` (it saves every word heard as `session.jsonl`), and do not run `voxxad` on this audio by hand (its output is the words).
+8. **Record it** in [LICENSED_RUNS.md](LICENSED_RUNS.md): fill the pending cells of row 1 on the first run, and add one row per later run. The date; the commit (`git rev-parse --short HEAD`); and from the `see-a-victory` row only the numbers, for example `slides 14, hits 12, missed 2, precision 0.92, recall 0.86, median 2300 ms, p95 4100 ms, false 1, double 0 (Whisper Tiny)` (example values). Add the church's CCLI License # when you have it. Nothing else: no words, no paths under AppData, no hashes.
+9. **Before you commit.** `git status --short` must list nothing under `fixtures/private/` and no audio or video file, and the guard must pass:
+   ```powershell
+   cargo test --manifest-path src-tauri/Cargo.toml --test media_guard
+   ```
+   Commit only `fixtures/LICENSED_RUNS.md`. Never `git add -f` anything in `fixtures/private/`. The fixture can stay on LHMEZPC01 for later runs; `Remove-Item -Recurse fixtures\private\see-a-victory` deletes it (the .mp4 is not in it).
