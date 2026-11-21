@@ -280,7 +280,55 @@ early tolerance above covers.
 
 Licensed songs are tested locally under the church's CCLI licence. Only the licence record and the numbers are committed; the media, audio and lyrics never are. Every local run gets one row in [LICENSED_RUNS.md](LICENSED_RUNS.md) (ADR-019 § 7).
 
-- A licensed fixture lives only in `fixtures/private/<name>/` on the booth PC (LHMEZPC01). Git ignores `fixtures/private/` and every audio and video file type (root `.gitignore`).
+- A licensed fixture lives only in `fixtures/private/<name>/` on the booth PC (LHMEZPC01). Git ignores `fixtures/private/` and every audio and video file type (root `.gitignore`), and the media guard (`src-tauri/tests/media_guard.rs` and the CI job "no media in the repo") fails if one is ever tracked.
 - Nothing made from a licensed song leaves that PC: no commit, no upload, no Google Drive (the Drive folder holds public-domain recordings only).
-- Agents never open, print, copy or move a licensed fixture or its source media. The founder makes the fixture; Q9V adds the commands here (ffmpeg conversion, setlist from the church's own licensed text, a numbers-only `voxxa-eval --full` run).
+- Agents never open, print, copy or move a licensed fixture or its source media. The founder makes the fixture with the steps below.
 - Tests use placeholder words, and eval output for a private fixture is numbers only.
+
+### See a Victory (founder, on LHMEZPC01)
+
+One folder, `fixtures/private/see-a-victory/`, holding `audio.wav`, `slides.txt`, `setlist.json` and `truth.jsonl`. Run everything in Windows PowerShell from the repository root (`cd C:\dev\voxxa`).
+
+1. **The folder:** `New-Item -ItemType Directory -Force fixtures\private\see-a-victory`
+2. **The audio.** Put the path of the song's .mp4 in Presenter's media library in place of `<path>` (ffmpeg only reads it; install ffmpeg once with `winget install Gyan.FFmpeg`):
+   ```powershell
+   ffmpeg -i "<path>" -vn -ar 16000 -ac 1 -c:a pcm_s16le fixtures\private\see-a-victory\audio.wav
+   ```
+3. **The setlist,** from the church's own licensed text. Run `notepad fixtures\private\see-a-victory\slides.txt`, paste the text of each slide as Presenter shows it, in the order it is shown (a chorus shown twice is pasted twice), with one empty line between slides, and save. Then write `setlist.json` from it. `[IO.File]::WriteAllText` writes UTF-8 without a BOM; `Out-File` or `Set-Content -Encoding utf8` in PowerShell 5.1 add one, which `voxxad` and `voxxa-eval` refuse.
+   ```powershell
+   $dir = (Resolve-Path fixtures\private\see-a-victory).Path
+   $text = [IO.File]::ReadAllText("$dir\slides.txt") -replace "`r", ""
+   $i = 0
+   $slides = @($text.Trim() -split "\n\s*\n" | ForEach-Object { @{ id = $i++; text = $_.Trim() } })
+   $json = @{ setlist = @(@{ title = "See a Victory"; slides = $slides }) } | ConvertTo-Json -Depth 5
+   [IO.File]::WriteAllText("$dir\setlist.json", $json, [Text.UTF8Encoding]::new($false))
+   "$($slides.Count) slides"
+   ```
+4. **The truth** (`truth.jsonl`, when each slide went up). Run this, press Enter to start the audio, then press Enter the moment each slide should go up, the first slide included (its row is the one the recording kit leaves out, Q5-02). Type `b` + Enter when the screen should go blank, `q` + Enter to stop. It plays `audio.wav` through the speakers (no microphone) and times the presses from the start of the audio; pressing 200-400 ms late is fine (an action up to 1 s before its row still matches it).
+   ```powershell
+   $dir = (Resolve-Path fixtures\private\see-a-victory).Path
+   $player = [Media.SoundPlayer]::new("$dir\audio.wav"); $player.Load()
+   $rows = [Collections.Generic.List[string]]::new(); $slide = 0
+   Read-Host "Enter starts the audio" | Out-Null
+   $player.Play(); $clock = [Diagnostics.Stopwatch]::StartNew()
+   while (($key = Read-Host "Enter = slide $slide goes up, b = blank, q = stop") -ne "q") {
+       $t = $clock.ElapsedMilliseconds
+       if ($key -eq "b") { $rows.Add("{""t_ms"":$t,""blank"":true}") }
+       else { $rows.Add("{""t_ms"":$t,""song"":0,""slide"":$slide}"); $slide++ }
+   }
+   $player.Stop()
+   [IO.File]::WriteAllText("$dir\truth.jsonl", ($rows -join "`n") + "`n", [Text.UTF8Encoding]::new($false))
+   ```
+   Or write it by hand in Notepad (save as UTF-8, which Notepad writes without a BOM): play `audio.wav`, note when each slide should go up, and write one line per slide in time order, milliseconds from the start of the audio, `song` 0 and `slide` counting from 0 in `slides.txt` order (format: "truth.jsonl" above):
+   ```json
+   {"t_ms":15200,"song":0,"slide":0}
+   {"t_ms":31800,"song":0,"slide":1}
+   ```
+5. **The eval (founder check M17).** Download Whisper Tiny once in the app (it needs `ggml-tiny.bin`), then:
+   ```powershell
+   cargo build --manifest-path src-tauri/Cargo.toml --features cli --bin voxxad --bin voxxa-eval
+   cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full fixtures/private/see-a-victory
+   git rev-parse --short HEAD
+   ```
+   A debug build takes about 2 s per second of audio. The output is numbers only: a table with a `see-a-victory` row and a `total` row (the same numbers for one fixture). The `FAIL` lines after it (`FAIL see-a-victory: no thresholds in the baseline`, and `FAIL total: …` for the public set's thresholds) and exit code 1 are expected: this run only reports. Do not add `--record` (the session log it saves holds the words heard).
+6. **The record.** In [LICENSED_RUNS.md](LICENSED_RUNS.md), fill in the pending row (a later run adds one row): the date, the voxxa commit from step 5, the church's CCLI License #, and under "eval summary numbers" the `see-a-victory` row's cells by name, for example `slides 12, hits 11, precision 0.92, recall 0.92, median 2310 ms, p95 4870 ms, false 0, double 0`. Numbers only: no lyrics, no words heard, no file paths. Commit only that file; `git status` must not list anything under `fixtures/private/`.
