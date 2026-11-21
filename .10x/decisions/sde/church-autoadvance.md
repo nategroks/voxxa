@@ -751,3 +751,32 @@ Two surviving mutants, each now killed by a new test. Each mutant was re-run aga
 - **Advanced → Auto-detect** (d538a4b). The new e2e check is in `tests/gui/e2e.mjs` section 9, at the end. It sets the selects to ProPresenter and universal, sets `__mock.st.found` to the WorshipTools hit, runs Auto-detect and clicks the row. It checks that the row's meta is just "process" (no host:port, `src/main.js:1247`), that the selects read keystroke and `worship_tools_presenter`, and that Connect sends `{kind: "keystroke", keystroke_profile: "worship_tools_presenter"}`. Mutant `gui-advanced-profile-not-set` (`src/main.js:1268` replaced by `void 0;`) fails 2 checks (186 passed, 2 failed). No shipped GUI file changed.
 - **Discovery wiring** (7a8a457). `discover_all(timeout)` is `discover_with(timeout, process_paths)`. `discover_with` takes the process list as `fn() -> Vec<String>` (`src-tauri/src/discovery/mod.rs:64-77`). `discovery_runs_the_process_strategy` (`src-tauri/tests/worshiptools.rs`) runs it with a 50 ms budget. It expects exactly one process hit (keystroke, WorshipTools profile) for a fake list holding `C:\Program Files\Presenter\Presenter.exe`, and none for one holding only explorer.exe. The network probes run as in Auto-detect (localhost, plus an mDNS browse of 50 ms). The test counts only process hits, so an app found on the network cannot break it. Mutant `disc-not-wired` (`let _ = process; merge(local, mdns, None)`) fails it. Discovery is 223 / 250.
 - **Residual:** `discover_all` passing the real `process_paths` is the one line that is not tested. The real-app demo and M15 cover it (ADR-019, verifier round 2 amendment).
+
+## 2026-11-20 — Q9W final: WorshipTools Presenter found, keys guarded, no step across songs on `q9w/base` (head b0de71b)
+**Head:** `q9w/base` @ b0de71b, 23 commits on b154a55 (including the merge), plus the state commit "state(implementation): Q9W WorshipTools Presenter found, keys guarded, no step across songs":
+- the 10x lane (fdd5f85..84acaeb; the ADR-019 amendment and the budget row before any code), merged as aaca033;
+- the 10x review's must-fix 1 (705605a) and nit 2 (71ab2b5), and four ponytail grafts (7e5473d, 71ab2b5, 38f043d), with the ADR-019 base-merge amendment (492407a) and records (1927856);
+- verifier round 1 fixes (e47b2c0, 8022bfd, 63b03d6, 97279a8, 4fb1346) and records (006372c);
+- verifier round 2 fixes (d538a4b, 7a8a457) and records (b0de71b).
+
+`q9w/10x` (84acaeb) and `q9w/ponytail` (ee4d431) stay local for reference. Process record: `reviews/2026-11-20-ponytail-q9w.md`.
+
+**Built** (final line numbers):
+- **Found by process.** `presenters/keystroke.rs:54` `is_presenter_exe`; `:67`/`:100` `process_path`/`process_paths` (read-only kernel32 FFI; empty off Windows). `discovery/mod.rs:43` `presenter_process` (pure), `:64-77` `discover_all` = `discover_with(timeout, process_paths)`, `:81` `merge` (pure).
+- **Guard.** `keystroke.rs:206` `guard(profile, front_exe)` (pure), asked by `tap()` before every key through an injectable front-window lookup and sender (enigo by default); `FRONT_MSG` at `:49`.
+- **Key map.** `keystroke.rs:164`: Right, Left, no blank; `can_blank` from the key map (`:268`); `stops_at_song_end()` (`:273`, default false in `presenters/mod.rs`).
+- **Dispatch.** `dispatch.rs:110-111` the blank rule (shared by every driver with `can_blank` false); `:151-156` the song-change rule; `:179` `sent.song` recorded for every driver; `:93` `tell_gui`, used by `commands::dispatch` (`commands/mod.rs:308-320`) so the stage and the song strip follow the ask. `dispatch::step` (the raw Next/Prev) is unchanged.
+- **GUI.** `src/simple/logic.js:11` `AMBER_ASKS`, `:13` the can't-clear sentence, `:25` the amber row; `src/simple/firstrun.js:77-82` reconnects any non-universal keystroke form, `:125-135` step 2; `src/main.js:560` `stepFailed` and `:877` the loop's toast show the asks as info; Advanced → Auto-detect sets the profile (`:1266-1269`).
+- **Docs.** The runbook's WorshipTools section and `docs/INTEGRATIONS.md` Tier 3 (MIDI deferred).
+
+**Budgets** (`python scripts/loc_budget.py`): discovery (new row) **223 / 250**; everything else in `src-tauri/src` **2315 / 2317** (cap lowered from 2500 when discovery moved out; 2 lines left); presenters 1149 → 1374 / 2000 (`keystroke.rs` 396 / 400); GUI 2784 / 3000; Simple mode 436 → 450 / 600. No cap raised, no new crate, no runtime npm dependency.
+
+**Gates at b0de71b:** all pass (finisher; verifiers A and B). `cargo test --features cli` 237 passed, 0 failed, 1 ignored (`tests/worshiptools.rs` 10, `tests/dispatch.rs` 13). `test:gui` 9/9. e2e 188/188. The CI eval step: 21/21 hits, precision and recall 1.00, median 2,310 ms, p95 4,870 ms, "OK: no metric is worse". The control-byte grep matches nothing.
+
+**Verifier rounds:** round 1 (1927856) and round 2 (006372c) did not pass; each surviving mutant got a test that fails under it. **Round 3 at b0de71b: both passed.** Verifier B killed all 35 Rust and 18 GUI mutants.
+
+**Deviations (recorded in ADR-019's amendments and above):** `discovery` is `pub mod`; the ask travels as the dispatch error over `presenter-error`; the song chip to another song also asks; step 2 connects Presenter at once when it is the only find; the guard passes off Windows; the blank rule is shared, so ProPresenter 7 and 6 over WebSocket skip the conductor's blank too; `tell_gui` compares the song and slide, not the whole `Sent`; the volunteer is told to click the slide being sung, not the song chip, after a missed ask.
+
+**Tickets:** 12 open (2 medium, 10 low), `reviews/2026-11-20-q9w-tickets.md`, including "Founder: confirm the F10 unblank key (T3)" (Q9W-02) and the halfway multi-key step (Q9W-01). Q9W fixes #117 (close it at merge) and adds comments to #6, #13, #42, #44, #48, #33 and #39.
+
+**SDE position: ready to merge once CI is green.** Next: the orchestrator pushes `q9w/base`, opens the draft PR, gets every CI job green (the Linux and macOS jobs run the off-Windows stubs for the first time), merges, files the tickets and closes #117; then Q9V. Live keys in Presenter stay founder checklist M15 and M16. The scratch `voxxa.exe` in `C:/dev/q3-10x-target/release/` carries a Q9W QA identifier; never ship it.

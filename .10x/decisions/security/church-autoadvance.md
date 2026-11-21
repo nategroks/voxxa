@@ -1,5 +1,16 @@
 # Security — church-autoadvance
 
+## 2026-11-20 — Q9W final (`q9w/base` @ b0de71b; both verifiers passed)
+Details: the Q9W lane section at the end of this file; ADR-019 and its four amendments; `reviews/2026-11-20-ponytail-q9w.md` § 6.
+- **Decision: no Critical or High finding is open; the security position for Q9W is final.** Ready to merge once CI is green.
+- **Keys go to fewer places than before.** With the WorshipTools profile, `tap()` asks the pure `guard(profile, front_exe)` before every key (`presenters/keystroke.rs:206`); a key aimed at any window that is not Presenter's is not sent. Verifier B's guard mutants (removed, inverted, cfg-disabled, always Ok, unreadable window allowed) are all killed, and verifier A tried 7 non-Presenter front windows: each refused, no key recorded.
+- **No test can press a real key.** Every keystroke test driver uses a recording sender and a fake front window (8022bfd); `tests/worshiptools.rs` connects a real driver only to read its capabilities.
+- **Process enumeration stays read-only:** `PROCESS_QUERY_LIMITED_INFORMATION` and `QueryFullProcessImageNameW`, handle closed; only the fixed name "WorshipTools Presenter" leaves the backend. Whether a query handle on Presenter's process counts as "touching" it is a founder question (Q9W-06); the ponytail lane's Toolhelp32 snapshot would open none.
+- **Key map:** F10, F11, F12, Up, Down and the number pad's + and − are never sent; "." is gone; blanking stays off until the founder confirms the unblank key (Q9W-02).
+- **No new crate, capability or network path.** `Cargo.toml`, `Cargo.lock`, `deny.toml`, `tauri.conf.json` and `capabilities/default.json` are unchanged (verifier B); cargo-deny passes.
+- **Accepted risks:** any `Presenter.exe` counts as Presenter (Q9W-05); Presenter run as administrator drops keys silently (Q9W-07, M15); the guard passes off Windows (ADR-019 amendment; #33); `voxxad --presenter keystroke` stays universal with no guard (#48); a multi-key step stopped halfway by the guard leaves Voxxa behind the screen (Q9W-01, medium).
+- **The guarded real-app runs** (`qa9wx`, `qa9wp`, `qa9wf`, `qa9wa`, `qa9wb`) never listened and never dispatched; Presenter's 8 processes and the installed Voxxa were never touched; every scratch `%LOCALAPPDATA%` folder was deleted.
+
 ## 2026-11-19 — Q9 final (`q9/base` @ 89f4ccb; both verifiers passed)
 Details: the Q9 section below; ADR-018; `reviews/2026-11-19-ponytail-q9.md` § 6.
 - **Decision: no Critical or High finding is open; the security position for Q9 is final.** Ready to merge once CI is green.

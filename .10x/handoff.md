@@ -34,6 +34,54 @@
 
 ---
 
+## From: Q9W → To: Q9V (private "See a Victory" fixture and the media guard)
+**Date:** 2026-11-20
+**Phase:** Q9W (Phase 2 check + Phase 4: WorshipTools Presenter found by process, keys guarded, no step across songs; ADR-019 §§ 1-4 and 10) is done on `q9w/base`: head **b0de71b**, plus the state commit "state(implementation): Q9W WorshipTools Presenter found, keys guarded, no step across songs". Both verifiers passed in round 3 at b0de71b, and every exit criterion is met. Next: CI, PR and merge by the orchestrator (pre-approved, D6), then Q9V. **Q9V's precondition is "Q9W merged"**: start its lanes from `main` after the merge.
+
+### What Q9W did
+- **Process:** two lanes from b154a55. `q9w/10x` (7 commits, the ADR-019 amendment and the budget row first) was merged as the comparator's base (aaca033). `q9w/ponytail` (3 commits, ee4d431) stays local for reference. Then the 10x review's must-fix and nit, four ponytail grafts, and the fixes from two verifier rounds that did not pass, one commit each, each with a test that fails without it. Record: `reviews/2026-11-20-ponytail-q9w.md`.
+- **Built:** discovery finds WorshipTools Presenter by its process on Windows and connects the keystroke driver with its profile; with that profile keys go out only while Presenter is in front (amber "Bring WorshipTools Presenter to the front."); a song change presses nothing, records the new song's first slide and asks amber 'Put "<song>" live in Presenter.'; the key map is Right, Left and no blank, so `can_blank` is false and the conductor's blank is skipped (for every driver that cannot blank); the profile survives a restart; first-run step 2 names Presenter; the runbook and INTEGRATIONS describe it.
+- **Proved live, guarded:** with Presenter running on LHMEZPC01, the real first-run step 2 named it in five separate scratch builds, the real discovery returned the process hit, and the profile came back after a real restart. No key was ever sent and Presenter was never touched.
+- **Records:** ADR-019's four Q9W amendments; `decisions/{sde,qa,security}/church-autoadvance.md` ("Q9W final") and `decisions/architect/_index.md`; `reviews/2026-11-20-q9w-tickets.md`: 12 open (2 medium, 10 low). Q9W fixes #117.
+
+### The orchestrator's Q9W close-out (before Q9V)
+1. Push `q9w/base` with the `gh` credential helper, open a draft PR against `main`, and get every CI job green. Q9W has not run in CI; the Linux and macOS jobs run the off-Windows stubs (empty process list, guard passes) for the first time.
+2. Merge.
+3. Create the label `q9w`, file the 12 tickets, close #117 with 7602872, and add the comments to #6, #13, #42, #44, #48, #33 and #39 (tickets file, last section).
+
+### Q9V's task (prompt pack, `specs/2026-11-11-prompts-10x-team.md:85-95`)
+**Q9V — Private "See a Victory" fixture and the media guard (M), Phase 4 + 5, per ADR-019 §§ 7-9 and ADR-015.** Precondition: Q9W merged. Two lanes plus review, as in Q9W; record it in `reviews/YYYY-MM-DD-ponytail-q9v.md`. (Video songs were dropped: no video plays in services.)
+1. **The repo refuses media.** A test in `src-tauri/tests/` reads `git ls-files -z`, lower-cases each path, and fails if any ends in `.mp4 .mov .m4v .mkv .webm .wav .flac .mp3 .m4a` or sits under `fixtures/private/`, naming the path. It allows exactly the 15 public-domain recordings in `src-tauri/tests/fixtures/voxxad/`, listed by name. Test the pure check with a fake list (an accented folder name, an upper-case extension). Add the same check as a `ci.yml` step, so a PR that adds media goes red even if the test is skipped.
+2. **`voxxa-eval --full` prints numbers only.** Today it prints `voxxad`'s stderr (Whisper's log of the words heard), its whole stdout on failure, and a bad line (`src-tauri/src/cli/voxxa-eval/main.rs:141,146`, `score.rs:305`). In `--full`, stderr goes to null and errors name the exit code or the line number. A test proves a failing run prints no hypothesis text. (A private fixture path already works, `main.rs:54`.)
+3. **The private fixture: founder steps in `fixtures/README.md` § Private fixtures.** One folder, `fixtures/private/see-a-victory/`. Agents never open, print, copy or move its contents or the .mp4.
+   - Audio (the founder supplies the .mp4 path): `ffmpeg -i "<path>" -vn -ar 16000 -ac 1 -c:a pcm_s16le fixtures\private\see-a-victory\audio.wav`.
+   - `setlist.json` from the church's own licensed text, on LHMEZPC01 only. The txt importer writes no file, so give a BOM-free PowerShell 5.1 snippet (or a tiny `voxxad` subcommand if it fits the budget); `-Encoding utf8` adds a BOM the reader rejects.
+   - `truth.jsonl` (slide-change times): `voxxa-eval` needs it (`main.rs:80-81`). Give the founder a way to make it for the ffmpeg-made WAV, for example the recording kit's key-tap timing while the WAV plays, or written by hand.
+4. **Founder-run eval.** A checklist item: run `voxxa-eval --full fixtures/private/see-a-victory` on LHMEZPC01 and add one row to `fixtures/LICENSED_RUNS.md` with the summary numbers only.
+
+State files as in Q9W (`decisions/{sde,qa,security}/church-autoadvance.md`, `status.md`, `handoff.md`, Q9V tickets). Exit: the media guard (test and CI step) passes and catches a planted file in a scratch run; `--full` prints numbers only; `git log --all -- fixtures/private` is empty; the docs give the founder every command.
+
+### What Q9V must know
+- **The founder checklist number.** M15 (keys with WorshipTools Presenter) and M16 (song change) are taken; see "Still open from earlier steps" below. The R0 record (`reviews/2026-11-20-ponytail-r0.md:219`) still calls the private-fixture eval "M16". Number Q9V's founder-run eval **M17**, add it to the founder checklist in this file, and say in Q9V's record that R0's "M16" for the eval became M17.
+- **What R0 already put in place** (check it in Q9V's Phase 2 check; Q9W did not touch any of it):
+  - root `.gitignore:28-41` ignores the nine media extensions and `fixtures/private/`, with a comment naming the 15 allowed recordings;
+  - `fixtures/README.md:278` § Private fixtures (the rules; Q9V adds the founder's commands);
+  - `fixtures/LICENSED_RUNS.md`: the table and row 1 (See a Victory, Elevation Worship, CCLI Song # 7129060; church CCLI License # pending from the founder; the other cells "pending").
+  - `git ls-files 'src-tauri/tests/fixtures/voxxad/*.wav'` lists exactly 15 files today. Build the allowlist from that list by name.
+- **A new synthetic WAV is ignored by `.gitignore` now.** Any public-domain recording added later needs an allowlist entry and `git add -f`, or its fixture passes locally and fails in CI (`fixtures/README.md` says so).
+- **"Catches a planted file in a scratch run":** plant the file in a throwaway clone or a scratch branch that is never pushed, show the test and the `ci.yml` check (run its command locally) failing with the path named, then delete the clone. Never commit a planted media file on `q9v/*`. Use a tiny made-up file (for example a few zero bytes named `X.WAV` and one under an accented folder), never real audio.
+- **The voxxa-eval references above held at b154a55 and Q9W did not change `src-tauri/src/cli/`.** Re-check them in the Phase 2 check: `main.rs:141` inherits `voxxad`'s stderr, `:146` puts its stdout in the failure message, `score.rs:305` puts a bad line in its error.
+- **Budget** (`python scripts/loc_budget.py` at b0de71b): voxxa-eval (`src/cli/voxxa-eval/`) 469 / 600 (131 left) takes item 2; voxxad (`src/cli/voxxad/`) 552 / 600 (48 left) only if a `voxxad` subcommand writes the setlist; **everything else in `src-tauri/src` 2,315 / 2,317 (2 left)**, so nothing for Q9V fits there. Tests in `src-tauri/tests/` and the `ci.yml` step are not counted. No cap may be raised; stop and report a shortfall.
+- **`truth.jsonl` with the recording kit:** the kit has no blank key and writes no row for the first slide (#74, Q5-02). Say how the founder adds the first slide's row by hand, or tap it.
+- **Content and safety (unchanged):** agents never open, print, copy, move or upload the .mp4, the private WAV, its `setlist.json` or `truth.jsonl`; never read `%APPDATA%\Presenter`; never press keys in Presenter or stop any of its processes; `voxxa-eval` output for the private fixture is numbers only; `LICENSED_RUNS.md` gets the licence record and numbers only. The founder supplies the .mp4 path and runs ffmpeg and the eval. Agents test with the public-domain fixtures and placeholder words only. No microphone, no keystroke dispatch, never the real identifier `com.voxxa.app`; stop every process you start, by PID.
+- **Scratch builds:** `C:/dev/q3-10x-target/release/voxxa.exe` and `C:/dev/q3-pony-target` hold Q9W QA builds (`com.voxxa.qa9wf`, `qa9wa`, `qa9wp`, `qa9wb`). Never ship them. Each `npm run tauri build` rewrites the line endings of `src-tauri/Cargo.toml` and `src-tauri/gen/schemas/*.json`; restore them with `git checkout` (#91). Give each lane its own `CARGO_TARGET_DIR`; on this PC a full `cargo test` link once failed with Windows error 1455 (paging file) and passed with `-j 2`.
+- **Q9W items Q9V does not need to touch:** Q9W-01 to Q9W-12. Q9W-04 (2 lines left in "everything else") matters for Q10, below.
+
+### Note for Q10 (added by Q9W)
+"Everything else in `src-tauri/src`" no longer counts `src/discovery/`; its cap went from 2,500 to 2,317, and it is now **2,315 / 2,317 (2 left)**, not the 2,494 / 2,500 written below. Discovery has its own row (223 / 250). Q10's Rust for the updater check needs lines found or a budget decision first (Q9W-04). Q10's CSP work must keep Simple mode's amber rows and info toasts working (`src/simple/logic.js:11-25`, `src/main.js:560,877`).
+
+---
+
 ## From: Q9 → To: Q10 (Windows signing, winget, updater hardening)
 **Date:** 2026-11-19
 **Phase:** Q9 (Phase 4, Call for help, runbooks, quick-start, ADR-018) is done on `q9/base`: head **89f4ccb**, plus the state commit "state(implementation): Q9 Call for help, runbooks, quick-start". Both verifiers passed in round 3 at 89f4ccb. Both exit criteria are met: the bundle is produced, and the links resolve. Next: CI, PR and merge by the orchestrator (pre-approved above), filing the Q9 tickets and closing #102; then Q10.
@@ -120,7 +168,7 @@ Tests in `src-tauri/tests/`, `tests/gui/` and `scripts/qa/` are not counted.
 
 ### Still open from earlier steps
 - **Founder checklist** before any pilot leaves shadow mode: QA report Q2 §10 (M1–M14), the security checklist, Q3-07 (#51), the usability script on the founder's machine (Q8-01, #109), now with Call for help and "What to do" (Q9-07, Q9-12), and **setting the support e-mail address (Q9-01)**. **M15 Keystroke with WorshipTools Presenter** on LHMEZPC01 (R0's M8): with Presenter open, step 2 names it; keys are held while Presenter is not in front; F10 once the unblank is confirmed; Presenter not run as administrator (Windows drops Voxxa's keys silently). **M16 Song change:** Voxxa asks to put the next song live and presses nothing across songs. If the light goes green but Presenter shows the wrong item, Voxxa did not see you put the song live: put it live, then click the slide being sung in Presenter (not the song chip: for the song Voxxa already asked for, the chip presses Left back to slide 1, and Left on Presenter's first slide is untested). Also check what Left on a song's first slide does in Presenter. Test card T is done (`reviews/2026-11-20-worshiptools-founder-test.md`).
-- **Founder:** apply to SignPath; open Partner Center. #73 closes as "local eval only" (ADR-019 § 9). Make the private See a Victory fixture in Q9V. Confirm the F10 unblank key (T3). Add the church's CCLI License # to `fixtures/LICENSED_RUNS.md`.
+- **Founder:** apply to SignPath; open Partner Center. #73 closes as "local eval only" (ADR-019 § 9). Make the private See a Victory fixture in Q9V. Confirm the F10 unblank key (T3; ticket Q9W-02). Add the church's CCLI License # to `fixtures/LICENSED_RUNS.md`.
 - **User decisions:** the cut-list ADR-012; Q6-01 (#83) and Q6-10 (#89).
 - **Q1 A15 follow-ups:** Q7-12 (#106); re-run the Windows verification on the merged head (`handoff-local-windows.md`); reconcile `docs/signing-policy.md` with `SIGNING.md`.
 

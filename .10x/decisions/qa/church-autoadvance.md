@@ -425,3 +425,28 @@ ADR-019 and the Q9W exit list. Placeholder titles only ("Song A", "Bravo Hymn");
 - Used: Next on step 1, Skip setup, the Advanced and Settings tabs, the two selects, Auto-detect, the discovered row, Connect (it only sets the driver's profile; listening was off and nothing was dispatched), and read-only invokes. Never used: Listen, the 20-second test, Next/Previous/Blank, the HTTP API or the stage window. Both PIDs (14924, 13732) were stopped. `%LOCALAPPDATA%\com.voxxa.qa9wf` was deleted. The installed Voxxa (PID 10228, not started here) was left alone.
 
 **Not tested here:** M15, M16, and Left on Presenter's first slide. CI has not run `q9w/base` yet.
+
+## 2026-11-20 — Q9W final (`q9w/base` @ b0de71b): verifier round 3, both passed
+**QA position: ready to merge once CI is green.** Every exit criterion is met:
+- **Unit tests** (Rust, fake presenters, fake process lists, a recording sender; no test can reach enigo): discovery by process (`tests/worshiptools.rs:121,164,210`), the foreground guard (`presenters/keystroke.rs:397,422`), no step across songs (`tests/worshiptools.rs:244,281,330,344`), `can_blank` false with no red error at a blank (`:354,375`; ProPresenter WS `tests/dispatch.rs:376`), and the exact key map (`keystroke.rs:441,470,488`).
+- **GUI tests:** the amber sentences word for word (`tests/gui/simple_logic.test.mjs`, e2e section 9) and the restart reconnect (e2e reload: WorshipTools reconnected, universal not).
+- **All gates pass** at b0de71b (finisher, verifiers A and B): 237 passed, 1 ignored; `test:gui` 9/9; e2e 188/188; the CI eval step 21/21, "OK: no metric is worse".
+- **M15 and M16** are in the founder checklist (`handoff.md`, "Still open from earlier steps").
+
+Full record: `reviews/2026-11-20-ponytail-q9w.md` §§ 6-8; tickets: `reviews/2026-11-20-q9w-tickets.md`.
+
+**Verifier rounds.**
+- **Round 1 (1927856): did not pass.** INTEGRATIONS overstated Auto-detect (e47b2c0); the guard's call site, a ProPresenter look-alike, the process hit in the merge and the GUI tell had surviving mutants (8022bfd, 63b03d6, 97279a8, 4fb1346).
+- **Round 2 (006372c): did not pass.** Two survivors: Advanced → Auto-detect not setting the profile (d538a4b, e2e) and the process strategy not wired into discovery (7a8a457, Rust).
+- **Round 3 (b0de71b): both passed.**
+  - **Verifier A** (exit criteria, real app): every gate; 8 tests of its own on a `git archive` copy (never committed) with the real driver, a fake front window and a recording sender, all pass; read-only, the real `process_paths()` found Presenter's 8 processes; guarded real app `com.voxxa.qa9wa` (CDP 9364, PIDs 284 and 5092): step 2 named Presenter, the restart kept the profile. Notes: INTEGRATIONS' "connects" wording (Q9W-12) and the M16 number (Q9V needs a new number for its eval).
+  - **Verifier B** (scope, safety, mutants): every gate; 35 Rust and 18 GUI mutants, all killed; scope clean (no manifest, lock, config or capability change); guarded real app `com.voxxa.qa9wb` (CDP 9365, PID 6120): step 2 named Presenter.
+
+**Where each check ran.**
+- **Mocked browser** (headless Edge, `tests/gui/e2e.mjs` with `mock-tauri.js`; Node for `simple_logic`): step 2 and the pick, both amber sentences and their info toasts, no red toast after an ask, the light turning green on a delivered slide, the can't-clear row, the restart reconnect, Advanced → Auto-detect and Connect, the song strip following the ask. Listen, the 20-second test and every dispatch ran only here.
+- **Rust tests:** everything in the unit-test list above, plus `tell_gui`, the merge, the whole discovery with a fake process list, and the 11 other profiles' maps.
+- **Guarded real app** (identifiers `qa9wx`, `qa9wp`, `qa9wf`, `qa9wa`, `qa9wb`; WorshipTools Presenter running, untouched): **the real first-run step 2 named the running WorshipTools Presenter in every run**; the real discovery returned the process hit; `can_blank` false after step 2 and after a real restart; Advanced → Auto-detect listed the real row and Connect set the profile. Never Listen, the 20-second test, Next/Previous/Blank, the HTTP API or the stage window, and no key was sent. Each app was stopped by PID and its `%LOCALAPPDATA%` folder deleted.
+
+**Not tested, by rule** (M15, M16): a real key reaching Presenter, a real foreground switch, Presenter as administrator, the F10 unblank, Left on Presenter's first slide. CI has not run Q9W yet.
+
+**Tickets:** 12 open (2 medium, 10 low). The test ones: Q9W-01 (the halfway multi-key step) and Q9W-11 (`discover_all` with the real process list).

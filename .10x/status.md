@@ -1,8 +1,8 @@
 # Project Status
 
 ## Project: Voxxa — voice-following slide advancer for churches
-**Current Phase:** Increment 2′, **R0 done** (WorshipTools revision, planning only, ADR-019, branch `plan/worshiptools`). **Q9W built on `q9w/base`** (10x lane merged, review must-fix 1, nit 2, four ponytail grafts and the fixes from verifier rounds 1 and 2; all gates and GUI tests green locally; push, PR and CI next). Then **Q9V** (private See a Victory fixture and the media guard), then **Q10**. Q9 merged into `main` (PR #124, e9328e2); main CI green after the ggml fix (PR #141, df40328).
-**Last Updated:** 2026-11-20 by 10x-team orchestrator (R0)
+**Current Phase:** Increment 2′. **Q9W done on `q9w/base`** (head b0de71b plus the state commit; both verifiers passed in round 3; every exit criterion met). Next: CI, PR and merge by the orchestrator (pre-approved, D6), filing the Q9W tickets and closing #117; then **Q9V** (private See a Victory fixture and the media guard), then **Q10**. R0 done (ADR-019). Q9 merged into `main` (PR #124, e9328e2); main CI green after the ggml fix (PR #141, df40328).
+**Last Updated:** 2026-11-20 by 10x-team orchestrator (Q9W)
 **Health:** On Track
 
 ## Progress
@@ -222,6 +222,34 @@
   - **Verifier rounds:** round 1 (8ade143) and round 2 (c0fae68) did not pass; each finding was fixed with a test that fails without it. **Round 3 at 89f4ccb: both passed** (verifier B: 29 of 30 mutants killed; the survivor is Q9-11).
   - **Tickets:** 16 open (1 medium, 15 low), not filed yet (label `q9`). Q9 fixes **#102** (close it at merge); comments go to #53, #49, #99, #116, #109, #34, #8 and #121 (tickets file, last sections).
 
+- [x] 2026-11-20: **Q9W** WorshipTools Presenter: found by process, keys guarded, no step across songs (Phase 2 check + Phase 4: ADR-019 §§ 1-4 and 10), with the ponytail lane. Records:
+  - `reviews/2026-11-20-ponytail-q9w.md`: both lanes, the cross-reviews, the comparator's ruling, the grafts, the disagreements, the verifier rounds, and which checks ran in the mocked browser, in Rust tests and in the guarded real app;
+  - `reviews/2026-11-20-q9w-tickets.md`;
+  - ADR-019's four Q9W amendments (Phase 2 check, base merge, verifier fixes, verifier round 2);
+  - `decisions/{sde,qa,security}/church-autoadvance.md` ("Q9W final") and `decisions/architect/_index.md`.
+
+  **Done; not merged yet.** Every exit criterion is met.
+  - **Final head:** `q9w/base` @ **b0de71b** (23 commits on b154a55, including the merge), plus the state commit. `q9w/10x` (84acaeb) and `q9w/ponytail` (ee4d431) stay local for reference.
+  - **History:**
+    - the 10x lane (fdd5f85..84acaeb; the ADR-019 amendment and the budget row before any code), merged as aaca033, the comparator's base;
+    - the 10x review's must-fix 1 (705605a: the stage and the song strip follow the song-change ask) and nit 2 (71ab2b5: the operator's asks as info toasts);
+    - ponytail grafts 7e5473d (the shared blank rule pinned for ProPresenter WS), 71ab2b5 (no red toast after an ask) and 38f043d (the runbook's red own-window row and the missed-ask symptom, corrected: click the slide being sung, not the song chip); ADR-019 amendment 492407a; records 1927856;
+    - round 1 fixes e47b2c0, 8022bfd, 63b03d6, 97279a8, 4fb1346; records 006372c;
+    - round 2 fixes d538a4b, 7a8a457; records b0de71b.
+  - **Built:**
+    - WorshipTools Presenter is found by its process on Windows (read-only kernel32 FFI, no crate) and returned by discovery as keystroke, profile `worship_tools_presenter`, source "process".
+    - With that profile, a key is sent only while Presenter's window is in front; otherwise amber "Bring WorshipTools Presenter to the front.".
+    - A song change presses nothing, records the new song's first slide and asks amber 'Put "<song>" live in Presenter.'; the stage and the song strip follow it. Steps inside a song and the raw Next/Prev are unchanged.
+    - The key map is Right, Left and no blank; `can_blank` comes from the key map (false); the conductor's blank is skipped (no red error at a prayer) for every driver that cannot blank, ProPresenter 7/6 WebSocket included; the operator's Blank is "not supported"; the light says Voxxa can't clear the screen.
+    - A saved non-universal keystroke form is reconnected at start; first-run step 2 names Presenter in plain words and connects it when it is the only find; Advanced → Auto-detect lists it.
+    - Runbook WorshipTools section (administrator note included) and `docs/INTEGRATIONS.md` Tier 3, MIDI deferred.
+  - **Gates on Windows** (rustc 1.99.1) at b0de71b, all pass (finisher; verifiers A and B): frontend, fmt, clippy with and without `--features cli`; `cargo test --features cli` 237 passed, 1 ignored; cargo-deny; the loc budget; the `dictat` grep; the CI eval step 21/21, "OK: no metric is worse"; `test:gui` 9/9; e2e 188/188. The control-byte grep matches nothing.
+  - **Budgets:** new row discovery (`src/discovery/`) **223 / 250** (D5, ADR-019 § 10); everything else in `src-tauri/src` cap lowered 2500 → 2317 when discovery moved out, now **2315 / 2317 (2 left)**; presenters 1149 → 1374 / 2000 (`keystroke.rs` 396 / 400); GUI 2784 / 3000; Simple mode 436 → 450 / 600. No cap raised, no new crate.
+  - **Testing:** (a) mocked browser: step 2, both amber sentences, info toasts, the can't-clear row, the restart reconnect, Auto-detect; (b) Rust tests with fake presenters, fake process lists and a recording sender (no test can reach enigo); (c) the guarded real app (`qa9wx`, `qa9wp`, `qa9wf`, `qa9wa`, `qa9wb`): **the real first-run step 2 named the running WorshipTools Presenter every time**, the real discovery returned the process hit, and the profile survived a real restart. The real app never listened and never sent a key; Presenter was never touched.
+  - **Verifier rounds:** round 1 (1927856) and round 2 (006372c) did not pass (surviving mutants at the guard's call site, the discovery merge and wiring, the GUI tell, Advanced → Auto-detect; one docs overstatement); each was fixed with a test that fails without it. **Round 3 at b0de71b: both passed** (verifier B: 35 Rust and 18 GUI mutants, all killed).
+  - **Tickets:** 12 open (2 medium, 10 low), not filed yet (label `q9w`), including "Founder: confirm the F10 unblank key (T3)" (Q9W-02) and the halfway multi-key step (Q9W-01). Q9W fixes **#117** (close it at merge); comments go to #6, #13, #42, #44, #48, #33 and #39 (tickets file, last sections).
+  - **Founder checklist:** M15 (keys with WorshipTools Presenter) and M16 (song change, the missed-ask symptom, Left on a first slide) are in `handoff.md`, "Still open from earlier steps".
+
 ### Release readiness (2026-11-19, Increment 1′ after Q7)
 - **What Increment 1′ delivers:** `voxxad`, a headless listening loop with a replayable JSON-lines session log (ADR-013); Whisper behind a recogniser trait with a 1 s hop (ADR-014); `voxxa-eval` with six fixtures and a CI gate (ADR-015); the evidence tracker in the conductor (ADR-016); and in Q7 a determinism test, a zero-sockets test, a report-only full eval on three OSes, release notes, a Companion guide and the runbook "eval shows regression".
 - **Ready to merge** once the first CI run shows: the Linux and Windows jobs pass `replay_no_sockets`; a throwaway mutant turns Linux red and its revert green; full-eval is green or warns on three OSes with only the table, its times recorded and the Node 20 check done. Then one manual full-eval run on `main`.
@@ -256,7 +284,8 @@
 - [ ] User decision: post-Q2 cut-list ADR (ADR-012) — HTTP API, mDNS, Hymnary, PDF, stage display, Flatpak, signing scaffolds, unused plugins; evidence in the QA report §9
 - [ ] Founder: QA checklist M1–M14 and the security checklist on the booth PC
 - [ ] Founder: run the usability script from the research plan on the founder's machine (Q8-01; user decision 3, not a merge gate). Use a fresh profile (clear `%LOCALAPPDATA%\com.voxxa.app`, keep `%APPDATA%\voxxa\models\ggml-tiny.bin`). Run U1-U13 from `decisions/qa/church-autoadvance.md` ("Q8 final") with a real microphone and presentation app. Look through every old panel once (the `[hidden]` fix changed what shows), and confirm amber for `blank_hold`. Add Call for help and a red light's "What to do" to the run (Q9-07): press Save once with the installed mail program and once on a PC without one (Q9-12), then delete the zip.
-- [ ] **Founder (R0, 2026-11-20):** confirm which key brings the lyric back after F10 in Presenter (T3; then `can_blank` can be switched on). Add the church's CCLI License # to `fixtures/LICENSED_RUNS.md`. In Q9V, give the .mp4 path and make `fixtures/private/see-a-victory/` (ADR-019 § 7).
+- [ ] **Founder (Q9W, 2026-11-20): checklist M15 and M16 on LHMEZPC01** (full text in `handoff.md`, "Still open from earlier steps"). M15: with Presenter open, step 2 names it; keys move it only while it is in front; nothing is sent and the light is amber when it is not; Presenter is not run as administrator. M16: at a song change Voxxa presses nothing and asks to put the song live; if the light goes green but Presenter shows the wrong item, put the song live and click the slide being sung; check what Left does on a song's first slide. Not a merge gate.
+- [ ] **Founder (R0, 2026-11-20):** confirm which key brings the lyric back after F10 in Presenter (T3; then `can_blank` can be switched on; ticket Q9W-02). Add the church's CCLI License # to `fixtures/LICENSED_RUNS.md`. In Q9V, give the .mp4 path and make `fixtures/private/see-a-victory/` (ADR-019 § 7).
 - [ ] **Founder: set the support e-mail address** (Q9-01; user decision 2 of Q9). Choose the address Call for help's e-mail draft should go to (a support inbox, or one per church). Then `SUPPORT_EMAIL` (`src-tauri/src/help/mod.rs:16`), its test, the quick-start's Call for help section and the dialog's sentence change together. Until then, the volunteer types the tech lead's address.
 - [x] Q4 close-out (orchestrator): PR #58 CI green (5/5 jobs at 2807ed7); merged into `main` as 571cf0d; 13 Q4 tickets filed as #59–#71 (label `q4`); #46 and #52 closed.
 - [x] **Q5 close-out (orchestrator).**
@@ -293,7 +322,12 @@
   2. [ ] Merge. After the merge, check that the three runbook URLs open on GitHub (they return 404 until then).
   3. [ ] File the 16 open Q9 tickets (`reviews/2026-11-19-q9-tickets.md`) as issues with label `q9` (create the label first). Close #102 with the commit (2c28c15). Add the comments to #53, #49, #99, #116, #109, #34, #8 and #121.
   4. [ ] Housekeeping: four headless Edge root processes with `%TEMP%\voxxa-verifya3-*` profiles were still running at the end of Q9 (PIDs 14608, 14632, 14872, 18796; started 1:16-1:18 PM, 2026-11-19). No Q9 agent started them. Stop them by PID if they are still there and nobody claims them.
-- [ ] Increment 2′ (Q8–Q11, plus Q9W and Q9V from R0): Q8 merged (a3967e8); Q9 merged (e9328e2); R0 done (ADR-019); next Q9W, Q9V, then Q10 (Windows signing, winget, updater hardening), then Q11 (close Increment 2′ on LHMEZPC01 with WorshipTools Presenter)
+- [ ] **Q9W close-out (orchestrator, pre-approved in handoff "User decisions for Q9W/Q9V", D6).**
+  1. [ ] Push `q9w/base` (with the `gh` credential helper) and open a draft PR against `main`. Every CI job must be green; Q9W has not run in CI, and the Linux and macOS jobs run the off-Windows stubs (empty process list, guard passes) for the first time.
+  2. [ ] Merge.
+  3. [ ] Create the label `q9w`, file the 12 open tickets (`reviews/2026-11-20-q9w-tickets.md`), close #117 with 7602872, and add the comments to #6, #13, #42, #44, #48, #33 and #39.
+  4. [ ] Then start Q9V (handoff, "From: Q9W → To: Q9V").
+- [ ] Increment 2′ (Q8–Q11, plus Q9W and Q9V from R0): Q8 merged (a3967e8); Q9 merged (e9328e2); R0 done (ADR-019); Q9W done on `q9w/base` (merge pending); next Q9V, then Q10 (Windows signing, winget, updater hardening), then Q11 (close Increment 2′ on LHMEZPC01 with WorshipTools Presenter)
   - [x] 2026-11-13 Q5 verifier fixes on `q5/base`: every surviving mutant named by the verifier is now killed by a test (song not compared, false advance lowering recall, EARLY_MS 999 and `<=`→`<`, the total row's false/double sums, unblank not resetting the blank, a failing `voxxad` read as success); a metric with a value but no threshold now fails the gate (ADR-015 D8 amended); voxxa-eval exits 2 when `voxxad` ran in the wrong mode (a replay that ran Whisper); both session logs re-recorded with the final `--full --record` (only the start line's `log` field changed).
   - [x] 2026-11-13 Q5 second verifier pass on `q5/base`: tests now kill the round-2 survivors: M42 (main.rs checking only the total row; a binary-level test breaks only per-fixture thresholds and needs both FAIL lines and no FAIL total), M25/M26 (one metric's comparison reversed), M37 (the table's count cells) and M47/M48 (the audio recipe's 16 kHz mono 16-bit check and header byte rate). Each test was run against its mutant and fails. No product code changed; voxxa_eval tests 23 to 26.
   - [x] 2026-11-13 Q5 verifier round 3 at c10e963: verifier A passed; verifier B failed on six surviving mutants (Q5-08 … Q5-10). The four that mattered were closed with tests in 5858872 (orchestrator, checked against each mutant); M57 and M68 deferred (Q5-10).
@@ -317,6 +351,8 @@
   After Q8 (ee431ce): GUI 2,780 / 3,000 (220 left; the welcome overlay was deleted), and the new row Simple mode (`src/simple/*`) 352 / 600 (248 left; Q8 user decision 1, ADR-017 § 5). Every Rust row is unchanged.
 
   After Q9 (89f4ccb): **everything else in `src-tauri/src` 2,494 / 2,500 (6 left)**; Simple mode 436 / 600 (164 left); GUI 2,780 / 3,000 unchanged. No cap raised (Q9 user decision 3). The backend row is now the tightest: any new backend code outside its own rows needs lines removed first or a budget decision before code.
+
+  After Q9W (b0de71b): the new row discovery (`src/discovery/`) 223 / 250 (D5, ADR-019 § 10); "everything else in `src-tauri/src`" cap lowered 2,500 → 2,317 when discovery moved out, now **2,315 / 2,317 (2 left)**; presenters 1,374 / 2,000 (`keystroke.rs` 396 / 400); GUI 2,784 / 3,000; Simple mode 450 / 600. No cap raised. Q10's Rust needs lines found or a budget decision first (Q9W-04).
 
   Mitigation: keep new tests in `src-tauri/tests/` (uncounted; Q6's 32 conductor tests are there: `conductor_evidence` 25, `conductor_scripted` 5, `conductor_unchanged` 2). No cap was raised in Q6. The GUI row is now the tightest: any GUI change (Q6-01, Q8's simple mode) needs code removed first or a budget decision before code, never a silent raise.
 - R13 (new, Q1) Fragile CI gates.
