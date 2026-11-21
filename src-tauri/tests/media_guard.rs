@@ -44,7 +44,8 @@ const ALLOWED: [&str; 15] = [
 fn refused<'a>(paths: impl IntoIterator<Item = &'a str>) -> Vec<&'a str> {
     let refuse = |path: &&str| {
         let lower = path.to_lowercase();
-        let private = lower.starts_with("fixtures/private/") || lower.contains("/fixtures/private/");
+        let private =
+            lower.starts_with("fixtures/private/") || lower.contains("/fixtures/private/");
         let media = MEDIA.iter().any(|ext| lower.ends_with(ext));
         private || (media && !ALLOWED.contains(path))
     };
@@ -153,7 +154,10 @@ fn ci_runs_the_same_check_with_the_same_list() {
     assert!(job.contains("runs-on:"), "ci.yml has no `media` job");
     assert!(job.contains("git ls-files -z"), "{job}");
     assert!(job.contains("lower=${path,,}"), "{job}");
-    assert!(job.contains("fixtures/private/*|*/fixtures/private/*"), "{job}");
+    assert!(
+        job.contains("fixtures/private/*|*/fixtures/private/*"),
+        "{job}"
+    );
     for ext in MEDIA {
         assert!(job.contains(&format!("*{ext}")), "{ext} missing: {job}");
     }

@@ -34,6 +34,13 @@ name = "voxxa-eval"
 path = "src/cli/voxxa-eval/main.rs"
 required-features = ["cli"]
 
+# Q9V: this test's main() is also the fake voxxad it runs voxxa-eval with,
+# so it has no libtest harness (tests/eval_numbers_only.rs).
+[[test]]
+name = "eval_numbers_only"
+harness = false
+required-features = ["cli"]
+
 [build-dependencies]
 tauri-build = { version = "2.7", features = [] }
 
