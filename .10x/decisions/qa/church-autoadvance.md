@@ -463,3 +463,26 @@ Full record: `reviews/2026-11-20-ponytail-q9w.md` §§ 6-8; tickets: `reviews/20
 **Mutants (9, all killed):** guard without lower-casing; without the private check; allowlist by file name; the ci.yml step without `-z`; `--full` with stderr inherited; failure showing stdout; error line quoted; bad line quoted; setlist error with serde's message.
 
 **Not tested, by rule:** the real ffmpeg conversion, the real setlist, the real truth taps and the real `--full` run on the private fixture: founder item M17. No GUI change, so no real-app run.
+
+## 2026-11-20 — Q9V final (`q9v/base` @ be4819b): verifier round 2, both passed
+**QA position: ready to merge once CI is green.** Every exit criterion is met:
+- **The media guard passes on the real tree:** `tests/media_guard.rs` 5/5; the ci.yml `media` step as written, "media guard: 287 tracked paths, no media outside the 15 allowed recordings", exit 0.
+- **It catches a planted file in a scratch run:** at 6afd02f the finisher staged three empty dummies (`Músicas/canción.wav`, `clips/Song A.MP4`, `fixtures/private/see-a-victory/setlist.json`) in a throwaway clone: the step printed one `::error::` line for each and exited 1; `no_tracked_path_is_media_or_under_fixtures_private` and the CI-step test both failed naming the three; the clone was deleted. Verifier A repeated it with six paths one at a time and verifier B with five bad paths and one allowed one; the suite itself now plants 17 paths in a temporary repo on every run.
+- **`--full` prints numbers only:** `eval_numbers_only` 6 checks; a real Whisper Tiny `--full` run on `prayer-then-reprise` printed the mode line, the table and a `FAIL total` line, with 0 bytes on stderr; verifier A's own fake `voxxad` leaked no placeholder word in any failure shape.
+- **`git log --all -- fixtures/private`** prints nothing.
+- **The docs give the founder every command:** `fixtures/README.md` steps 1-9 and M17 in `handoff.md`. Verifier A ran the ffmpeg command on a synthetic test-pattern mp4 (16 kHz mono 16-bit, read by `voxxad`), the setlist snippet in PowerShell 5.1 (no BOM, accepted by both readers) and `tap-truth.ps1` with piped keys on a silent WAV (the format `parse_truth` reads).
+- **The default CI path is unchanged:** the CI eval step 21/21, "OK: no metric is worse", output identical to 84a3966 (verifier A).
+
+Full record: `reviews/2026-11-20-ponytail-q9v.md` §§ 6-9; tickets: `reviews/2026-11-20-q9v-tickets.md`.
+
+**Verifier rounds.**
+- **Round 1 (a4bd409): did not pass.** R2: the `-z` parsing was unproved, because the real tree has no accented path (3980585, a temporary repo with accented paths). C1-C6: no test ran the CI step's bash, so its mutants survived (3980585 runs the `run: |` block on the real tree and on planted files; efa5b7d plants them as index entries so `PRAYER.WAV` fits beside `prayer.wav`). E4c, E4d: replay's quoted error line and stderr were unpinned (6afd02f). The finisher killed every listed mutant; `|| true` after the read loop is not a mutant (no `set -e`).
+- **Round 2 (be4819b): both passed.**
+  - **Verifier A** (exit criteria): every gate; the planted-file runs, the fake-`voxxad` runs, the real Whisper Tiny run and the founder-tool runs above. Non-blocking: after `b`, Enter in `tap-truth.ps1` moves to the next slide, and the README does not say so (Q9V-10).
+  - **Verifier B** (scope, safety, mutants): every gate; scope clean; all named mutants killed on the Rust side, the CI step, the eval and the default path. Two minor survivors, an `if:` gate on the `media` job or its step (Q9V-03); the no-`-z` mutant is caught only while `core.quotepath` is true (Q9V-04).
+
+**Where each check ran.** Rust tests and bash on Windows (Git bash 5.3), in throwaway clones, detached worktrees and temporary repos. No GUI change, so the mocked browser ran only the regression suites (`test:gui` 9/9, e2e 188/188) and the real app was not started.
+
+**Not tested, by rule:** the real ffmpeg conversion of the .mp4, the real setlist, the real truth taps and the real `--full` run on the private fixture (founder item M17). CI has not run Q9V yet: the `media` job, `eval_numbers_only` and the CI-step test run on Linux and macOS for the first time there (on a macOS runner with bash 3.2 the CI-step test prints SKIPPED).
+
+**Tickets:** 10 open (1 medium, 9 low). The test ones: Q9V-03 (the `if:` gate) and Q9V-04 (`core.quotepath`).

@@ -800,3 +800,30 @@ ADR-019 §§ 7-9 and ADR-015; ADR-019's "Amendment (Q9V)" records the choices be
 **Proposed tickets:** guard is name-based (renamed audio, other extensions); lyrics copied out of `fixtures/private/` are not caught; make "media guard" a required check on `main`; `--full` killed mid-run leaves its temporary session log; no `--record` refusal for a private fixture (docs only).
 
 **SDE position: ready for review and the comparator.** Founder checklist item M17 (R0's "M16" for this eval) is proposed in the lane report for the recorder to place.
+
+## 2026-11-20 — Q9V final: private See a Victory fixture and the media guard on `q9v/base` (head be4819b)
+**Head:** `q9v/base` @ be4819b, 17 commits on 84a3966 (including the merge), plus the state commit "state(implementation): Q9V media guard, numbers-only eval, private fixture steps":
+- the 10x lane (b73a9a9..c5ffb23; see the lane entry above), merged as c847eab, the comparator's base;
+- four ponytail grafts: 2b365b8 (runbook and release note: `--full` discards Whisper's log), ddb96b8 (README step 7: what "voxxad failed with exit code: 1" means), 4b53c67 (the `media` job on `ubuntu-latest`), e17fe19 (two look-alike paths in the guard's fine list);
+- the 10x review's should-fix 1 (1931c59, the BOM setlist error as printed) and the finisher's 325a467 (README step 6: a `FAIL total` line is normal for one fixture); records a4bd409 (M17 in the handoff);
+- verifier round 1 fixes, tests only: 3980585, efa5b7d, 6afd02f; records be4819b.
+
+`q9v/10x` (c5ffb23) and `q9v/ponytail` (ce65275) stay local for reference. Process record: `reviews/2026-11-20-ponytail-q9v.md`.
+
+**Built** (final line numbers):
+- **Media guard.** `src-tauri/tests/media_guard.rs`: `refused()` (`:48`, pure), `tracked(root)` (`:85`, `git ls-files -z`), and five tests: accented paths read as written from a temporary repo (`:114`); the real tree (`:131`, also fails when an allowed WAV is no longer tracked); the fake list (`:150`); the ci.yml step run with bash 4 on the real tree and on a temporary repo of 17 planted paths staged as empty-blob index entries, plus no `continue-on-error` (`:261`); the two allowlists in step (`:318`). `ci.yml` job `media` (`:157-199`, `ubuntu-latest`, bash): the 15 exact paths in `declare -A`, `read -d ''` over `git ls-files -z`, `${path,,}`, root and nested `fixtures/private/`, fails when git lists fewer than 100 paths.
+- **Numbers-only `--full`.** `cli/voxxa-eval/main.rs:150` `voxxad(args, cwd, full)`: stderr null (`:158`) and the exit status only on failure (`:167`) when `full`; `:111` error lines by number in `--full`; `:80` the setlist error by line and column; `score.rs:269,307` bad truth and `voxxad` lines by number. Replay keeps `voxxad`'s stderr, its stdout on failure and the quoted error lines. `tests/eval_numbers_only.rs` (`harness = false`, a `[[test]]` with `required-features = ["cli"]`): the test binary doubles as a fake `voxxad`; 6 checks.
+- **Founder docs.** `fixtures/README.md` § Private fixtures, "Making the See a Victory fixture", 9 steps; `fixtures/tools/tap-truth.ps1`; `fixtures/LICENSED_RUNS.md` points at steps 7-8. Runbook and release note: `--full` discards Whisper's log.
+- **ADR-019 "Amendment (Q9V)"** records the choices (own job, exact-path allowlist, number-only errors in both modes, the founder's files, the budget).
+
+**Budgets** (`python scripts/loc_budget.py`): voxxa-eval 469 → **488 / 600**; voxxad 552 / 600, everything else in `src-tauri/src` 2315 / 2317 and discovery 223 / 250, unchanged. No cap raised, no row added, no crate added. The verifier fixes are tests only (not counted).
+
+**Gates:** all pass at 6afd02f (finisher) and at be4819b (verifiers A and B; be4819b changes only `status.md`). `cargo test --features cli` 242 passed, 0 failed, 1 ignored; `media_guard` 5/5 (the CI-step test ran, not skipped); `eval_numbers_only` 6 checks. fmt; clippy with and without `--features cli`; cargo-deny; budgets; dictat grep empty. The CI eval step 21/21, precision and recall 1.00, median 2,310 ms, p95 4,870 ms, "OK: no metric is worse" (unchanged). The ci.yml media step as written: "287 tracked paths", exit 0. `test:gui` 9/9; e2e 188/188. The control-byte grep matches nothing.
+
+**Verifier rounds:** round 1 (a4bd409) did not pass: R2 (the `-z` parsing unproved), C1-C6 (the CI step's own logic untested) and E4c, E4d (replay's error-line quote and stderr unpinned); each got a test that fails under its mutant. **Round 2 at be4819b: both passed.** Verifier B's two minor survivors (an `if:` gate on the job or its step) are Q9V-03.
+
+**Deviations (recorded in ADR-019's Q9V amendment and above):** the CI check is its own job, not a step of the three-OS `check` job; truth, setlist and bad `voxxad`-line errors are number-only in replay too; a private run exits 1 (no baseline row) and is documented as a report; the two allowlist copies are kept (the comparator's ruling); the lane's first edit of the eval files used a python script fed by a shell heredoc (#56), reviewed by diff before commit.
+
+**Tickets:** 10 open (1 medium, 9 low), `reviews/2026-11-20-q9v-tickets.md`. Q9V fixes #105 (Q7-11; close it at merge) and adds comments to #74, #79 and #107.
+
+**SDE position: ready to merge once CI is green.** Next: the orchestrator pushes `q9v/base`, opens the draft PR, gets every CI job green (the `media` job, `eval_numbers_only` and the CI-step test run on GitHub for the first time), merges, files the tickets and closes #105; then Q10. The private eval is founder item M17.
