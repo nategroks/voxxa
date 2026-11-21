@@ -638,3 +638,70 @@ fn a_session_log_recorded_with_another_setlist_is_an_error_not_a_score() {
     assert!(stderr.contains("different setlist"), "{stderr}");
     assert!(!String::from_utf8_lossy(&out.stdout).contains("mode:"));
 }
+
+/// A fake `voxxad`: placeholder "words heard" on stderr and in stdout (a
+/// hypothesis, an error event, a line that is not JSON), then the exit code
+/// in FAKE_EXIT. It needs no model, so CI runs it on every OS.
+const FAKE_VOXXAD: &str = r##"fn main() {
+    eprintln!("whisper heard: alpha bravo");
+    print!("{}", r#"{"v":1,"t":0,"type":"status","state":"start"}
+{"v":1,"t":1,"type":"hypothesis","text":"alpha bravo"}
+{"v":1,"t":2,"type":"error","message":"alpha bravo"}
+alpha bravo
+"#);
+    std::process::exit(std::env::var("FAKE_EXIT").unwrap().parse().unwrap());
+}"##;
+
+/// Q9V / ADR-019 § 7: `--full` on a private fixture prints numbers only.
+/// A copy of `voxxa-eval` runs the fake `voxxad` beside it: whether it fails,
+/// prints an error event and a bad line, or the setlist is wrong, nothing it
+/// heard and no slide text reaches the output; errors name the exit code or
+/// a line number.
+#[test]
+fn a_full_run_prints_no_words_heard_even_when_voxxad_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let exe = |name: &str| (dir.path()).join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+    std::fs::copy(eval_exe(), exe("voxxa-eval")).unwrap();
+    let src = dir.path().join("fake_voxxad.rs");
+    std::fs::write(&src, FAKE_VOXXAD).unwrap();
+    let rustc = (Command::new("rustc").arg(&src).arg("-o").arg(exe("voxxad")))
+        .current_dir(dir.path())
+        .status();
+    assert!(rustc.unwrap().success(), "rustc builds the fake voxxad");
+
+    let fixture = |name: &str, slides: &str| {
+        let path = dir.path().join(name);
+        std::fs::create_dir(&path).unwrap();
+        let setlist = format!(r#"{{"setlist":[{{"title":"Song A","slides":{slides}}}]}}"#);
+        std::fs::write(path.join("setlist.json"), setlist).unwrap();
+        std::fs::write(
+            path.join("truth.jsonl"),
+            "{\"t_ms\":0,\"song\":0,\"slide\":0}\n",
+        )
+        .unwrap();
+        path
+    };
+    let good = fixture("song-a", r#"[{"id":0,"text":"alpha bravo"}]"#);
+    let bad_setlist = fixture("song-b", r#""alpha bravo""#);
+    for (path, code, want) in [
+        (&good, "3", vec!["voxxad failed: exit", ": 3"]),
+        (
+            &good,
+            "0",
+            vec!["voxxad reported an error, line 3", "voxxad line 4"],
+        ),
+        (&bad_setlist, "0", vec!["not a setlist (line 1)"]),
+    ] {
+        let out = (Command::new(exe("voxxa-eval")).arg("--full").arg(path))
+            .env("FAKE_EXIT", code)
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let all = stdout + String::from_utf8_lossy(&out.stderr);
+        assert_eq!(out.status.code(), Some(2), "{all}");
+        for w in want {
+            assert!(all.contains(w), "{w}: {all}");
+        }
+        assert!(!all.contains("alpha") && !all.contains("bravo"), "{all}");
+    }
+}

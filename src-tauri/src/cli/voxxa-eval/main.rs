@@ -73,8 +73,11 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
     for dir in &dirs {
         let name = dir.file_name().unwrap_or_default().to_string_lossy();
         let setlist = dir.join("setlist.json");
-        let songs = serde_json::from_str::<Setlist>(&read(&setlist)?)
-            .map_err(|e| format!("{}: {e}", setlist.display()))?;
+        // serde quotes a wrong value, which may be a licensed lyric (ADR-019 § 7).
+        let songs = serde_json::from_str::<Setlist>(&read(&setlist)?).map_err(|e| match full {
+            true => format!("{}: not a setlist (line {})", setlist.display(), e.line()),
+            false => format!("{}: {e}", setlist.display()),
+        })?;
         let songs: Vec<_> = (songs.setlist.into_iter())
             .map(|s| (s.title, s.slides.len()))
             .collect();
@@ -97,8 +100,14 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
         if stdout.contains(r#""state":"start""#) != full {
             return Err(format!("{name}: voxxad did not run in the mode asked for"));
         }
-        for error in stdout.lines().filter(|l| l.contains(r#""type":"error""#)) {
-            eprintln!("voxxa-eval: {name}: voxxad reported {error}");
+        let errors = stdout.lines().enumerate();
+        for (n, line) in errors.filter(|(_, l)| l.contains(r#""type":"error""#)) {
+            let what = if full {
+                format!("an error, line {}", n + 1)
+            } else {
+                line.into()
+            };
+            eprintln!("voxxa-eval: {name}: voxxad reported {what}");
         }
         let actions = score::parse_actions(&stdout).map_err(|e| format!("{name}: {e}"))?;
         rows.push((name.into_owned(), score::score(&truth, &actions)));
@@ -129,20 +138,24 @@ fn read(path: &Path) -> Result<String, String> {
     fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// Runs the `voxxad` built beside this binary (in `cwd` if given) and
-/// returns its stdout.
-fn voxxad(args: &[&OsStr], cwd: Option<&Path>) -> Result<String, String> {
+/// Runs the `voxxad` built beside this binary and returns its stdout.
+/// `full_dir` is the `--full` run's folder: Whisper's log on stderr and a
+/// failed run's stdout hold the words heard, so neither is shown there,
+/// only the exit code (ADR-019 § 7).
+fn voxxad(args: &[&OsStr], full_dir: Option<&Path>) -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let exe = exe.with_file_name(format!("voxxad{}", std::env::consts::EXE_SUFFIX));
     let mut cmd = Command::new(&exe);
-    if let Some(dir) = cwd {
-        cmd.current_dir(dir);
+    cmd.args(args).stderr(Stdio::inherit());
+    if let Some(dir) = full_dir {
+        cmd.current_dir(dir).stderr(Stdio::null());
     }
-    let out = (cmd.args(args).stderr(Stdio::inherit()).output())
+    let out = (cmd.output())
         .map_err(|e| format!("{}: {e} (cargo build --features cli --bins)", exe.display()))?;
     let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
     match out.status.success() {
         true => Ok(stdout),
+        false if full_dir.is_some() => Err(format!("voxxad failed: {}", out.status)),
         false => Err(format!("voxxad failed: {}", stdout.trim())),
     }
 }
