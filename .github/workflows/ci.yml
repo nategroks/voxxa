@@ -191,7 +191,7 @@ jobs:
                 if [[ -n "${allowed[$path]:-}" ]]; then continue; fi ;;
               *) continue ;;
             esac
-            echo "::error::tracked media or private fixture file (ADR-019 § 8): $path"
+            echo "::error::tracked media or private fixture file (ADR-019 section 8): $path"
             bad=1
           done < <(git ls-files -z)
           if [ "$count" -lt 100 ]; then echo "::error::git ls-files listed only $count paths"; exit 1; fi
