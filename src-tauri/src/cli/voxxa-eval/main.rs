@@ -73,8 +73,15 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
     for dir in &dirs {
         let name = dir.file_name().unwrap_or_default().to_string_lossy();
         let setlist = dir.join("setlist.json");
-        let songs = serde_json::from_str::<Setlist>(&read(&setlist)?)
-            .map_err(|e| format!("{}: {e}", setlist.display()))?;
+        // Where, not what: serde quotes a wrong value, which may be lyrics.
+        let songs = serde_json::from_str::<Setlist>(&read(&setlist)?).map_err(|e| {
+            let at = format!("line {}, column {}", e.line(), e.column());
+            format!(
+                "{}: not a setlist ({:?} error at {at})",
+                setlist.display(),
+                e.classify()
+            )
+        })?;
         let songs: Vec<_> = (songs.setlist.into_iter())
             .map(|s| (s.title, s.slides.len()))
             .collect();
@@ -91,13 +98,20 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
                 "--setlist".as_ref(),
                 setlist.as_os_str(),
             ];
-            voxxad(&args, None)?
+            voxxad(&args, None, false)?
         };
         // Only a recognizer run prints a start line; replay never does.
         if stdout.contains(r#""state":"start""#) != full {
             return Err(format!("{name}: voxxad did not run in the mode asked for"));
         }
-        for error in stdout.lines().filter(|l| l.contains(r#""type":"error""#)) {
+        let errors = stdout.lines().enumerate();
+        for (n, error) in errors.filter(|(_, l)| l.contains(r#""type":"error""#)) {
+            // --full: its number only; the message may quote what was heard.
+            let error = if full {
+                format!("an error on its line {}", n + 1)
+            } else {
+                error.into()
+            };
             eprintln!("voxxa-eval: {name}: voxxad reported {error}");
         }
         let actions = score::parse_actions(&stdout).map_err(|e| format!("{name}: {e}"))?;
@@ -130,20 +144,28 @@ fn read(path: &Path) -> Result<String, String> {
 }
 
 /// Runs the `voxxad` built beside this binary (in `cwd` if given) and
-/// returns its stdout.
-fn voxxad(args: &[&OsStr], cwd: Option<&Path>) -> Result<String, String> {
+/// returns its stdout. With `full` (ADR-019 § 7), Whisper's log of the words
+/// it hears (stderr) goes to null, and a failure names the exit code only:
+/// stdout carries those words too.
+fn voxxad(args: &[&OsStr], cwd: Option<&Path>, full: bool) -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let exe = exe.with_file_name(format!("voxxad{}", std::env::consts::EXE_SUFFIX));
     let mut cmd = Command::new(&exe);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
-    let out = (cmd.args(args).stderr(Stdio::inherit()).output())
+    let stderr = if full {
+        Stdio::null()
+    } else {
+        Stdio::inherit()
+    };
+    let out = (cmd.args(args).stderr(stderr).output())
         .map_err(|e| format!("{}: {e} (cargo build --features cli --bins)", exe.display()))?;
     let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
-    match out.status.success() {
-        true => Ok(stdout),
-        false => Err(format!("voxxad failed: {}", stdout.trim())),
+    match (out.status.success(), full) {
+        (true, _) => Ok(stdout),
+        (false, true) => Err(format!("voxxad failed with {}", out.status)),
+        (false, false) => Err(format!("voxxad failed: {}", stdout.trim())),
     }
 }
 
@@ -164,7 +186,7 @@ fn run_full(dir: &Path, setlist: &Path, record: bool) -> Result<String, String> 
     let mut args: Vec<&OsStr> = vec!["--stdin-audio".as_ref(), wav.as_ref()];
     args.extend(["--setlist".as_ref(), setlist.as_os_str()]);
     args.extend(["--shadow", "--model", "tiny", "--log-dir", "."].map(OsStr::new));
-    let stdout = voxxad(&args, Some(logs.path()))?;
+    let stdout = voxxad(&args, Some(logs.path()), true)?;
     if record {
         let log = (fs::read_dir(logs.path())
             .map_err(|e| e.to_string())?
