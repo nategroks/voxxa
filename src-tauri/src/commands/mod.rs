@@ -305,16 +305,16 @@ pub async fn dispatch(
     let focused = voxxa_focused(app);
     let p = presenter.lock().await;
     let mut sent = sent.lock().await;
-    dispatch::drive(p.as_ref(), &mut sent, &action, focused, operator)
-        .await
-        .map_err(|e| e.to_string())?;
-    if let Action::Goto {
+    // A refusal that still moved `sent` tells the GUI too (dispatch::tell_gui).
+    let before = *sent;
+    let r = dispatch::drive(p.as_ref(), &mut sent, &action, focused, operator).await;
+    if let Some(Action::Goto {
         global_index,
         slide_text,
         next_slide_text,
         song_title,
         ..
-    } = action
+    }) = dispatch::tell_gui(r.is_ok(), before, *sent).then_some(action)
     {
         let _ = app.emit(
             "slide-advanced",
@@ -327,7 +327,7 @@ pub async fn dispatch(
             },
         );
     }
-    Ok(())
+    r.map_err(|e| e.to_string())
 }
 
 /// Blank the audience output now: the operator's Blank button, the tray and

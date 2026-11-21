@@ -1,5 +1,16 @@
 # Security — church-autoadvance
 
+## 2026-11-20 — Q9W final (`q9w/base` @ b0de71b; both verifiers passed)
+Details: the Q9W lane section at the end of this file; ADR-019 and its four amendments; `reviews/2026-11-20-ponytail-q9w.md` § 6.
+- **Decision: no Critical or High finding is open; the security position for Q9W is final.** Ready to merge once CI is green.
+- **Keys go to fewer places than before.** With the WorshipTools profile, `tap()` asks the pure `guard(profile, front_exe)` before every key (`presenters/keystroke.rs:206`); a key aimed at any window that is not Presenter's is not sent. Verifier B's guard mutants (removed, inverted, cfg-disabled, always Ok, unreadable window allowed) are all killed, and verifier A tried 7 non-Presenter front windows: each refused, no key recorded.
+- **No test can press a real key.** Every keystroke test driver uses a recording sender and a fake front window (8022bfd); `tests/worshiptools.rs` connects a real driver only to read its capabilities.
+- **Process enumeration stays read-only:** `PROCESS_QUERY_LIMITED_INFORMATION` and `QueryFullProcessImageNameW`, handle closed; only the fixed name "WorshipTools Presenter" leaves the backend. Whether a query handle on Presenter's process counts as "touching" it is a founder question (Q9W-06); the ponytail lane's Toolhelp32 snapshot would open none.
+- **Key map:** F10, F11, F12, Up, Down and the number pad's + and − are never sent; "." is gone; blanking stays off until the founder confirms the unblank key (Q9W-02).
+- **No new crate, capability or network path.** `Cargo.toml`, `Cargo.lock`, `deny.toml`, `tauri.conf.json` and `capabilities/default.json` are unchanged (verifier B); cargo-deny passes.
+- **Accepted risks:** any `Presenter.exe` counts as Presenter (Q9W-05); Presenter run as administrator drops keys silently (Q9W-07, M15); the guard passes off Windows (ADR-019 amendment; #33); `voxxad --presenter keystroke` stays universal with no guard (#48); a multi-key step stopped halfway by the guard leaves Voxxa behind the screen (Q9W-01, medium).
+- **The guarded real-app runs** (`qa9wx`, `qa9wp`, `qa9wf`, `qa9wa`, `qa9wb`) never listened and never dispatched; Presenter's 8 processes and the installed Voxxa were never touched; every scratch `%LOCALAPPDATA%` folder was deleted.
+
 ## 2026-11-19 — Q9 final (`q9/base` @ 89f4ccb; both verifiers passed)
 Details: the Q9 section below; ADR-018; `reviews/2026-11-19-ponytail-q9.md` § 6.
 - **Decision: no Critical or High finding is open; the security position for Q9 is final.** Ready to merge once CI is green.
@@ -97,3 +108,13 @@ Full review: `reviews/2026-11-11-security-review.md`; tickets: `reviews/2026-11-
 4. Both windows may listen to events; no other plugin API is granted.
 5. Imports run off the UI thread; a malformed PDF returns an error.
 6. A second launch focuses the running Voxxa.
+
+## 2026-11-20 — Q9W (10x lane, `q9w/10x`): WorshipTools Presenter by process, keys guarded
+ADR-019 §§ 1-4. Security Engineer review of the new surface.
+- **Process enumeration is read-only.** `presenters/keystroke.rs:67-115` opens each process with `PROCESS_QUERY_LIMITED_INFORMATION` only, reads its image path with `QueryFullProcessImageNameW`, and closes the handle. No window is read, nothing is injected, no process is signalled. Processes the user may not query are skipped. Kernel32 FFI only: no new crate; `Cargo.toml`, `Cargo.lock`, `deny.toml` and `capabilities/default.json` are unchanged; cargo-deny passes.
+- **What leaves the process list:** one fixed name ("WorshipTools Presenter") when an image path matches; the paths themselves are not logged, stored or sent to the webview.
+- **Keys only to Presenter.** With this profile, `tap()` (`keystroke.rs:222`) checks the front window's process path before every key; a key aimed at any other window is not sent. Narrower than before. Off Windows the guard passes (ADR-019 amendment); the pilot is Windows.
+- **Accepted risk: name match.** Any executable named `Presenter.exe` in front counts as Presenter (test card T1; R0 item 18). A wrong match can only receive Right or Left. The founder's M15 checks the real booth PC.
+- **Accepted risk: Presenter run as administrator.** Windows (UIPI) drops the keys silently and Voxxa cannot tell; documented in the runbook and in M15. Voxxa never asks for elevation.
+- **Key map:** F10, F11, F12, Up, Down and numpad +/- are never sent (unit test); "." is gone; the blank is off until the founder confirms the unblank key.
+- **Guarded real-app run:** scratch identifier `com.voxxa.qa9wx` (checked in the binary; `com.voxxa.app` absent), CDP on 9361, no microphone (startup only builds `AudioEngine::new()`; capture opens only in `start_listening_with_state`), no key dispatch; Presenter's process was enumerated, never touched; scratch data deleted afterwards.

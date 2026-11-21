@@ -3,8 +3,9 @@
 //! trait plus [`Sent`], so tests drive it with fake presenters
 //! (`tests/dispatch.rs`); `commands::dispatch` wires it to the app.
 
-use crate::aligner::Action;
-use crate::presenters::{CtlError, PresentationController, PresenterKind};
+use crate::aligner::Action::{self, Blank, Unblank};
+use crate::presenters::CtlError::{self, Other, Unsupported};
+use crate::presenters::{PresentationController, PresenterKind};
 use std::time::Duration;
 
 /// What Voxxa last sent to the presenter. Voxxa has sent nothing at launch,
@@ -77,14 +78,20 @@ async fn presentation_is(p: &dyn PresentationController, title: &str, operator: 
     // Planning Center lists it) is often not in the app's name.
     let want = norm(title.split('(').next().unwrap_or(title));
     match p.current_state().await.map(|s| s.presentation_name) {
-        Ok(Some(name)) => {
-            let have = norm(&name);
-            // The app's name may add to the title ("Be Thou My Vision (Irish)"),
-            // never drop from it: "Grace" is not "Amazing Grace".
-            !want.is_empty() && have.contains(&want)
-        }
+        // The app's name may add to the title ("Be Thou My Vision (Irish)"),
+        // never drop from it: "Grace" is not "Amazing Grace".
+        Ok(Some(name)) => !want.is_empty() && norm(&name).contains(&want),
         _ => false,
     }
+}
+
+/// Does `commands::dispatch` tell the GUI (`slide-advanced`)? When `drive`
+/// was Ok, or a refusal still moved the song or slide in `sent`: the
+/// song-change ask records the new song's first slide (ADR-019 § 3), so the
+/// stage and the song strip follow. The guard's refusal and the goto drivers'
+/// "select …" leave the position as it was (a blank may change) and tell nothing.
+pub fn tell_gui(ok: bool, before: Sent, after: Sent) -> bool {
+    ok || (before.global, before.song) != (after.global, after.song)
 }
 
 /// Send one conductor action. `operator` marks button, tray, HTTP and
@@ -98,8 +105,12 @@ pub async fn drive(
 ) -> Result<(), CtlError> {
     let (song, slide, target, title) = match action {
         Action::Noop => return Ok(()),
-        Action::Blank | Action::Unblank => {
-            let want = matches!(action, Action::Blank);
+        // A blank the driver cannot do: the conductor's is skipped, so a prayer
+        // raises no red error; the operator's is refused (ADR-019 § 4).
+        Blank | Unblank if !p.capabilities().can_blank && !operator => return Ok(()),
+        Blank | Unblank if !p.capabilities().can_blank => return Err(Unsupported("blank")),
+        Blank | Unblank => {
+            let want = matches!(action, Blank);
             return set_blank(p, sent, want, voxxa_focused).await;
         }
         Action::Goto {
@@ -137,7 +148,12 @@ pub async fn drive(
         if new_song || sent.global != Some(target) {
             p.goto_slide(slide).await?;
         }
-        sent.song = Some(song);
+    } else if p.stops_at_song_end() && sent.song.is_some_and(|s| s != song) {
+        // T2: next at a song's end moves WorshipTools Presenter to the next
+        // service item, so a song change presses nothing (ADR-019 § 3). The
+        // operator puts the song live, which shows its first slide: record that.
+        (sent.global, sent.song) = (Some(target - slide as i64), Some(song));
+        return Err(Other(format!("Put \"{title}\" live in Presenter.")));
     } else if let Some(cur) = sent.global {
         // Keystroke-style drivers step through the setlist with next/prev.
         // With nothing sent yet the position is unknown, so nothing is pressed.
@@ -159,7 +175,8 @@ pub async fn drive(
             }
         }
     }
-    sent.global = Some(target);
+    // Every driver records the song, the stepping ones too (ADR-019 § 3).
+    (sent.global, sent.song) = (Some(target), Some(song));
     if sent.blank {
         set_blank(p, sent, false, voxxa_focused).await?;
     }

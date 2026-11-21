@@ -373,3 +373,80 @@ Three findings, one commit each, each with a check that fails without it.
 **Not tested:** the real launch of a mail program and Explorer (by rule; Q9-12); CI has not run Q9 yet; the browser test still runs only on Windows (Q8-04).
 
 **Tickets:** 16 open (1 medium, 15 low). The test and tooling ones: Q9-07, Q9-11, Q9-12, Q9-15.
+
+## 2026-11-20 — Q9W (10x lane, `q9w/10x`): exit demo
+ADR-019 and the Q9W exit list. Placeholder titles only ("Song A", "Bravo Hymn"); no recognised words anywhere.
+
+**Unit tests (Rust, fake presenters and pure helpers; no test creates enigo or presses a key):**
+- Discovery by process with a fake process list: `src-tauri/tests/worshiptools.rs:108` (hit with kind, profile, source, empty host and port 0, and the JSON the GUI reads; misses on an empty list and on look-alikes). Name matching: `presenters/keystroke.rs` test `presenter_is_known_by_its_process_name_or_path`.
+- The foreground guard: `keystroke.rs` test `worshiptools_keys_go_only_to_presenter_in_front` (`keys_allowed`; unreadable front window refused; other profiles unaffected; `FRONT_MSG` word for word).
+- No step across songs: `worshiptools.rs:148` (inside a song: Rights; song change: no key, the ask, first slide recorded; a mid-song landing; a chip back to an earlier song); `:179` raw Next/Prev unchanged; `:193` other profiles still step across.
+- `can_blank` false with no red error: `worshiptools.rs:203` (conductor blank skipped, operator blank "not supported", no key) and `:224` (through `gui_sink`: a prayer emits no `presenter-error`; the song change emits only the ask).
+- The exact key map: `keystroke.rs` tests `the_worshiptools_key_map_is_right_left_and_no_blank` (never F10/F11/F12/Up/Down/numpad +/-/".") and `other_profiles_keep_their_keys`; `can_blank_and_the_song_end_stop_come_from_the_profile`.
+
+**GUI, mocked backend:** `tests/gui/simple_logic.test.mjs:143,160` (both amber sentences word for word, look-alikes stay red, the can't-clear sentences); `tests/gui/e2e.mjs:529-579`, section 9 (step 2 names WorshipTools Presenter and connects with its profile, the pick next to another app, amber guard and song-change ask on the light, info toasts, the can't-clear row, the restart reconnect, and no reconnect for a universal form). Results: `test:gui` 9/9, e2e 176/176.
+
+**GUI, the real app (guarded scratch build):** identifier `com.voxxa.qa9wx` (inlined in the binary; `com.voxxa.app` absent), CDP 9361, built with `npm run tauri build -- --no-bundle --config <scratch>`, never committed. Startup opens no audio input (checked in code first). With WorshipTools Presenter running on LHMEZPC01, step 2 ("Find your presentation app") showed "Found WorshipTools Presenter. It has no remote control, so Voxxa presses its keys for you. Keep WorshipTools Presenter in front during the service." and saved `{"kind":"keystroke","keystroke_profile":"worship_tools_presenter"}`; `get_presenter_info` then reported `can_blank: false`. After the app was stopped by PID and started again, `can_blank` was false at once (the profile was reconnected). Only "Next" on step 1, "Skip setup", "Advanced" and "Set-up guide" were clicked; Listen, the test, Next/Previous/Blank, the HTTP API and the stage window were never touched; Presenter's process was never touched. Both PIDs stopped; `%LOCALAPPDATA%\com.voxxa.qa9wx` deleted. (The first CDP pass read step 1 before step 2 rendered and skipped the guide; the second pass reopened the guide and is the one recorded.)
+
+**Not tested here:** a real key reaching Presenter, the guard against a real foreground switch, Presenter as administrator, and the F10 unblank; these are founder checklist M15 and M16 (in `handoff.md`). CI has not run Q9W yet.
+
+## 2026-11-20 — Q9W base (`q9w/base`): exit demo re-taken after the merge, fixes and grafts
+**Gates** (Windows, `CARGO_TARGET_DIR=C:/dev/q3-10x-target`). npm ci and the build pass. fmt passes. clippy `-D warnings` passes with and without `--features cli`. `cargo test --features cli`: 235 passed, 0 failed, 1 ignored (2 tests are new: `tests/dispatch.rs` 13, `tests/worshiptools.rs` 8). cargo-deny: advisories, bans and licences pass. The budget passes: everything else 2316 / 2317, discovery 210 / 250, GUI 2784 / 3000, Simple mode 450 / 600. The `dictat` grep is empty. The CI eval step scores 21/21: "OK: no metric is worse". `test:gui`: 9/9. e2e: 185/185 (9 more checks than the lane).
+
+**GUI, mocked backend** (e2e section 9). After the guard's sentence and after the song-change ask, there is no `.toast-error`, and a delivered slide turns the light green. The ask arrives as dispatch now sends it: `slide-advanced` for the new song's first slide, then the ask. The light shows the ask, and the song line shows the new song. In Advanced, the song chip's ask is a bare info toast, and the strip's active chip moves to the new song. A refused Next shows the guard's sentence as info, and no toast says "failed". Screenshots: `31-advanced-worshiptools-asks-as-info` and 27-30.
+
+**GUI, the real app (guarded scratch build).** Identifier `com.voxxa.qa9wf`, inlined in the binary as two immediates; neither `com.voxxa.app` nor `xa.app` is in it. CDP on 9363. Built with `npm run tauri build -- --no-bundle --config <scratch>` and never committed. Startup opens no audio input: `lib.rs:73` builds `AudioEngine::new()` only, `select_audio_device` stores a name, and capture opens only in `start_listening_with_state` (`commands/mod.rs:229`). WorshipTools Presenter was running (8 `Presenter` processes, untouched).
+- Run 1 (fresh profile): step 1 Next led to step 2. Step 2 said "Found WorshipTools Presenter. It has no remote control, so Voxxa presses its keys for you. Keep WorshipTools Presenter in front during the service." It saved `{"kind":"keystroke","keystroke_profile":"worship_tools_presenter"}`, and `get_presenter_info` changed from `can_blank: true` to `false`. Skip setup was pressed.
+- Run 2 (restart): the first run stayed closed, and `can_blank` was false from the start (the profile was reconnected).
+- Only Next on step 1, Skip setup and read-only invokes were used. Listen, the 20-second test, Next/Previous/Blank, the HTTP API and the stage window were never touched. Both PIDs (9912, 14300) were stopped. `%LOCALAPPDATA%\com.voxxa.qa9wf` was deleted. The installed Voxxa that was already running (not started here) was left alone.
+
+**Not tested here:** the same as the lane (M15, M16). Also untested: what Left does on Presenter's first slide (added to M16). CI has not run `q9w/base` yet.
+
+## 2026-11-20 — Q9W base (`q9w/base`): exit demo re-taken after the verifier fixes (4fb1346)
+**Gates** (Windows, `CARGO_TARGET_DIR=C:/dev/q3-10x-target`). npm ci and the build pass. fmt passes. clippy `-D warnings` passes with and without `--features cli`. `cargo test --features cli`: 236 passed, 0 failed, 1 ignored (`tests/worshiptools.rs` 9; the keystroke unit tests are 6, and the call-site test runs on Windows only). cargo-deny: advisories, bans and licences pass. The budget passes: everything else 2315 / 2317, discovery 217 / 250, presenters 1374 / 2000, keystroke.rs 396 / 400, GUI 2784 / 3000, Simple mode 450 / 600. The `dictat` grep is empty. The CI eval step: "OK: no metric is worse". `test:gui`: 9/9. e2e: 185/185. No GUI file changed.
+
+**Mutants re-run** (each must now fail a test): the guard call deleted, `cfg!(windows)` flipped, the guard result ignored, `ends_with("presenter.exe")`, the process hit dropped from the merge, and `tell_gui` reduced to `ok` or comparing the whole `Sent`. All six fail. Every keystroke test driver records keys, so none could press one.
+
+**GUI, the real app (guarded scratch build).** Identifier `com.voxxa.qa9wf`. Neither `com.voxxa.app` nor `xa.app` is in the binary. CDP on 9363. Built with `npm run tauri build -- --no-bundle --config <scratch>`, never committed. Startup still opens no audio input: `lib.rs:73` builds `AudioEngine::new()` only, and capture opens only in `start_listening_with_state` (`commands/mod.rs:229`). WorshipTools Presenter was running (8 `Presenter` processes, untouched).
+- Run 1 (fresh profile): step 2 said "Found WorshipTools Presenter. It has no remote control, so Voxxa presses its keys for you. Keep WorshipTools Presenter in front during the service." It saved `{"kind":"keystroke","keystroke_profile":"worship_tools_presenter"}`, and `can_blank` changed from true to false. The log shows `profile=WorshipToolsPresenter`. Skip setup was pressed.
+- Run 2 (restart): the first run stayed closed, and `can_blank` was false from the start (the profile was reconnected).
+- Only Next on step 1, Skip setup and read-only invokes were used. Listen, the 20-second test, Next/Previous/Blank, the HTTP API and the stage window were never touched. Both PIDs (7232, 12656) were stopped. `%LOCALAPPDATA%\com.voxxa.qa9wf` was deleted. The installed Voxxa that was already running (PID 10228, not started here) was left alone.
+
+**Not tested here:** the same as before (M15, M16, and Left on Presenter's first slide). CI has not run `q9w/base` yet.
+
+## 2026-11-20 — Q9W base (`q9w/base`): exit demo re-taken after verifier round 2 (7a8a457)
+**Gates** (Windows, `CARGO_TARGET_DIR=C:/dev/q3-10x-target`). npm ci and the build pass. fmt passes. clippy `-D warnings` passes with and without `--features cli`. `cargo test --features cli`: 237 passed, 0 failed, 1 ignored (`tests/worshiptools.rs` now has 10 tests). cargo-deny: advisories, bans and licences pass. The budget passes: discovery 223 / 250; the other rows are unchanged (everything else 2315 / 2317, presenters 1374 / 2000, keystroke.rs 396 / 400, GUI 2784 / 3000, Simple mode 450 / 600). The `dictat` grep is empty. The CI eval step: 21/21, "OK: no metric is worse". `test:gui`: 9/9. e2e: 188/188 (3 new checks). The control-byte grep matches nothing.
+
+**Mutants re-run:** `gui-advanced-profile-not-set` fails 2 e2e checks (186 passed, 2 failed). `disc-not-wired` fails `discovery_runs_the_process_strategy`.
+
+**GUI, the real app (guarded scratch build).** Identifier `com.voxxa.qa9wf`; `com.voxxa.app` and `xa.app` are not in the binary. CDP on 9363. Built with `npm run tauri build -- --no-bundle --config <scratch>`, never committed. The build left line-ending-only changes in `src-tauri/Cargo.toml` and `src-tauri/gen/schemas/*.json`, which were restored with `git checkout`. Startup opens no audio input: `lib.rs:73` builds `AudioEngine::new()` only (`audio/mod.rs:23`), and capture opens only in `start_listening_with_state` (`commands/mod.rs:229`). Neither file changed since 006372c. WorshipTools Presenter was running (8 `Presenter` processes, untouched, still 8 afterwards).
+- Run 1 (fresh profile): step 2 said "Found WorshipTools Presenter. It has no remote control, so Voxxa presses its keys for you. Keep WorshipTools Presenter in front during the service." It saved `{"kind":"keystroke","keystroke_profile":"worship_tools_presenter"}`, and `can_blank` changed from true to false (log: `profile=WorshipToolsPresenter`). Skip setup was pressed.
+- Run 2 (restart): the first run stayed closed, and `can_blank` was false from the start (the log shows the profile reconnected). Then Advanced → Settings. Connect with keystroke and universal gave `can_blank` true. The selects were set to ProPresenter and universal, and Auto-detect was run. It listed one row, "WorshipTools Presenter" with meta "process" (no host:port). Clicking the row set the selects to keystroke and `worship_tools_presenter`. Connect then gave `can_blank` false, and the log shows `profile=WorshipToolsPresenter`. This is the live proof that `discover_all` passes the real process list.
+- Used: Next on step 1, Skip setup, the Advanced and Settings tabs, the two selects, Auto-detect, the discovered row, Connect (it only sets the driver's profile; listening was off and nothing was dispatched), and read-only invokes. Never used: Listen, the 20-second test, Next/Previous/Blank, the HTTP API or the stage window. Both PIDs (14924, 13732) were stopped. `%LOCALAPPDATA%\com.voxxa.qa9wf` was deleted. The installed Voxxa (PID 10228, not started here) was left alone.
+
+**Not tested here:** M15, M16, and Left on Presenter's first slide. CI has not run `q9w/base` yet.
+
+## 2026-11-20 — Q9W final (`q9w/base` @ b0de71b): verifier round 3, both passed
+**QA position: ready to merge once CI is green.** Every exit criterion is met:
+- **Unit tests** (Rust, fake presenters, fake process lists, a recording sender; no test can reach enigo): discovery by process (`tests/worshiptools.rs:121,164,210`), the foreground guard (`presenters/keystroke.rs:397,422`), no step across songs (`tests/worshiptools.rs:244,281,330,344`), `can_blank` false with no red error at a blank (`:354,375`; ProPresenter WS `tests/dispatch.rs:376`), and the exact key map (`keystroke.rs:441,470,488`).
+- **GUI tests:** the amber sentences word for word (`tests/gui/simple_logic.test.mjs`, e2e section 9) and the restart reconnect (e2e reload: WorshipTools reconnected, universal not).
+- **All gates pass** at b0de71b (finisher, verifiers A and B): 237 passed, 1 ignored; `test:gui` 9/9; e2e 188/188; the CI eval step 21/21, "OK: no metric is worse".
+- **M15 and M16** are in the founder checklist (`handoff.md`, "Still open from earlier steps").
+
+Full record: `reviews/2026-11-20-ponytail-q9w.md` §§ 6-8; tickets: `reviews/2026-11-20-q9w-tickets.md`.
+
+**Verifier rounds.**
+- **Round 1 (1927856): did not pass.** INTEGRATIONS overstated Auto-detect (e47b2c0); the guard's call site, a ProPresenter look-alike, the process hit in the merge and the GUI tell had surviving mutants (8022bfd, 63b03d6, 97279a8, 4fb1346).
+- **Round 2 (006372c): did not pass.** Two survivors: Advanced → Auto-detect not setting the profile (d538a4b, e2e) and the process strategy not wired into discovery (7a8a457, Rust).
+- **Round 3 (b0de71b): both passed.**
+  - **Verifier A** (exit criteria, real app): every gate; 8 tests of its own on a `git archive` copy (never committed) with the real driver, a fake front window and a recording sender, all pass; read-only, the real `process_paths()` found Presenter's 8 processes; guarded real app `com.voxxa.qa9wa` (CDP 9364, PIDs 284 and 5092): step 2 named Presenter, the restart kept the profile. Notes: INTEGRATIONS' "connects" wording (Q9W-12) and the M16 number (Q9V needs a new number for its eval).
+  - **Verifier B** (scope, safety, mutants): every gate; 35 Rust and 18 GUI mutants, all killed; scope clean (no manifest, lock, config or capability change); guarded real app `com.voxxa.qa9wb` (CDP 9365, PID 6120): step 2 named Presenter.
+
+**Where each check ran.**
+- **Mocked browser** (headless Edge, `tests/gui/e2e.mjs` with `mock-tauri.js`; Node for `simple_logic`): step 2 and the pick, both amber sentences and their info toasts, no red toast after an ask, the light turning green on a delivered slide, the can't-clear row, the restart reconnect, Advanced → Auto-detect and Connect, the song strip following the ask. Listen, the 20-second test and every dispatch ran only here.
+- **Rust tests:** everything in the unit-test list above, plus `tell_gui`, the merge, the whole discovery with a fake process list, and the 11 other profiles' maps.
+- **Guarded real app** (identifiers `qa9wx`, `qa9wp`, `qa9wf`, `qa9wa`, `qa9wb`; WorshipTools Presenter running, untouched): **the real first-run step 2 named the running WorshipTools Presenter in every run**; the real discovery returned the process hit; `can_blank` false after step 2 and after a real restart; Advanced → Auto-detect listed the real row and Connect set the profile. Never Listen, the 20-second test, Next/Previous/Blank, the HTTP API or the stage window, and no key was sent. Each app was stopped by PID and its `%LOCALAPPDATA%` folder deleted.
+
+**Not tested, by rule** (M15, M16): a real key reaching Presenter, a real foreground switch, Presenter as administrator, the F10 unblank, Left on Presenter's first slide. CI has not run Q9W yet.
+
+**Tickets:** 12 open (2 medium, 10 low). The test ones: Q9W-01 (the halfway multi-key step) and Q9W-11 (`discover_all` with the real process list).

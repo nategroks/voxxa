@@ -150,6 +150,12 @@ pub trait PresentationController: Send + Sync {
     fn kind(&self) -> PresenterKind;
     fn capabilities(&self) -> Capabilities;
     fn is_connected(&self) -> bool;
+    /// The app's next key leaves a song for the next service item, so dispatch
+    /// must never step from one song into another (WorshipTools Presenter, T2,
+    /// ADR-019 § 3). Set by the keystroke profile.
+    fn stops_at_song_end(&self) -> bool {
+        false
+    }
 
     async fn connect(&mut self, cfg: PresenterConfig) -> Result<(), CtlError>;
     async fn disconnect(&mut self) -> Result<(), CtlError>;

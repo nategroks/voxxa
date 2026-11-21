@@ -1,3 +1,5 @@
+import { AMBER_ASKS } from "./simple/logic.js";
+
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
@@ -550,9 +552,12 @@ async function jumpToSong(songIndex) {
     // Local state will sync via the slide-advanced event the dispatcher emits.
   } catch (err) {
     console.error("jump_to_song:", err);
-    toast("Failed to jump: " + err, "error");
+    stepFailed("Failed to jump: ", err);
   }
 }
+
+// ADR-019's two asks are the operator's next step, not a failure: the bare sentence, as info.
+const stepFailed = (what, err) => (AMBER_ASKS.test(String(err)) ? toast(String(err), "info", 6000) : toast(what + err, "error"));
 
 // --- Setlist export (.voxxa-set) ---
 const exportSetlistBtn = document.getElementById("export-setlist-btn");
@@ -726,7 +731,7 @@ prevBtn.addEventListener("click", async () => {
     await invoke("prev_slide_manual");
   } catch (err) {
     console.error(err);
-    toast("Previous slide failed: " + err, "error");
+    stepFailed("Previous slide failed: ", err);
   }
 });
 
@@ -735,7 +740,7 @@ nextBtn.addEventListener("click", async () => {
     await invoke("next_slide_manual");
   } catch (err) {
     console.error(err);
-    toast("Next slide failed: " + err, "error");
+    stepFailed("Next slide failed: ", err);
   }
 });
 
@@ -868,7 +873,8 @@ async function setupListeners() {
   });
 
   // A refused or failed slide command from the listening loop.
-  await listen("presenter-error", (e) => toast(String(e.payload), "error", 6000));
+  // ADR-019's two asks are the operator's next step, not a failure: not shown as an error.
+  await listen("presenter-error", (e) => toast(String(e.payload), AMBER_ASKS.test(String(e.payload)) ? "info" : "error", 6000));
 
   await listen("tray-toggle-recording", () => {
     toggleListening();
@@ -1238,7 +1244,7 @@ function renderDiscovered(found) {
     row.innerHTML =
       '<div class="discovered-name">' + escapeHtml(svc.name) + "</div>" +
       '<div class="discovered-meta">' +
-      escapeHtml(svc.host) + ":" + svc.port + " · " + escapeHtml(svc.source) +
+      (svc.source === "process" ? "" : escapeHtml(svc.host) + ":" + svc.port + " · ") + escapeHtml(svc.source) +
       "</div>";
     row.addEventListener("click", () => useDiscovered(svc));
     discoveredList.appendChild(row);
@@ -1257,6 +1263,9 @@ function useDiscovered(svc) {
   } else if (svc.kind === "open_song") {
     inputOpenSongHost.value = svc.host;
     inputOpenSongPort.value = svc.port;
+  } else if (svc.keystroke_profile && selectKeystrokeProfile) {
+    // Found by its process (WorshipTools Presenter, ADR-019 § 1): its own key profile.
+    selectKeystrokeProfile.value = svc.keystroke_profile;
   }
 }
 

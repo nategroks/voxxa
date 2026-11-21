@@ -2,7 +2,7 @@ mod aligner;
 mod audio;
 mod commands;
 mod diagnostics;
-mod discovery;
+pub mod discovery;
 mod dispatch;
 pub mod help;
 mod http_api;
@@ -24,7 +24,7 @@ pub use aligner::{Action, Conductor, MachineState, Setlist, Slide, SmartConfig, 
 pub use audio::{choose_config, AudioEngine, Resampler};
 pub use commands::{gui_event, gui_sink, presenter_error, GuiEvent, Sessions};
 pub use diagnostics::{init_logger, recent_log};
-pub use dispatch::{drive, step, Sent};
+pub use dispatch::{drive, step, tell_gui, Sent};
 pub use http_api::{authorize, resolve_token};
 pub use presenters::{
     make_controller, Capabilities, CtlError, KeystrokeProfile, PresentationController,

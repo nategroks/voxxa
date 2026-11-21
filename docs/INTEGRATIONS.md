@@ -281,6 +281,45 @@ Replace `--shadow` with a presenter only after a clean shadow rehearsal:
   others with `ffmpeg -i in.wav -ar 16000 -ac 1 -c:a pcm_s16le out.wav`
   (Q3-10, #54).
 
+## WorshipTools Presenter: Tier 3 (keys); MIDI deferred
+
+Voxxa drives presentation apps in tiers (ADR-006). ProPresenter 7.9+, FreeShow,
+OpenLP and OpenSong are driven over their own local network APIs. Apps without
+one are **Tier 3**: Voxxa presses their keys. WorshipTools Presenter is Tier 3.
+It has no local API: its Remote and Stage Display apps go through WorshipTools'
+cloud. ADR-019 records how Voxxa drives it:
+
+- **Found by its process.** On Windows, the set-up guide finds a running
+  `Presenter.exe` and connects the keystroke driver with the **WorshipTools
+  Presenter** key profile. **Advanced > Settings > Auto-detect** lists it too:
+  click it, then press **Connect**. There is no host or port. The profile
+  is saved and reconnected at every start.
+- **Keys only when Presenter is in front.** With this profile a key is sent only
+  while the front window belongs to Presenter's process. Otherwise nothing is
+  sent and the status light is amber: "Bring WorshipTools Presenter to the
+  front." The other key profiles have no such check.
+- **Never a Right past a song's last slide.** In Presenter that Right moves to
+  the next service item. On a song change Voxxa presses nothing and the light
+  asks the operator: "Put "`<song>`" live in Presenter." Inside a song, and
+  for the operator's own Next and Previous, keys work as before.
+- **Keys:** Right and Left only. No blank key yet: F10 clears the lyrics, but
+  how to bring them back is unconfirmed, so the profile reports `can_blank:
+  false`. Voxxa skips its own blanks and refuses the Blank button. It never sends
+  F11, F12, Up, Down or the number pad's + and −.
+- **Run Presenter normally, not as administrator.** Windows drops keys that an
+  ordinary program sends to a program running as administrator, and Voxxa
+  cannot tell.
+- **MIDI is deferred** (ADR-019 § 5). Presenter accepts MIDI In, but only with
+  loopMIDI or rtpMIDI installed. Voxxa sends no MIDI to presentation apps yet.
+  MIDI is the named next step if keys prove unreliable at the pilot. (The
+  [MIDI](#midi) section above is the other direction: a MIDI controller driving
+  Voxxa through the HTTP API.)
+- **`voxxad --presenter keystroke`** always uses the universal key profile, with
+  no WorshipTools guard and no song rule. Don't use it with Presenter.
+
+The operator steps are in the runbook
+[Voxxa can't reach the presentation app](runbooks/presentation-app-not-reachable.md#worshiptools-presenter).
+
 ## Security notes
 
 - The HTTP server binds **only** to `127.0.0.1`, and Voxxa has no setting
