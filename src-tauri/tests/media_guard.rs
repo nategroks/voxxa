@@ -98,6 +98,10 @@ fn the_check_refuses_media_anywhere_and_private_files_and_allows_only_the_15() {
         "fixtures/LICENSED_RUNS.md",
         "fixtures/recordings/prayer-then-reprise/audio.json",
         "fixtures/private-notes.md",
+        // Look-alikes: a prefix match without the slash of `fixtures/private/`,
+        // or a substring match on an extension, would refuse them.
+        "fixtures/privateer.md",
+        "docs/wave.md",
         "docs/audio.wav.md",
         "src-tauri/tests/fixtures/voxxad/prayer.wav",
         "src-tauri/tests/fixtures/voxxad/tts-prayer-zira.wav",
