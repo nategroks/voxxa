@@ -31,13 +31,18 @@ fn main() {
     an_error_line_in_a_full_run_is_named_by_its_number_only(&bin);
     a_bad_setlist_is_named_by_line_and_column_not_quoted(&bin, dir.path());
     replay_still_shows_voxxad_output_so_this_test_can_see_a_leak(&bin);
-    println!("eval_numbers_only: 5 checks passed");
+    replay_still_quotes_the_error_line_and_shows_voxxad_stderr(&bin);
+    println!("eval_numbers_only: 6 checks passed");
 }
 
-/// The fake: the words go to stderr (like Whisper's log) and stdout.
+/// The fake: the words go to stderr (like Whisper's log) and stdout. Like
+/// the real one, it prints a start line only when it is not replaying.
 fn fake_voxxad(mode: &str) -> ! {
     eprintln!("whisper heard: alpha bravo");
-    println!("{START}\n{HYPOTHESIS}");
+    if !std::env::args().any(|a| a == "--replay") {
+        println!("{START}");
+    }
+    println!("{HYPOTHESIS}");
     match mode {
         "fail" => {
             println!(r#"{{"v":1,"t":0,"type":"error","message":"alpha bravo"}}"#);
@@ -148,4 +153,15 @@ fn replay_still_shows_voxxad_output_so_this_test_can_see_a_leak(bin: &Bin) {
     let (code, text) = eval(bin, "fail", false);
     assert_eq!(code, Some(2), "{text}");
     assert!(text.contains("alpha bravo"), "{text}");
+}
+
+/// Replay also still quotes an error line in full and passes `voxxad`'s
+/// stderr through: only `--full` hides them.
+fn replay_still_quotes_the_error_line_and_shows_voxxad_stderr(bin: &Bin) {
+    let (code, text) = eval(bin, "error-line", false);
+    assert_eq!(code, Some(1), "no thresholds for song-a: {text}");
+    assert!(text.contains("mode: replay"), "{text}");
+    let quoted = r#"voxxad reported {"v":1,"t":950,"type":"error","message":"alpha bravo"}"#;
+    assert!(text.contains(quoted), "{text}");
+    assert!(text.contains("whisper heard: alpha bravo"), "{text}");
 }
