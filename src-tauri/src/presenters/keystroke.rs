@@ -445,7 +445,7 @@ mod tests {
             (Key::RightArrow, Key::LeftArrow, None)
         );
         // Up/Down and numpad +/- change the service item; F10-F12 clear lyrics or media.
-        #[allow(unused_mut)]
+        #[allow(unused_mut, clippy::useless_vec)] // extended on Windows only
         let mut never = vec![
             Key::F10,
             Key::F11,
