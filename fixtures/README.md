@@ -320,7 +320,7 @@ One folder: `fixtures/private/see-a-victory/`, with `audio.wav`, `setlist.json` 
    [IO.File]::WriteAllText("$dir\setlist.json", $json, [Text.UTF8Encoding]::new($false))
    "setlist.json: $($slides.Count) slides"
    ```
-   It prints only the number of slides. It writes the file without a byte-order mark: `Set-Content -Encoding utf8` or `Out-File` in Windows PowerShell 5.1 would add one, and `voxxa-eval` then stops with "expected value at line 1 column 1". Slides are numbered from 0 in the order of `slides.txt`.
+   It prints only the number of slides. It writes the file without a byte-order mark: `Set-Content -Encoding utf8` or `Out-File` in Windows PowerShell 5.1 would add one, and `voxxa-eval` then stops with "not a setlist (Syntax error at line 1, column 1)". Slides are numbered from 0 in the order of `slides.txt`.
 5. **The truth** (when each slide went up). Play the WAV and press Enter at each slide change:
    ```powershell
    powershell -ExecutionPolicy Bypass -File fixtures\tools\tap-truth.ps1 -Wav fixtures\private\see-a-victory\audio.wav
