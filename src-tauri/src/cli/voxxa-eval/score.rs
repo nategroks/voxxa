@@ -265,7 +265,8 @@ pub fn parse_truth(text: &str, songs: &[(String, usize)]) -> Result<Vec<At>, Str
         .enumerate()
         .filter(|(_, l)| !l.trim().is_empty())
     {
-        let bad = || format!("truth line {}: {line}", n + 1);
+        // The line number only, here and below: a line may hold words (ADR-019 § 7).
+        let bad = || format!("truth line {}", n + 1);
         let v: Value = serde_json::from_str(line).map_err(|e| format!("{}: {e}", bad()))?;
         if v.get("event").is_some() {
             continue;
@@ -301,8 +302,9 @@ pub fn parse_truth(text: &str, songs: &[(String, usize)]) -> Result<Vec<At>, Str
 /// The `action` lines of `voxxad`'s stdout (event schema v1, ADR-013).
 pub fn parse_actions(stdout: &str) -> Result<Vec<At>, String> {
     let mut out = Vec::new();
-    for line in stdout.lines().filter(|l| !l.trim().is_empty()) {
-        let bad = || format!("voxxad line: {line}");
+    let lines = stdout.lines().enumerate();
+    for (n, line) in lines.filter(|(_, l)| !l.trim().is_empty()) {
+        let bad = || format!("voxxad line {}", n + 1);
         let v: Value = serde_json::from_str(line).map_err(|e| format!("{}: {e}", bad()))?;
         if v["type"] != "action" {
             continue;

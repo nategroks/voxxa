@@ -449,12 +449,17 @@ fn a_truth_row_outside_the_setlist_is_an_error_naming_its_line() {
     for (bad, want) in [
         (
             "{\"t_ms\":1,\"song\":0,\"slide\":0}\n{\"t_ms\":2,\"song\":0,\"slide\":4}",
-            "truth line 2: {\"t_ms\":2,\"song\":0,\"slide\":4}: no slide 0/4",
+            "truth line 2: no slide 0/4",
         ),
-        (r#"{"t_ms":1,"song":1,"slide":0}"#, "no slide 1/0"),
+        (
+            r#"{"t_ms":1,"song":1,"slide":0}"#,
+            "truth line 1: no slide 1/0",
+        ),
     ] {
         let e = parse_truth(bad, &songs).unwrap_err();
         assert!(e.contains(want), "{e}");
+        // The number, not the line (ADR-019 § 7, Q9V).
+        assert!(!e.contains("t_ms"), "{e}");
     }
 }
 
@@ -474,6 +479,11 @@ fn actions_are_read_from_voxxad_stdout_and_other_lines_are_skipped() {
     assert!(parse_actions(r#"{"v":1,"t":1,"type":"action","action":"goto"}"#).is_err());
     // An action kind the scorer does not know is an error, not silently dropped.
     assert!(parse_actions(r#"{"v":1,"t":1,"type":"action","action":"bogus"}"#).is_err());
+    // A bad line is named by its number, never quoted: in --full, voxxad's
+    // lines carry what Whisper heard (ADR-019 § 7, Q9V).
+    let e = parse_actions("\n{\"v\":1}\nalpha bravo").unwrap_err();
+    assert!(e.starts_with("voxxad line 3"), "{e}");
+    assert!(!e.contains("alpha"), "{e}");
 }
 
 #[test]

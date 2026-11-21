@@ -118,7 +118,8 @@ cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -
 ```
 
 Whisper prints the words it hears to stderr, so the filter keeps only `voxxa-eval`'s own
-`voxxa-eval:` lines (its error messages) and drops the rest. Exit codes: 0 means no metric is worse than the baseline, 1 means one is, 2 means
+`voxxa-eval:` lines (its error messages) and drops the rest. `--full` now discards Whisper's
+log itself (ADR-019 § 7), so the stderr filter is redundant; it does no harm. Exit codes: 0 means no metric is worse than the baseline, 1 means one is, 2 means
 an error. When the eval goes red, see `docs/runbooks/eval-regression.md`.
 
 ## Known limits

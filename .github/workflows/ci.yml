@@ -147,3 +147,53 @@ jobs:
         with:
           tool: tokei@15.0.0  # pinned (R13): scripts/loc_budget.py budgets depend on tokei's counting
       - run: python3 scripts/loc_budget.py
+
+  # Q9V / ADR-019 § 8: the repository refuses media. The same check as
+  # src-tauri/tests/media_guard.rs (which keeps this list in step), in its
+  # own job, so a PR that adds media goes red even if that test is skipped.
+  # git ls-files -z: without it git quotes a non-ASCII path and it slips past.
+  # The path is lower-cased for matching (X.WAV); the allowlist is the 15
+  # public-domain recordings by exact path (founder decision, 2026-11-20).
+  media:
+    name: media guard
+    runs-on: ubuntu-latest  # needs only bash 4 or later; the check job's AppArmor reason for 22.04 does not apply
+    steps:
+      - uses: actions/checkout@v4
+      - name: No media file and nothing under fixtures/private/ is tracked
+        shell: bash
+        run: |
+          declare -A allowed
+          for f in \
+            src-tauri/tests/fixtures/voxxad/amazing-grace-v1.wav \
+            src-tauri/tests/fixtures/voxxad/amazing-grace-v2.wav \
+            src-tauri/tests/fixtures/voxxad/prayer.wav \
+            src-tauri/tests/fixtures/voxxad/tts-be-thou-my-vision-v1-david.wav \
+            src-tauri/tests/fixtures/voxxad/tts-be-thou-my-vision-v3-david.wav \
+            src-tauri/tests/fixtures/voxxad/tts-be-thou-my-vision-v4-david.wav \
+            src-tauri/tests/fixtures/voxxad/tts-come-thou-fount-v1-zira.wav \
+            src-tauri/tests/fixtures/voxxad/tts-come-thou-fount-v2-zira.wav \
+            src-tauri/tests/fixtures/voxxad/tts-holy-holy-holy-v1-david.wav \
+            src-tauri/tests/fixtures/voxxad/tts-holy-holy-holy-v2-david.wav \
+            src-tauri/tests/fixtures/voxxad/tts-it-is-well-refrain-zira.wav \
+            src-tauri/tests/fixtures/voxxad/tts-it-is-well-v1-zira.wav \
+            src-tauri/tests/fixtures/voxxad/tts-it-is-well-v2-zira.wav \
+            src-tauri/tests/fixtures/voxxad/tts-it-is-well-v3-zira.wav \
+            src-tauri/tests/fixtures/voxxad/tts-prayer-zira.wav
+          do allowed[$f]=1; done
+          bad=0
+          count=0
+          while IFS= read -r -d '' path; do
+            count=$((count + 1))
+            lower=${path,,}
+            case "$lower" in
+              fixtures/private/*|*/fixtures/private/*) ;;
+              *.mp4|*.mov|*.m4v|*.mkv|*.webm|*.wav|*.flac|*.mp3|*.m4a)
+                if [[ -n "${allowed[$path]:-}" ]]; then continue; fi ;;
+              *) continue ;;
+            esac
+            echo "::error::tracked media or private fixture file (ADR-019 section 8): $path"
+            bad=1
+          done < <(git ls-files -z)
+          if [ "$count" -lt 100 ]; then echo "::error::git ls-files listed only $count paths"; exit 1; fi
+          if [ "$bad" -ne 0 ]; then echo "Untrack it with git rm --cached; never commit media."; exit 1; fi
+          echo "media guard: $count tracked paths, no media outside the 15 allowed recordings"
