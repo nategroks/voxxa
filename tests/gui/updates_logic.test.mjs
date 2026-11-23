@@ -46,9 +46,26 @@ test("errors: a network failure says what to do; other errors are shown as they 
   assert.equal(net.kind, "error");
   assert.equal(net.text, "Could not check for updates: error sending request. Check the internet connection and try again.");
   assert.deepEqual(ids(net), ["update-check"]);
-  assert.equal(updateView(afterError("Could not download the update: timed out.")).text, "Could not download the update: timed out. Check the internet connection and try again.");
   assert.equal(updateView(afterError("The update on offer is now 0.3.0, not 0.2.0. Check again.")).text, "The update on offer is now 0.3.0, not 0.2.0. Check again.");
   assert.equal(updateView(afterError(undefined)).text, "Something went wrong.");
+});
+
+test("a failed download or install is shown as it is, with no internet hint", () => {
+  for (const err of ["Could not download the update: timed out.", "Could not install the update: the installer did not start"]) {
+    const v = updateView(afterError(err));
+    assert.equal(v.kind, "error");
+    assert.equal(v.text, err);
+    assert.doesNotMatch(v.text, /internet/);
+    assert.deepEqual(ids(v), ["update-check"]);
+  }
+});
+
+test("no update published yet (or GitHub did not answer): its own words, not up to date, no internet hint", () => {
+  const v = updateView(afterError("No update is published yet, or GitHub did not answer. Try again later."));
+  assert.equal(v.kind, "error");
+  assert.equal(v.text, "No update is published yet, or GitHub did not answer. Try again later.");
+  assert.doesNotMatch(v.text, /up to date|internet/);
+  assert.deepEqual(ids(v), ["update-check"]);
 });
 
 test("an unknown answer is an error, never an install button", () => {

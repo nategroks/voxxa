@@ -35,8 +35,9 @@ export function afterOutcome(outcome) {
   return { ...outcome, state: outcome.status };
 }
 
-// The state after a command failed. A network failure gets the one thing the operator can do.
+// The state after a command failed. Only a failed check gets the internet hint: a failed
+// download or install, or "No update is published yet", did reach GitHub.
 export function afterError(err) {
   const text = String(err || "Something went wrong.").trim();
-  return { state: "error", error: /^Could not/.test(text) ? `${text.replace(/\.$/, "")}. Check the internet connection and try again.` : text };
+  return { state: "error", error: /^Could not check for updates/.test(text) ? `${text.replace(/\.$/, "")}. Check the internet connection and try again.` : text };
 }

@@ -61,18 +61,30 @@ pub fn plugin<R: Runtime>() -> tauri::plugin::TauriPlugin<R, tauri_plugin_update
         .build()
 }
 
+/// What the GUI shows when a check fails. tauri-plugin-updater 2.14.1 returns
+/// `ReleaseNotFound` for any non-success HTTP status (`updater.rs:661`): 404
+/// before the first full release, but also 5xx and a rate-limit 403. So it is
+/// never "up to date", and it gets no internet hint: the connection worked.
+pub fn check_error(e: tauri_plugin_updater::Error) -> String {
+    match e {
+        tauri_plugin_updater::Error::ReleaseNotFound => {
+            "No update is published yet, or GitHub did not answer. Try again later.".into()
+        }
+        e => format!("Could not check for updates: {e}"),
+    }
+}
+
 /// One request to the release endpoint, counted on the privacy card.
 async fn latest(app: &AppHandle) -> Result<Option<Update>, String> {
-    let fail = |e: tauri_plugin_updater::Error| format!("Could not check for updates: {e}");
     let updater = (app.updater_builder())
         .version_comparator(|current, release| {
             should_update(&current.to_string(), &release.version.to_string())
         })
         .timeout(Duration::from_secs(30))
         .build()
-        .map_err(fail)?;
+        .map_err(check_error)?;
     crate::net_stats::record_request();
-    updater.check().await.map_err(fail)
+    updater.check().await.map_err(check_error)
 }
 
 fn outcome(app: &AppHandle, update: Option<&Update>) -> Outcome {

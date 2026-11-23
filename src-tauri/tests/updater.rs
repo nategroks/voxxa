@@ -1,7 +1,7 @@
 //! ADR-020 §§ 1-2: the update comparator and the listening rule, as pure
 //! functions. No network: nothing here builds an updater or an app.
 
-use voxxa_lib::updater::{refused, should_update, Outcome};
+use voxxa_lib::updater::{check_error, refused, should_update, Outcome};
 
 #[test]
 fn only_a_strictly_newer_version_is_an_update() {
@@ -77,6 +77,26 @@ fn a_malformed_version_is_refused() {
 fn listening_refuses_before_any_network_call() {
     assert_eq!(refused(true), Some(Outcome::Listening));
     assert_eq!(refused(false), None);
+}
+
+#[test]
+fn a_release_not_found_is_neither_up_to_date_nor_a_network_failure() {
+    // The plugin returns ReleaseNotFound for any non-success status: 404
+    // before the first full release, but also 5xx and a rate-limit 403.
+    let text = check_error(tauri_plugin_updater::Error::ReleaseNotFound);
+    assert_eq!(
+        text,
+        "No update is published yet, or GitHub did not answer. Try again later."
+    );
+    assert!(
+        !text.starts_with("Could not"),
+        "no internet hint in the GUI"
+    );
+    let other = check_error(tauri_plugin_updater::Error::EmptyEndpoints);
+    assert!(
+        other.starts_with("Could not check for updates: "),
+        "{other}"
+    );
 }
 
 #[test]
