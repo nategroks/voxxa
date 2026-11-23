@@ -60,6 +60,11 @@ six Azure values, or Azure is not used. The log warns which values are missing.
 - **A release candidate** (`-rc.N`) can stay a draft, or be published as a pre-release for
   testers. Either way the in-app updater never offers it: the endpoint is GitHub's
   `releases/latest`, which skips drafts and pre-releases.
+- **An rc installs as the final version number.** `v0.1.0-rc.1` builds 0.1.0 installers (§ 2),
+  so a copy installed from an rc reports 0.1.0, and the in-app updater never moves it to the
+  final 0.1.0: equal is no update (ADR-020 § 2). A tester must install the final installer by
+  hand over it. **Never put an rc on a booth PC.** If an rc ever reaches churches anyway,
+  ship the final release under the next patch number (0.1.1), so those copies are offered it.
 - **A full release:** Edit the draft → Publish. From then on, **Check for updates** in
   installed copies offers it (only to older versions). Publishing triggers `winget.yml`,
   which fills the manifest from the published installer and, with `WINGET_TOKEN`, opens a

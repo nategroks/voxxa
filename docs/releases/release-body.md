@@ -18,6 +18,9 @@ Voxxa listens to the room and tells your presentation software when to change th
 ### Updates
 Voxxa never checks for updates by itself. In **Advanced → Settings → Updates**, **Check for updates** asks GitHub once; Voxxa installs a newer version only after you confirm, and never while it is listening. Updates are signed, and an older or equal version is never installed.
 
+### Release candidates (tags ending in `-rc.N`)
+A release candidate is for testers only. It installs as the final version number (`v0.1.0-rc.1` installs as 0.1.0), so **Check for updates** will never move it to the final 0.1.0: install the final installer by hand over it. Never put a release candidate on a booth PC.
+
 > Audio never leaves the computer. No telemetry; network only when the operator starts a model download, a Planning Center import, a Hymnary.org lookup or an update check.
 
 Windows builds are signed when the project's signing service is set up; see the [code signing policy](https://github.com/nategroks/voxxa/blob/main/docs/signing-policy.md). Until then the installers are unsigned and Windows SmartScreen warns before running them.
