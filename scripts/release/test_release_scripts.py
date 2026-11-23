@@ -60,6 +60,23 @@ class UpdaterManifest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.build({"Voxxa_0.1.0_x64-setup.exe": "a", "Other_0.1.0_x64-setup.exe": "b"})
 
+    def test_main_fails_when_a_built_platform_has_no_update(self):
+        def run(sigs):
+            with tempfile.TemporaryDirectory() as d:
+                for name, text in sigs.items():
+                    with open(os.path.join(d, name + ".sig"), "w", encoding="utf-8") as fh:
+                        fh.write(text)
+                out = os.path.join(d, "latest.json")
+                um.main(["--version", "0.1.0", "--tag", "v0.1.0", "--repo", REPO, "--sigs", d, "--out", out])
+                return os.path.exists(out)
+        self.assertTrue(run(SIGS))
+        # An Intel Mac bundle whose name the script does not recognise: skipped, then refused.
+        renamed = {**{k: v for k, v in SIGS.items() if k != "Voxxa_x64.app.tar.gz"}, "Voxxa_universal.app.tar.gz": "s"}
+        self.assertEqual(um.missing(self.build(renamed)), ["darwin-x86_64"])
+        with self.assertRaises(SystemExit) as stop:
+            run(renamed)
+        self.assertEqual(stop.exception.code, 1)
+
     def test_the_version_must_be_semver(self):
         for bad in ["v0.1.0", "0.1", "latest", ""]:
             with self.assertRaises(ValueError, msg=bad):

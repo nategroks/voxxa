@@ -29,6 +29,9 @@ BUNDLES = [
     (".rpm", "linux", "rpm"),
 ]
 ARCHES = [("aarch64", "aarch64"), ("arm64", "aarch64"), ("x86_64", "x86_64"), ("x64", "x86_64"), ("amd64", "x86_64")]
+# Every platform build.yml builds. With the updater key, a release without one of these would
+# leave those installed copies with no update and nobody would notice, so main() fails instead.
+REQUIRED = ["windows-x86_64", "darwin-aarch64", "darwin-x86_64", "linux-x86_64"]
 
 
 def platform_of(asset):
@@ -49,7 +52,7 @@ def build(version, tag, repo, sigs, pub_date, notes=""):
     for asset in sorted(sigs):
         where = platform_of(asset)
         if where is None:
-            print(f"skipped (not an updater bundle this script knows): {asset}", file=sys.stderr)
+            print(f"::warning::skipped (not an updater bundle this script knows): {asset}", file=sys.stderr)
             continue
         os_name, arch, bundle = where
         key = f"{os_name}-{arch}-{bundle}"
@@ -70,7 +73,12 @@ def build(version, tag, repo, sigs, pub_date, notes=""):
     return {"version": version, "notes": notes, "pub_date": pub_date, "platforms": dict(sorted(platforms.items()))}
 
 
-def main():
+def missing(manifest):
+    """The REQUIRED platforms that latest.json has no entry for."""
+    return [p for p in REQUIRED if p not in manifest["platforms"]]
+
+
+def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--version", required=True)
     ap.add_argument("--tag", required=True)
@@ -78,7 +86,7 @@ def main():
     ap.add_argument("--sigs", required=True, help="folder holding <asset>.sig files")
     ap.add_argument("--out", required=True)
     ap.add_argument("--notes", default="")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     sigs = {}
     for name in os.listdir(args.sigs):
         if name.endswith(".sig"):
@@ -86,6 +94,11 @@ def main():
                 sigs[name[: -len(".sig")]] = fh.read()
     now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     manifest = build(args.version, args.tag, args.repo, sigs, now, args.notes)
+    lacking = missing(manifest)
+    if lacking:
+        print(f"::error::latest.json would have no update for {', '.join(lacking)}; "
+              f"check the .sig asset names on the draft: {', '.join(sorted(sigs))}", file=sys.stderr)
+        sys.exit(1)
     with open(args.out, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(manifest, fh, indent=2)
         fh.write("\n")
