@@ -121,7 +121,7 @@
           <div class="slide-progress">
             <span id="slide-counter">0 / 0</span>
             <div class="progress-bar">
-              <div class="fill" id="slide-progress-fill" style="width: 0%"></div>
+              <div class="fill" id="slide-progress-fill"></div>
             </div>
           </div>
 
@@ -330,8 +330,15 @@
           <div class="privacy-title">Privacy</div>
           <div class="privacy-count" id="privacy-count">0 outbound network requests this session</div>
           <div class="privacy-sub" id="privacy-sub">
-            Voxxa makes no outbound network calls except to apps you’ve explicitly connected to and Whisper model downloads you initiate.
+            Voxxa makes no outbound network calls except to apps you’ve explicitly connected to, Whisper model downloads you initiate, and update checks you start below.
           </div>
+        </div>
+
+        <!-- Updates (ADR-020 § 1): only when the operator presses the button, never while listening. -->
+        <div class="setting-group" id="update-group">
+          <div class="smart-title">Updates</div>
+          <p class="helper-sub" id="update-text" aria-live="polite"></p>
+          <div class="connect-row" id="update-actions"></div>
         </div>
 
         <!-- Local HTTP API (Stream Deck, foot pedals, automation). -->
@@ -374,5 +381,6 @@
 
     <script type="module" src="/src/main.js"></script>
     <script type="module" src="/src/simple/simple.js"></script>
+    <script type="module" src="/src/updates.js"></script>
   </body>
 </html>

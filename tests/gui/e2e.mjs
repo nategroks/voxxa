@@ -29,6 +29,10 @@ const bundle = fs.readdirSync(path.join(DIST, "assets")).map((f) => fs.readFileS
 check("shipped bundle has no mock", !bundle.includes("__mock") && !fs.readFileSync(path.join(DIST, "index.html"), "utf8").includes("mock-tauri"));
 
 // --- static server with the shim injected ---
+// Every page is served with the app's own CSP (ADR-020 § 4), read from tauri.conf.json, so an
+// inline style or script the CSP would block in the app fails here too (counted below).
+const CSP = JSON.parse(fs.readFileSync(path.join(ROOT, "src-tauri/tauri.conf.json"), "utf8")).app.security.csp;
+check("tauri.conf.json has a CSP", typeof CSP === "string" && /default-src 'self'/.test(CSP), String(CSP));
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon" };
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://x").pathname;
@@ -39,8 +43,9 @@ const server = http.createServer((req, res) => {
   const file = path.join(DIST, url === "/" ? "index.html" : url);
   if (!file.startsWith(DIST) || !fs.existsSync(file)) { res.writeHead(404); return res.end(); }
   let body = fs.readFileSync(file);
-  if (file.endsWith("index.html")) body = body.toString().replace("<head>", '<head><script src="/__mock/mock-tauri.js"></script>');
-  res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
+  const html = file.endsWith(".html");
+  if (html) body = body.toString().replace("<head>", '<head><script src="/__mock/mock-tauri.js"></script>');
+  res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream", ...(html ? { "Content-Security-Policy": CSP } : {}) });
   res.end(body);
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
@@ -86,7 +91,16 @@ try {
   ws = new WebSocket(page.webSocketDebuggerUrl);
   let id = 0;
   const pending = new Map();
-  ws.onmessage = (m) => { const msg = JSON.parse(m.data); if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); } };
+  // CSP violations on every page this run loads: the browser's own security log entries and the
+  // mock's securitypolicyviolation listener (console.error "CSP violation: ...").
+  const csp = [];
+  const cspText = (t) => /Content Security Policy|CSP violation/i.test(t || "");
+  ws.onmessage = (m) => {
+    const msg = JSON.parse(m.data);
+    if (msg.method === "Log.entryAdded" && cspText(msg.params.entry.text)) csp.push(msg.params.entry.text);
+    if (msg.method === "Runtime.consoleAPICalled") { const t = (msg.params.args || []).map((a) => a.value).join(" "); if (cspText(t)) csp.push(t); }
+    if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
+  };
   await new Promise((r) => (ws.onopen = r));
   const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
   const ev = async (expr) => {
@@ -157,6 +171,7 @@ try {
   };
   await send("Page.enable");
   await send("Runtime.enable");
+  await send("Log.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 420, height: 600, deviceScaleFactor: 1, mobile: false });
 
   // 1. Fresh profile: the first-run flow opens over Simple mode.
@@ -623,6 +638,67 @@ try {
     await ev(`return JSON.stringify(__mock.calls.filter((c) => c.cmd === "connect_presenter").map((c) => c.args.args))`));
   await shot("32-advanced-autodetect-worshiptools");
   await click("#s-simple");
+
+  // Check for updates (ADR-020 § 1): only in Advanced > Settings, never by itself; every state
+  // comes from a scripted answer (the mock makes no network call).
+  check("no update check without a click (since this load, Settings opened above)", (await calls("check_for_update")) === 0 && (await calls("install_update")) === 0);
+  check("Simple mode shows no update control", !(await visible("#update-check")));
+  await click("#s-advanced");
+  await click('.tab[data-tab="settings"]');
+  const upd = () => ev(`return document.getElementById("update-text").textContent`);
+  const updButtons = () => ev(`return [...document.querySelectorAll("#update-actions button")].map((b) => b.textContent).join("|")`);
+  const updIs = (text, ms = 3000) => waitFor(`return document.getElementById("update-text").textContent === ${JSON.stringify(text)}`, ms);
+  const LISTENING = "Stop listening first. Voxxa never checks for updates while it is listening.";
+  check("Updates: idle says when Voxxa checks", /only when you press Check for updates/.test(await upd()) && (await updButtons()) === "Check for updates", await upd());
+  await shot("33-updates-idle");
+  await ev(`__mock.st.update.delay = 800; return true`);
+  await click("#update-check");
+  check("Updates: checking, with no button to press twice", await waitFor(`return document.getElementById("update-text").textContent === "Checking for updates…" && !document.querySelector("#update-actions button")`, 1000));
+  await shot("34-updates-checking");
+  check("Updates: up to date", await updIs("Voxxa 0.1.0 is up to date."), await upd());
+  await shot("35-updates-up-to-date");
+  await ev(`__mock.st.update.delay = 100; __mock.st.update.check = { status: "listening" }; return true`);
+  await click("#update-check");
+  check("Updates: refused while listening, word for word", await updIs(LISTENING), await upd());
+  check("Updates: the refusal is not shown as an error", !(await ev(`return document.getElementById("update-text").classList.contains("update-error")`)));
+  await shot("36-updates-refused-listening");
+  await ev(`__mock.st.update.error = "Could not check for updates: error sending request"; return true`);
+  await click("#update-check");
+  check("Updates: a network error says what to do", await updIs("Could not check for updates: error sending request. Check the internet connection and try again."), await upd());
+  check("Updates: the error is red", await ev(`return document.getElementById("update-text").classList.contains("update-error")`));
+  await shot("37-updates-error");
+  await ev(`__mock.st.update.error = null; __mock.st.update.check = { status: "available", current: "0.1.0", version: "0.2.0", notes: null }; return true`);
+  await click("#update-check");
+  check("Updates: available, with Install", (await updIs("Voxxa 0.2.0 is available. You have 0.1.0.")) && (await updButtons()) === "Install 0.2.0…|Check for updates", await updButtons());
+  await shot("38-updates-available");
+  await click("#update-install");
+  check("Updates: install asks first and says Voxxa will restart", (await upd()) === "Install Voxxa 0.2.0 now? Voxxa will close, install the update and start again." && (await updButtons()) === "Install and restart|Not now", await upd());
+  check("Updates: asking installs nothing", (await calls("install_update")) === 0);
+  await shot("39-updates-confirm");
+  await click("#update-cancel");
+  check("Updates: Not now goes back, nothing installed", (await upd()) === "Voxxa 0.2.0 is available. You have 0.1.0." && (await calls("install_update")) === 0);
+  await ev(`__mock.st.update.delay = 800; return true`);
+  await click("#update-install");
+  await click("#update-confirm");
+  check("Updates: installing, with no button", await waitFor(`return /^Downloading and installing Voxxa 0\\.2\\.0\\. Voxxa will start again by itself\\.$/.test(document.getElementById("update-text").textContent) && !document.querySelector("#update-actions button")`, 1000));
+  check("Updates: install_update gets the confirmed version", await waitFor(`return __mock.calls.some((c) => c.cmd === "install_update" && c.args.version === "0.2.0")`, 2000));
+  check("Updates: install refused once listening started", await updIs(LISTENING), await upd());
+  check("Updates: one check per click, no more", (await calls("check_for_update")) === 4, String(await calls("check_for_update")));
+  await click("#s-simple");
+
+  // The stage window's page under the same CSP (main window and Simple mode ran above).
+  await send("Page.navigate", { url: APP + "stage.html" });
+  check("stage page loads under the CSP", await waitFor(`return !!document.getElementById("stage-current-text") && !!window.__mock`, 5000));
+  await sleep(500);
+  await shot("40-stage-under-csp");
+
+  // The detector bites: a planted inline style is refused and counted, then left out of the total.
+  const before = csp.length;
+  await ev(`document.body.insertAdjacentHTML("beforeend", '<div id="planted" style="color: rgb(255, 0, 0)"></div>'); return true`);
+  await sleep(500);
+  check("CSP detector: a planted inline style is refused and seen", (await ev(`return getComputedStyle(document.getElementById("planted")).color !== "rgb(255, 0, 0)"`)) && csp.length > before, csp.slice(before).join(" | "));
+  csp.splice(before);
+  check("CSP: zero violations on every page of this run", csp.length === 0, csp.join(" | "));
 } catch (err) {
   check("e2e ran to the end", false, String(err && err.stack || err));
 }
