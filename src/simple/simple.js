@@ -14,7 +14,7 @@ const advanced = $("app");
 const root = document.createElement("main");
 root.id = "simple";
 root.innerHTML = `
-  <h1 class="logo">Voxxa</h1>
+  <h1 class="logo"><img src="/voxxa-logo.png" alt="Voxxa" height="28" /></h1>
   <div class="s-switch" role="radiogroup" aria-label="Mode">
     <button role="radio" data-mode="off">Off</button>
     <button role="radio" data-mode="songs">Songs</button>

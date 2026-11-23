@@ -37,7 +37,8 @@ body {
   align-items: center;
   justify-content: space-between;
 }
-.logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+.logo { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; line-height: 0; }
+.logo img { display: block; width: auto; margin-right: 10px; }
 
 .status-badge {
   font-size: 12px;

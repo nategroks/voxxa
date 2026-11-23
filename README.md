@@ -1,4 +1,9 @@
-# Voxxa
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/voxxa-logo-on-dark.png" />
+    <img src="docs/brand/voxxa-logo-on-light.png" alt="Voxxa" width="320" />
+  </picture>
+</h1>
 
 Voxxa listens to the room and advances the lyric slides for you. It runs beside the presentation software your church already uses, follows the worship leader through repeats and bridges, and never projects lyrics: the projected screen stays with your presentation software.
 
