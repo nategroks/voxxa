@@ -1,0 +1,10 @@
+# winget version manifest (ADR-020 § 6). Template: scripts/release/winget_manifest.py
+# fills every placeholder (upper-case words between double underscores).
+# PackageIdentifier and Publisher are a founder decision
+# (one publisher identity, ADR-008); change all three files together.
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.6.0.schema.json
+PackageIdentifier: nategroks.Voxxa
+PackageVersion: __VERSION__
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.6.0

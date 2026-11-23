@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test:gui": "node --test tests/gui/simple_logic.test.mjs",
+    "test:gui": "node --test tests/gui/simple_logic.test.mjs tests/gui/updates_logic.test.mjs",
     "test:gui:e2e": "node tests/gui/e2e.mjs"
   },
   "devDependencies": {

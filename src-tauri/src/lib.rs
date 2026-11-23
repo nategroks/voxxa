@@ -14,6 +14,7 @@ mod planning_center;
 mod presenters;
 pub mod transcription;
 mod tray;
+pub mod updater;
 mod vad;
 
 use std::sync::Arc;
@@ -73,8 +74,6 @@ pub fn run() {
     let audio = Arc::new(Mutex::new(AudioEngine::new()));
     let transcription = Arc::new(Mutex::new(TranscriptionEngine::new()));
     let vad = Arc::new(Mutex::new(VadEngine::new()));
-    let conductor = Arc::new(Mutex::new(None::<Conductor>));
-    let smart_config = Arc::new(Mutex::new(SmartConfig::default()));
     let http_api = Arc::new(Mutex::new(http_api::HttpApiServer::new()));
     // Default driver: keystroke / universal — works the moment the user focuses any
     // presentation app, no configuration required.
@@ -100,9 +99,9 @@ pub fn run() {
         audio: audio.clone(),
         transcription: transcription.clone(),
         vad: vad.clone(),
-        conductor: conductor.clone(),
+        conductor: Arc::new(Mutex::new(None)),
         presenter: presenter.clone(),
-        smart_config: smart_config.clone(),
+        smart_config: Arc::new(Mutex::new(SmartConfig::default())),
         sent: Arc::new(Mutex::new(Sent::default())),
         sessions: Arc::default(),
         http_api: http_api.clone(),
@@ -118,7 +117,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(updater::plugin())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             commands::load_setlist,
@@ -164,6 +163,8 @@ pub fn run() {
             help::write_help_bundle,
             help::open_help_email,
             help::open_runbook,
+            updater::check_for_update,
+            updater::install_update,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

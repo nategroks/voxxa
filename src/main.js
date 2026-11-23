@@ -796,8 +796,9 @@ function renderDetection(rows) {
     const pct = Math.round((r.probability || 0) * 100);
     row.innerHTML =
       '<div class="detect-name">' + escapeHtml(r.song_title || "(untitled)") + "</div>" +
-      '<div class="detect-bar"><div class="detect-bar-fill" style="width: ' + pct + '%"></div></div>' +
+      '<div class="detect-bar"><div class="detect-bar-fill"></div></div>' +
       '<div class="detect-pct">' + pct + "%</div>";
+    row.querySelector(".detect-bar-fill").style.width = pct + "%"; // CSSOM: the CSP allows no style="" (ADR-020 § 4)
     detectRows.appendChild(row);
   }
 }
@@ -920,7 +921,7 @@ async function refreshPrivacyCount() {
     privacyCount.textContent =
       n === 0
         ? "0 outbound network requests this session"
-        : `${n} outbound request${n === 1 ? "" : "s"} this session (all to apps you connected to)`;
+        : `${n} outbound request${n === 1 ? "" : "s"} this session (all started by you)`;
     if (privacyCard) {
       privacyCard.classList.toggle("zero", n === 0);
     }
@@ -950,7 +951,7 @@ async function loadModels() {
         <div class="model-name">${escapeHtml(model.display_name)}</div>
         <div class="model-status">${statusText}</div>
         <div class="progress-bar" id="progress-${escapeHtml(model.name)}" hidden>
-          <div class="fill" style="width: 0%"></div>
+          <div class="fill"></div>
         </div>
       `;
 

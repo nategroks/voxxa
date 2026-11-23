@@ -14,7 +14,12 @@
     help: { words: "Words Voxxa heard in the last 2 minutes of session-20261119-1000.jsonl, in seconds from its start.\n\n60.0 s  alpha bravo charlie delta\n",
       previewDelay: 200, writeDelay: 200, writeError: null, openError: null, pending: null, written: [], opened: 0, storage: null },
     runbooks: [],
+    // Check for updates (ADR-020 § 1): scripted answers only, never a network call. `error` makes
+    // the next check or install throw it; `delay` keeps the busy state visible for a moment.
+    update: { check: { status: "up_to_date", current: "0.1.0" }, install: { status: "listening" }, error: null, delay: 200 },
   };
+  // A CSP violation (ADR-020 § 4) goes to the console, where tests/gui/e2e.mjs counts it.
+  document.addEventListener("securitypolicyviolation", (e) => console.error(`CSP violation: ${e.violatedDirective} ${e.blockedURI || "inline"}`));
   const emit = (event, payload) => { for (const fn of [...(listeners[event] || [])]) fn({ event, payload }); };
   const total = () => (st.songs ? st.songs.reduce((n, s) => n + s.slides.length, 0) : 0);
   const titleAt = (i) => { let n = 0; for (const s of st.songs || []) { n += s.slides.length; if (i < n) return s.title; } return null; };
@@ -77,6 +82,8 @@
     },
     open_help_email: () => { st.help.opened += 1; if (st.help.openError) throw st.help.openError; },
     open_runbook: ({ name }) => { st.runbooks.push(name); },
+    check_for_update: async () => { await new Promise((r) => setTimeout(r, st.update.delay)); if (st.update.error) throw st.update.error; return st.update.check; },
+    install_update: async () => { await new Promise((r) => setTimeout(r, st.update.delay)); if (st.update.error) throw st.update.error; return st.update.install; },
     toggle_stage_display: () => false,
     // `st.stepError` scripts a refused Next/Prev (the WorshipTools guard's sentence, say).
     next_slide_manual: () => { if (st.stepError) throw st.stepError; return null; },

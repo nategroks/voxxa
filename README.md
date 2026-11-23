@@ -2,7 +2,7 @@
 
 Voxxa listens to the room and advances the lyric slides for you. It runs beside the presentation software your church already uses, follows the worship leader through repeats and bridges, and never projects lyrics: the projected screen stays with your presentation software.
 
-**Free, open source, and local.** Audio never leaves the computer. There is no account and no telemetry, and no network traffic unless the operator starts it: downloading a speech model, importing a plan from Planning Center, or searching Hymnary.org for a public-domain hymn.
+**Free, open source, and local.** Audio never leaves the computer. There is no account and no telemetry, and no network traffic unless the operator starts it: downloading a speech model, importing a plan from Planning Center, searching Hymnary.org for a public-domain hymn, or pressing **Check for updates** (Advanced → Settings). Voxxa never checks for updates by itself and never while it is listening.
 
 ## What it does
 

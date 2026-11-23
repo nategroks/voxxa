@@ -117,3 +117,32 @@ Nothing has been submitted to SignPath or Microsoft.
 - I did not apply to SignPath or open any account; both need the founder.
 - Azure Trusted Signing (the ADR-008 fallback) not researched this session.
 - Payout/tax details are from general knowledge, not a primary source read today.
+
+## 2026-11-23 — Q10 (10x lane, `q10/10x`): draft releases, signing paths, winget, release runbook
+Decisions: ADR-020 § 6 (amends ADR-008). Runbook: `docs/RELEASING.md`. Founder decisions: stop at a draft; signing secrets later (everything must work without them); the orchestrator may push, open the PR, fix CI, merge, make **one** rc tag that creates a draft, and file tickets.
+
+**`build.yml` (rewritten):**
+- **release** job (`:46-117`): validates the tag (`vX.Y.Z` or `vX.Y.Z-…`), requires its base version to equal `tauri.conf.json`'s, requires an existing tag to point at the built commit and the commit to be on `main` (`:80`), then creates a **draft** with `docs/releases/release-body.md` (`:111`), `--prerelease` when the tag has a `-` (`:112`); re-runs reuse the draft; a published release stops the run (`:106`).
+- **build** matrix (macOS arm64 on `macos-latest`, macOS x86_64 on **`macos-15-intel`** (`:130`, replaces the retired `macos-13`), Linux on `ubuntu-22.04`): tauri-action into the draft by `releaseId`, `includeUpdaterJson: false` (`:251`); `createUpdaterArtifacts` injected through a `--config` file only when `TAURI_SIGNING_PRIVATE_KEY` exists (`:216-230`); Linux `.asc` files now go into the draft too. Upload globs without the dead `*.nsis`.
+- **windows** job: Tauri CLI build (NSIS `currentUser` + MSI) → collect exactly one `*-setup.exe` and one `.msi` (`:415`) → **SignPath** when all four SignPath values exist (`:435`, `@v3`, waits up to 1 h for the manual approval) → else **Azure Trusted Signing** via an injected `signCommand` (`:373`) → else unsigned with a `::warning::` → `Get-AuthenticodeSignature` (`:467`, must be `Valid` when a path ran) → `tauri signer sign` over the final bytes when the key exists (`:483`) → `gh release upload` → winget manifest filled from the final installer (`:499`) as the `voxxa-winget-manifest` artifact.
+- **updater-manifest** job: skips cleanly without the key; otherwise downloads the draft's `.sig` files and writes `latest.json` once (`scripts/release/updater_manifest.py`, `:539`).
+- Everywhere: Rust 1.99.1 as `ci.yml`; `CMAKE_PROJECT_INCLUDE` (portable ggml, `:43`; #142); `permissions: contents: write, actions: read`; concurrency per tag.
+- **`winget.yml`** (new): on `release: published` (or by hand), skips drafts, pre-releases and non-`vX.Y.Z` tags; fills the manifest from the published installer; submits with `wingetcreate` v1.9.14.0 (SHA-256 pinned) only when `WINGET_TOKEN` exists.
+- **`ci.yml`:** one step added to the `budgets` job (release script unit tests). The `media` job is unchanged (key, `run: |` block, no `continue-on-error`, no `if:`), and `media_guard.rs` now also fails on an `if:` (Q9V-03).
+
+**Secrets and variables for the founder** (all optional; each lights up one step):
+- SignPath (preferred): secrets `SIGNPATH_API_TOKEN`, `SIGNPATH_ORGANIZATION_ID`; variables `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG`; in SignPath, `packaging/signpath/artifact-configuration.xml` as the project's default artifact configuration and a manual-approval policy.
+- Azure Trusted Signing (fallback): `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `AZURE_CODE_SIGNING_ENDPOINT`, `AZURE_CODE_SIGNING_ACCOUNT`, `AZURE_CODE_SIGNING_CERTIFICATE_PROFILE`.
+- Updater: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (the key of pubkey 84F2CD98C608E9C9, or a new pair with the pubkey replaced).
+- winget: `WINGET_TOKEN` (classic, `public_repo`). Optional, unchanged: `APPLE_*`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`.
+- Also founder: make "media guard" a required check (Q9V-02); confirm the winget identity `nategroks.Voxxa` / publisher `nategroks` (`packaging/winget/`).
+
+**SRE / Phase 6:** release runbook `docs/RELEASING.md`: cut (version PR, tag on `main`), watch (job list, SignPath approval within 1 h), check the draft (asset list, Authenticode lines, winget artifact, a test PC — never the booth PC), publish (rc never offered by the updater: `releases/latest` skips drafts and pre-releases), **rollback = delete the draft and its tag** before publishing; after publishing, `gh release edit <tag> --draft=true` so `latest` points back, and fix forward with a higher version (no downgrades). Key custody § 6.
+
+**Validated locally:** actionlint 1.7.7 on every workflow (with `macos-15-intel` declared as a label, which that actionlint predates; GitHub's runner-images README lists it as a standard x64 label); PyYAML parse of every workflow and winget template; `bash -n` on all 31 bash blocks; the signing-path block with four secret combinations, the Azure override block (SignCommand args list) and the tag check (`v0.1.0-rc.1`, `v0.1.0` pass; `v0.2.0`, `0.1.0`, an injected `;` refused); `scripts/release` 10/10 unit tests; `tests/release_config.rs` pins the draft, the order SignPath/Azure → Authenticode check → minisign → upload, the skip conditions and the matrix.
+
+**What remains for the orchestrator's tag run** (one rc tag, pre-approved), cost: GitHub-hosted runners are free for this public repository (macOS included), about 30-45 min wall time:
+1. Merge first; then tag `v0.1.0-rc.1` on the merge commit of `main` (`tauri.conf.json` is 0.1.0). Any other version is refused.
+2. Expect: one **draft pre-release** `v0.1.0-rc.1`; Windows job log "No Windows signing secrets … unsigned" and "TAURI_SIGNING_PRIVATE_KEY not set"; Authenticode lines `NotSigned`; assets `Voxxa_0.1.0_x64-setup.exe`, `Voxxa_0.1.0_x64_en-US.msi`, two `.dmg`, an `.AppImage`, a `.deb` (no `.sig`, no `latest.json`); updater-manifest prints the skip line; the `voxxa-winget-manifest` artifact holds three filled files.
+3. Unproven until then: tauri-action's `releaseId` upload into our draft; `macos-15-intel` and the portable ggml on both macOS runners; `gh release upload` from Windows bash; the NSIS installer really installs per-user (read the generated `installer.nsi`, or try on a test PC — not LHMEZPC01); SignPath (`@v3` inputs, the artifact configuration's wildcards), Azure, the updater signatures and `latest.json` until their secrets exist; `winget.yml` until a full release is published; the in-app update from one published release to the next.
+4. Do not publish the draft (founder decision); the founder publishes the real release.
