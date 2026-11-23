@@ -264,6 +264,15 @@ fn the_ci_step_passes_the_real_tree_and_names_every_planted_file() {
         !job.contains("continue-on-error"),
         "the media job must fail: {job}"
     );
+    // Q9V-03: an `if:` on the job or on its step could skip the check.
+    let has_if = |job: &str| {
+        (job.lines()).any(|l| l.trim_start().trim_start_matches("- ").starts_with("if:"))
+    };
+    assert!(!has_if(&job), "the media job must always run: {job}");
+    let planted = job.replacen("    runs-on:", "    if: false\n    runs-on:", 1);
+    assert!(has_if(&planted), "a planted job-level if: is caught");
+    let planted = job.replacen("      - name:", "      - if: false\n        name:", 1);
+    assert!(has_if(&planted), "a planted step-level if: is caught");
     let Some(bash) = bash4() else {
         eprintln!("SKIPPED: no bash 4 or later on PATH to run ci.yml's media step");
         return;

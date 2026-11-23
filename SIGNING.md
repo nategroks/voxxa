@@ -43,6 +43,13 @@ The workflow uses the App Store Connect API key path for notarization, which
 is materially more reliable than the older `APPLE_ID` + app-specific-password
 flow (see §5.2 of the project plan).
 
+Each `APPLE_*` value reaches the build only when its secret is set (the step
+"Apple signing values" in `build.yml`). The Tauri CLI uses
+`APPLE_SIGNING_IDENTITY` whenever the variable exists, even empty, in place of
+the ad-hoc identity `"-"` in `tauri.conf.json`; leaving it unset is what lets a
+build without the secrets finish ad-hoc signed and not notarized
+(`tests/release_config.rs` checks this).
+
 ### Required Info.plist usage strings
 
 Tauri 2 generates the Info.plist at build time. The following keys are
@@ -70,10 +77,15 @@ and any `.local` connection silently fail on macOS 14+.
 
 Per ADR-008, Windows releases are signed through **SignPath Foundation**
 (free for OSI-licensed projects; see `docs/signing-policy.md`, which
-SignPath requires to be public). The SignPath step is not wired into
-`build.yml` yet. **Microsoft Artifact Signing** below is the fallback if
-SignPath declines; its scaffold is already in `build.yml` and is skipped
-when the Azure secrets are absent.
+SignPath requires to be public). Since Q10 (ADR-020 § 6) `build.yml` submits
+the built NSIS and MSI installers to SignPath when the secrets
+`SIGNPATH_API_TOKEN` and `SIGNPATH_ORGANIZATION_ID` and the variables
+`SIGNPATH_PROJECT_SLUG` and `SIGNPATH_SIGNING_POLICY_SLUG` all exist; the
+artifact configuration is `packaging/signpath/artifact-configuration.xml`.
+**Microsoft Artifact Signing** below is the fallback if SignPath declines; its
+scaffold runs only when SignPath is not configured and the Azure secrets exist.
+Without either, the installers are unsigned and the log says so. The full
+release procedure is `docs/RELEASING.md`.
 
 ### Fallback: Microsoft Artifact Signing
 
@@ -107,8 +119,9 @@ when the Azure secrets are absent.
 | `AZURE_CODE_SIGNING_ACCOUNT` | Artifact Signing account name |
 | `AZURE_CODE_SIGNING_CERTIFICATE_PROFILE` | Certificate profile name |
 
-The workflow installs `trusted-signing-cli` only when `AZURE_CLIENT_ID` is
-present, and injects a `bundle.windows.signCommand` Tauri config override
+The workflow installs `trusted-signing-cli` only when all six secrets are
+present and SignPath is not configured (a partial setup is named in a
+warning and the build goes on unsigned), and injects a `bundle.windows.signCommand` Tauri config override
 that invokes it. Builds without the secrets produce unsigned `.msi` /
 `.exe` (still functional, but SmartScreen will warn).
 

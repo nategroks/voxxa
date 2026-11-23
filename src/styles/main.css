@@ -178,6 +178,7 @@ body {
   overflow: hidden;
 }
 .progress-bar .fill {
+  width: 0;
   height: 100%;
   background: var(--accent);
   transition: width 0.5s ease;
@@ -892,3 +893,8 @@ body {
 @keyframes toast-out {
   to { transform: translateY(8px); opacity: 0; }
 }
+
+/* Updates (ADR-020 § 1): the sentence is the state; full opacity so it reads. */
+#update-text { opacity: 1; margin: 4px 0 8px; }
+#update-text.update-ok { color: var(--success); }
+#update-text.update-error { color: var(--danger); }

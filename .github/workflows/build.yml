@@ -1,20 +1,124 @@
 name: Build and Release
 
+# ADR-008 as amended by ADR-020 § 6. A tag v* on a commit of main (or a manual run naming
+# one) builds every platform into a DRAFT release. Nothing reaches users until the founder
+# publishes the draft by hand; rollback is deleting the draft and its tag. A tag with a "-"
+# (v0.1.0-rc.1) makes a pre-release draft. Each signing step runs only when its secrets
+# exist and says so in the log when they do not: the build succeeds without any of them.
+#
+# Secrets and variables (Settings > Secrets and variables > Actions), all optional:
+#   Windows, SignPath Foundation (preferred): secrets SIGNPATH_API_TOKEN and
+#     SIGNPATH_ORGANIZATION_ID; variables SIGNPATH_PROJECT_SLUG and
+#     SIGNPATH_SIGNING_POLICY_SLUG. Artifact configuration:
+#     packaging/signpath/artifact-configuration.xml (the project's default).
+#   Windows, Azure Trusted Signing (fallback, used only without SignPath): secrets
+#     AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID, AZURE_CODE_SIGNING_ENDPOINT,
+#     AZURE_CODE_SIGNING_ACCOUNT, AZURE_CODE_SIGNING_CERTIFICATE_PROFILE.
+#   Updater (all platforms): secrets TAURI_SIGNING_PRIVATE_KEY and
+#     TAURI_SIGNING_PRIVATE_KEY_PASSWORD (the key of the pubkey in tauri.conf.json).
+#   macOS: the APPLE_* secrets in SIGNING.md. Linux: GPG_PRIVATE_KEY, GPG_PASSPHRASE.
+#   winget: WINGET_TOKEN, used by winget.yml after a full release is published.
+
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version tag (e.g. v0.1.0)'
-        required: false
+      tag:
+        description: 'Tag for the draft release, e.g. v0.1.0-rc.1 (its version must be the one in tauri.conf.json; the run builds the commit you pick, which must be on main)'
+        required: true
 
 permissions:
-  contents: write
+  contents: write  # the draft release and its assets
+  actions: read    # SignPath reads the unsigned workflow artifact
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+# As ci.yml: the portable ggml build (no -march=native, #142), so the installers run on any
+# x86-64 CPU with AVX2, not only on CPUs like the runner's.
+env:
+  CMAKE_PROJECT_INCLUDE: ${{ github.workspace }}/src-tauri/cmake/ggml-portable.cmake
 
 jobs:
+  release:
+    name: Draft release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+      id: ${{ steps.draft.outputs.id }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - name: Tag, version and main
+        id: tag
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::not a release tag: $TAG (vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-rc.N)"
+            exit 1
+          fi
+          base="${BASH_REMATCH[1]}"
+          version=$(python3 -c "import json; print(json.load(open('src-tauri/tauri.conf.json', encoding='utf-8'))['version'])")
+          if [ "$base" != "$version" ]; then
+            echo "::error::tag $TAG does not build version $version (src-tauri/tauri.conf.json); bump the version first"
+            exit 1
+          fi
+          if tagged=$(git rev-parse -q --verify "refs/tags/$TAG^{commit}") && [ "$tagged" != "$GITHUB_SHA" ]; then
+            echo "::error::tag $TAG points at $tagged, not at the commit this run builds ($GITHUB_SHA)"
+            exit 1
+          fi
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_SHA is not on main; releases are cut from main only (docs/signing-policy.md)"
+            exit 1
+          fi
+          prerelease=false
+          if [[ "$TAG" == *-* ]]; then prerelease=true; fi
+          { echo "tag=$TAG"; echo "version=$version"; echo "prerelease=$prerelease"; } >> "$GITHUB_OUTPUT"
+          echo "Draft release $TAG of version $version (pre-release: $prerelease) from $GITHUB_SHA"
+
+      - name: Create the draft (or reuse this tag's draft)
+        id: draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          PRERELEASE: ${{ steps.tag.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          find_release() {
+            gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq ".[] | select(.tag_name == \"$TAG\") | \"\(.id) \(.draft)\"" | head -n 1
+          }
+          existing=$(find_release)
+          if [ -n "$existing" ]; then
+            read -r id draft <<< "$existing"
+            if [ "$draft" != "true" ]; then
+              echo "::error::release $TAG is already published; a published release is never rebuilt"
+              exit 1
+            fi
+            echo "Reusing draft release $id for $TAG"
+          else
+            args=(--draft --title "Voxxa $TAG" --notes-file docs/releases/release-body.md --target "$GITHUB_SHA")
+            if [ "$PRERELEASE" = true ]; then args+=(--prerelease); fi
+            gh release create "$TAG" "${args[@]}"
+            read -r id draft <<< "$(find_release)"
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  # macOS and Linux: tauri-action builds and uploads to the draft (releaseId). The Windows
+  # job is separate because its installers are signed after the build (SignPath).
   build:
+    needs: release
     strategy:
       fail-fast: false
       matrix:
@@ -22,34 +126,35 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             name: macOS (Apple Silicon)
-          - platform: macos-13
+          # macos-13 is retired; macos-15-intel is the x86_64 macOS runner.
+          - platform: macos-15-intel
             target: x86_64-apple-darwin
             name: macOS (Intel)
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             name: Linux
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-            name: Windows
 
     runs-on: ${{ matrix.platform }}
     name: Build - ${{ matrix.name }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      # Pinned as in ci.yml (R13): a release is built with the toolchain CI tested.
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16 (as full-eval.yml)
         with:
+          toolchain: 1.99.1
           targets: ${{ matrix.target }}
 
       - name: Rust cache
-        uses: swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri
+          key: release-portable-ggml
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -77,15 +182,17 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          if [ -n "$APPLE_CERTIFICATE" ]; then
-            echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
-            security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-            security default-keychain -s build.keychain
-            security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-            security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-            rm certificate.p12
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "APPLE_CERTIFICATE not set: the macOS build is not signed."
+            exit 0
           fi
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm certificate.p12
 
       # Stage the App Store Connect API key on disk so notarytool can read it.
       # Using the API key path (recommended in §5.2 of the plan) is materially more
@@ -106,97 +213,72 @@ jobs:
           echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8" \
             >> "$GITHUB_ENV"
 
-      # Microsoft Artifact Signing (formerly Azure Trusted Signing) for Windows:
-      # the ADR-008 fallback; SignPath Foundation is the primary path (see
-      # SIGNING.md and docs/signing-policy.md). Only installs the CLI if the Azure
-      # credentials are present, so the workflow still produces an unsigned but
-      # working .msi for forks that haven't subscribed. Pinned for reproducibility.
-      - name: Install trusted-signing-cli
-        if: runner.os == 'Windows'
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-        shell: bash
-        run: |
-          if [ -z "$AZURE_CLIENT_ID" ]; then
-            echo "AZURE_CLIENT_ID not set — Windows .msi will be unsigned."
-            exit 0
-          fi
-          cargo install trusted-signing-cli --locked --version 0.11.0
-
-      # Build a Tauri --config override that injects signCommand on Windows when
-      # the Azure secrets are present. Empty string when not set so the action
-      # runs as a no-op override.
-      - name: Compute Tauri config override
-        id: tauri_override
+      # createUpdaterArtifacts only with the key: the Tauri CLI fails a build that has it
+      # on and no TAURI_SIGNING_PRIVATE_KEY (ADR-020 § 6).
+      - name: Tauri config override
+        id: override
         shell: bash
         env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          if [ "${{ runner.os }}" = "Windows" ] && [ -n "$AZURE_CLIENT_ID" ]; then
-            echo 'override={"bundle":{"windows":{"signCommand":"trusted-signing-cli -e %AZURE_CODE_SIGNING_ENDPOINT% -a %AZURE_CODE_SIGNING_ACCOUNT% -c %AZURE_CODE_SIGNING_CERTIFICATE_PROFILE% %1"}}}' >> "$GITHUB_OUTPUT"
+          f="$RUNNER_TEMP/tauri-override.json"
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo '{"bundle":{"createUpdaterArtifacts":true}}' > "$f"
+            echo "Updater key present: the draft gets signed updater bundles."
           else
-            echo 'override=' >> "$GITHUB_OUTPUT"
+            echo '{}' > "$f"
+            echo "TAURI_SIGNING_PRIVATE_KEY not set: no updater bundles and no latest.json."
           fi
+          echo "file=$f" >> "$GITHUB_OUTPUT"
 
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+      # macOS signing & notarization (App Store Connect API key path). Each APPLE_* value
+      # reaches the build only when its secret exists: the Tauri CLI reads
+      # APPLE_SIGNING_IDENTITY whenever the variable is set, even empty, and it overrides
+      # the ad-hoc identity "-" in tauri.conf.json, so an empty one would fail codesign.
+      # Without the secrets the macOS build is ad-hoc signed and not notarized. GitHub
+      # masks the secret values in the log.
+      - name: Apple signing values
+        if: runner.os == 'macOS'
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          # macOS signing & notarization (App Store Connect API key path).
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY APPLE_TEAM_ID; do
+            if [ -n "${!name}" ]; then
+              echo "$name=${!name}" >> "$GITHUB_ENV"
+            else
+              echo "$name not set: left out of the build."
+            fi
+          done
 
-          # Microsoft Artifact Signing for Windows: read by the `signCommand`
-          # that the "Compute Tauri config override" step injects via --config
-          # (tauri.conf.json itself has no signCommand).
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CODE_SIGNING_ENDPOINT: ${{ secrets.AZURE_CODE_SIGNING_ENDPOINT }}
-          AZURE_CODE_SIGNING_ACCOUNT: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
-          AZURE_CODE_SIGNING_CERTIFICATE_PROFILE: ${{ secrets.AZURE_CODE_SIGNING_CERTIFICATE_PROFILE }}
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-          # Tauri updater key pair (Ed25519 — generated with `tauri signer generate`).
+          # Tauri updater key pair (minisign; generated with `tauri signer generate`).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name || inputs.version || 'v0.0.0-dev' }}
-          releaseName: "Voxxa ${{ github.ref_name || inputs.version || 'dev' }}"
-          releaseBody: |
-            ## Voxxa — voice-following slide advancer for churches
-
-            Voxxa listens to the room and tells your presentation software when to change the lyric slide. It never projects lyrics and never uploads audio.
-
-            | Platform | File |
-            |----------|------|
-            | Windows | `.msi` / `-setup.exe` |
-            | macOS (Apple Silicon) | `.dmg` |
-            | macOS (Intel) | `.dmg` |
-            | Linux | `.AppImage` / `.deb` |
-
-            ### First service
-            1. Install and open Voxxa; follow the first-run steps (audio device, presentation software, speech model).
-            2. Load today's setlist and press **Start Listening**.
-            3. Your hands stay free; the operator can always take over.
-
-            > Audio never leaves the computer. No telemetry; network only when the operator starts a model download, a Planning Center import or a Hymnary.org lookup.
-          releaseDraft: false
-          prerelease: false
-          includeUpdaterJson: true
-          updaterJsonKeepUniversal: true
-          args: --target ${{ matrix.target }} ${{ steps.tauri_override.outputs.override && format('--config ''{0}''', steps.tauri_override.outputs.override) || '' }}
+          releaseId: ${{ needs.release.outputs.id }}
+          # latest.json is written once, by the updater-manifest job below.
+          includeUpdaterJson: false
+          args: --target ${{ matrix.target }} --config ${{ steps.override.outputs.file }}
 
       # GPG-sign Linux artifacts so downstream users can verify authenticity
       # against the published public key. We sign every AppImage and .deb the
-      # workflow produced. Skipped if no GPG_PRIVATE_KEY secret is set.
+      # workflow produced and add the signatures to the draft. Skipped if no
+      # GPG_PRIVATE_KEY secret is set.
       - name: GPG-sign Linux artifacts
         if: matrix.platform == 'ubuntu-22.04'
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
         run: |
           if [ -z "$GPG_PRIVATE_KEY" ]; then
             echo "GPG_PRIVATE_KEY not set — Linux artifacts will not be signed."
@@ -205,26 +287,290 @@ jobs:
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
           BUNDLE_DIR="src-tauri/target/${{ matrix.target }}/release/bundle"
           # Detached ASCII-armored signatures next to each .AppImage and .deb.
-          for f in "$BUNDLE_DIR"/**/*.AppImage "$BUNDLE_DIR"/**/*.deb; do
+          for f in "$BUNDLE_DIR"/appimage/*.AppImage "$BUNDLE_DIR"/deb/*.deb; do
             [ -f "$f" ] || continue
             echo "Signing $f"
             echo "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
               --passphrase-fd 0 --detach-sign --armor "$f"
+            gh release upload "$TAG" "$f.asc" --clobber
           done
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: voxxa-${{ matrix.target }}
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app.tar.gz.sig
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb.asc
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb.sig
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.asc
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.tar.gz
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.sig
           if-no-files-found: warn
+
+  # Windows: build with the Tauri CLI, sign the installers (SignPath, else Azure Trusted
+  # Signing through signCommand, else unsigned), then make the updater signatures over the
+  # final bytes, then upload to the draft (ADR-020 § 6).
+  windows:
+    needs: release
+    name: Build - Windows
+    runs-on: windows-latest
+    # Only "yes" or "no": the updater-manifest job learns whether the key exists, not the key.
+    outputs:
+      updater: ${{ steps.path.outputs.updater }}
+    env:
+      TARGET: x86_64-pc-windows-msvc
+      BUNDLE: src-tauri/target/x86_64-pc-windows-msvc/release/bundle
+      TAG: ${{ needs.release.outputs.tag }}
+      VERSION: ${{ needs.release.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master, 2026-10-16 (as full-eval.yml)
+        with:
+          toolchain: 1.99.1
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+          key: release-portable-ggml
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Which signing path
+        id: path
+        shell: bash
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CODE_SIGNING_ENDPOINT: ${{ secrets.AZURE_CODE_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
+          AZURE_CODE_SIGNING_CERTIFICATE_PROFILE: ${{ secrets.AZURE_CODE_SIGNING_CERTIFICATE_PROFILE }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          # count NAME...: how many of the named values are set ($found); the rest in $missing.
+          count() {
+            found=0
+            missing=""
+            for v in "$@"; do
+              if [ -n "${!v}" ]; then found=$((found + 1)); else missing="$missing $v"; fi
+            done
+          }
+          signing=none
+          count SIGNPATH_API_TOKEN SIGNPATH_ORGANIZATION_ID SIGNPATH_PROJECT_SLUG SIGNPATH_SIGNING_POLICY_SLUG
+          if [ "$found" -eq 4 ]; then
+            signing=signpath
+            echo "Windows signing: SignPath Foundation. Approve the signing request in SignPath when it appears."
+          elif [ "$found" -gt 0 ]; then
+            echo "::warning::SignPath is only partly configured (missing:$missing), so it is not used."
+          fi
+          if [ "$signing" = none ]; then
+            count AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_TENANT_ID AZURE_CODE_SIGNING_ENDPOINT AZURE_CODE_SIGNING_ACCOUNT AZURE_CODE_SIGNING_CERTIFICATE_PROFILE
+            if [ "$found" -eq 6 ]; then
+              signing=azure
+              echo "Windows signing: Azure Trusted Signing (the fallback)."
+            elif [ "$found" -gt 0 ]; then
+              echo "::warning::Azure Trusted Signing is only partly configured (missing:$missing), so it is not used."
+            fi
+          fi
+          if [ "$signing" = none ]; then
+            echo "::warning::No Windows signing path is fully configured: the installers are unsigned and SmartScreen will warn."
+          fi
+          updater=no
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then updater=yes; else echo "TAURI_SIGNING_PRIVATE_KEY not set: no updater signatures."; fi
+          { echo "signing=$signing"; echo "updater=$updater"; } >> "$GITHUB_OUTPUT"
+
+      # Microsoft Artifact Signing (formerly Azure Trusted Signing): the ADR-008 fallback.
+      # Pinned for reproducibility.
+      - name: Install trusted-signing-cli
+        if: steps.path.outputs.signing == 'azure'
+        run: cargo install trusted-signing-cli --locked --version 0.11.0
+
+      # A --config file that injects signCommand when Azure signs during the build. The
+      # values are written in: a spawned command does not expand %VAR%.
+      - name: Tauri config override
+        id: override
+        shell: bash
+        env:
+          SIGNING: ${{ steps.path.outputs.signing }}
+          AZURE_CODE_SIGNING_ENDPOINT: ${{ secrets.AZURE_CODE_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
+          AZURE_CODE_SIGNING_CERTIFICATE_PROFILE: ${{ secrets.AZURE_CODE_SIGNING_CERTIFICATE_PROFILE }}
+        run: |
+          f="$RUNNER_TEMP/tauri-override.json"
+          python - "$f" <<'PY'
+          import json, os, sys
+          conf = {}
+          if os.environ["SIGNING"] == "azure":
+              e = os.environ
+              conf = {"bundle": {"windows": {"signCommand": {"cmd": "trusted-signing-cli", "args": [
+                  "-e", e["AZURE_CODE_SIGNING_ENDPOINT"], "-a", e["AZURE_CODE_SIGNING_ACCOUNT"],
+                  "-c", e["AZURE_CODE_SIGNING_CERTIFICATE_PROFILE"], "%1"]}}}}
+          with open(sys.argv[1], "w", encoding="utf-8") as fh:
+              json.dump(conf, fh)
+          PY
+          echo "file=$f" >> "$GITHUB_OUTPUT"
+
+      - name: Build the installers (NSIS per-user and MSI)
+        shell: bash
+        env:
+          TAURI_OVERRIDE: ${{ steps.override.outputs.file }}
+          # Read by trusted-signing-cli on the Azure path only.
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: npm run tauri -- build --target "$TARGET" --config "$TAURI_OVERRIDE"
+
+      - name: Collect the installers
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir dist-win
+          cp "$BUNDLE"/nsis/*-setup.exe "$BUNDLE"/msi/*.msi dist-win/
+          ls -l dist-win
+          nsis=$(find dist-win -name '*-setup.exe' | wc -l)
+          msi=$(find dist-win -name '*.msi' | wc -l)
+          if [ "$nsis" -ne 1 ] || [ "$msi" -ne 1 ]; then
+            echo "::error::expected one NSIS and one MSI installer, found $nsis and $msi"
+            exit 1
+          fi
+
+      - name: Upload the unsigned installers for SignPath
+        id: unsigned
+        if: steps.path.outputs.signing == 'signpath'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: voxxa-windows-unsigned
+          path: dist-win/
+          if-no-files-found: error
+
+      - name: Sign with SignPath (approve the request in SignPath)
+        if: steps.path.outputs.signing == 'signpath'
+        uses: signpath/github-action-submit-signing-request@a2c5b60d9c75f073142b653c354b632eedce097b # v3.2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist-win-signed
+
+      - name: Use the signed installers
+        if: steps.path.outputs.signing == 'signpath'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in dist-win/*; do
+            n=$(basename "$f")
+            if [ ! -f "dist-win-signed/$n" ]; then
+              echo "::error::SignPath returned no $n"
+              exit 1
+            fi
+            cp "dist-win-signed/$n" "$f"
+          done
+
+      - name: Check the Authenticode signatures
+        shell: pwsh
+        env:
+          SIGNING: ${{ steps.path.outputs.signing }}
+        run: |
+          $bad = 0
+          foreach ($f in Get-ChildItem dist-win -File) {
+            $s = Get-AuthenticodeSignature $f.FullName
+            "{0}: {1} {2}" -f $f.Name, $s.Status, $s.SignerCertificate.Subject
+            if ($env:SIGNING -ne 'none' -and $s.Status -ne 'Valid') { $bad = 1 }
+          }
+          if ($bad) { Write-Error "a Windows installer is not validly signed"; exit 1 }
+
+      # After Authenticode: the updater verifies these bytes (ADR-020 § 6).
+      - name: Updater signatures over the final installers
+        if: steps.path.outputs.updater == 'yes'
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for f in dist-win/*-setup.exe dist-win/*.msi; do
+            npx tauri signer sign "$f"
+          done
+          ls -l dist-win
+
+      - name: Upload to the draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" dist-win/* --clobber
+
+      # The winget manifest for this build, filled from the final NSIS installer. Kept as an
+      # artifact; winget.yml submits it after a full release is published.
+      - name: winget manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/release/winget_manifest.py --version "$VERSION" --tag "$TAG" \
+            --repo "$GITHUB_REPOSITORY" --installer "$(ls dist-win/*-setup.exe)" --out winget-manifest
+
+      - name: Upload the winget manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: voxxa-winget-manifest
+          path: winget-manifest/
+          if-no-files-found: error
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: voxxa-x86_64-pc-windows-msvc
+          path: dist-win/
+          if-no-files-found: error
+
+  # One writer for latest.json, after every platform uploaded its .sig files.
+  updater-manifest:
+    name: Updater manifest (latest.json)
+    needs: [release, build, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: No updater key
+        if: needs.windows.outputs.updater != 'yes'
+        run: echo "TAURI_SIGNING_PRIVATE_KEY not set, so no updater signatures and no latest.json (the release is complete without it)."
+
+      # The key never enters this job: the Windows job's "yes" says it exists.
+      - name: Write latest.json into the draft
+        if: needs.windows.outputs.updater == 'yes'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release.outputs.tag }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir sigs
+          gh release download "$TAG" --pattern '*.sig' --dir sigs
+          python3 scripts/release/updater_manifest.py --version "$VERSION" --tag "$TAG" \
+            --repo "$GITHUB_REPOSITORY" --sigs sigs --out latest.json \
+            --notes "https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG"
+          gh release upload "$TAG" latest.json --clobber

@@ -25,3 +25,6 @@ Good: SmartScreen-free path on day one, zero certificate cost if SignPath accept
 
 ## Review trigger
 Re-open if Store sales < 50 in the first 90 days (drop the Store release work) or if SmartScreen reputation is established on GitHub builds (keep the Store as revenue only).
+
+## Amendment (Q10, 2026-11-23): ADR-020
+ADR-020 § 6 implements the Windows bullet with these changes: tag builds make **draft** releases (pre-release when the tag has a `-`), published by the founder by hand; NSIS is per-user (`currentUser`) and the MSI per-machine; SignPath signs the built installers after the build and Azure Trusted Signing stays the fallback, one path per build; updater signatures are made last, over the final bytes; `winget` is submitted only after the founder publishes a full release. "Client enforces version monotonicity" is ADR-020 § 2 (a tested comparator); update checks happen only when the operator asks (ADR-020 § 1). The "stable" channel for support-tier churches is not built.

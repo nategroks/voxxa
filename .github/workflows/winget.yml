@@ -1,0 +1,88 @@
+name: winget
+
+# ADR-020 § 6: submit the per-user NSIS installer to microsoft/winget-pkgs only after the
+# founder PUBLISHES a full release (a draft's download URL is not public, so winget's checks
+# would fail). Pre-releases are skipped. Without the WINGET_TOKEN secret (a classic personal
+# access token with the public_repo scope, from the account whose fork of winget-pkgs gets
+# the pull request) the filled manifest is kept as an artifact and nothing is submitted.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'A published full release, e.g. v0.1.0'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    name: winget manifest
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Which release
+        id: rel
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "$TAG is not a full release tag (vMAJOR.MINOR.PATCH): winget gets full releases only."
+            echo "skip=yes" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          read -r draft pre <<< "$(gh release view "$TAG" --json isDraft,isPrerelease --jq '"\(.isDraft) \(.isPrerelease)"')"
+          if [ "$draft" = true ] || [ "$pre" = true ]; then
+            echo "$TAG is a draft or a pre-release: nothing to submit."
+            echo "skip=yes" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          { echo "skip=no"; echo "version=${BASH_REMATCH[1]}"; } >> "$GITHUB_OUTPUT"
+
+      - name: Fill the manifest from the published installer
+        if: steps.rel.outputs.skip == 'no'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.rel.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir published
+          gh release download "$TAG" --pattern '*-setup.exe' --dir published
+          python scripts/release/winget_manifest.py --version "$VERSION" --tag "$TAG" \
+            --repo "$GITHUB_REPOSITORY" --installer "$(ls published/*-setup.exe)" --out winget-manifest
+
+      - name: Keep the manifest
+        if: steps.rel.outputs.skip == 'no'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: voxxa-winget-manifest-${{ env.TAG }}
+          path: winget-manifest/
+          if-no-files-found: error
+
+      # wingetcreate pinned by release and by SHA-256 (checked 2026-11-23).
+      - name: Submit to winget-pkgs
+        if: steps.rel.outputs.skip == 'no'
+        shell: pwsh
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          VERSION: ${{ steps.rel.outputs.version }}
+        run: |
+          if (-not $env:WINGET_TOKEN) {
+            "WINGET_TOKEN not set: the filled manifest is in the artifact; nothing was submitted."
+            exit 0
+          }
+          $exe = Join-Path $env:RUNNER_TEMP 'wingetcreate.exe'
+          Invoke-WebRequest -Uri 'https://github.com/microsoft/winget-create/releases/download/v1.9.14.0/wingetcreate.exe' -OutFile $exe
+          $sha = (Get-FileHash $exe -Algorithm SHA256).Hash
+          if ($sha -ne 'B97B50C6166712E6099A98C6B190DF2147B4E6F1B18E9188D550AC976D9E8E3B') { Write-Error "wingetcreate.exe hash $sha does not match the pinned one"; exit 1 }
+          & $exe submit --prtitle "New version: nategroks.Voxxa version $env:VERSION" --token $env:WINGET_TOKEN winget-manifest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

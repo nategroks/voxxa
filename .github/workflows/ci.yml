@@ -147,6 +147,10 @@ jobs:
         with:
           tool: tokei@15.0.0  # pinned (R13): scripts/loc_budget.py budgets depend on tokei's counting
       - run: python3 scripts/loc_budget.py
+      # Q10 / ADR-020 § 6: the release helpers (latest.json, the winget manifest);
+      # standard library only, no network.
+      - name: Release script tests
+        run: python3 -m unittest discover -s scripts/release -v
 
   # Q9V / ADR-019 § 8: the repository refuses media. The same check as
   # src-tauri/tests/media_guard.rs (which keeps this list in step), in its

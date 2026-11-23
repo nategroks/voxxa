@@ -827,3 +827,70 @@ ADR-019 §§ 7-9 and ADR-015; ADR-019's "Amendment (Q9V)" records the choices be
 **Tickets:** 10 open (1 medium, 9 low), `reviews/2026-11-20-q9v-tickets.md`. Q9V fixes #105 (Q7-11; close it at merge) and adds comments to #74, #79 and #107.
 
 **SDE position: ready to merge once CI is green.** Next: the orchestrator pushes `q9v/base`, opens the draft PR, gets every CI job green (the `media` job, `eval_numbers_only` and the CI-step test run on GitHub for the first time), merges, files the tickets and closes #105; then Q10. The private eval is founder item M17.
+
+## 2026-11-23 — Q10 (10x lane, `q10/10x` from 68adf2d): operator-initiated updater, strict CSP, draft Windows releases
+ADR-020 (new, Accepted on the founder's Q10 decisions of 2026-11-23) and an ADR-008 amendment, committed before any code (2738c00, e1e326e).
+
+**Phase 2 check.** At 68adf2d the updater plugin was initialised (`lib.rs:121`) but never called; its setup only stores config (registry `tauri-plugin-updater-2.14.1/src/lib.rs:268-291`): no startup network call. Without a comparator it installs when `release.version > current` (`src/updater.rs:712-714`), and `semver::Version`'s `Ord` counts build metadata, which semver 2.0 § 10 excludes. `requireSignedVersion` exists in 2.14.1, but the pinned `@tauri-apps/cli` 2.10.1 writes no `version:` into the minisign trusted comment (checked in its native binary), so it stays off (ticket). Tauri's NSIS mode for ADR-008's "per-user" is `currentUser` (there is no `perUser`). The task's "everything else" was 2315 / 2317.
+
+**Built** (commits ea0517c, 990b71b, 7296670, 28293cd, 465fb20, ecd8b06):
+- **`src-tauri/src/updater/mod.rs`** (new budget row): `should_update` (`:38`, pure: both sides parse as semver, `cmp_precedence` strictly greater; equal, lower, build-metadata-only and malformed refused), `refused` (`:50`, pure: listening → `Outcome::Listening`, no network), `plugin()` (`:56`, the plugin with `should_update` as default comparator), `check_for_update` (`:92`) and `install_update` (`:108`: refuse, re-check, install only the exact confirmed version `:119`, download, refuse again if listening started, install, `app.restart()` `:132`). 30 s timeout; each check and download counted by `net_stats::record_request`. `Outcome` serialises as `{status: listening | up_to_date | available, ...}`.
+- **Wiring** (`lib.rs:17,120,166-167`): `pub mod updater;`, `.plugin(updater::plugin())` in place of the bare builder, two command names. Offset: `conductor` and `smart_config` are built in the `AppState` literal instead of two `let`s (pure values, no behaviour change). `semver = "1"` becomes a direct dependency (already in the lock, 1.0.28).
+- **GUI** (GUI row): `src/updates-logic.js` (pure states and sentences), `src/updates.js` (renders the Updates group in Advanced > Settings, `index.html:338`; calls the two commands only on a click), CSS for the sentence. The privacy card now names update checks. Simple mode is unchanged.
+- **CSP** (`tauri.conf.json:49`), `devCsp` for Vite; the three inline `style=` attributes removed (`index.html:124`, `main.js` detect bar via CSSOM, model progress bar via a CSS default width).
+- **Bundle** (`tauri.conf.json:66-80`): `tsp: true`, `webviewInstallMode` `embedBootstrapper` (silent), `nsis.installMode` `currentUser`; updater `windows.installMode` `passive` (`:88`).
+- **Release pipeline:** `build.yml` rewritten (DevOps record); `winget.yml` new; `scripts/release/{updater_manifest,winget_manifest}.py` + `test_release_scripts.py` (stdlib only, 10 tests, run in ci.yml's budgets job); `packaging/winget/` template; `packaging/signpath/artifact-configuration.xml`.
+- **Tests:** `tests/updater.rs` (8), `tests/release_config.rs` (9: CSP, updater config, bundle, build.yml and winget.yml invariants), `tests/media_guard.rs` refuses an `if:` on the media job or its step and proves it on planted copies (Q9V-03); `tests/gui/updates_logic.test.mjs` (7); e2e +21 checks.
+
+**Budgets** (`python scripts/loc_budget.py`): **updater (src/updater/) 96 / 150** (new row, ADR-020 § 5); everything else in src-tauri/src 2315 → **2316 / 2317**; GUI 2784 → **2859 / 3000**; Simple mode 450 / 600 unchanged. No cap raised.
+
+**Deviations:** the NSIS value is `currentUser` (Tauri's name for per-user); `timestampUrl` stays `http://timestamp.digicert.com` because DigiCert documents no HTTPS endpoint, with `tsp: true` (RFC 3161 replies are signed by the TSA; the field is used only by Tauri's own `certificateThumbprint` signing, which neither path uses); the Azure `signCommand` now carries the values in an args list (a spawned process does not expand `%VAR%`, so the May scaffold could not have worked); the Windows job no longer uses tauri-action (signing must come before the updater signatures); latest.json is written by one final job. A python heredoc edited `lib.rs` once (#56); reviewed by diff. Three `.pyc` files were committed by mistake in 7296670 and untracked in 28293cd (history not rewritten; `.gitignore` now ignores `__pycache__/`).
+
+**Proposed tickets:** turn on `requireSignedVersion` after a CLI bump that records the signed version; the NSIS installer's inner `voxxa.exe` is unsigned on the SignPath path; pin third-party actions by SHA (Q2-28 still open); `macos-15-intel` is GitHub's last x86_64 image; the "stable" channel of ADR-008 is not built; release notes per version (the draft body is generic).
+
+**SDE position: ready for review and the orchestrator's tag run** (what it must prove: DevOps record).
+
+## 2026-11-23 — Q10 base (`q10/base`): merge of `q10/10x`, grafts and review fixes (code head 0571ea6)
+Merged `q10/10x` with `--no-ff` (b5d8df0), then one commit each:
+- **19b6991** graft (ponytail review finding 2, Q2-28): every action in `build.yml` and `winget.yml` pinned to a full SHA; `release_actions_are_pinned_to_full_commit_shas`.
+- **8319140** graft (ponytail design): the latest.json job is gated on the Windows job's `updater` output; the key is not in its env.
+- **d97bc54** graft (ponytail nit): `updater_manifest.py` fails unless the four built platforms have an entry; unknown assets are a `::warning::`; one unittest runs `main()` both ways.
+- **e134b6d** SF-3: Azure only with all six values, one `count()` loop for SignPath and Azure; RELEASING.md and SIGNING.md say so. (Its message says the old path would have failed "with a KeyError": wrong, the override step always defines its three values, so it would have signed with empty ones; the fix is the same.)
+- **7df6874** SF-2, with the correction: `ReleaseNotFound` is any non-success status in plugin 2.14.1 (`updater.rs:661`), so it is **not** mapped to "up to date"; `updater::check_error` gives it its own sentence; the GUI's internet hint is only for `/^Could not check for updates/`.
+- **615a681** nit 5: `Outcome::Available.notes` dropped (no release notes in the GUI are planned).
+- **bebe660** SF-1: the rc paragraph in RELEASING.md § 4 and in the draft body.
+- **d7ef67d** ADR-020 brought in line with all of the above; ADR-008's amendment still holds.
+- **0571ea6** tickets file `reviews/2026-11-23-q10-tickets.md` (Q10-01, Q10-02 from the ponytail lane; Q10-03 to Q10-07 from this lane's proposals). No code for Q10-01/Q10-02.
+- **Not applied:** nit 4 (the instance `.version_comparator(...)` in `updater::latest()` duplicates the default that `plugin()` sets, which `updater_builder()` copies, `tauri-plugin-updater` `src/lib.rs:99`). Kept as defence in depth, which the review allowed; ADR-020 § 2 describes both.
+
+**Budgets:** updater **98 / 150**; everything else 2316 / 2317; GUI 2859 / 3000; Simple mode 450 / 600. No cap raised. Exit demo: QA record, "Q10 base".
+
+## 2026-11-23 — Q10 final: operator-initiated updater, strict CSP, draft releases with optional signing on `q10/base` (head f424c74)
+**Head:** `q10/base` @ f424c74, 25 commits on 68adf2d (16 on the first-parent line, including the merge), plus the state commit "state(implementation): Q10 signing paths, draft releases, operator-initiated updater, strict CSP":
+- the 10x lane (2738c00..5eda044; see the lane entry above), merged as b5d8df0, the comparator's base;
+- three grafts and the tickets graft: 19b6991 (every action pinned by SHA), 8319140 (the `latest.json` job learns only `yes`/`no`), d97bc54 (`latest.json` needs all four platforms), 0571ea6 (Q10-01, Q10-02);
+- the 10x review's fixes: e134b6d (SF-3, Azure only with all six values), 7df6874 (SF-2, corrected: `ReleaseNotFound` gets its own sentence, never "up to date"), 615a681 (nit 5, `notes` dropped), bebe660 (SF-1, the rc paragraph); d7ef67d (ADR-020 matches); records 7db02a9;
+- verifier round 1 fixes: 94d5ac5 (macOS gets each `APPLE_*` only when set), 1244468 (`SIGNING.md`), 833da3c (the listening rule and "never at startup" tested where they are enforced), 6b2ff4e (`default.json` is the only capability); records f424c74.
+
+`q10/10x` (5eda044) and `q10/ponytail` (810c203) stay local for reference. Process record: `reviews/2026-11-23-ponytail-q10.md`. 45 files changed against 68adf2d (+2548 / −126).
+
+**Built** (final line numbers):
+- **Updater** (`src-tauri/src/updater/mod.rs`, its own budget row): `should_update` (pure, semver `cmp_precedence`, strictly greater; equal, lower, build-metadata-only and malformed refused), `refused` (pure, listening → `Outcome::Listening`), `check_error` (`ReleaseNotFound` → "No update is published yet, or GitHub did not answer. Try again later."), `plugin()` (the comparator as the plugin's default), `latest()` (the only `.check(`, also sets the comparator on the instance), `check_for_update`, and `install_update` (refuse, re-check, exact confirmed version, download, refuse again if listening started, install, restart). Each check and download is counted by `net_stats`. `Outcome` serialises as `{status, current, version}`.
+- **Wiring:** `lib.rs` `pub mod updater;`, `.plugin(updater::plugin())`, two `generate_handler!` names; `semver = "1"` direct (already in the lock). Capabilities unchanged.
+- **GUI:** `src/updates-logic.js` (pure states and sentences) and `src/updates.js` (Advanced → Settings → Updates; calls the commands only on a click). The privacy card names update checks. Simple mode has no update control.
+- **Config:** strict `csp` and a Vite-only `devCsp`; `tsp: true`; WebView2 `embedBootstrapper` (silent); NSIS `currentUser`; updater `windows.installMode` `passive`; endpoint `releases/latest/download/latest.json`; pubkey unchanged (84F2CD98C608E9C9).
+- **Release pipeline:** `build.yml` (draft-only release job, macOS and Linux matrix through tauri-action by `releaseId`, a Windows job through the Tauri CLI with SignPath, Azure or unsigned, the Authenticode check, updater signatures last, winget manifest artifact; one `latest.json` job), `winget.yml`, `scripts/release/` (two scripts, 11 unit tests, run by `ci.yml`'s budgets job), `packaging/winget/`, `packaging/signpath/artifact-configuration.xml`. Every action pinned by SHA.
+- **Docs:** `docs/RELEASING.md` (new runbook), `docs/releases/release-body.md` (new), `SIGNING.md`, `docs/signing-policy.md`, `README.md`, `docs/quick-start.md` § 5.
+- **Tests:** `tests/updater.rs` 12, `tests/release_config.rs` 11, `tests/capabilities.rs` 3, `tests/media_guard.rs` (Q9V-03), `tests/gui/updates_logic.test.mjs`, e2e +21 checks.
+
+**Budgets** (`python scripts/loc_budget.py` at f424c74): **updater (src/updater/) 98 / 150** (new row, ADR-020 § 5); everything else in src-tauri/src 2315 → **2316 / 2317**; GUI 2784 → **2859 / 3000**; Simple mode 450 / 600. Every other row unchanged. No cap raised; one direct crate edge added (`semver`, already in the tree).
+
+**Gates:** all pass at 6b2ff4e (finisher) and at f424c74 (verifiers A and B; f424c74 changes only records): npm; fmt; clippy with and without `--features cli`; `cargo test --features cli -j 2` **266 passed, 0 failed, 1 ignored**; cargo-deny; budgets; dictat grep empty; the CI eval step 21/21, "OK: no metric is worse" (unchanged); `scripts/release` 11/11; `test:gui` 18/18; e2e 209/209 with zero CSP violations; actionlint 1.7.7 and PyYAML on every workflow; the `media` job unchanged; no raw control bytes.
+
+**Verifier rounds:** round 1 (7db02a9) asked for four fixes (macOS with no Apple secrets; the listening rule and "never at startup" tested where enforced; a second capability file); each got a test that fails without it, and eight mutations were each killed. **Round 2 at f424c74: both passed.** Verifier B killed 27 of 30 mutants; the three survivors are Q10-08.
+
+**Deviations (recorded in ADR-020 and above):** NSIS `currentUser` (Tauri has no `perUser`); `timestampUrl` stays plain http (DigiCert documents no https endpoint; `tsp: true`); the Windows job uses the Tauri CLI, not tauri-action (signing must come before the updater signatures); one job writes `latest.json`; the Azure `signCommand` carries real values; `requireSignedVersion` off (CLI 2.10.1 signs no version; Q10-03); nit 4 not applied (defence in depth). Process slips: one python heredoc on `lib.rs` (#56) and three `.pyc` files committed then untracked, both in the 10x lane.
+
+**Tickets:** 10 open (2 medium, 8 low), `reviews/2026-11-23-q10-tickets.md`. Q10 fixes #8, #10, #142, #148 and #160 (close them at merge) and adds comments to #159, #59, #100 and #134.
+
+**SDE position: ready to merge once CI is green.** Next: the orchestrator pushes `q10/base` (with the `workflow` scope), opens the PR, gets every CI job green, merges, files the tickets and closes the five issues; then tags **`v0.1.0-rc.1`** on `main`'s merge commit, once, which must produce a **draft** pre-release (DevOps record, "Q10 final"). Before any church release, #59 must be fixed: the Windows installers still carry an unoptimised whisper.cpp.
