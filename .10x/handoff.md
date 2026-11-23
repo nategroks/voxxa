@@ -1,5 +1,16 @@
 # Current Handoff
 
+## User decisions for Q10 (2026-11-23)
+- **Stop at a DRAFT release.** Tag builds create drafts only; the founder publishes the real release by hand, soon after. Agents never publish a draft.
+- **Signing secrets:** the founder is still working on them. Build so that everything works without them and lights up when they are added; list exactly which secrets and variables to add (`docs/RELEASING.md` § 1; `status.md`, founder items).
+- **Windows signing:** keep the May branch's Azure Trusted Signing scaffold (runs only when the `AZURE_*` secrets exist); add SignPath Foundation as the **preferred** path, running only when its secrets exist and skipping cleanly otherwise. NSIS per-user, the WebView2 bootstrapper (pick and justify), `timestampUrl` over https if supported. A winget manifest template filled by a release step as an artifact, submitted to winget-pkgs only when a token exists. Pre-release for tags with a `-`. Fix the retired `macos-13` runner and the dead `*.nsis` glob. `createUpdaterArtifacts` only when `TAURI_SIGNING_PRIVATE_KEY` exists; the build succeeds without it.
+- **The updater: "act in the best interest" → option B, operator-initiated only.** A "Check for updates" control in Advanced → Settings (not Simple mode's main screen). Never automatic, never at startup; refused while listening with a clear sentence and no network call. The GUI calls Voxxa's own Rust commands; the webview gets **no** updater plugin permission (`capabilities/default.json` stays least-privilege). A small pure, unit-tested comparator: update only when the remote version is strictly greater under semver (equal → no update; lower → refused; pre-release ordering per semver; malformed → refused). Installing asks first and says Voxxa will restart. Signatures are verified with the existing pubkey; **the founder confirms he holds the matching private key or generates a new pair himself** (agents never generate or handle keys). The privacy promise names the update check as a network use.
+- **Strict CSP** in `tauri.conf.json` (no longer null), zero violations shown in the guarded real app, e2e green; prefer removing inline styles to allowing `'unsafe-inline'`.
+- **Budget:** no cost cap. Never raise a line cap. The updater's Rust goes in **one** new row "updater (src/updater/)" in `scripts/loc_budget.py`, recorded in a new ADR-020 (the D5 precedent, ADR-019 § 10). Wire-up lines elsewhere fit the 2 spare lines of "everything else" or are offset.
+- **Keep the ci.yml `media` job intact** (key, `run: |` block, no `continue-on-error`, no `if:`); Q9V-03 may be fixed if cheap.
+- **Pre-approved, for the orchestrator only:** push, PR, CI fixes, merge, **one rc tag that creates a draft release**, tickets.
+- **Safety (unchanged and added):** no microphone; never press keys in or touch WorshipTools Presenter; never start the GUI with `com.voxxa.app`; never touch the installed Voxxa (`%LOCALAPPDATA%\Voxxa\voxxa.exe`) or its data; never install a built installer; never generate, read or print signing keys or secrets; no network calls from tests; **never click "Check for updates" in a real app**; stop every process you start, by PID.
+
 ## User decisions for Q9W/Q9V (2026-11-20)
 - **Spec:** `specs/2026-11-20-prompts-worshiptools-revision.md`, with its two founder addenda. **ADR-019** is Accepted. R0 (planning only) added Q9W and Q9V to the pack after Q9 and applied M1–M8.
 - **D1 Order:** Q9W, then Q9V, then Q10. The "From: Q9 → To: Q10" section below still applies to Q10.
@@ -34,118 +45,87 @@
 
 ---
 
-## From: Q9V → To: Q10 (Windows signing, winget, updater hardening)
-**Date:** 2026-11-21
-**Phase:** Q9V (Phase 4 + 5: the private "See a Victory" fixture and the media guard; ADR-019 §§ 7-9, ADR-015) is done on `q9v/base`: head **be4819b**, plus the state commit "state(implementation): Q9V media guard, numbers-only eval, private fixture steps". Both verifiers passed in round 2 at be4819b, and every exit criterion is met. Next: CI, PR and merge by the orchestrator (pre-approved, D6), then Q10. **Start Q10's lanes from `main` after the Q9V merge.** The "From: Q9 → To: Q10" section below still holds for Q10's task and its open questions; this section adds what changed since.
+## From: Q10 → To: Q11 (close Increment 2′)
+**Date:** 2026-11-23
+**Phase:** Q10 (Phase 4 + 6: Windows signing, winget, updater hardening, per ADR-008; new ADR-020) is done on `q10/base`: head **f424c74**, plus the state commit "state(implementation): Q10 signing paths, draft releases, operator-initiated updater, strict CSP". Both verifiers passed in round 2 at f424c74. Every exit criterion that can be proved on this PC is met; the tag build itself is proved by the orchestrator's rc tag run below. Next: the orchestrator's close-out (CI, PR, merge, tickets, then **one** rc tag, `v0.1.0-rc.1`, which must produce a **draft** release), then Q11. **Start Q11 from `main` after the Q10 merge and the tag run.**
 
-### What Q9V did
-- **Process:** two lanes from 84a3966. `q9v/10x` (5 commits, ADR-019 amendment included) was merged as the comparator's base (c847eab). `q9v/ponytail` (3 commits, ce65275) stays local for reference. Then four ponytail grafts, two review fixes, and three test-only fixes from verifier round 1, one commit each. Record: `reviews/2026-11-20-ponytail-q9v.md`.
+### What Q10 did
+- **Process:** two lanes from 68adf2d. `q10/10x` (9 commits, ADR-020 before any code) was merged as the comparator's base (b5d8df0). `q10/ponytail` (3 commits, 810c203) stays local for reference. Then three grafts and a tickets graft from the ponytail lane and its review, the 10x review's three should-fixes (one corrected) and one nit, and four fixes from verifier round 1, one commit each. Record: `reviews/2026-11-23-ponytail-q10.md`.
 - **Built:**
-  - **The repo refuses media.** `src-tauri/tests/media_guard.rs` and the new ci.yml job `media` ("media guard", `ubuntu-latest`, bash) read `git ls-files -z`, lower-case each path, and refuse any tracked `.mp4 .mov .m4v .mkv .webm .wav .flac .mp3 .m4a` and anything under `fixtures/private/`, naming the path. Exactly the 15 public-domain WAVs in `src-tauri/tests/fixtures/voxxad/` are allowed, by exact path.
-  - **`voxxa-eval --full` prints numbers only:** `voxxad`'s stderr to null, failures by exit status, bad lines by number (`tests/eval_numbers_only.rs`). Replay (CI) unchanged.
-  - **Founder docs:** `fixtures/README.md` "Making the See a Victory fixture" (9 steps) and `fixtures/tools/tap-truth.ps1`. M17 below.
-- **Records:** ADR-019 "Amendment (Q9V)"; `decisions/{sde,qa,security}/church-autoadvance.md` ("Q9V final"); `reviews/2026-11-20-q9v-tickets.md`: 10 open (1 medium, 9 low). Q9V fixes #105 (Q7-11).
+  - **Updater, option B** (`src-tauri/src/updater/mod.rs`, its own budget row): **Check for updates** in Advanced → Settings only; refused while listening before any request and again after the download; a pure semver comparator (strictly greater) set as the plugin's default and on the instance; install only the version the operator confirmed, with "Voxxa will close, install the update and start again."; no webview updater permission; endpoint `releases/latest`, so drafts and pre-releases are never offered. Tests check the rules where they are enforced (`tests/updater.rs`, `tests/capabilities.rs`).
+  - **Strict CSP** (`tauri.conf.json:49`), no `unsafe-*`; the three inline styles removed; a Vite-only `devCsp`; the e2e serves the same header.
+  - **Release pipeline:** `build.yml` makes a **draft** for every tag (pre-release for a `-` tag) after checking the tag, its version, its commit and `main`; Windows NSIS per-user (`currentUser`) and MSI, WebView2 `embedBootstrapper`; signing SignPath (all four values) → else Azure (all six) → else unsigned with a warning; Authenticode checked; updater signatures over the final bytes; `latest.json` written once, only with the key; macOS on `macos-latest` and `macos-15-intel`, each `APPLE_*` exported only when set; the portable ggml build (#142); every action pinned by SHA. `winget.yml` submits a **published** full release only when `WINGET_TOKEN` exists. Runbook: `docs/RELEASING.md`.
+- **Records:** ADR-020 and an ADR-008 amendment; `decisions/{sde,qa,security,devops}/church-autoadvance.md` ("Q10 final") and `decisions/architect/_index.md`; `reviews/2026-11-23-q10-tickets.md`: 10 open (2 medium, 8 low). Q10 fixes #8, #10, #142, #148 and #160.
 
-### The orchestrator's Q9V close-out (before Q10)
-1. Push `q9v/base` with the `gh` credential helper (the branch edits `ci.yml`, so use the `workflow` scope: `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push`), open a draft PR against `main`, and get every CI job green. Q9V has not run in CI: the "media guard" job runs for the first time, and `eval_numbers_only` and the CI-step test run on Linux and macOS for the first time (on a macOS runner with bash 3.2 the CI-step test prints SKIPPED; the job itself runs on Ubuntu).
+### The orchestrator's Q10 close-out (before Q11)
+1. Push `q10/base` with the `gh` credential helper and the `workflow` scope (`git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push`; it edits `build.yml` and `ci.yml` and adds `winget.yml`). Open a PR against `main` and get every CI job green. Q10 has not run in CI: the `budgets` job's new "Release script tests" step, `release_config.rs`, `updater.rs` and the new e2e checks run on GitHub for the first time.
 2. Merge.
-3. Create the label `q9v`, file the 10 tickets, close #105 with 7f71681, and add the comments to #74, #79 and #107 (tickets file, last sections).
+3. Create the label `q10`, file the 10 tickets, close #8, #10, #142, #148 and #160 with the commits named in the tickets file, and add the comments to #159, #59, #100 and #134 (tickets file, last sections).
+4. **The tag run (pre-approved: one rc tag that creates a draft).** Tag **`v0.1.0-rc.1`** on `main`'s merge commit and push the tag. `tauri.conf.json` is 0.1.0; the release job refuses any other version, a tag on another commit, or a commit not on `main`. Check, and record the run ID in the DevOps record and `status.md`:
+   - the release job prints "Draft release v0.1.0-rc.1 of version 0.1.0 (pre-release: true) from <sha>", and the release is a **draft pre-release**;
+   - Windows: "::warning::No Windows signing path is fully configured: the installers are unsigned and SmartScreen will warn." and "TAURI_SIGNING_PRIVATE_KEY not set: no updater signatures."; Authenticode `NotSigned` for both installers; exactly one `*-setup.exe` and one `.msi` collected; `gh release upload` works;
+   - macOS, both runners: four "… not set: left out of the build." lines in "Apple signing values" and "APPLE_CERTIFICATE not set: the macOS build is not signed."; both build ad-hoc signed and not notarized and upload a `.dmg`; `macos-15-intel` is accepted and the portable ggml build works on both;
+   - Linux: "GPG_PRIVATE_KEY not set — Linux artifacts will not be signed."; `.AppImage` and `.deb` uploaded;
+   - assets: `Voxxa_0.1.0_x64-setup.exe`, `Voxxa_0.1.0_x64_en-US.msi`, two `.dmg`, an `.AppImage`, a `.deb`; **no** `.sig`, `.asc` or `latest.json` (the names say 0.1.0, not rc.1: the MSI needs a numeric version);
+   - the updater-manifest job runs only its "No updater key" step;
+   - the `voxxa-winget-manifest` artifact holds three filled files with no `{{` placeholder left;
+   - the pinned action SHAs resolve, and tauri-action uploads into our draft by `releaseId`;
+   - per-user NSIS: read the generated `installer.nsi` (a clean local `npm run tauri build -- --bundles nsis` in its own target folder, nothing installed), or try the draft's installer on a test PC, **never LHMEZPC01**; and only `voxxa.exe` is inside (#100).
+   **Do not publish the draft.** If the run fails, fix forward on a branch (CI fixes are pre-approved) and re-run the workflow for the same tag; if the tag itself must move, delete the draft and the tag (`RELEASING.md` § 5). A second rc tag needs the founder's approval.
+5. Still unproven after the tag run, until the founder's secrets exist: SignPath (the `@v3` inputs, the artifact configuration's wildcards, the approval within 3600 s), Azure, notarization, the updater signatures and `latest.json` (including tauri-action's macOS updater asset names, which `updater_manifest.py` requires). `winget.yml` waits for a published full release, and the in-app update needs two published releases.
+6. Housekeeping: after the merge, the worktrees `C:/dev/q10-10x`, `C:/dev/q10-pony` and `C:/dev/q10-base` can go (keep the branches local for reference). `C:/dev/q3-10x-target` and `C:/dev/q3-pony-target` hold Q10 QA builds with scratch identifiers (`qa10x`, `qa10f`, `qa10a`, `qa10p`): never ship or sign them.
 
-### What Q10 must know
-- **Ask the user for Q10's decisions before the run** (the list in "From: Q9 → To: Q10": tags and releases, signing secrets, the updater, the budget, pre-approvals in one batch). Add one: **make "media guard" a required status check on `main`** (Q9V-02). Q10 is the CI and release step, so it is the natural moment, and only the founder can change branch protection.
-- **Keep the `media` job intact.** `media_guard.rs` reads ci.yml: it finds the job by its `media:` key, runs its `run: |` block with bash, compares its 15 paths and nine extensions with the test's, and fails if the job has `continue-on-error`. If Q10 reorganises `ci.yml`, keep the job's key and its `run: |` block, or change the test in the same commit. Never add `continue-on-error` or an `if:` to it (an `if:` is not caught yet, Q9V-03).
-- **Media in build outputs.** The guard reads only tracked paths, so installers and build artifacts are not affected. Do not commit any audio or video file for Q10 (for example a sound in an installer): the guard refuses it, and an allowlist change is an ADR-019 § 8 decision for the founder.
-- **Budget** (`python scripts/loc_budget.py` at be4819b): **everything else in `src-tauri/src` 2,315 / 2,317 (2 left)**, not the 2,494 / 2,500 in the Q9 table below; its cap was lowered from 2,500 when discovery got its own row (223 / 250, ADR-019 § 10). voxxa-eval 488 / 600; voxxad 552 / 600; presenters 1,374 / 2,000 (`keystroke.rs` 396 / 400); GUI 2,784 / 3,000; Simple mode 450 / 600. Q10's Rust for the updater check needs lines found or a budget decision first (Q9W-04). Tests in `src-tauri/tests/` are not counted.
-- **CSP** (Q9W's note): a strict CSP must keep Simple mode's amber rows and info toasts working (`src/simple/logic.js:11-25`, `src/main.js:560,877`) and Call for help's dialog. Q9V changed no GUI file.
-- **Numbers at the finish (Q9V):** `cargo test --features cli` 242 passed, 1 ignored (`media_guard` 5, `eval_numbers_only` 6 checks); `test:gui` 9/9; e2e 188/188. The CI eval step: 21/21 hits, precision and recall 1.00, 0 false and 0 double, median 2,310 ms, p95 4,870 ms (#84), unchanged since Q6. `baseline.json` unchanged.
-- **Scratch builds:** Q9V built no GUI app. `C:/dev/q3-10x-target/release/voxxa.exe` and `C:/dev/q3-pony-target` still hold Q9W QA builds with scratch identifiers. Never ship or sign them; build releases in CI or in a clean target folder. Builds rewrite the line endings of `src-tauri/gen/schemas/*.json` (and `src-tauri/Cargo.toml` on `tauri build`); restore them with `git checkout` (#91). Give each lane its own `CARGO_TARGET_DIR`; on this PC a full `cargo test` link once failed with Windows error 1455 (paging file) and passed with `-j 2`.
-- **A new public-domain recording** is ignored by `.gitignore` and refused by the guard. Adding one means the same path in three places (`ALLOWED` in `media_guard.rs`, the `media` job's list in `ci.yml`, the `.gitignore` comment) plus `git add -f`; the sync test turns a missed one red.
-- **Content and safety (unchanged):** never open, copy, hash or upload the .mp4 or anything under `fixtures/private/`; never read `%APPDATA%\Presenter`; never press keys in Presenter; no microphone; never the real identifier `com.voxxa.app`; stop every process you start, by PID. `test:gui:e2e` can leave headless Edge processes behind (verifier B stopped two by PID); check after each run.
-- **Q9V items Q10 may touch:** Q9V-02 (required check) and Q9V-03 (an `if:` on the `media` job). The others can wait.
+### Q11's task (prompt pack, `specs/2026-11-11-prompts-10x-team.md:101-103`, with R0's M2)
+**Q11 — Close Increment 2′ (S), Phase 5 + 6.** QA: run the five-volunteer first-run test from `specs/2026-10-24-user-research-plan.md` §2 on LHMEZPC01 with WorshipTools Presenter, including recovery from "Bring WorshipTools Presenter to the front" and "Put "<song>" live in Presenter" (ADR-019; R0's M2 removed "one video song"). Security: review the support bundle for over-collection. DevOps: first signed pre-release. SRE: on-call runbook for the Sunday window. Reviews and decision files as in Q7. Q11 is a verification and close step, so the process rule asks for `ponytail` + `ponytail-audit` beside it, not two build lanes.
 
----
+### What Q11 must know
+**Ask the founder for Q11's decisions before the run, in one batch:**
+- **Which build the volunteers use, and where.** `docs/RELEASING.md` § 4 says an rc never goes on a booth PC, and LHMEZPC01 is the booth PC. Installing any build there replaces the installed Voxxa (`%LOCALAPPDATA%\Voxxa\voxxa.exe`, real identifier `com.voxxa.app`), which agents may not touch. Options: the founder publishes v0.1.0 first and installs it himself; or he accepts the rc on LHMEZPC01 for the test and installs the final by hand afterwards (the updater will not move an rc to the same X.Y.Z); or the test runs on another PC. Agents never install.
+- **"First signed pre-release" needs secrets.** If no SignPath or Azure secrets exist by Q11, a new tag can only give another unsigned draft. Ask whether the founder has the secrets, and whether Q11 may make one more rc tag (only one was pre-approved in Q10).
+- **The updater key:** whether the founder holds the private key for pubkey 84F2CD98C608E9C9 or will replace it, before anything is published.
+- **The volunteers are people.** The founder runs the sessions; agents prepare the script, the observation sheet and the record, and never press keys in Presenter or start the app with `com.voxxa.app`.
+- Pre-approvals (push, PR, CI fixes, merge, tags, tickets), in one batch, up front.
 
-## From: Q9 → To: Q10 (Windows signing, winget, updater hardening)
-**Date:** 2026-11-19
-**Phase:** Q9 (Phase 4, Call for help, runbooks, quick-start, ADR-018) is done on `q9/base`: head **89f4ccb**, plus the state commit "state(implementation): Q9 Call for help, runbooks, quick-start". Both verifiers passed in round 3 at 89f4ccb. Both exit criteria are met: the bundle is produced, and the links resolve. Next: CI, PR and merge by the orchestrator (pre-approved above), filing the Q9 tickets and closing #102; then Q10.
+**Before the volunteer test:**
+- **Q10-02 (medium):** in the ponytail lane's real-app run, the first-run flow advanced to step 2 by itself, chose an audio device and ran discovery. A first run that advances on its own would spoil a first-run test. Reproduce it (clean scratch identifier, CDP attached before the window shows, every click and key logged) or rule it out before volunteers sit down.
+- **Q10-01 (medium):** Settings logs `ReferenceError: settings is not defined`, and the threshold and margin labels never follow their sliders. Fix it if volunteers will open Advanced.
+- **#59 (Q4-01, medium):** the Windows installers built by `build.yml` compile whisper.cpp unoptimised (about 6.5 s per 1 s hop on the reference PC). A volunteer test that listens with an installed release build will feel slow. Fix it first, or test with a build that has the fix.
 
-### What Q9 did
-- **Process:** two lanes from 7797556. `q9/10x` (8 commits, ADR first) was merged as the comparator's base (cd28ab5). `q9/ponytail` (6 commits, 8f87206) stays local for reference. Then came four ponytail grafts, the 10x review's fix, and fixes from two verifier rounds that did not pass, one commit each, each with a test that fails without it. Record: `reviews/2026-11-19-ponytail-q9.md`.
-- **Built:**
-  - **#102 fixed first** (2c28c15, with its test): the listening loop logs `Heard N words`, never the text, so no recognised text reaches the diagnostics buffer or report.
-  - **Call for help** (`src-tauri/src/help/mod.rs`, `src/simple/help.js`): a review screen lists every file of the bundle (the diagnostic report, the redacted `voxxa.*` settings, and the last 2 minutes of words from the newest `voxxad` session log, behind a checkbox that is on by default). Save writes one zip to the Desktop; unchecked, the words file is absent. Then the zip's folder opens, and an e-mail draft with no recipient (`SUPPORT_EMAIL = ""`, ticket Q9-01) names the file. Four new commands, no existing command changed, no capability change, no new crate, no network call. `VOXXA_HELP_DIR` sandboxes it for QA and opens nothing.
-  - **"What to do" links** on red rows 1, 5 and 6 and on grey row 3 ("model missing" is not red) open the runbook on GitHub through `help::runbook_url`.
-  - **Docs:** `docs/quick-start.md` (one printed page, kept so by a test; it says there is no download page yet) and `docs/runbooks/{no-audio-device,presentation-app-not-reachable,model-missing}.md`.
-- **Records:** ADR-018 (ADR-017 §§ 1 and 2 amended); `decisions/{sde,qa,security}/church-autoadvance.md` ("Q9 final") and `decisions/architect/_index.md`; `reviews/2026-11-19-q9-tickets.md`: 16 open (1 medium, 15 low). Q9 fixes #102.
+**Security (support bundle):** the bundle is Q9's Call for help (ADR-018: the diagnostic report, the redacted `voxxa.*` settings, the last 2 minutes of words behind a checkbox that is on by default). Q10 added update checks and downloads to the outbound counter (`net_stats`); check whether the report names them and whether anything there is more than support needs. The redaction rules are in ADR-018.
 
-### The orchestrator's Q9 close-out (before Q10)
-1. Push `q9/base` with the `gh` credential helper, open a draft PR against `main`, and get every CI job green. Q9 has not run in CI yet.
-2. Merge. Then check that the three runbook URLs open on GitHub (they return 404 until `main` has the files).
-3. Create the label `q9`, file the 16 tickets, close #102 with 2c28c15, and add the comments to #53, #49, #99, #116, #109, #34, #8 and #121 (tickets file, last section).
-4. Four headless Edge root processes with `%TEMP%\voxxa-verifya3-*` profiles were still running at the end of Q9 (PIDs 14608, 14632, 14872, 18796; started 1:16-1:18 PM). No Q9 agent started them. Stop them by PID if nobody claims them.
+**SRE (Sunday window):** the runbook should say that Voxxa never checks for updates by itself and refuses while listening, so a service cannot be interrupted by an update; that updates are installed between services by pressing **Check for updates**; and how to roll back a bad release (`RELEASING.md` §§ 5-6: unpublish, fix forward with a higher version; there are no downgrades). Link the existing runbooks in `docs/runbooks/`.
 
-### Q10's task (prompt pack, `specs/2026-11-11-prompts-10x-team.md`, Stage C)
-**Q10 — Windows signing, winget, updater hardening (M), Phase 4 + 6, per ADR-008.** In `build.yml`: keep the May branch's Trusted Signing scaffold, add the SignPath Foundation action as the preferred path (it skips when the secrets are absent), NSIS `perUser`, the WebView2 bootstrapper, a `winget` manifest template and a release step. In the updater client, refuse manifests with a lower version than the one installed. Set a strict CSP. Unit test the version check. Exit: a tag build produces signed NSIS and MSI installers when the secrets exist; CSP is no longer null.
+**Things to keep from Q10:**
+- `tests/release_config.rs` pins `build.yml` and `winget.yml`: the draft rule, the signing order, the skip conditions, the matrix, the SHA pins and the macOS env rule. A workflow change updates the test in the same commit. A new action needs a full SHA and a `# version` comment.
+- The updater's source-text tests (`tests/updater.rs`) read the guard as rustfmt lays it out; a deliberate reformat must update the constant there.
+- `capabilities/` must hold only `default.json` (`core:event:default`); `tests/capabilities.rs` refuses anything else.
+- Budget: "everything else in `src-tauri/src`" has **1 line left**; any backend change needs lines removed first or a budget decision before code. The updater row has 52 left.
+- Never click **Check for updates** in a real app; the guarded real app (scratch identifier, CDP port, `--no-bundle`, `VOXXA_HELP_DIR` a scratch folder) is the only way agents run the GUI. `scripts/qa/csp-real-app.mjs` re-checks the CSP.
+- Keep the ci.yml `media` job intact; `media_guard.rs` now also refuses an `if:` on it. "Media guard" is still not a required check (#159, founder).
 
-### What Q10 must know
-**Ask the user for Q10's decisions before the run, as for Q3–Q9.** Q10 collides with earlier decisions and with the budget:
-- **Tags and releases.** Q7's user decision was "no tag, no GitHub release". Q10's exit criterion is a tag build. Ask whether Q10 may push a tag (and which, for example a `v0.x.y-rc` pre-release), or whether the proof is a `workflow_dispatch` run that builds without publishing. `build.yml` today publishes a full release (`releaseDraft: false`, `prerelease: false`) on any `v*` tag.
-- **Signing secrets.** None exist yet. The founder checklist still says "apply to SignPath" and nothing records Azure Trusted Signing secrets. So Q10 can prove only "skips cleanly without secrets" plus unsigned installers, unless the user provides secrets. Ask which path is real today.
-- **The updater.** The plugin is initialised (`src-tauri/src/lib.rs:121`, `tauri-plugin-updater` 2.14.1 in `Cargo.lock`), but nothing calls it, the webview has no updater permission (`src-tauri/capabilities/default.json`: `core:event:default` only; `tests/capabilities.rs`), and there is no `createUpdaterArtifacts` (Q2-28, #10). The cut-list ADR-012 (still a user decision) names "signing scaffolds, unused plugins". Ask whether Q10 wires the updater or only hardens the check.
-- **The version check is already the plugin's default.** In `tauri-plugin-updater` 2.14.1, `src/updater.rs:712-714` (registry copy) updates only when `release.version > current_version`, unless a custom comparator is set. So a lower version is refused today. Q10's unit test should pin that (for example a small, tested comparator function that also defines equal versions and pre-release ordering), so a later custom comparator cannot allow a downgrade by accident.
-- **Budget: the backend row is nearly full.** "Everything else in src-tauri/src" is **2,494 / 2,500 (6 left)**. Any Rust code for the updater outside an existing row will not fit. Ask before writing code: remove lines elsewhere, or a budget decision (the user prefers a new recorded row over raising "everything else"; Q9 allowed neither). Tests in `src-tauri/tests/` are not counted.
-- **Pre-approvals** (push, PR, CI fixes, merge, tickets, stopping own processes): ask for them in one batch, up front.
-
-**`build.yml` today** (`.github/workflows/build.yml`, 230 lines):
-- Triggers: `push: tags: v*` and `workflow_dispatch`. Matrix: `macos-latest`, `macos-13` (retired runners; QA record, 2026-10-24, finding 2), `ubuntu-22.04`, `windows-latest`.
-- `tauri-apps/tauri-action@v0`, `dtolnay/rust-toolchain@stable` and `swatinem/rust-cache@v2` are pinned by tag in the job that holds the signing secrets (Q2-28, #10). `ci.yml` pins Rust 1.99.1; `build.yml` does not.
-- Trusted Signing (the May branch scaffold to keep): `trusted-signing-cli` 0.11.0 is installed only when `AZURE_CLIENT_ID` is set, and a `--config` override injects `signCommand` (`build.yml:109-140`). `tauri.conf.json` has no `signCommand`, `certificateThumbprint: null`, and `timestampUrl` over plain http.
-- There is no SignPath step, no NSIS `installMode`, no `webviewInstallMode`, and no `winget` manifest.
-- The GPG `.asc` files are made after the release is published and only uploaded as workflow artifacts (Q2-28). The upload glob `bundle/**/*.nsis` matches nothing; the NSIS installer is `bundle/nsis/*-setup.exe`, which the `*.exe` glob catches.
-- Editing workflow files needs a push with the `workflow` scope: use `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push`.
-
-**The CSP** (`src-tauri/tauri.conf.json:49` `"csp": null`; `:14` `"withGlobalTauri": true`; Q2-26, #8):
-- No inline scripts: `index.html:375-376` and `stage.html:37` load module scripts. Stylesheets are local. `index.html` has one inline `style=` attribute. `src/main.js`, `src/stage.js` and `src/simple/*.js` use `window.__TAURI__`.
-- Q2-26 proposes `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src ipc: http://ipc.localhost`. Check the stage window too.
-- Call for help renders file content with `textContent`; its one `innerHTML` is a static string (`src/simple/help.js:38`).
-- **The mocked browser does not see the CSP.** `tests/gui/e2e.mjs` serves `dist/` itself and injects the mock with a `<script src>` (`:42`). Either send the same CSP header from the test server, so a CSP breakage fails the e2e, or rely on the guarded real app. Re-run the guarded real app with the CSP either way.
-
-**Installers.**
-- They must carry the GUI only; `voxxad` and `voxxa-eval` stay out (Q7; `tests/packaging.rs`; Q7-06, #100). Q7 proved it by reading the generated `installer.nsi`.
-- Release builds compile whisper.cpp without optimisation on Windows (Q4-01, #59). A signed release would ship that.
-- **Do not install or run a produced installer on this PC** without a user decision: it installs and starts the app with the real identifier `com.voxxa.app`, which the safety rules forbid. Inspect the generated `installer.nsi` and the MSI tables instead, or ask.
-- The `voxxa.exe` in `C:/dev/q3-10x-target/release/` is verifier A's scratch build (identifier `com.voxxa.qa9va`, CDP port 9354). Never ship or sign it; build releases in CI or in a clean target folder.
-
-**Docs that change when a download exists.**
-- `docs/quick-start.md:3-5` says there is no download page yet, and the test `the_quick_start_names_no_download_page_while_there_is_no_release` (`src-tauri/tests/help_bundle.rs:500`) enforces it. Change both together once a pre-release exists.
-- `README.md:42` and `docs/index.html:232-266` still point to the releases page (Q9-10). GitHub Pages is off (user decision).
-- `docs/signing-policy.md` and `SIGNING.md` still need reconciling (Q1 A15 follow-up). SignPath requires the public signing policy page.
-
-**Q9 items Q10 may touch:** Q9-03 (move from the shell plugin's deprecated `open` to `tauri-plugin-opener`, a new crate, so it needs `cargo-deny` and a user decision); a strict CSP must keep Call for help's dialog working (check it in the guarded real app).
-
-### Numbers at the finish (Q9)
-Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double advances, median 2,310 ms, p95 4,870 ms (#84), unchanged since Q6. `baseline.json` unchanged. Tests: 221 passed with `--features cli`, 1 ignored. GUI: `test:gui` 7/7, e2e 160/160.
+### Numbers at the finish (Q10)
+Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double advances, median 2,310 ms, p95 4,870 ms (#84), unchanged since Q6. `baseline.json` unchanged. Tests: `cargo test --features cli` 266 passed, 1 ignored; `scripts/release` 11/11; GUI `test:gui` 18/18, e2e 209/209 with zero CSP violations.
 
 | Row | Used / cap | Left |
 |---|---|---|
-| everything else in src-tauri/src | 2,494 / 2,500 | **6** |
+| everything else in src-tauri/src | 2,316 / 2,317 | **1** |
+| updater (`src/updater/`, new in Q10) | 98 / 150 | 52 |
+| discovery (`src/discovery/`) | 223 / 250 | 27 |
 | conductor (`aligner/`, without `evidence/`) | 1,173 / 1,200 | 27 |
 | conductor evidence (`aligner/evidence/`) | 215 / 500 | 285 |
 | recognizer | 432 / 700 | 268 |
 | voxxad (`src/cli/voxxad/`) | 552 / 600 | 48 |
-| voxxa-eval (`src/cli/voxxa-eval/`) | 469 / 600 | 131 |
-| presenters | 1,149 / 2,000 | 851 |
+| voxxa-eval (`src/cli/voxxa-eval/`) | 488 / 600 | 112 |
+| presenters (`keystroke.rs` 396 / 400) | 1,374 / 2,000 | 626 |
 | importers + planning_center | 1,386 / 1,600 | 214 |
-| GUI (without `src/simple/`) | 2,780 / 3,000 | 220 |
-| Simple mode (`src/simple/*`) | 436 / 600 | 164 |
+| GUI (without `src/simple/`) | 2,859 / 3,000 | 141 |
+| Simple mode (`src/simple/*`) | 450 / 600 | 150 |
 
-Tests in `src-tauri/tests/`, `tests/gui/` and `scripts/qa/` are not counted.
+Tests in `src-tauri/tests/`, `tests/gui/`, `scripts/qa/` and `scripts/release/` are not counted.
 
 **Other things to keep.**
-- Safety rules for unattended runs: no microphone, no keystroke dispatch, never the real identifier `com.voxxa.app`, `--shadow`/`--replay`/`--presenter none` only for `voxxad`, never the real Desktop, never the mail program or Explorer, and stop every process you start, by PID.
-- GUI testing, two ways (Q8's method): (a) the mocked browser, `npm run build && npm run test:gui:e2e -- <screenshot dir>`; (b) the guarded real app, a scratch build with its own identifier and `additionalBrowserArgs` with `--remote-debugging-port`, built with `npm run tauri build -- --no-bundle --config <scratch config outside git>`, then `scripts/qa/simple-mode-real-app.mjs` and, with `VOXXA_HELP_DIR` set to a scratch folder, `scripts/qa/call-for-help-real-app.mjs`. Afterwards delete `%LOCALAPPDATA%\com.voxxa.qa<name>` and restore the LF-only rewrites of `src-tauri/Cargo.toml` and `gen/schemas/*.json` (#91).
-- Build and test the tools with `--features cli`. A plain `cargo test` fails 10 tests on purpose. Never print setlist or recognised text.
-- The shared `CARGO_TARGET_DIR` (`C:/dev/q3-10x-target`): two `cargo test` runs in it at once can crash rustc. Give each lane its own target.
+- Safety rules for unattended runs: no microphone, no keystroke dispatch, never the real identifier `com.voxxa.app`, `--shadow`/`--replay`/`--presenter none` only for `voxxad`, never the real Desktop, never the mail program or Explorer, never install a built installer, never handle a key or secret, and stop every process you start, by PID. `test:gui:e2e` can leave headless Edge processes behind; check after each run.
+- Build and test the tools with `--features cli`. Give each lane its own `CARGO_TARGET_DIR`; on this PC a full `cargo test` link once failed with Windows error 1455 (paging file) and passed with `-j 2`. Builds rewrite the line endings of `src-tauri/gen/schemas/*.json` and `src-tauri/Cargo.toml`; restore them with `git checkout` (#91).
 - Write files with the Edit or Write tools, not Bash heredocs (#56). Check `git grep -lIP '[\x00\x0b]'` before every commit.
 - CI: keep Linux on `ubuntu-22.04` (the `unshare -rn` comment in `ci.yml`), and keep the Windows socket test's per-child time window.
 
@@ -161,15 +141,17 @@ Tests in `src-tauri/tests/`, `tests/gui/` and `scripts/qa/` are not counted.
   7. **Run the eval:** `cargo run --manifest-path src-tauri/Cargo.toml --features cli --bin voxxa-eval -- --full fixtures/private/new-life`. It prints numbers only. `FAIL` lines and exit code 1 are expected (no baseline row for a private fixture). If step 6 worked but this stops with "voxxad failed with exit code: 1", `audio.wav` is missing or not 16 kHz mono 16-bit: redo step 3. Never add `--record`, and never run `voxxad` on this audio by hand.
   8. **Record it:** `git rev-parse --short HEAD` for the commit. Fill the pending cells of row 1 of `fixtures/LICENSED_RUNS.md`: the date, the commit and the `new-life` row's numbers only (slides, gotos, hits, missed, precision, recall, median, p95, false, double, blank and unblank ms). No words, no paths under AppData, no hashes.
   9. **Before you commit:** `git status --short` must list nothing under `fixtures/private/` and no audio or video file; `cargo test --manifest-path src-tauri/Cargo.toml --test media_guard` must pass. Then `git add fixtures/LICENSED_RUNS.md` and commit only that file, through a PR like any other change. Never `git add -f` anything in `fixtures/private/`. `Remove-Item -Recurse fixtures\private\new-life` deletes the fixture when you no longer need it (the .mp4 is not in it).
-- **Founder:** apply to SignPath; open Partner Center. #73 is closed as "local eval only" (ADR-019 § 9). Tap the New Life truth and run its eval (M17 above; the audio and setlist are made). Confirm the F10 unblank key (T3; ticket Q9W-02). Make "media guard" a required status check on `main` (Q9V-02).
-- **User decisions:** the cut-list ADR-012; Q6-01 (#83) and Q6-10 (#89).
-- **Q1 A15 follow-ups:** Q7-12 (#106); re-run the Windows verification on the merged head (`handoff-local-windows.md`); reconcile `docs/signing-policy.md` with `SIGNING.md`.
+- **Founder:** apply to SignPath; open Partner Center. #73 is closed as "local eval only" (ADR-019 § 9). Tap the New Life truth and run its eval (M17 above; the audio and setlist are made). Confirm the F10 unblank key (T3; ticket Q9W-02). Make "media guard" a required status check on `main` (Q9V-02, #159).
+- **Founder (Q10):** add the release secrets and variables when ready (SignPath: secrets `SIGNPATH_API_TOKEN`, `SIGNPATH_ORGANIZATION_ID`, variables `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG`, and the artifact configuration and a manual-approval policy in SignPath; Azure fallback: the six `AZURE_*` secrets; updater: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; winget: `WINGET_TOKEN`); confirm you hold the private key for pubkey 84F2CD98C608E9C9 or generate a new pair yourself and replace the pubkey; confirm the winget identity `nategroks.Voxxa`; publish the draft when ready (`docs/RELEASING.md` §§ 3-4; #59 first). The full list is in `status.md` and `RELEASING.md` § 1.
+- **User decisions:** the cut-list ADR-012; Q6-01 (#83) and Q6-10 (#89); Q10-06 (keep or drop ADR-008's "stable" channel).
+- **Q1 A15 follow-ups:** Q7-12 (#106); re-run the Windows verification on the merged head (`handoff-local-windows.md`); `docs/signing-policy.md` and `SIGNING.md` now describe the same pipeline (Q10); read them through once more when SignPath answers.
 
-**Process rule (user, 2026-11-11):** every prompt (Q2…Q27) also runs independently through ponytail. Run code steps (Q10 is one) as two lanes plus cross-review, and verification and close steps as `ponytail` + `ponytail-audit`. Record the result in `reviews/YYYY-MM-DD-ponytail-<Q>.md`.
+**Process rule (user, 2026-11-11):** every prompt (Q2…Q27) also runs independently through ponytail. Run code steps as two lanes plus cross-review, and verification and close steps (Q11 is one) as `ponytail` + `ponytail-audit`. Record the result in `reviews/YYYY-MM-DD-ponytail-<Q>.md`.
 
 ---
 
 ## Handoff History
+- 2026-11-21 Q9V → Q10 and 2026-11-19 Q9 → Q10: Q9V added the media guard and a numbers-only `voxxa-eval --full` (ADR-019 §§ 7-9); merged into `main` as 5bbac72 (PR #157); 10 tickets filed as #158-#167; #105 closed. The two sections that briefed Q10 (Q10's task; tags and releases, signing secrets, the updater, the budget, the CSP, the installers, the docs that change with a download) are in this file's git history (f424c74).
 - 2026-11-20 Q9W → Q9V: Q9W found WorshipTools Presenter by its process, guarded its keys and stopped stepping across songs (ADR-019 §§ 1-4 and 10); merged into `main` as 84a3966 (PR #144); 12 tickets filed as #145-#156; #117 closed; the full section, with Q9V's task and what Q9V had to know, is in this file's git history (be4819b).
 - 2026-11-19 Q8 → Q9: Q8 built Simple mode in front of the existing panels (ADR-017: the mode switch, the status light with one sentence, the first-run flow, and a Call for help placeholder); the merge blocker Q8-10 was fixed in 88aa63b and fce3e58 and verified; merged into `main` as a3967e8 (PR #108); 15 tickets filed as #109–#123; the full section, with the GUI testing method, the Call for help notes for Q9 and the budget table, is in this file's git history (89f4ccb).
 - 2026-11-19 Q7 → Q8: Q7 closed Increment 1′ (a determinism test on 3 OSes, a zero-sockets test for `--replay`, the report-only full eval, the tools out of the installers, the CLI release notes, the Companion guide and the runbook); merged into `main` as c448139 (PR #95); 12 tickets filed as #96–#107; #47 and #75 closed; the full section, with the eval commands, the budget table and the CI notes, is in this file's git history (ee431ce).

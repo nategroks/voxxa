@@ -158,3 +158,32 @@ Decisions: ADR-020 § 6 (amends ADR-008). Runbook: `docs/RELEASING.md`. Founder 
 - **Gap (verifier, case i, plausible):** the tauri-action step set `APPLE_SIGNING_IDENTITY`, `APPLE_API_ISSUER`, `APPLE_API_KEY` and `APPLE_TEAM_ID` from secrets even when they were missing, so the Tauri CLI got them as empty strings. The CLI reads `APPLE_SIGNING_IDENTITY` whenever the variable exists and it replaces the ad-hoc `"-"` from `tauri.conf.json`, so an empty identity could reach codesign and fail both macOS jobs.
 - **Fix:** a macOS-only step "Apple signing values" (`shell: bash`) writes each of the four to `GITHUB_ENV` only when it is not empty, and logs "<NAME> not set: left out of the build." otherwise; the tauri-action step has no `APPLE_*` entry. GitHub masks the secret values in the log. `release_config.rs::macos_builds_unsigned_when_the_apple_secrets_are_missing` failed on the old block and passes on the new one. The block was run locally in bash with all four empty (nothing written to the env file) and with three fake values and one empty (only those three written). actionlint 1.7.7 (with `macos-15-intel` declared) and PyYAML clean on every workflow.
 - **Tag run, changed expectations:** each macOS job log shows four "… not set: left out of the build." lines in "Apple signing values", and both macOS jobs build ad-hoc signed and not notarized, uploading their `.dmg` into the draft. This is still unproven until the orchestrator's rc tag run; if a macOS job fails at codesign anyway, the cause is elsewhere (this env gap is closed).
+
+## 2026-11-23 — Q10 final (`q10/base` @ f424c74): what the tag run must show, and the founder's secrets
+**DevOps position: ready to merge once CI is green, then one rc tag.** Both verifiers passed in round 2. Verifier A traced every secret combination through `build.yml` (`reviews/2026-11-23-ponytail-q10.md` § 8); verifier B's three surviving workflow mutants are Q10-08.
+
+**The orchestrator's tag run** (pre-approved: one rc tag that creates a draft). The full list, merged from the sections above:
+1. Push `q10/base` (it edits workflows, so use the `workflow` scope), open the PR, get every CI job green (the new "Release script tests" step in `budgets` runs on GitHub for the first time), merge.
+2. Tag **`v0.1.0-rc.1`** on `main`'s merge commit and push the tag. `tauri.conf.json` is 0.1.0; any other version, a tag on another commit, or a commit not on `main` is refused by the release job.
+3. Expect, and record with the run ID:
+   - release job: "Draft release v0.1.0-rc.1 of version 0.1.0 (pre-release: true) from <sha>"; one **draft pre-release**;
+   - Windows: "::warning::No Windows signing path is fully configured: the installers are unsigned and SmartScreen will warn.", "TAURI_SIGNING_PRIVATE_KEY not set: no updater signatures.", Authenticode `NotSigned` for both installers, exactly one `*-setup.exe` and one `.msi` collected;
+   - macOS (both runners): four "… not set: left out of the build." lines, "APPLE_CERTIFICATE not set: the macOS build is not signed.", ad-hoc signed and not notarized, `.dmg` uploaded; `macos-15-intel` accepted;
+   - Linux: "GPG_PRIVATE_KEY not set — Linux artifacts will not be signed.", `.AppImage` and `.deb` uploaded;
+   - assets: `Voxxa_0.1.0_x64-setup.exe`, `Voxxa_0.1.0_x64_en-US.msi`, two `.dmg`, an `.AppImage`, a `.deb`; **no** `.sig`, `.asc` or `latest.json`;
+   - updater-manifest: only its "No updater key" step runs;
+   - artifact `voxxa-winget-manifest` with three files and no `{{` placeholder left.
+4. Also check: the pinned SHAs resolve on the runners; tauri-action uploads into our draft by `releaseId`; the portable ggml build works on both macOS runners; `gh release upload` works from the Windows job; per-user NSIS (read the generated `installer.nsi` from a clean local `tauri build --bundles nsis` without installing, or try the draft's installer on a test PC, never LHMEZPC01); only `voxxa.exe` is in the installers (#100).
+5. **Do not publish the draft.** If the run fails, fix forward on a branch (CI fixes are pre-approved); deleting the draft and the tag is the rollback (`RELEASING.md` § 5). A second rc tag needs the founder's approval: only one is pre-approved.
+
+**Unproven until the founder's secrets exist:** SignPath (the `@v3` inputs, the artifact configuration's wildcards, the manual approval within 3600 s), Azure Trusted Signing, the updater signatures and `latest.json` (including tauri-action's macOS updater asset names, which `updater_manifest.py` requires), notarization. `winget.yml` waits for a published full release; the in-app update needs two published releases.
+
+**Secrets and variables the founder adds** (Settings → Secrets and variables → Actions; all optional; each lights up one step; `docs/RELEASING.md` § 1):
+- **SignPath Foundation (preferred), all four or none:** secrets `SIGNPATH_API_TOKEN`, `SIGNPATH_ORGANIZATION_ID`; variables `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG`. In SignPath: `packaging/signpath/artifact-configuration.xml` as the project's default artifact configuration, and a signing policy with manual approval.
+- **Azure Trusted Signing (fallback, used only without a full SignPath setup), all six or none:** secrets `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`, `AZURE_CODE_SIGNING_ENDPOINT`, `AZURE_CODE_SIGNING_ACCOUNT`, `AZURE_CODE_SIGNING_CERTIFICATE_PROFILE`.
+- **Updater:** secrets `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, matching pubkey **84F2CD98C608E9C9** in `tauri.conf.json`. Confirm you hold that key and password, or generate a new pair yourself (`npx tauri signer generate`, offline) and replace the pubkey in a PR before the first published release. Agents never handle the key.
+- **winget:** secret `WINGET_TOKEN` (a classic personal access token with `public_repo`). Confirm the identity `nategroks.Voxxa` / publisher `nategroks` before the first submission (hard to change later).
+- **Unchanged, optional:** the `APPLE_*` secrets in `SIGNING.md`; `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`.
+- **Branch protection:** make "media guard" a required status check on `main` (#159).
+
+**Before the founder publishes v0.1.0:** fix #59 (the Windows installers carry an unoptimised whisper.cpp); publish the draft by hand (`RELEASING.md` § 4); then update `README.md`, `docs/index.html` and `docs/quick-start.md` with its test (#134). An rc never reaches a booth PC (`RELEASING.md` § 4).
