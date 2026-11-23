@@ -849,3 +849,18 @@ ADR-020 (new, Accepted on the founder's Q10 decisions of 2026-11-23) and an ADR-
 **Proposed tickets:** turn on `requireSignedVersion` after a CLI bump that records the signed version; the NSIS installer's inner `voxxa.exe` is unsigned on the SignPath path; pin third-party actions by SHA (Q2-28 still open); `macos-15-intel` is GitHub's last x86_64 image; the "stable" channel of ADR-008 is not built; release notes per version (the draft body is generic).
 
 **SDE position: ready for review and the orchestrator's tag run** (what it must prove: DevOps record).
+
+## 2026-11-23 — Q10 base (`q10/base`): merge of `q10/10x`, grafts and review fixes (code head 0571ea6)
+Merged `q10/10x` with `--no-ff` (b5d8df0), then one commit each:
+- **19b6991** graft (ponytail review finding 2, Q2-28): every action in `build.yml` and `winget.yml` pinned to a full SHA; `release_actions_are_pinned_to_full_commit_shas`.
+- **8319140** graft (ponytail design): the latest.json job is gated on the Windows job's `updater` output; the key is not in its env.
+- **d97bc54** graft (ponytail nit): `updater_manifest.py` fails unless the four built platforms have an entry; unknown assets are a `::warning::`; one unittest runs `main()` both ways.
+- **e134b6d** SF-3: Azure only with all six values, one `count()` loop for SignPath and Azure; RELEASING.md and SIGNING.md say so. (Its message says the old path would have failed "with a KeyError": wrong, the override step always defines its three values, so it would have signed with empty ones; the fix is the same.)
+- **7df6874** SF-2, with the correction: `ReleaseNotFound` is any non-success status in plugin 2.14.1 (`updater.rs:661`), so it is **not** mapped to "up to date"; `updater::check_error` gives it its own sentence; the GUI's internet hint is only for `/^Could not check for updates/`.
+- **615a681** nit 5: `Outcome::Available.notes` dropped (no release notes in the GUI are planned).
+- **bebe660** SF-1: the rc paragraph in RELEASING.md § 4 and in the draft body.
+- **d7ef67d** ADR-020 brought in line with all of the above; ADR-008's amendment still holds.
+- **0571ea6** tickets file `reviews/2026-11-23-q10-tickets.md` (Q10-01, Q10-02 from the ponytail lane; Q10-03 to Q10-07 from this lane's proposals). No code for Q10-01/Q10-02.
+- **Not applied:** nit 4 (the instance `.version_comparator(...)` in `updater::latest()` duplicates the default that `plugin()` sets, which `updater_builder()` copies, `tauri-plugin-updater` `src/lib.rs:99`). Kept as defence in depth, which the review allowed; ADR-020 § 2 describes both.
+
+**Budgets:** updater **98 / 150**; everything else 2316 / 2317; GUI 2859 / 3000; Simple mode 450 / 600. No cap raised. Exit demo: QA record, "Q10 base".
