@@ -213,6 +213,30 @@ fn the_build_matrix_and_globs_are_current() {
 }
 
 #[test]
+fn release_actions_are_pinned_to_full_commit_shas() {
+    // These jobs hold the updater key, the signing secrets and a
+    // contents:write token: a moved tag must not change what runs (Q2-28,
+    // ADR-020 § 6). Every `uses:` is `owner/repo@<40 hex> # <version>`.
+    for name in ["build.yml", "winget.yml"] {
+        let text = workflow(name);
+        let uses: Vec<&str> = (text.lines())
+            .map(|l| l.trim_start().trim_start_matches("- "))
+            .filter_map(|l| l.strip_prefix("uses: "))
+            .collect();
+        assert!(uses.len() > 1, "{name}: no uses: found");
+        for u in uses {
+            let reference = u.split_once('@').map_or("", |(_, r)| r);
+            let (sha, comment) = reference.split_once(" # ").unwrap_or((reference, ""));
+            assert!(
+                sha.len() == 40 && sha.bytes().all(|b| b.is_ascii_hexdigit()),
+                "{name}: {u} is not pinned to a commit SHA"
+            );
+            assert!(!comment.trim().is_empty(), "{name}: {u} lacks # version");
+        }
+    }
+}
+
+#[test]
 fn winget_is_submitted_only_for_a_published_full_release_with_a_token() {
     let winget = workflow("winget.yml");
     assert!(winget.contains("types: [published]"));
