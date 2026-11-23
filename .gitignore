@@ -18,6 +18,10 @@ Thumbs.db
 *.bin
 models/
 
+# Python bytecode (scripts/release tests)
+__pycache__/
+*.pyc
+
 # Environment
 .env
 .env.local
