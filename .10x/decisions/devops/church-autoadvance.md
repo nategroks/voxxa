@@ -187,3 +187,18 @@ Decisions: ADR-020 § 6 (amends ADR-008). Runbook: `docs/RELEASING.md`. Founder 
 - **Branch protection:** make "media guard" a required status check on `main` (#159).
 
 **Before the founder publishes v0.1.0:** fix #59 (the Windows installers carry an unoptimised whisper.cpp); publish the draft by hand (`RELEASING.md` § 4); then update `README.md`, `docs/index.html` and `docs/quick-start.md` with its test (#134). An rc never reaches a booth PC (`RELEASING.md` § 4).
+
+## 2026-11-23 — Q10 tag run (`v0.1.0-rc.1`): a draft pre-release from `main`
+**First run (45258000510, tag on 4dc17e6): green, but incomplete.** The draft job created the release and then read its id back from the releases list, which had not caught up: the job output `id` was empty. tauri-action (macOS and Linux) logged "No releaseId or tagName provided, skipping all uploads"; Windows uploads by tag and worked. Fixed forward in PR #180 (86c140e): the job asks again for up to 30 s and fails if the id is not a number; `release_config.rs` pins it (a mutant without the check fails). The draft and the tag were deleted and the same tag re-cut on 86c140e (RELEASING.md § 5); not a second rc.
+
+**Second run (45268876214, tag on 86c140e): passed.** The Apple Silicon job was re-run once because GitHub had no arm64 runner ("not acquired by Runner … capacity constraints"); nothing of ours failed.
+- Release job: "Draft release v0.1.0-rc.1 of version 0.1.0 (pre-release: true) from 86c140e…"; the release is a **draft pre-release**, target 86c140e.
+- Windows: "No Windows signing path is fully configured…" warning and "TAURI_SIGNING_PRIVATE_KEY not set: no updater signatures."; Authenticode `NotSigned` for both installers (first run's log; same steps).
+- macOS (both runners): four "… not set: left out of the build." lines and "APPLE_CERTIFICATE not set: the macOS build is not signed."; `macos-15-intel` accepted; the portable ggml include is in every release job's env.
+- Linux: "GPG_PRIVATE_KEY not set — Linux artifacts will not be signed."
+- Assets: `Voxxa_0.1.0_x64-setup.exe`, `Voxxa_0.1.0_x64_en-US.msi`, `Voxxa_0.1.0_aarch64.dmg`, `Voxxa_0.1.0_x64.dmg`, `Voxxa_0.1.0_amd64.AppImage`, `Voxxa_0.1.0_amd64.deb`; also `Voxxa-0.1.0-1.x86_64.rpm` and `Voxxa_{aarch64,x64}.app.tar.gz`, which tauri-action uploads by default (harmless; drop them in a later release-config change if unwanted). **No** `.sig`, `.asc` or `latest.json`.
+- Updater manifest: only "No updater key" ran.
+- `voxxa-winget-manifest` artifact: three files, no `{{` left, `Scope: user`, `InstallerSha256` equal to the uploaded `-setup.exe`'s GitHub digest.
+- Per-user NSIS and #100: a local `tauri build --bundles nsis` under the scratch identifier `com.voxxa.qansis` (nothing installed; build folder deleted) generated `installer.nsi` with `INSTALLMODE "currentUser"` (`RequestExecutionLevel user`), `INSTALLWEBVIEW2MODE "embedBootstrapper"`, and one `File` line, `voxxa.exe`, with no resources or external binaries.
+
+Still unproven until the founder's secrets exist: SignPath, Azure, notarization, the updater signatures and `latest.json`. The draft stays unpublished; it is for checking only and never goes on a booth PC.
