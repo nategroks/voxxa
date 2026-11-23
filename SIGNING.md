@@ -70,10 +70,15 @@ and any `.local` connection silently fail on macOS 14+.
 
 Per ADR-008, Windows releases are signed through **SignPath Foundation**
 (free for OSI-licensed projects; see `docs/signing-policy.md`, which
-SignPath requires to be public). The SignPath step is not wired into
-`build.yml` yet. **Microsoft Artifact Signing** below is the fallback if
-SignPath declines; its scaffold is already in `build.yml` and is skipped
-when the Azure secrets are absent.
+SignPath requires to be public). Since Q10 (ADR-020 § 6) `build.yml` submits
+the built NSIS and MSI installers to SignPath when the secrets
+`SIGNPATH_API_TOKEN` and `SIGNPATH_ORGANIZATION_ID` and the variables
+`SIGNPATH_PROJECT_SLUG` and `SIGNPATH_SIGNING_POLICY_SLUG` all exist; the
+artifact configuration is `packaging/signpath/artifact-configuration.xml`.
+**Microsoft Artifact Signing** below is the fallback if SignPath declines; its
+scaffold runs only when SignPath is not configured and the Azure secrets exist.
+Without either, the installers are unsigned and the log says so. The full
+release procedure is `docs/RELEASING.md`.
 
 ### Fallback: Microsoft Artifact Signing
 

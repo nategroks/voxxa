@@ -39,3 +39,8 @@ It shows every file it will save: a diagnostic report, your settings (no passwor
 the last 2 minutes of heard words, if any (a box leaves them out). Nothing is sent. **Save to
 Desktop** opens an e-mail naming the file, and its folder: add your tech lead's address and drag
 the file in.
+
+## 5. Updates
+
+Voxxa never looks for updates by itself. Your tech lead can press **Check for updates** in
+**Advanced > Settings** (not while Voxxa is listening); an update installs only after a yes.
