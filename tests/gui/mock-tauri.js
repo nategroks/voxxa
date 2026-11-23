@@ -14,6 +14,8 @@
     help: { words: "Words Voxxa heard in the last 2 minutes of session-20261119-1000.jsonl, in seconds from its start.\n\n60.0 s  alpha bravo charlie delta\n",
       previewDelay: 200, writeDelay: 200, writeError: null, openError: null, pending: null, written: [], opened: 0, storage: null },
     runbooks: [],
+    // The update check (ADR-020): the version on offer (null: up to date), or the refusal it throws.
+    update: { version: null, error: null, installed: [] },
   };
   const emit = (event, payload) => { for (const fn of [...(listeners[event] || [])]) fn({ event, payload }); };
   const total = () => (st.songs ? st.songs.reduce((n, s) => n + s.slides.length, 0) : 0);
@@ -77,6 +79,8 @@
     },
     open_help_email: () => { st.help.opened += 1; if (st.help.openError) throw st.help.openError; },
     open_runbook: ({ name }) => { st.runbooks.push(name); },
+    check_for_update: async () => { await new Promise((r) => setTimeout(r, 200)); if (st.update.error) throw st.update.error; return st.update.version; },
+    install_update: ({ version }) => { if (st.update.error) throw st.update.error; st.update.installed.push(version); },
     toggle_stage_display: () => false,
     // `st.stepError` scripts a refused Next/Prev (the WorshipTools guard's sentence, say).
     next_slide_manual: () => { if (st.stepError) throw st.stepError; return null; },

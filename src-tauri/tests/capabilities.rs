@@ -43,3 +43,45 @@ fn the_stage_window_never_takes_the_keyboard() {
     assert_eq!(stage["focusable"], false, "a click must not take the keys");
     assert_eq!(stage["visible"], false, "hidden until the operator asks");
 }
+
+/// Q10 / ADR-020: a strict CSP (Q2-26), the Windows installer settings of
+/// ADR-008, and no updater artifacts unless build.yml has the signing key.
+#[test]
+fn strict_csp_and_the_windows_installer_settings() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tauri.conf.json");
+    let conf: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let csp = conf["app"]["security"]["csp"]
+        .as_str()
+        .expect("a CSP string");
+    for want in [
+        "default-src 'self'",
+        "script-src 'self';",
+        "style-src 'self';",
+    ] {
+        assert!(csp.contains(want), "{want} in {csp}");
+    }
+    for never in [
+        "'unsafe-eval'",
+        "'unsafe-inline'",
+        "*",
+        "http:",
+        "https:",
+        "data:",
+    ] {
+        assert!(
+            !csp.split([' ', ';']).any(|t| t == never),
+            "{never} in {csp}"
+        );
+    }
+    let win = &conf["bundle"]["windows"];
+    assert_eq!(win["nsis"]["installMode"], "currentUser", "per-user NSIS");
+    assert_eq!(win["webviewInstallMode"]["type"], "embedBootstrapper");
+    assert!(win["timestampUrl"]
+        .as_str()
+        .unwrap()
+        .starts_with("https://"));
+    // build.yml adds it only with TAURI_SIGNING_PRIVATE_KEY; without the key
+    // `tauri build` would fail.
+    assert!(conf["bundle"]["createUpdaterArtifacts"].is_null());
+}

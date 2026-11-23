@@ -6,8 +6,9 @@
 //! [`get_network_stats`] and renders the count alongside Voxxa's promise that
 //! the only outbound traffic comes from things the user explicitly connected to.
 //!
-//! Out of scope: requests made by the Tauri updater plugin (it manages its own
-//! HTTP client and runs only when the user has auto-updates enabled).
+//! The update check (`updater::find`, ADR-020) counts as one request: the
+//! plugin's own client also fetches the update itself when the operator
+//! confirms an install.
 
 use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};

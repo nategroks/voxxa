@@ -28,7 +28,8 @@ const check = (name, pass, detail = "") => {
 const bundle = fs.readdirSync(path.join(DIST, "assets")).map((f) => fs.readFileSync(path.join(DIST, "assets", f), "utf8")).join("\n");
 check("shipped bundle has no mock", !bundle.includes("__mock") && !fs.readFileSync(path.join(DIST, "index.html"), "utf8").includes("mock-tauri"));
 
-// --- static server with the shim injected ---
+// --- static server with the shim injected, under the app's own CSP (ADR-020) ---
+const CSP = JSON.parse(fs.readFileSync(path.join(ROOT, "src-tauri/tauri.conf.json"), "utf8")).app.security.csp;
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon" };
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, "http://x").pathname;
@@ -40,7 +41,7 @@ const server = http.createServer((req, res) => {
   if (!file.startsWith(DIST) || !fs.existsSync(file)) { res.writeHead(404); return res.end(); }
   let body = fs.readFileSync(file);
   if (file.endsWith("index.html")) body = body.toString().replace("<head>", '<head><script src="/__mock/mock-tauri.js"></script>');
-  res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
+  res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream", "Content-Security-Policy": CSP });
   res.end(body);
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
@@ -86,7 +87,10 @@ try {
   ws = new WebSocket(page.webSocketDebuggerUrl);
   let id = 0;
   const pending = new Map();
-  ws.onmessage = (m) => { const msg = JSON.parse(m.data); if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); } };
+  // Every CSP report the browser logs, over all page loads (the check is at the end).
+  const cspLog = [];
+  ws.onmessage = (m) => { const msg = JSON.parse(m.data); if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
+    if (msg.method === "Log.entryAdded" && /Content Security Policy/.test(msg.params.entry.text)) cspLog.push(msg.params.entry.text); };
   await new Promise((r) => (ws.onopen = r));
   const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
   const ev = async (expr) => {
@@ -157,6 +161,7 @@ try {
   };
   await send("Page.enable");
   await send("Runtime.enable");
+  await send("Log.enable");
   await send("Emulation.setDeviceMetricsOverride", { width: 420, height: 600, deviceScaleFactor: 1, mobile: false });
 
   // 1. Fresh profile: the first-run flow opens over Simple mode.
@@ -623,6 +628,48 @@ try {
     await ev(`return JSON.stringify(__mock.calls.filter((c) => c.cmd === "connect_presenter").map((c) => c.args.args))`));
   await shot("32-advanced-autodetect-worshiptools");
   await click("#s-simple");
+
+  // Updates (ADR-020): only in Advanced → Settings, only when pressed. The states are scripted.
+  await load();
+  check("update: no check at startup, no button in Simple mode", (await calls("check_for_update")) === 0 && !(await visible("#update-check-btn")));
+  await click("#s-advanced");
+  await click('.tab[data-tab="settings"]');
+  check("update: Settings shows Check for updates; opening it checks nothing", (await visible("#update-check-btn")) && (await calls("check_for_update")) === 0);
+  const updateIs = (text) => waitFor(`return document.getElementById("update-status").textContent === ${JSON.stringify(text)}`, 2000);
+  const updateText = () => ev(`return document.getElementById("update-status").textContent`);
+  const offered = () => visible("#update-confirm");
+  await click("#update-check-btn");
+  check("update: checking", (await updateText()) === "Checking for updates…" && (await ev(`return document.getElementById("update-check-btn").disabled`)));
+  check("update: up to date", (await updateIs("Voxxa is up to date.")) && !(await offered()), await updateText());
+  await shot("33-advanced-update-up-to-date");
+  await ev(`__mock.st.update.error = "Stop listening before checking for updates."; return true`);
+  await click("#update-check-btn");
+  check("update: refused while listening, word for word, nothing offered", (await updateIs("Stop listening before checking for updates.")) && !(await offered()), await updateText());
+  await shot("34-advanced-update-refused-listening");
+  await ev(`__mock.st.update.error = "Could not check for updates: placeholder error"; return true`);
+  await click("#update-check-btn");
+  check("update: an error is shown, nothing offered", (await updateIs("Could not check for updates: placeholder error")) && !(await offered()), await updateText());
+  await shot("35-advanced-update-error");
+  await ev(`__mock.st.update.error = null; __mock.st.update.version = "0.2.0"; return true`);
+  await click("#update-check-btn");
+  check("update: available, and the question says Voxxa restarts", (await updateIs("Voxxa 0.2.0 is available.")) && (await offered())
+    && (await ev(`return document.getElementById("update-question").textContent`)) === "Install Voxxa 0.2.0 now? Voxxa will close and restart.");
+  check("update: nothing installed before the operator confirms", (await calls("install_update")) === 0);
+  await shot("36-advanced-update-available");
+  await click("#update-cancel-btn");
+  check("update: Not now installs nothing", (await updateIs("Update not installed.")) && !(await offered()) && (await calls("install_update")) === 0);
+  await click("#update-check-btn");
+  await waitFor(`return !document.getElementById("update-confirm").hidden`, 2000);
+  await click("#update-install-btn");
+  check("update: Install and restart installs the confirmed version", (await updateIs("Installing Voxxa 0.2.0… Voxxa will restart.")) && (await ev(`return JSON.stringify(__mock.st.update.installed)`)) === '["0.2.0"]');
+  await click("#s-simple");
+
+  // The CSP (tauri.conf.json, sent by this server) refused nothing in the whole run, and it is enforced:
+  // an inline style attribute is refused and reported.
+  check("CSP: no violation in the whole run", cspLog.length === 0, JSON.stringify(cspLog));
+  await ev(`const d = document.createElement("div"); d.setAttribute("style", "color: red"); document.body.appendChild(d); return true`);
+  for (let i = 0; i < 30 && cspLog.length === 0; i++) await sleep(100);
+  check("CSP: enforced (a planted inline style is refused)", cspLog.length === 1 && /style-src/.test(cspLog[0]), JSON.stringify(cspLog));
 } catch (err) {
   check("e2e ran to the end", false, String(err && err.stack || err));
 }

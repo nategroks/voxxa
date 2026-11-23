@@ -121,7 +121,7 @@
           <div class="slide-progress">
             <span id="slide-counter">0 / 0</span>
             <div class="progress-bar">
-              <div class="fill" id="slide-progress-fill" style="width: 0%"></div>
+              <div class="fill" id="slide-progress-fill"></div>
             </div>
           </div>
 
@@ -330,7 +330,7 @@
           <div class="privacy-title">Privacy</div>
           <div class="privacy-count" id="privacy-count">0 outbound network requests this session</div>
           <div class="privacy-sub" id="privacy-sub">
-            Voxxa makes no outbound network calls except to apps you’ve explicitly connected to and Whisper model downloads you initiate.
+            Voxxa makes no outbound network calls except to apps you’ve explicitly connected to, Whisper model downloads you initiate, and update checks you start.
           </div>
         </div>
 
@@ -354,6 +354,17 @@
         <div class="setting-group">
           <button class="secondary-btn" id="diag-btn">Generate diagnostic report</button>
           <p class="helper-sub">For bug reports. Voxxa won’t upload anything — copy the text and attach it where you want.</p>
+        </div>
+
+        <!-- Updates: only when the operator asks, never while listening (ADR-020). -->
+        <div class="setting-group">
+          <button class="secondary-btn" id="update-check-btn">Check for updates</button>
+          <p class="helper-sub" id="update-status" role="status">Voxxa checks only when you press this, and never while listening.</p>
+          <div id="update-confirm" hidden>
+            <p class="helper-sub" id="update-question"></p>
+            <button class="primary-btn" id="update-install-btn">Install and restart</button>
+            <button class="secondary-btn" id="update-cancel-btn">Not now</button>
+          </div>
         </div>
       </section>
     </div>

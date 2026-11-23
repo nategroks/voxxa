@@ -796,8 +796,10 @@ function renderDetection(rows) {
     const pct = Math.round((r.probability || 0) * 100);
     row.innerHTML =
       '<div class="detect-name">' + escapeHtml(r.song_title || "(untitled)") + "</div>" +
-      '<div class="detect-bar"><div class="detect-bar-fill" style="width: ' + pct + '%"></div></div>' +
+      '<div class="detect-bar"><div class="detect-bar-fill"></div></div>' +
       '<div class="detect-pct">' + pct + "%</div>";
+    // Set through the CSSOM: the CSP (style-src 'self') blocks style="" attributes.
+    row.querySelector(".detect-bar-fill").style.width = `${pct}%`;
     detectRows.appendChild(row);
   }
 }
@@ -920,7 +922,7 @@ async function refreshPrivacyCount() {
     privacyCount.textContent =
       n === 0
         ? "0 outbound network requests this session"
-        : `${n} outbound request${n === 1 ? "" : "s"} this session (all to apps you connected to)`;
+        : `${n} outbound request${n === 1 ? "" : "s"} this session (all started by you)`;
     if (privacyCard) {
       privacyCard.classList.toggle("zero", n === 0);
     }
@@ -950,7 +952,7 @@ async function loadModels() {
         <div class="model-name">${escapeHtml(model.display_name)}</div>
         <div class="model-status">${statusText}</div>
         <div class="progress-bar" id="progress-${escapeHtml(model.name)}" hidden>
-          <div class="fill" style="width: 0%"></div>
+          <div class="fill"></div>
         </div>
       `;
 
@@ -1564,6 +1566,41 @@ if (diagCopy) {
     }
   });
 }
+
+// --- Updates (ADR-020): only when the operator presses the button. The backend
+// refuses while listening, before any network call, and verifies the signature.
+const updateCheckBtn = document.getElementById("update-check-btn");
+const updateStatus = document.getElementById("update-status");
+const updateConfirm = document.getElementById("update-confirm");
+let updateVersion = null;
+function showUpdate(text, offer = null) {
+  updateStatus.textContent = text;
+  updateVersion = offer;
+  updateConfirm.hidden = !offer;
+  if (offer) document.getElementById("update-question").textContent = `Install Voxxa ${offer} now? Voxxa will close and restart.`;
+}
+updateCheckBtn.addEventListener("click", async () => {
+  updateCheckBtn.disabled = true;
+  showUpdate("Checking for updates…");
+  try {
+    const version = await invoke("check_for_update");
+    showUpdate(version ? `Voxxa ${version} is available.` : "Voxxa is up to date.", version);
+  } catch (err) {
+    showUpdate(String(err));
+  } finally {
+    updateCheckBtn.disabled = false;
+  }
+});
+document.getElementById("update-cancel-btn").addEventListener("click", () => showUpdate("Update not installed."));
+document.getElementById("update-install-btn").addEventListener("click", async () => {
+  const version = updateVersion;
+  showUpdate(`Installing Voxxa ${version}… Voxxa will restart.`);
+  try {
+    await invoke("install_update", { version });
+  } catch (err) {
+    showUpdate(String(err));
+  }
+});
 
 // --- Keyboard shortcuts ---
 // These fire only when the main window has focus and no text input is active.
