@@ -22,8 +22,8 @@ says so in the log and the build still succeeds.
 
 SignPath also needs, in SignPath itself: the project, a signing policy with manual approval,
 and `packaging/signpath/artifact-configuration.xml` as the project's **default** artifact
-configuration. All four SignPath values must be set, or SignPath is not used (the log warns
-which are missing).
+configuration. All four SignPath values must be set, or SignPath is not used; likewise all
+six Azure values, or Azure is not used. The log warns which values are missing.
 
 ## 2. Cut a release
 

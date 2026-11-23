@@ -112,8 +112,9 @@ release procedure is `docs/RELEASING.md`.
 | `AZURE_CODE_SIGNING_ACCOUNT` | Artifact Signing account name |
 | `AZURE_CODE_SIGNING_CERTIFICATE_PROFILE` | Certificate profile name |
 
-The workflow installs `trusted-signing-cli` only when `AZURE_CLIENT_ID` is
-present, and injects a `bundle.windows.signCommand` Tauri config override
+The workflow installs `trusted-signing-cli` only when all six secrets are
+present and SignPath is not configured (a partial setup is named in a
+warning and the build goes on unsigned), and injects a `bundle.windows.signCommand` Tauri config override
 that invokes it. Builds without the secrets produce unsigned `.msi` /
 `.exe` (still functional, but SmartScreen will warn).
 

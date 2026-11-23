@@ -187,6 +187,9 @@ fn windows_is_signed_before_its_updater_signatures_and_skips_cleanly() {
     assert!(build.contains("if: steps.path.outputs.signing == 'azure'"));
     assert!(build.contains("if: steps.path.outputs.updater == 'yes'"));
     assert!(build.contains("signing=none"));
+    // Azure only when all six values exist; a partial setup warns and goes unsigned.
+    assert!(build.contains("count AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_TENANT_ID AZURE_CODE_SIGNING_ENDPOINT AZURE_CODE_SIGNING_ACCOUNT AZURE_CODE_SIGNING_CERTIFICATE_PROFILE\n            if [ \"$found\" -eq 6 ]; then\n              signing=azure"));
+    assert!(build.contains("Azure Trusted Signing is only partly configured (missing:$missing)"));
     // createUpdaterArtifacts only through the override, only with the key.
     assert!(build.contains("if [ -n \"$TAURI_SIGNING_PRIVATE_KEY\" ]; then\n            echo '{\"bundle\":{\"createUpdaterArtifacts\":true}}'"));
     assert!(

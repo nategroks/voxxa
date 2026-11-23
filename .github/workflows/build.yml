@@ -343,27 +343,40 @@ jobs:
           SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
           SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CODE_SIGNING_ENDPOINT: ${{ secrets.AZURE_CODE_SIGNING_ENDPOINT }}
+          AZURE_CODE_SIGNING_ACCOUNT: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
+          AZURE_CODE_SIGNING_CERTIFICATE_PROFILE: ${{ secrets.AZURE_CODE_SIGNING_CERTIFICATE_PROFILE }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          found=0
-          missing=""
-          for v in SIGNPATH_API_TOKEN SIGNPATH_ORGANIZATION_ID SIGNPATH_PROJECT_SLUG SIGNPATH_SIGNING_POLICY_SLUG; do
-            if [ -n "${!v}" ]; then found=$((found + 1)); else missing="$missing $v"; fi
-          done
+          # count NAME...: how many of the named values are set ($found); the rest in $missing.
+          count() {
+            found=0
+            missing=""
+            for v in "$@"; do
+              if [ -n "${!v}" ]; then found=$((found + 1)); else missing="$missing $v"; fi
+            done
+          }
+          signing=none
+          count SIGNPATH_API_TOKEN SIGNPATH_ORGANIZATION_ID SIGNPATH_PROJECT_SLUG SIGNPATH_SIGNING_POLICY_SLUG
           if [ "$found" -eq 4 ]; then
             signing=signpath
             echo "Windows signing: SignPath Foundation. Approve the signing request in SignPath when it appears."
-          else
-            if [ "$found" -gt 0 ]; then
-              echo "::warning::SignPath is only partly configured (missing:$missing), so it is not used."
-            fi
-            if [ -n "$AZURE_CLIENT_ID" ]; then
+          elif [ "$found" -gt 0 ]; then
+            echo "::warning::SignPath is only partly configured (missing:$missing), so it is not used."
+          fi
+          if [ "$signing" = none ]; then
+            count AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_TENANT_ID AZURE_CODE_SIGNING_ENDPOINT AZURE_CODE_SIGNING_ACCOUNT AZURE_CODE_SIGNING_CERTIFICATE_PROFILE
+            if [ "$found" -eq 6 ]; then
               signing=azure
               echo "Windows signing: Azure Trusted Signing (the fallback)."
-            else
-              signing=none
-              echo "::warning::No Windows signing secrets: the installers are unsigned and SmartScreen will warn."
+            elif [ "$found" -gt 0 ]; then
+              echo "::warning::Azure Trusted Signing is only partly configured (missing:$missing), so it is not used."
             fi
+          fi
+          if [ "$signing" = none ]; then
+            echo "::warning::No Windows signing path is fully configured: the installers are unsigned and SmartScreen will warn."
           fi
           updater=no
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then updater=yes; else echo "TAURI_SIGNING_PRIVATE_KEY not set: no updater signatures."; fi
