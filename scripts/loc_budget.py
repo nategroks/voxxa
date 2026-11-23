@@ -73,7 +73,11 @@ simple = sum(n for f, n in gui.items() if f.startswith("src/simple/"))
 # row, capped at 250, for finding WorshipTools Presenter by process. "Everything
 # else" no longer counts it, so its cap goes down by those 183 lines, 2500 -> 2317.
 discovery = total(["discovery/"])
-rest = sum(rust.values()) - conductor - evidence - presenters - importers - voxxad - recognizer - voxxa_eval - discovery
+# Recorded deviation from ADR-010 Decision 3 (ADR-020, Q10, the founder's D5
+# precedent of ADR-019 § 10): the operator-initiated update check and install
+# get their own row, capped at 80, instead of raising "everything else".
+updater = total(["updater/"])
+rest = sum(rust.values()) - conductor - evidence - presenters - importers - voxxad - recognizer - voxxa_eval - discovery - updater
 
 checks = [
     ("conductor (aligner/)", conductor, 1200),
@@ -82,6 +86,7 @@ checks = [
     ("importers/ + planning_center/", importers, 1600),
     ("everything else in src-tauri/src", rest, 2317),
     ("discovery (src/discovery/)", discovery, 250),
+    ("updater (src/updater/)", updater, 80),
     ("voxxad binary (src/cli/voxxad/)", voxxad, 600),
     ("recognizer (transcription/ + recognizer code)", recognizer, 700),
     ("voxxa-eval (src/cli/voxxa-eval/)", voxxa_eval, 600),

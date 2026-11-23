@@ -14,6 +14,7 @@ mod planning_center;
 mod presenters;
 pub mod transcription;
 mod tray;
+pub mod updater;
 mod vad;
 
 use std::sync::Arc;
@@ -87,12 +88,8 @@ pub fn run() {
             ..Default::default()
         };
         // Connect is async; we're in sync `run()`. The keystroke connect doesn't
-        // actually do I/O, so block_on a tiny runtime.
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("tokio rt");
-        let _ = rt.block_on(keystroke.connect(cfg));
+        // actually do I/O, so block on Tauri's own runtime.
+        let _ = tauri::async_runtime::block_on(keystroke.connect(cfg));
     }
     let presenter = Arc::new(Mutex::new(keystroke));
 
@@ -164,6 +161,8 @@ pub fn run() {
             help::write_help_bundle,
             help::open_help_email,
             help::open_runbook,
+            updater::check_for_update,
+            updater::install_update,
         ])
         .setup(|app| {
             tray::create_tray(app)?;

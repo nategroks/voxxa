@@ -51,6 +51,8 @@ tauri = { version = "2.12", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-shell = "2.6"
 tauri-plugin-global-shortcut = "2.4"
 tauri-plugin-updater = "2.14"
+# The updater's version comparator (ADR-020); already in the tree via the plugin.
+semver = "1"
 # One Voxxa per user: a second launch focuses the running window instead of
 # starting a second conductor that also drives the presenter.
 tauri-plugin-single-instance = "2.5"
