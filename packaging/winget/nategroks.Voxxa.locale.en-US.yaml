@@ -1,0 +1,22 @@
+# winget default locale manifest (ADR-020 § 6).
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: nategroks.Voxxa
+PackageVersion: __VERSION__
+PackageLocale: en-US
+Publisher: nategroks
+PublisherUrl: https://github.com/nategroks
+PackageName: Voxxa
+PackageUrl: https://github.com/nategroks/voxxa
+License: GPL-3.0-or-later
+LicenseUrl: https://github.com/nategroks/voxxa/blob/main/LICENSE
+ShortDescription: Listens to the worship band and advances the lyric slides in your presentation software. Audio never leaves the computer.
+Moniker: voxxa
+Tags:
+  - church
+  - worship
+  - lyrics
+  - slides
+  - presentation
+ReleaseNotesUrl: https://github.com/nategroks/voxxa/releases/tag/__TAG__
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

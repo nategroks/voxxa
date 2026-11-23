@@ -21,12 +21,14 @@ policy.
 
 ## When something is signed
 
-1. A release is cut by pushing a tag `vMAJOR.MINOR.PATCH` that points at a commit on
-   `main`. Tags on any other branch are not signed.
+1. A release is cut by pushing a tag `vMAJOR.MINOR.PATCH` (or a release candidate,
+   `vMAJOR.MINOR.PATCH-rc.N`) that points at a commit on `main`. The build workflow
+   refuses a tag whose commit is not on `main`, so nothing else is signed.
 2. `main` is protected: changes arrive only through pull requests with passing CI
    (fmt, clippy, tests, licence and advisory checks).
-3. The tag triggers the build workflow, which submits the unsigned artefacts to
-   SignPath.
+3. The tag triggers the build workflow, which builds on GitHub-hosted runners and
+   submits the unsigned installers to SignPath. The signed installers go into a
+   **draft** release that no user can see until a maintainer publishes it by hand.
 4. An approver reviews the signing request in SignPath and approves it by hand. Every
    release needs a fresh manual approval; there is no automatic signing.
 
@@ -63,9 +65,12 @@ particular:
   [Hugging Face](https://huggingface.co/ggerganov/whisper.cpp) only when the user picks a
   model in the Models tab. Hugging Face's [privacy policy](https://huggingface.co/privacy)
   applies to that download.
-- Update checks fetch `latest.json` from GitHub Releases. GitHub's
+- Update checks happen only when the user presses **Check for updates** (Advanced →
+  Settings), never automatically and never while Voxxa is listening. A check fetches
+  `latest.json` from GitHub Releases; an update is installed only after the user confirms.
+  GitHub's
   [privacy statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)
-  applies. <!-- TODO cloud/founder: SignPath requires an option to disable this; confirm a setting exists or add one before applying. -->
+  applies.
 
 ## Uninstalling
 

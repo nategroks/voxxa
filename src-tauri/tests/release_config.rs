@@ -132,3 +132,95 @@ fn a_build_without_the_updater_key_still_succeeds() {
     let on = &conf["bundle"]["createUpdaterArtifacts"];
     assert!(on.is_null() || on == false, "createUpdaterArtifacts: {on}");
 }
+
+/// The text of a workflow file (no YAML parser in the tree: plain text checks,
+/// like `media_guard.rs` reads ci.yml).
+fn workflow(name: &str) -> String {
+    let path = format!("{}/../.github/workflows/{name}", env!("CARGO_MANIFEST_DIR"));
+    std::fs::read_to_string(path).unwrap().replace("\r\n", "\n")
+}
+
+#[test]
+fn tag_builds_make_draft_releases_only() {
+    let build = workflow("build.yml");
+    assert!(
+        build.contains("gh release create \"$TAG\""),
+        "the draft job"
+    );
+    assert!(
+        build.contains("args=(--draft "),
+        "every release is created as a draft"
+    );
+    assert!(
+        build.contains("args+=(--prerelease)"),
+        "a tag with a - is a pre-release"
+    );
+    assert!(
+        !build.contains("releaseDraft: false"),
+        "tauri-action must not publish"
+    );
+    assert!(
+        !build.contains("gh release edit"),
+        "nothing publishes the draft"
+    );
+    assert!(build.contains("a published release is never rebuilt"));
+    assert!(build.contains("git merge-base --is-ancestor \"$GITHUB_SHA\" origin/main"));
+}
+
+#[test]
+fn windows_is_signed_before_its_updater_signatures_and_skips_cleanly() {
+    let build = workflow("build.yml");
+    let at = |needle: &str| {
+        build
+            .find(needle)
+            .unwrap_or_else(|| panic!("build.yml lacks {needle:?}"))
+    };
+    // SignPath (preferred) and Azure (fallback) both come before the minisign step.
+    let signpath = at("uses: signpath/github-action-submit-signing-request@");
+    let azure = at("cargo install trusted-signing-cli --locked --version 0.11.0");
+    let check = at("Get-AuthenticodeSignature");
+    let minisign = at("npx tauri signer sign \"$f\"");
+    let upload = at("gh release upload \"$TAG\" dist-win/* --clobber");
+    assert!(azure < signpath && signpath < check && check < minisign && minisign < upload);
+    // Each path runs only when chosen; without secrets the job warns and goes on.
+    assert!(build.contains("if: steps.path.outputs.signing == 'signpath'"));
+    assert!(build.contains("if: steps.path.outputs.signing == 'azure'"));
+    assert!(build.contains("if: steps.path.outputs.updater == 'yes'"));
+    assert!(build.contains("signing=none"));
+    // createUpdaterArtifacts only through the override, only with the key.
+    assert!(build.contains("if [ -n \"$TAURI_SIGNING_PRIVATE_KEY\" ]; then\n            echo '{\"bundle\":{\"createUpdaterArtifacts\":true}}'"));
+    assert!(
+        build.contains("includeUpdaterJson: false"),
+        "latest.json has one writer"
+    );
+}
+
+#[test]
+fn the_build_matrix_and_globs_are_current() {
+    let build = workflow("build.yml");
+    assert!(!build.contains("platform: macos-13"), "retired runner");
+    assert!(build.contains("platform: macos-15-intel"));
+    assert!(
+        !build.contains("*.nsis"),
+        "matches nothing; NSIS is *-setup.exe"
+    );
+    assert!(build.contains("\"$BUNDLE\"/nsis/*-setup.exe \"$BUNDLE\"/msi/*.msi"));
+    assert!(build.contains("toolchain: 1.99.1"), "as ci.yml");
+    assert!(
+        build.contains("CMAKE_PROJECT_INCLUDE:"),
+        "portable ggml, #142"
+    );
+}
+
+#[test]
+fn winget_is_submitted_only_for_a_published_full_release_with_a_token() {
+    let winget = workflow("winget.yml");
+    assert!(winget.contains("types: [published]"));
+    assert!(winget.contains("isDraft,isPrerelease"));
+    assert!(winget.contains("if (-not $env:WINGET_TOKEN)"));
+    assert!(winget.contains("winget-create/releases/download/v1.9.14.0/wingetcreate.exe"));
+    assert!(
+        winget.contains("Get-FileHash"),
+        "the tool is pinned by hash"
+    );
+}

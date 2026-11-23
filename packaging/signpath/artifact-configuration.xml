@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration for Voxxa's Windows installers (ADR-020 § 6).
+  The founder pastes this into the SignPath project as its default artifact
+  configuration. build.yml uploads one workflow artifact (a zip) holding exactly
+  the NSIS installer (*-setup.exe) and the MSI, and submits it for signing.
+  Each wildcard must match exactly one file (SignPath's default).
+  The MSI's voxxa.exe is signed inside it, then the MSI itself. The NSIS
+  installer is signed as a whole (NSIS cannot be opened and re-packed), so the
+  voxxa.exe it installs stays unsigned on this path (ADR-020, Consequences).
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="*-setup.exe">
+      <authenticode-sign />
+    </pe-file>
+    <msi-file path="*.msi">
+      <pe-file path="**/voxxa.exe">
+        <authenticode-sign />
+      </pe-file>
+      <authenticode-sign />
+    </msi-file>
+  </zip-file>
+</artifact-configuration>
