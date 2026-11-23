@@ -1,3 +1,5 @@
+<img src="brand/voxxa-logo-on-light.png" alt="Voxxa" width="140" />
+
 # Voxxa quick-start (Windows)
 
 Voxxa listens to the band and moves your slides; nothing you sing leaves this computer. There is
