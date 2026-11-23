@@ -164,6 +164,12 @@ fn tag_builds_make_draft_releases_only() {
         "nothing publishes the draft"
     );
     assert!(build.contains("a published release is never rebuilt"));
+    // An empty id makes tauri-action skip every upload ("No releaseId or
+    // tagName provided"); the draft job must fail instead (rc.1 run 45258000510).
+    assert!(
+        build.contains("if ! [[ \"${id:-}\" =~ ^[0-9]+$ ]]; then"),
+        "the draft job refuses an empty release id"
+    );
     assert!(build.contains("git merge-base --is-ancestor \"$GITHUB_SHA\" origin/main"));
 }
 
