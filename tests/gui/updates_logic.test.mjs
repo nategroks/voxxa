@@ -23,7 +23,7 @@ test("each backend outcome maps to its state", () => {
   const up = updateView(afterOutcome({ status: "up_to_date", current: "0.1.0" }));
   assert.equal(up.text, "Voxxa 0.1.0 is up to date.");
   assert.equal(up.kind, "ok");
-  const av = updateView(afterOutcome({ status: "available", current: "0.1.0", version: "0.2.0", notes: null }));
+  const av = updateView(afterOutcome({ status: "available", current: "0.1.0", version: "0.2.0" }));
   assert.equal(av.text, "Voxxa 0.2.0 is available. You have 0.1.0.");
   assert.deepEqual(ids(av), ["update-install", "update-check"]);
 });

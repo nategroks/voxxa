@@ -24,11 +24,7 @@ pub enum Outcome {
     /// The newest published release is not newer than this one.
     UpToDate { current: String },
     /// A newer release can be installed.
-    Available {
-        current: String,
-        version: String,
-        notes: Option<String>,
-    },
+    Available { current: String, version: String },
 }
 
 /// True only when `remote` is a strictly newer semver version than
@@ -94,7 +90,6 @@ fn outcome(app: &AppHandle, update: Option<&Update>) -> Outcome {
         Some(u) => Outcome::Available {
             current,
             version: u.version.clone(),
-            notes: u.body.clone(),
         },
     }
 }

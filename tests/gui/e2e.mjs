@@ -667,7 +667,7 @@ try {
   check("Updates: a network error says what to do", await updIs("Could not check for updates: error sending request. Check the internet connection and try again."), await upd());
   check("Updates: the error is red", await ev(`return document.getElementById("update-text").classList.contains("update-error")`));
   await shot("37-updates-error");
-  await ev(`__mock.st.update.error = null; __mock.st.update.check = { status: "available", current: "0.1.0", version: "0.2.0", notes: null }; return true`);
+  await ev(`__mock.st.update.error = null; __mock.st.update.check = { status: "available", current: "0.1.0", version: "0.2.0" }; return true`);
   await click("#update-check");
   check("Updates: available, with Install", (await updIs("Voxxa 0.2.0 is available. You have 0.1.0.")) && (await updButtons()) === "Install 0.2.0…|Check for updates", await updButtons());
   await shot("38-updates-available");

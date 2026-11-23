@@ -116,8 +116,7 @@ fn the_gui_reads_a_status_field() {
         json(&Outcome::Available {
             current: "0.1.0".into(),
             version: "0.2.0".into(),
-            notes: None
         }),
-        serde_json::json!({"status": "available", "current": "0.1.0", "version": "0.2.0", "notes": null})
+        serde_json::json!({"status": "available", "current": "0.1.0", "version": "0.2.0"})
     );
 }
