@@ -231,16 +231,33 @@ jobs:
           fi
           echo "file=$f" >> "$GITHUB_OUTPUT"
 
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
+      # macOS signing & notarization (App Store Connect API key path). Each APPLE_* value
+      # reaches the build only when its secret exists: the Tauri CLI reads
+      # APPLE_SIGNING_IDENTITY whenever the variable is set, even empty, and it overrides
+      # the ad-hoc identity "-" in tauri.conf.json, so an empty one would fail codesign.
+      # Without the secrets the macOS build is ad-hoc signed and not notarized. GitHub
+      # masks the secret values in the log.
+      - name: Apple signing values
+        if: runner.os == 'macOS'
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          # macOS signing & notarization (App Store Connect API key path).
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for name in APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY APPLE_TEAM_ID; do
+            if [ -n "${!name}" ]; then
+              echo "$name=${!name}" >> "$GITHUB_ENV"
+            else
+              echo "$name not set: left out of the build."
+            fi
+          done
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0.6.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
           # Tauri updater key pair (minisign; generated with `tauri signer generate`).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}

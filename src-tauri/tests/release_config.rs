@@ -206,6 +206,53 @@ fn windows_is_signed_before_its_updater_signatures_and_skips_cleanly() {
     );
 }
 
+/// The text of one step of a workflow, from its `- name:` line to the next.
+fn step<'a>(workflow: &'a str, name: &str) -> &'a str {
+    let head = format!("      - name: {name}\n");
+    let start = (workflow.find(&head)).unwrap_or_else(|| panic!("no step {name:?}"));
+    let rest = &workflow[start + head.len()..];
+    let end = rest.find("\n      - name: ").map_or(rest.len(), |i| i + 1);
+    &workflow[start..start + head.len() + end]
+}
+
+#[test]
+fn macos_builds_unsigned_when_the_apple_secrets_are_missing() {
+    // The Tauri CLI reads APPLE_SIGNING_IDENTITY whenever the variable exists,
+    // even empty, and it overrides tauri.conf.json's ad-hoc identity "-": an
+    // empty identity reaches codesign and fails the macOS jobs. So no APPLE_*
+    // value is set on the build step; the step before exports each one only
+    // when its secret is not empty.
+    let build = workflow("build.yml");
+    let tauri = step(&build, "Build Tauri app");
+    assert!(tauri.contains("uses: tauri-apps/tauri-action@"), "{tauri}");
+    assert!(
+        !tauri.contains("APPLE_"),
+        "APPLE_* on the build step:\n{tauri}"
+    );
+    let values = step(&build, "Apple signing values");
+    assert!(values.contains("if: runner.os == 'macOS'"), "{values}");
+    assert!(values.contains("shell: bash"), "${{!name}} is bash");
+    let names = "APPLE_SIGNING_IDENTITY APPLE_API_ISSUER APPLE_API_KEY APPLE_TEAM_ID";
+    assert!(
+        values.contains(&format!("for name in {names}; do")),
+        "{values}"
+    );
+    assert!(
+        values.contains("if [ -n \"${!name}\" ]; then\n              echo \"$name=${!name}\" >> \"$GITHUB_ENV\""),
+        "{values}"
+    );
+    for name in names.split(' ') {
+        assert!(
+            values.contains(&format!("{name}: ${{{{ secrets.")),
+            "{name}"
+        );
+    }
+    assert!(
+        build.find("- name: Apple signing values") < build.find("- name: Build Tauri app"),
+        "the values are exported before the build"
+    );
+}
+
 #[test]
 fn the_build_matrix_and_globs_are_current() {
     let build = workflow("build.yml");
