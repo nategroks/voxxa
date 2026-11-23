@@ -193,6 +193,14 @@ fn windows_is_signed_before_its_updater_signatures_and_skips_cleanly() {
         build.contains("includeUpdaterJson: false"),
         "latest.json has one writer"
     );
+    // The latest.json job learns only whether the key exists, never the key.
+    assert!(build.contains("      updater: ${{ steps.path.outputs.updater }}"));
+    let manifest_job = &build[at("  updater-manifest:")..];
+    assert!(manifest_job.contains("if: needs.windows.outputs.updater == 'yes'"));
+    assert!(
+        !manifest_job.contains("TAURI_SIGNING_PRIVATE_KEY:"),
+        "the private key must not be in the latest.json job"
+    );
 }
 
 #[test]

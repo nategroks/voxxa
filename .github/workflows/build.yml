@@ -301,6 +301,9 @@ jobs:
     needs: release
     name: Build - Windows
     runs-on: windows-latest
+    # Only "yes" or "no": the updater-manifest job learns whether the key exists, not the key.
+    outputs:
+      updater: ${{ steps.path.outputs.updater }}
     env:
       TARGET: x86_64-pc-windows-msvc
       BUNDLE: src-tauri/target/x86_64-pc-windows-msvc/release/bundle
@@ -521,19 +524,20 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
+      - name: No updater key
+        if: needs.windows.outputs.updater != 'yes'
+        run: echo "TAURI_SIGNING_PRIVATE_KEY not set, so no updater signatures and no latest.json (the release is complete without it)."
+
+      # The key never enters this job: the Windows job's "yes" says it exists.
       - name: Write latest.json into the draft
+        if: needs.windows.outputs.updater == 'yes'
         shell: bash
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.release.outputs.tag }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
           set -euo pipefail
-          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "TAURI_SIGNING_PRIVATE_KEY not set: no updater signatures, so no latest.json (the release is complete without it)."
-            exit 0
-          fi
           mkdir sigs
           gh release download "$TAG" --pattern '*.sig' --dir sigs
           python3 scripts/release/updater_manifest.py --version "$VERSION" --tag "$TAG" \
