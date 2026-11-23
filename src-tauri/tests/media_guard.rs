@@ -177,9 +177,9 @@ fn the_check_refuses_media_anywhere_and_private_files_and_allows_only_the_15() {
         "a.mp3",
         "a.m4a",
         // Anything under fixtures/private/, media or not, in any case.
-        "fixtures/private/see-a-victory/setlist.json",
-        "fixtures/private/see-a-victory/truth.jsonl",
-        "fixtures/private/see-a-victory/audio.wav",
+        "fixtures/private/new-life/setlist.json",
+        "fixtures/private/new-life/truth.jsonl",
+        "fixtures/private/new-life/audio.wav",
         "Fixtures/Private/notes.txt",
         "src-tauri/fixtures/private/a.json",
         // An allowlisted name in another folder or another case.

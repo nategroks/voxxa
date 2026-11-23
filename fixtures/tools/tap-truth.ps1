@@ -17,7 +17,7 @@
   q              stop (or let the audio end, then q)
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File fixtures\tools\tap-truth.ps1 -Wav fixtures\private\see-a-victory\audio.wav
+  powershell -ExecutionPolicy Bypass -File fixtures\tools\tap-truth.ps1 -Wav fixtures\private\new-life\audio.wav
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Wav
