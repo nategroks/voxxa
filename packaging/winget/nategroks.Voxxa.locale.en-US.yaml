@@ -1,0 +1,20 @@
+# Template (ADR-008, Q10): build.yml's after-build job fills the placeholders and drops this line.
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: nategroks.Voxxa
+PackageVersion: "{{VERSION}}"
+PackageLocale: en-US
+Publisher: nategroks
+PublisherUrl: https://github.com/nategroks
+PackageName: Voxxa
+PackageUrl: https://github.com/nategroks/voxxa
+License: GPL-3.0-or-later
+LicenseUrl: https://github.com/nategroks/voxxa/blob/main/LICENSE
+ShortDescription: Listens to worship singing on this computer and advances your presentation slides. Audio never leaves the computer.
+Tags:
+  - church
+  - worship
+  - lyrics
+  - slides
+ReleaseNotesUrl: "https://github.com/nategroks/voxxa/releases/tag/v{{VERSION}}"
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

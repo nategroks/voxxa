@@ -63,9 +63,11 @@ particular:
   [Hugging Face](https://huggingface.co/ggerganov/whisper.cpp) only when the user picks a
   model in the Models tab. Hugging Face's [privacy policy](https://huggingface.co/privacy)
   applies to that download.
-- Update checks fetch `latest.json` from GitHub Releases. GitHub's
+- Voxxa never checks for updates on its own. Only when the operator presses **Check for
+  updates** (Advanced → Settings) does it fetch `latest.json` from GitHub Releases, and
+  the update itself only after the operator confirms. GitHub's
   [privacy statement](https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement)
-  applies. <!-- TODO cloud/founder: SignPath requires an option to disable this; confirm a setting exists or add one before applying. -->
+  applies.
 
 ## Uninstalling
 

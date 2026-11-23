@@ -1,5 +1,12 @@
 name: Build and Release
 
+# A v* tag builds every platform into a DRAFT release (founder decision
+# 2026-11-23); a tag with "-" (v0.1.0-rc.1) is also marked pre-release. The
+# founder publishes the draft by hand. Publishing runs only the after-build
+# job, which submits to winget when WINGET_TOKEN exists. Every signing step
+# lights up when its secrets exist and is skipped cleanly without them; the
+# secrets and variables are listed in SIGNING.md.
+
 on:
   push:
     tags:
@@ -7,14 +14,73 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g. v0.1.0)'
+        description: 'Tag for a draft release (e.g. v0.1.0-rc.1); empty builds the installers without a release'
         required: false
+  release:
+    types: [published]
 
 permissions:
   contents: write
+  # SignPath reads the unsigned installers from this run's artifacts.
+  actions: read
+
+env:
+  # The release's tag: the pushed or published tag, or the dispatch input.
+  TAG: ${{ github.event_name != 'workflow_dispatch' && github.ref_name || inputs.version }}
+  # The portable whisper.cpp build, as in ci.yml: GGML_NATIVE would tune the
+  # release to the runner's CPU and crash on older booth PCs.
+  CMAKE_PROJECT_INCLUDE: ${{ github.workspace }}/src-tauri/cmake/ggml-portable.cmake
 
 jobs:
+  # One draft for all platforms, made before the matrix starts, so parallel
+  # jobs never race to create it. Re-runs reuse it.
+  release:
+    name: Draft release
+    if: github.event_name == 'push' || inputs.version != ''
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.draft.outputs.id }}
+    steps:
+      - name: Create the draft release
+        id: draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BODY: |
+            ## Voxxa — voice-following slide advancer for churches
+
+            Voxxa listens to the room and tells your presentation software when to change the lyric slide. It never projects lyrics and never uploads audio.
+
+            | Platform | File |
+            |----------|------|
+            | Windows | `-setup.exe` (installs for the current user) / `.msi` |
+            | macOS (Apple Silicon) | `.dmg` |
+            | macOS (Intel) | `.dmg` |
+            | Linux | `.AppImage` / `.deb` |
+
+            ### First service
+            1. Install and open Voxxa; follow the first-run steps (audio device, presentation software, speech model).
+            2. Load today's setlist and press **Start Listening**.
+            3. Your hands stay free; the operator can always take over.
+
+            > Audio never leaves the computer. No telemetry; network only when the operator starts a model download, a Planning Center import, a Hymnary.org lookup or an update check (Advanced → Settings → Check for updates; never automatic).
+
+            [Code signing policy](https://github.com/nategroks/voxxa/blob/main/docs/signing-policy.md)
+        run: |
+          id=$(gh release view "$TAG" --json databaseId --jq .databaseId 2>/dev/null || true)
+          if [ -z "$id" ]; then
+            pre=false
+            case "$TAG" in *-*) pre=true ;; esac
+            id=$(gh api "repos/$GH_REPO/releases" -f tag_name="$TAG" -f target_commitish="$GITHUB_SHA" \
+              -f name="Voxxa $TAG" -f body="$BODY" -F draft=true -F prerelease=$pre --jq .id)
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: release
+    # Without a tag (a dispatch with no version) the release job is skipped and
+    # this job only builds; it never runs for the published event.
+    if: ${{ !cancelled() && github.event_name != 'release' && needs.release.result != 'failure' }}
     strategy:
       fail-fast: false
       matrix:
@@ -22,7 +88,8 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             name: macOS (Apple Silicon)
-          - platform: macos-13
+          # GitHub's Intel image (the old macOS 13 runner is retired).
+          - platform: macos-15-intel
             target: x86_64-apple-darwin
             name: macOS (Intel)
           - platform: ubuntu-22.04
@@ -38,15 +105,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The toolchain ci.yml tests with.
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.99.1
           targets: ${{ matrix.target }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          key: portable-ggml
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -106,37 +176,51 @@ jobs:
           echo "APPLE_API_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8" \
             >> "$GITHUB_ENV"
 
-      # Microsoft Artifact Signing (formerly Azure Trusted Signing) for Windows:
-      # the ADR-008 fallback; SignPath Foundation is the primary path (see
-      # SIGNING.md and docs/signing-policy.md). Only installs the CLI if the Azure
-      # credentials are present, so the workflow still produces an unsigned but
-      # working .msi for forks that haven't subscribed. Pinned for reproducibility.
-      - name: Install trusted-signing-cli
-        if: runner.os == 'Windows'
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      # Which signing this build does, from which secrets exist (their values
+      # stay in this step), and the Tauri --config override that follows:
+      # - Windows: SignPath Foundation (ADR-008's preferred path) signs after
+      #   the build, below. Without it, Microsoft Artifact Signing (formerly
+      #   Azure Trusted Signing, the fallback) signs during the build through
+      #   an injected signCommand. Without either, the installers are unsigned.
+      # - Every platform: updater bundles, .sig files and latest.json only with
+      #   TAURI_SIGNING_PRIVATE_KEY; `tauri build` fails without the key if
+      #   createUpdaterArtifacts is on, so tauri.conf.json leaves it off.
+      - name: Signing configuration
+        id: signing
         shell: bash
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          if [ -z "$AZURE_CLIENT_ID" ]; then
-            echo "AZURE_CLIENT_ID not set — Windows .msi will be unsigned."
-            exit 0
+          o='{}'
+          signpath=false
+          azure=false
+          if [ "$RUNNER_OS" = Windows ]; then
+            if [ -n "$SIGNPATH_API_TOKEN" ]; then
+              signpath=true
+              echo "SignPath: the Windows installers are signed after the build."
+            elif [ -n "$AZURE_CLIENT_ID" ]; then
+              azure=true
+              o=$(jq -c '.bundle.windows.signCommand = "trusted-signing-cli -e %AZURE_CODE_SIGNING_ENDPOINT% -a %AZURE_CODE_SIGNING_ACCOUNT% -c %AZURE_CODE_SIGNING_CERTIFICATE_PROFILE% %1"' <<<"$o")
+              echo "Artifact Signing: the Windows installers are signed during the build."
+            else
+              echo "No SignPath or Azure secrets: the Windows installers are unsigned."
+            fi
           fi
-          cargo install trusted-signing-cli --locked --version 0.11.0
-
-      # Build a Tauri --config override that injects signCommand on Windows when
-      # the Azure secrets are present. Empty string when not set so the action
-      # runs as a no-op override.
-      - name: Compute Tauri config override
-        id: tauri_override
-        shell: bash
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-        run: |
-          if [ "${{ runner.os }}" = "Windows" ] && [ -n "$AZURE_CLIENT_ID" ]; then
-            echo 'override={"bundle":{"windows":{"signCommand":"trusted-signing-cli -e %AZURE_CODE_SIGNING_ENDPOINT% -a %AZURE_CODE_SIGNING_ACCOUNT% -c %AZURE_CODE_SIGNING_CERTIFICATE_PROFILE% %1"}}}' >> "$GITHUB_OUTPUT"
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            o=$(jq -c '.bundle.createUpdaterArtifacts = true' <<<"$o")
           else
-            echo 'override=' >> "$GITHUB_OUTPUT"
+            echo "TAURI_SIGNING_PRIVATE_KEY not set: no updater bundles and no latest.json."
           fi
+          echo "signpath=$signpath" >> "$GITHUB_OUTPUT"
+          echo "azure=$azure" >> "$GITHUB_OUTPUT"
+          echo "override=$o" >> "$GITHUB_OUTPUT"
+
+      # Pinned for reproducibility.
+      - name: Install trusted-signing-cli
+        if: steps.signing.outputs.azure == 'true'
+        run: cargo install trusted-signing-cli --locked --version 0.11.0
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -150,7 +234,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
           # Microsoft Artifact Signing for Windows: read by the `signCommand`
-          # that the "Compute Tauri config override" step injects via --config
+          # that the "Signing configuration" step injects via --config
           # (tauri.conf.json itself has no signCommand).
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -159,35 +243,61 @@ jobs:
           AZURE_CODE_SIGNING_ACCOUNT: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
           AZURE_CODE_SIGNING_CERTIFICATE_PROFILE: ${{ secrets.AZURE_CODE_SIGNING_CERTIFICATE_PROFILE }}
 
-          # Tauri updater key pair (Ed25519 — generated with `tauri signer generate`).
+          # Tauri updater key pair (minisign; its public key is plugins.updater.pubkey).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name || inputs.version || 'v0.0.0-dev' }}
-          releaseName: "Voxxa ${{ github.ref_name || inputs.version || 'dev' }}"
-          releaseBody: |
-            ## Voxxa — voice-following slide advancer for churches
-
-            Voxxa listens to the room and tells your presentation software when to change the lyric slide. It never projects lyrics and never uploads audio.
-
-            | Platform | File |
-            |----------|------|
-            | Windows | `.msi` / `-setup.exe` |
-            | macOS (Apple Silicon) | `.dmg` |
-            | macOS (Intel) | `.dmg` |
-            | Linux | `.AppImage` / `.deb` |
-
-            ### First service
-            1. Install and open Voxxa; follow the first-run steps (audio device, presentation software, speech model).
-            2. Load today's setlist and press **Start Listening**.
-            3. Your hands stay free; the operator can always take over.
-
-            > Audio never leaves the computer. No telemetry; network only when the operator starts a model download, a Planning Center import or a Hymnary.org lookup.
-          releaseDraft: false
-          prerelease: false
+          # Empty without a tag: the action then builds and uploads nothing.
+          releaseId: ${{ needs.release.outputs.id }}
           includeUpdaterJson: true
           updaterJsonKeepUniversal: true
-          args: --target ${{ matrix.target }} ${{ steps.tauri_override.outputs.override && format('--config ''{0}''', steps.tauri_override.outputs.override) || '' }}
+          args: --target ${{ matrix.target }} --config '${{ steps.signing.outputs.override }}'
+
+      # SignPath Foundation: submit the unsigned installers, wait for the
+      # approver (docs/signing-policy.md), and put the signed files back in the
+      # bundle folder. The SignPath project's artifact configuration names the
+      # .msi and the NSIS -setup.exe.
+      - name: Upload the unsigned installers for SignPath
+        id: unsigned
+        if: steps.signing.outputs.signpath == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-unsigned
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+
+      - name: Sign with SignPath
+        if: steps.signing.outputs.signpath == 'true'
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signpath-signed
+
+      # The updater signature must cover the signed bytes, so it is made again;
+      # the after-build job then points latest.json at the new .sig files.
+      - name: Put the signed installers in the bundle and the release
+        if: steps.signing.outputs.signpath == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          bundle="src-tauri/target/${{ matrix.target }}/release/bundle"
+          cp -r signpath-signed/. "$bundle/"
+          files=("$bundle"/msi/*.msi "$bundle"/nsis/*-setup.exe)
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            for f in "${files[@]}"; do npx tauri signer sign "$f"; files+=("$f.sig"); done
+          fi
+          if [ -n "$TAG" ]; then gh release upload "$TAG" "${files[@]}" --clobber; fi
 
       # GPG-sign Linux artifacts so downstream users can verify authenticity
       # against the published public key. We sign every AppImage and .deb the
@@ -225,6 +335,74 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.asc
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.tar.gz
             src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.sig
           if-no-files-found: warn
+
+  # After every platform is in the draft: latest.json carries each .sig
+  # asset's signature (after SignPath re-signed the Windows installers), and
+  # the winget manifest is filled from the release's NSIS installer. On the
+  # published event it also submits to winget-pkgs, when WINGET_TOKEN exists
+  # and the release is not a pre-release.
+  after-build:
+    name: latest.json and winget manifest
+    needs: build
+    if: ${{ !cancelled() && (github.event_name == 'release' || (needs.build.result == 'success' && (github.event_name == 'push' || inputs.version != ''))) }}
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Point latest.json at the .sig files
+        if: github.event_name != 'release'
+        run: |
+          mkdir rel && cd rel
+          gh release download "$TAG" --pattern latest.json --pattern '*.sig' || true
+          if [ ! -f latest.json ]; then
+            echo "No latest.json (no TAURI_SIGNING_PRIVATE_KEY): nothing to do."
+            exit 0
+          fi
+          for s in *.sig; do
+            jq --arg n "${s%.sig}" --rawfile s "$s" \
+              '(.platforms[] | select(.url | endswith("/" + $n)) | .signature) = $s' latest.json > l.json
+            mv l.json latest.json
+          done
+          gh release upload "$TAG" latest.json --clobber
+
+      - name: Fill the winget manifest
+        run: |
+          mkdir nsis winget
+          gh release download "$TAG" --pattern '*-setup.exe' --dir nsis
+          exe=$(ls nsis/*-setup.exe | head -n 1)
+          url="https://github.com/$GH_REPO/releases/download/$TAG/$(basename "$exe")"
+          sha=$(sha256sum "$exe" | cut -d' ' -f1 | tr a-f A-F)
+          for f in packaging/winget/*.yaml; do
+            sed -e '/^# Template/d' -e "s|{{VERSION}}|${TAG#v}|g" -e "s|{{INSTALLER_URL}}|$url|g" -e "s|{{INSTALLER_SHA256}}|$sha|g" \
+              "$f" > "winget/$(basename "$f")"
+          done
+          if grep -n '{{' winget/*.yaml; then echo "unfilled placeholder"; exit 1; fi
+          cat winget/*.yaml
+
+      - name: Upload the winget manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifest
+          path: winget/*.yaml
+          if-no-files-found: error
+
+      - name: Submit to winget-pkgs
+        if: github.event_name == 'release' && !github.event.release.prerelease
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if [ -z "$WINGET_TOKEN" ]; then
+            echo "WINGET_TOKEN not set: submit the winget-manifest artifact by hand."
+            exit 0
+          fi
+          curl -sSLo wingetcreate.exe https://aka.ms/wingetcreate/latest
+          ./wingetcreate.exe submit --prtitle "New version: nategroks.Voxxa ${TAG#v}" --token "$WINGET_TOKEN" winget

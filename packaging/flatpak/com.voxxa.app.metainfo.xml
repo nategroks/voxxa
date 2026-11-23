@@ -12,8 +12,8 @@
       ProPresenter, FreeShow, OpenLP, OpenSong, Proclaim, PowerPoint, or
       anything else that takes keyboard input. All audio stays on the local
       machine. There is no telemetry, and no network traffic unless the
-      operator starts it: a speech model download, a Planning Center import
-      or a Hymnary.org lookup.
+      operator starts it: a speech model download, a Planning Center import,
+      a Hymnary.org lookup or an update check.
     </p>
     <p>Phase-1 highlights:</p>
     <ul>

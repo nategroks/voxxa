@@ -1,0 +1,7 @@
+# Template (ADR-008, Q10): build.yml's after-build job fills the placeholders, drops this line, and uploads the three files as the artifact "winget-manifest".
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.6.0.schema.json
+PackageIdentifier: nategroks.Voxxa
+PackageVersion: "{{VERSION}}"
+DefaultLocale: en-US
+ManifestType: version
+ManifestVersion: 1.6.0

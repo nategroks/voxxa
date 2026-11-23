@@ -1,0 +1,13 @@
+# Template (ADR-008, Q10): build.yml's after-build job fills the placeholders from the release's NSIS installer and drops this line.
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: nategroks.Voxxa
+PackageVersion: "{{VERSION}}"
+InstallerType: nullsoft
+Scope: user
+UpgradeBehavior: install
+Installers:
+  - Architecture: x64
+    InstallerUrl: "{{INSTALLER_URL}}"
+    InstallerSha256: "{{INSTALLER_SHA256}}"
+ManifestType: installer
+ManifestVersion: 1.6.0

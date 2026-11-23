@@ -70,10 +70,58 @@ and any `.local` connection silently fail on macOS 14+.
 
 Per ADR-008, Windows releases are signed through **SignPath Foundation**
 (free for OSI-licensed projects; see `docs/signing-policy.md`, which
-SignPath requires to be public). The SignPath step is not wired into
-`build.yml` yet. **Microsoft Artifact Signing** below is the fallback if
-SignPath declines; its scaffold is already in `build.yml` and is skipped
-when the Azure secrets are absent.
+SignPath requires to be public). **Microsoft Artifact Signing** below is the
+fallback if SignPath declines. `build.yml` runs SignPath when
+`SIGNPATH_API_TOKEN` exists, otherwise Artifact Signing when
+`AZURE_CLIENT_ID` exists, otherwise neither: the installers are then
+unsigned and the build still succeeds.
+
+Every tag build makes a **draft** release (a tag with `-`, such as
+`v0.1.0-rc.1`, is also a pre-release). Nothing is public until you publish
+the draft on GitHub.
+
+The Windows installers are the NSIS `-setup.exe` (installs for the current
+user, no administrator rights; WebView2 through the embedded bootstrapper
+when it is missing) and the `.msi`.
+
+### Preferred: SignPath Foundation
+
+1. Apply at <https://signpath.org/apply> with this public GPL repository.
+   `docs/signing-policy.md` must be live and linked from the home page and
+   the release page (the release body links it).
+2. In SignPath, create the project, connect the GitHub trusted build system,
+   and add an **artifact configuration** for a zip that holds
+   `msi/*.msi` and `nsis/*-setup.exe` (the workflow uploads exactly that
+   layout, signs both, and puts the signed files back in the same places).
+3. Create a signing policy (for example `release-signing`) with a manual
+   approval: the approver approves every release in SignPath while the
+   workflow waits.
+
+| Secret | Value |
+|---|---|
+| `SIGNPATH_API_TOKEN` | API token of a SignPath CI user with submitter rights on the project |
+
+| Variable (Settings → Secrets and variables → Actions → **Variables**) | Value |
+|---|---|
+| `SIGNPATH_ORGANIZATION_ID` | Your SignPath organization ID |
+| `SIGNPATH_PROJECT_SLUG` | The project's slug, e.g. `voxxa` |
+| `SIGNPATH_SIGNING_POLICY_SLUG` | The signing policy's slug, e.g. `release-signing` |
+
+After SignPath signs the installers, the workflow makes their updater
+signatures again (they must cover the signed bytes) and points
+`latest.json` at them.
+
+### winget
+
+Every tag build fills `packaging/winget/` (version, installer URL, SHA-256 of
+the NSIS installer) and attaches it to the run as the artifact
+`winget-manifest`. When you **publish** a release that is not a pre-release,
+the workflow runs again and submits the manifest to `microsoft/winget-pkgs`
+if this secret exists; without it, submit the artifact by hand.
+
+| Secret | Value |
+|---|---|
+| `WINGET_TOKEN` | A classic GitHub token with the `public_repo` scope, of the account that opens the winget-pkgs pull request |
 
 ### Fallback: Microsoft Artifact Signing
 
@@ -137,8 +185,20 @@ needs a password and goes into repository secrets:
 | `TAURI_SIGNING_PRIVATE_KEY` | Contents of `voxxa-updater.key` |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password you set when generating |
 
-Without these, the workflow won't be able to sign the updater manifest and
-auto-updates will fail signature verification on clients.
+Without these, the build still succeeds but the release carries no updater
+bundles and no `latest.json`, so "Check for updates" finds nothing. With
+them, the build turns on `createUpdaterArtifacts` and the release carries
+signed updater bundles and `latest.json`.
+
+**Before adding the key, confirm you hold the private key that matches the
+`pubkey` already in `tauri.conf.json`.** If you do not, generate a new pair
+on your own computer and replace `plugins.updater.pubkey` in a pull request.
+Voxxa refuses any update whose signature does not match that public key.
+
+Voxxa never checks for updates on its own. The operator presses **Check for
+updates** in Advanced → Settings; it is refused while Voxxa is listening,
+offers only a strictly newer version, and asks before it installs and
+restarts (ADR-020).
 
 ## Linux — GPG-signed AppImage / .deb
 
