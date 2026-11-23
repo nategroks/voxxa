@@ -43,6 +43,13 @@ The workflow uses the App Store Connect API key path for notarization, which
 is materially more reliable than the older `APPLE_ID` + app-specific-password
 flow (see §5.2 of the project plan).
 
+Each `APPLE_*` value reaches the build only when its secret is set (the step
+"Apple signing values" in `build.yml`). The Tauri CLI uses
+`APPLE_SIGNING_IDENTITY` whenever the variable exists, even empty, in place of
+the ad-hoc identity `"-"` in `tauri.conf.json`; leaving it unset is what lets a
+build without the secrets finish ad-hoc signed and not notarized
+(`tests/release_config.rs` checks this).
+
 ### Required Info.plist usage strings
 
 Tauri 2 generates the Info.plist at build time. The following keys are
