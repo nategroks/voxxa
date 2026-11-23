@@ -1,0 +1,75 @@
+# ADR-020: Updates only when the operator asks, a strict CSP, and draft Windows releases that light up when the signing secrets arrive
+
+**Status:** Accepted 2026-11-23 (the founder's Q10 decisions of 2026-11-23: stop at a draft release; signing secrets later, so everything must work without them and light up when they are added; updater "act in the best interest", which the team reads as option B, operator-initiated only; one new recorded budget row, as ADR-019 § 10 set the precedent; no token cap) · **Date:** 2026-11-23 · **Feature:** church-autoadvance · **Reversibility:** Easy for the updater and the CSP (one Rust module, one GUI file, one config value); Costly for the publisher identity and the updater key (ADR-008) · **Owner:** nategroks · **Author:** 10x-Team (Principal Architect + Staff Engineer + Security Engineer), Q10 10x lane
+
+Implements ADR-008's Windows bullet and its "client enforces version monotonicity" for the first time, and amends ADR-008 where § 6 below says so. Supersedes nothing.
+
+## Context
+- `tauri-plugin-updater` 2.14.1 is initialised (`src-tauri/src/lib.rs:121`) but nothing calls it. Its setup only stores its configuration (registry source `src/lib.rs:268-291`): it makes **no network call at startup**. The webview has no updater permission (`capabilities/default.json`: `core:event:default` only; `tests/capabilities.rs`).
+- Without a comparator the plugin installs a release only when `release.version > current_version` (`src/updater.rs:712-714`). `semver::Version`'s `Ord` breaks ties on build metadata (`1.0.0+b > 1.0.0`), which semver 2.0 § 10 says must not count. `allowDowngrades` in the config would turn the check into "different".
+- The endpoint answer (`latest.json`) is not signed; the minisign signature covers only the downloaded artifact. `requireSignedVersion` closes the "older signed artifact under a newer version number" hole, but only for signatures whose trusted comment carries `version:`. The pinned `@tauri-apps/cli` 2.10.1 writes `timestamp:…\tfile:…` and no version (checked in its native binary), so turning it on today would refuse every update.
+- The pubkey in `tauri.conf.json` is the minisign key **84F2CD98C608E9C9**. No agent has, or may handle, its private half.
+- `"csp": null` (Q2-26, #8). No inline scripts; three inline `style="width: …"` attributes (`index.html:124`, `src/main.js:799,953`); every other style change goes through the CSSOM (`el.style.x = …`), which CSP does not govern. No images, fonts, `fetch` or WebSocket in the GUI.
+- `build.yml` publishes a full release on any `v*` tag (`releaseDraft: false`), runs on the retired `macos-13`, uploads a `*.nsis` glob that matches nothing, has no NSIS install mode, no WebView2 mode, no SignPath step, no `winget` manifest and no `createUpdaterArtifacts`. Release builds also compile whisper.cpp with `-march=native` (#142), which `ci.yml` already avoids with `CMAKE_PROJECT_INCLUDE`.
+- SignPath Foundation signs a **GitHub workflow artifact after the build** (`signpath/github-action-submit-signing-request@v3`, origin-verified, with a manual approval per request, `docs/signing-policy.md`). Authenticode signing changes the installer's bytes, so an updater signature made before it no longer verifies.
+- Budget: "everything else in src-tauri/src" is 2,315 / 2,317.
+
+## Decision
+
+### 1. Updates are operator-initiated only (option B)
+- **Never automatic, never at startup.** The only way to reach the network for an update is the **Check for updates** button in **Advanced → Settings** (the Updates group). Simple mode's main screen has no update control.
+- **Refused while listening.** If Voxxa is listening (`sessions.is_running()`, which also covers the first-run 20-second test), the check returns the status `listening` before any network call, and the GUI says: "Stop listening first. Voxxa never checks for updates while it is listening." Install checks again after the download and refuses the same way, so a service started during the download is never cut off.
+- **The GUI calls Voxxa's own commands**, `check_for_update` and `install_update { version }`, in `src-tauri/src/updater/`. The webview gets **no updater permission**: `capabilities/default.json` stays `core:event:default` only, and `tests/capabilities.rs` still pins it.
+- **Install asks first.** "Install Voxxa X now? Voxxa will close, install the update and start again." with **Install and restart** and **Not now**. Install re-checks, and installs only if the offered version is still exactly the one the operator confirmed. On Windows the plugin starts the installer in passive mode (progress bar only) and exits; the NSIS installer starts Voxxa again. On macOS and Linux Voxxa restarts itself after installing.
+- **Counted.** Each check and each download adds one to the privacy card's outbound counter (`net_stats::record_request`).
+- The endpoint stays `https://github.com/nategroks/voxxa/releases/latest/download/latest.json`. GitHub's "latest" never points at a draft or a pre-release, so **an rc is never offered as an update**, and nothing is offered until the founder publishes a full release.
+
+### 2. The comparator: a small pure function
+`updater::should_update(installed, remote) -> bool`: both strings must parse as semver 2.0 (`semver::Version::parse`, no leading `v`); an update is offered only when the remote version is **strictly greater by semver precedence** (`cmp_precedence`, which ignores build metadata). Equal → no update; lower → refused; `0.1.0-rc.1 < 0.1.0 < 0.1.1-rc.1`; build metadata alone → no update; anything malformed → refused. It is set both as the plugin's default comparator (`updater::plugin()`, replacing the bare `Builder::new().build()` in `lib.rs`) and on Voxxa's own updater instance, so no code path uses the plugin's built-in check. Unit tests in `src-tauri/tests/updater.rs` pin each case. A config test pins that `tauri.conf.json` sets no `allowDowngrades` and no `dangerous*` updater flag and that every endpoint is `https://`.
+
+### 3. Signatures and keys
+- Updates are verified with the existing pubkey (84F2CD98C608E9C9). **Founder checklist:** confirm you hold the matching private key and its password (two holders, offline, per ADR-008), or generate a new pair yourself (`npx tauri signer generate`), replace `plugins.updater.pubkey`, and store the private key only as the `TAURI_SIGNING_PRIVATE_KEY` secret. Agents never generate, read or handle keys.
+- `requireSignedVersion` stays off until the Tauri CLI writes `version:` into the trusted comment (ticket: bump `@tauri-apps/cli`, check the trusted comment, then turn it on in the same PR). Until then the residual risk is the one in Context: whoever controls the release endpoint can offer an older, genuinely signed build under a higher number. It needs write access to the GitHub repository's releases.
+
+### 4. Strict CSP
+`app.security.csp`:
+`default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; form-action 'none'`
+- No `'unsafe-eval'`, no `'unsafe-inline'`: the three inline `style=` attributes are removed (the width is set through the CSSOM after the element exists). Tauri adds its own nonces and hashes at build time.
+- `ipc:` and `http://ipc.localhost` are Tauri's IPC (macOS/Linux and Windows). Nothing else needs the network from the page: model downloads, Planning Center, Hymnary.org and the update check all run in Rust.
+- `devCsp` for `npm run tauri dev` adds only what Vite needs: `'unsafe-inline'` styles and `ws://localhost:5173` for hot reload. It never ships.
+- Proof: the mocked-browser e2e serves the same CSP header (read from `tauri.conf.json`) and fails on any violation, and the guarded real app shows zero violations in the main window, the stage window and Simple mode.
+
+### 5. Budget: one new recorded row
+"**updater (src/updater/)**", capped at **150** code lines (estimate about 100), added to `scripts/loc_budget.py`; "everything else" no longer counts it and its cap stays 2,317. The wiring in `lib.rs` (`pub mod updater;`, two command names; the plugin line is replaced, not added) is offset by writing two `let` bindings of pure values in place (no behaviour change). Tests in `src-tauri/tests/` are not counted. GUI code goes in the GUI row (`src/updates.js`, `src/updates-logic.js`).
+
+### 6. Windows release pipeline (amends ADR-008 "Windows" and "Updates")
+- **Every tag build is a DRAFT release.** A first job creates the draft (pre-release when the tag contains `-`, e.g. `v0.1.0-rc.1`) and refuses to touch a release that is already published. The tag's version without its pre-release part must equal `tauri.conf.json`'s `version`, so `v0.1.0-rc.1` builds 0.1.0 installers (MSI cannot carry a non-numeric pre-release). The founder publishes by hand; **rollback is deleting the draft** (and its tag), which no user ever saw.
+- **NSIS per-user** (`installMode: "currentUser"`: no administrator rights, `%LOCALAPPDATA%\Voxxa`; ADR-008's "per-user") and **MSI** (WiX is per-machine in Tauri; for IT-managed PCs). **WebView2: `embedBootstrapper`** (silent): about 1.8 MB, no separate bootstrapper download through a church's web filter, and the bootstrapper runs only when WebView2 is missing (Windows 11 ships it). The offline installer (+127 MB) is not worth it.
+- **Signing order on Windows: Authenticode first, updater signatures last.** The Windows job builds with the Tauri CLI, then signs:
+  1. **SignPath Foundation (preferred)** when `SIGNPATH_API_TOKEN`, `SIGNPATH_ORGANIZATION_ID` and the vars `SIGNPATH_PROJECT_SLUG` and `SIGNPATH_SIGNING_POLICY_SLUG` exist: the two installers are uploaded as a workflow artifact, submitted, approved by hand in SignPath, and downloaded signed (artifact configuration in `packaging/signpath/artifact-configuration.xml`).
+  2. **Azure Trusted Signing** (the May branch scaffold, kept) when SignPath is not configured and `AZURE_CLIENT_ID` exists: `trusted-signing-cli` 0.11.0 through an injected `signCommand`, during the build.
+  3. **Unsigned** otherwise, said in the log; the build still succeeds.
+  Only one path runs, so all Windows artefacts carry one publisher identity. Then, when `TAURI_SIGNING_PRIVATE_KEY` exists, `tauri signer sign` signs the **final** installer bytes (`.sig`), and the installers and signatures are uploaded to the draft.
+- **`createUpdaterArtifacts`** is injected through `--config` only when `TAURI_SIGNING_PRIVATE_KEY` exists (the CLI fails without the key when it is on). One final job writes `latest.json` from the `.sig` files on the draft, so no two jobs race to edit it.
+- **macOS:** `macos-latest` (Apple Silicon) and `macos-15-intel` (x86_64) replace the retired `macos-13`. **All release builds** use the portable ggml build (`CMAKE_PROJECT_INCLUDE`, as `ci.yml`; #142) and Rust 1.99.1, as `ci.yml`.
+- **winget:** a template in `packaging/winget/` (manifest schema 1.6.0, NSIS installer, `Scope: user`). The tag build fills version, URL and SHA-256 and keeps it as a workflow artifact. A separate workflow (`winget.yml`) runs when the founder **publishes** a full release (not a pre-release), fills the manifest from the published installer, and submits it to `microsoft/winget-pkgs` with `wingetcreate` only when `WINGET_TOKEN` exists. A draft's installer URL is not public, so submitting from the tag build would fail validation.
+- Third-party actions stay pinned by tag as before (Q2-28, #10); `wingetcreate` is pinned by release (v1.9.14.0).
+
+## Alternatives
+| Alternative | Why not |
+|---|---|
+| A: leave the updater unwired | ADR-008 needs an update path; churches would never hear of a fix. |
+| C: check automatically at startup, install on confirm | A network call nobody asked for breaks the privacy promise and SignPath's policy requirement that update checks can be turned off; a startup check can collide with a service. |
+| Grant the webview `updater:default` and use the JS API | Wider surface: any script in the page could check, download and install. Voxxa's own two commands keep the listening rule and the comparator in Rust. |
+| `style-src 'unsafe-inline'` | Three attributes were cheap to remove. |
+| Sign with SignPath through `signCommand` | SignPath Foundation verifies the origin of a GitHub artifact and asks a human per request; per-file requests during the build would mean several approvals per release. |
+| Submit to winget from the tag build | The draft's download URL is not public, so winget's validation fails. |
+| Let every matrix job merge `latest.json` (tauri-action `includeUpdaterJson`) | Parallel jobs race on one release asset, and the Windows signatures are made after tauri-action would have written it. |
+
+## Consequences
+Good: no surprise network traffic; downgrades and same-version reinstalls are refused by one tested function; the page can run no injected inline script or style; nothing reaches users until the founder publishes; the workflow works today without any secret and lights up per secret.
+Bad: the operator must remember to check; the signed NSIS installer's inner `voxxa.exe` is not signed on the SignPath path (NSIS cannot be deep-signed; ticket); the Windows job no longer uses tauri-action, so its upload steps are ours to maintain.
+Risks: the residual endpoint risk in § 3 until `requireSignedVersion`; the tag run is the first proof of the release jobs (nothing in them can run locally beyond YAML checks and the unit-tested helper scripts).
+
+## Review trigger
+Reopen when the Tauri CLI records the signed version (turn on `requireSignedVersion`), when SignPath accepts or declines the project, when the first full release is published (prove the update from it to the next one), or if churches ask for an automatic check (it would need an explicit opt-in setting, off by default).
