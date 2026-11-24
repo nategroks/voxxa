@@ -4,8 +4,8 @@
 //! (`tests/dispatch.rs`); `commands::dispatch` wires it to the app.
 
 use crate::aligner::Action::{self, Blank, Unblank};
-use crate::presenters::CtlError::{self, Other, Unsupported};
-use crate::presenters::{PresentationController, PresenterKind};
+use crate::presenters::CtlError::{self, Unsupported};
+use crate::presenters::{step_from, PresentationController, PresenterKind};
 use std::time::Duration;
 
 /// What Voxxa last sent to the presenter. Voxxa has sent nothing at launch,
@@ -123,7 +123,7 @@ pub async fn drive(
             *song_index,
             *slide_in_song as u32,
             *global_index as i64,
-            song_title,
+            song_title.as_str(),
         ),
     };
     // Focus is checked only where a key is really pressed: a Goto that sends
@@ -148,15 +148,11 @@ pub async fn drive(
         if new_song || sent.global != Some(target) {
             p.goto_slide(slide).await?;
         }
-    } else if p.stops_at_song_end() && sent.song.is_some_and(|s| s != song) {
-        // T2: next at a song's end moves WorshipTools Presenter to the next
-        // service item, so a song change presses nothing (ADR-019 § 3). The
-        // operator puts the song live, which shows its first slide: record that.
-        (sent.global, sent.song) = (Some(target - slide as i64), Some(song));
-        return Err(Other(format!("Put \"{title}\" live in Presenter.")));
-    } else if let Some(cur) = sent.global {
+    } else if let Some(cur) = step_from(p, sent, (song, slide, target, title))? {
         // Keystroke-style drivers step through the setlist with next/prev.
-        // With nothing sent yet the position is unknown, so nothing is pressed.
+        // With nothing sent yet the position is unknown, so nothing is pressed,
+        // except where songs open on a blank (WorshipTools Presenter: see
+        // `step_from`, which also asks for the song changes keys can't make).
         let delta = target - cur;
         if delta != 0 {
             refuse_if_focused(p, voxxa_focused)?;

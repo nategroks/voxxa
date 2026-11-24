@@ -270,7 +270,7 @@ impl PresentationController for KeystrokeDriver {
         }
     }
 
-    fn stops_at_song_end(&self) -> bool {
+    fn songs_open_on_blank(&self) -> bool {
         self.profile == KeystrokeProfile::WorshipToolsPresenter
     }
 
@@ -485,12 +485,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn can_blank_and_the_song_end_stop_come_from_the_profile() {
+    async fn can_blank_and_the_song_blanks_come_from_the_profile() {
         for p in ALL {
             let d = driver(p);
             let wt = p == KeystrokeProfile::WorshipToolsPresenter;
             assert_eq!(d.capabilities().can_blank, !wt, "{p:?}");
-            assert_eq!(d.stops_at_song_end(), wt, "{p:?}");
+            assert_eq!(d.songs_open_on_blank(), wt, "{p:?}");
             assert!(!d.capabilities().can_goto_slide && !d.capabilities().can_query_state);
         }
         // The operator's blank: "not supported", and no key is pressed (the

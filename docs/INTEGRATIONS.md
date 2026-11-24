@@ -298,10 +298,16 @@ cloud. ADR-019 records how Voxxa drives it:
   while the front window belongs to Presenter's process. Otherwise nothing is
   sent and the status light is amber: "Bring WorshipTools Presenter to the
   front." The other key profiles have no such check.
-- **Never a Right past a song's last slide.** In Presenter that Right moves to
-  the next service item. On a song change Voxxa presses nothing and the light
-  asks the operator: "Put "`<song>`" live in Presenter." Inside a song, and
-  for the operator's own Next and Previous, keys work as before.
+- **Every song opens on a blank slide.** In Presenter each song starts on a
+  blank (Presenter's slide 1), and Right on a song's last slide shows the next
+  song's blank. Voxxa counts those blanks (#183): put the first song live and
+  leave it on its blank, and Voxxa presses Right for its first lyrics. When the
+  next song in the setlist starts, Voxxa presses through its blank to its first
+  lyrics by itself. This needs Presenter's service list in the same order as
+  Voxxa's setlist, with nothing between two songs. A change keys can't make
+  (back to an earlier song, or past a song) presses nothing and the light asks:
+  "Put "`<song>`" live in Presenter." The operator's own Next and Previous work
+  as before.
 - **Keys:** Right and Left only. No blank key yet: F10 clears the lyrics, but
   how to bring them back is unconfirmed, so the profile reports `can_blank:
   false`. Voxxa skips its own blanks and refuses the Blank button. It never sends
