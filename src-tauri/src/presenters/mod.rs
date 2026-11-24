@@ -9,6 +9,40 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+use crate::dispatch::Sent;
+
+/// Where a stepping driver starts from, in setlist-global slides, for a Goto to
+/// `slide` (global `target`) of `song`; `None` while unknown: press nothing.
+///
+/// When songs open on a blank (WorshipTools Presenter, #183, ADR-019 amendment
+/// of 2026-11-24), Voxxa's setlist leaves the blanks out, so they are counted
+/// here. A song the operator put live sits on its blank: with nothing sent yet,
+/// Voxxa starts from there and presses Right for the first lyrics. The step into
+/// the next song passes its blank: one more Right. Any other song change (back,
+/// or past a song) can't be made with keys: nothing is pressed, the song's
+/// blank is recorded and the operator is asked to put the song live.
+pub fn step_from(
+    p: &dyn PresentationController,
+    sent: &mut Sent,
+    (song, slide, target, title): (usize, u32, i64, &str),
+) -> Result<Option<i64>, CtlError> {
+    if !p.songs_open_on_blank() {
+        return Ok(sent.global);
+    }
+    let blank = target - i64::from(slide) - 1;
+    match (sent.global, sent.song) {
+        (Some(g), Some(s)) if s == song => Ok(Some(g)),
+        (Some(g), Some(s)) if s + 1 == song => Ok(Some(g - 1)),
+        (Some(_), Some(_)) => {
+            (sent.global, sent.song) = (Some(blank), Some(song));
+            Err(CtlError::Other(format!(
+                "Put \"{title}\" live in Presenter."
+            )))
+        }
+        _ => Ok(Some(blank)),
+    }
+}
+
 pub mod freeshow;
 pub mod keystroke;
 pub mod openlp_v2;
@@ -150,10 +184,11 @@ pub trait PresentationController: Send + Sync {
     fn kind(&self) -> PresenterKind;
     fn capabilities(&self) -> Capabilities;
     fn is_connected(&self) -> bool;
-    /// The app's next key leaves a song for the next service item, so dispatch
-    /// must never step from one song into another (WorshipTools Presenter, T2,
-    /// ADR-019 § 3). Set by the keystroke profile.
-    fn stops_at_song_end(&self) -> bool {
+    /// Every song in the app opens on a blank slide, and the next key on a
+    /// song's last slide goes to the next service item: the next song's blank
+    /// (WorshipTools Presenter, T2, #183; see [`step_from`]). Set by the
+    /// keystroke profile.
+    fn songs_open_on_blank(&self) -> bool {
         false
     }
 

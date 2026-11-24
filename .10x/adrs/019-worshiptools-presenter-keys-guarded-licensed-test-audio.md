@@ -112,3 +112,24 @@ Nothing above is reversed except the song, and the rule on who converts the medi
 1. **§ 7, the song.** The founder replaced "See a Victory" with **New Life**: "that is much better option as it is original and you can follow vocals clearly". Presenter's local data (read from a copy, no text printed) lists it with artist **Lighthouse Worship** and an empty CCLI field: it is the church's own song, not CCLI-listed. It stays private like a licensed song: the media guard, `fixtures/private/`, numbers only.
 2. **§ 7, who converts.** The founder pointed the orchestrator at the .mp4 (a 2:00 lyric video in the founder's Downloads folder) and said the lyrics are in Presenter. On 2026-11-23 the orchestrator made `fixtures/private/new-life/audio.wav` with the README's ffmpeg command (the .mp4 was read in place, not copied, moved or uploaded) and `setlist.json` (the song's 18 slides in Presenter's order, written without a BOM, from a scratch copy of Presenter's IndexedDB that was then deleted; no slide text was printed or logged). Both live in a local worktree that is never pushed. `truth.jsonl` needs someone listening: the founder taps it with `fixtures/tools/tap-truth.ps1`.
 3. **The licence record.** The church's CCLI number is **2919521** (the founder calls it the CCLI account number), now in `fixtures/LICENSED_RUNS.md` row 1. See a Victory (CCLI Song # 7129060) was never run and is no longer row 1.
+
+## Amendment (#183, 2026-11-24): songs open on a blank slide
+Founder, on LHMEZPC01: every song in Presenter has a default blank at its slide 1, a song put live
+starts on it, and Right on a song's last slide shows the first slide of the next song, which is
+always that blank. § 3 assumed a song put live shows its first lyrics, so on this profile every
+song ran one slide behind. Founder decisions: volunteers leave Presenter on the blank, and Voxxa
+runs song changes by itself ("the entire point is for Voxxa to do this completely autonomously").
+This replaces § 3's song-change rule:
+1. The driver flag `stops_at_song_end` is now `songs_open_on_blank` (same profile).
+2. `presenters::step_from` gives dispatch the slide it steps from, counting the blanks Voxxa's
+   setlist leaves out. With nothing sent yet, the song is live on its blank: one Right more than
+   the slide number. The next song in the setlist: one Right more, for its blank. Inside a song:
+   as before.
+3. Any other song change (back, or past a song) presses nothing, records the song's blank and
+   asks "Put "<song>" live in Presenter." as before.
+4. **Limit:** this needs Presenter's service list in the same order as the setlist, with nothing
+   between two songs. Voxxa is still blind. The runbook says so. Reading the service from
+   Presenter itself would remove the limit (follow-up ticket).
+5. Tests: `src-tauri/tests/worshiptools.rs` (`worshiptools_counts_the_blank_each_song_opens_on` and
+   the GUI-telling and light tests). Line budget: the logic lives in the presenters row;
+   `dispatch.rs` got shorter.

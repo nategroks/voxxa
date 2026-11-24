@@ -1,7 +1,7 @@
 //! Q9W, ADR-019: WorshipTools Presenter. Discovery by process (a fake
-//! process list), the never-step-across-songs rule and the missing blank, all
+//! process list), the blank each song opens on (#183) and the missing blank key, all
 //! through `voxxa_lib::drive` with a fake presenter that records every call.
-//! The fake takes its capabilities and its song-end flag from the real
+//! The fake takes its capabilities and its song-blank flag from the real
 //! keystroke driver connected with the WorshipTools profile, so the profile
 //! sets them; no test presses a key. Titles are placeholders.
 
@@ -19,7 +19,7 @@ use voxxa_lib::{
 
 struct Fake {
     caps: Capabilities,
-    stops: bool,
+    blanks: bool,
     calls: Mutex<Vec<&'static str>>,
     /// Presenter is not in front: next and prev refuse with the guard's
     /// sentence, as the real driver does, and press nothing.
@@ -27,7 +27,7 @@ struct Fake {
 }
 
 impl Fake {
-    /// Capabilities and song-end flag of the real keystroke driver with `profile`.
+    /// Capabilities and song-blank flag of the real keystroke driver with `profile`.
     async fn like(profile: KeystrokeProfile) -> Self {
         let mut real = make_controller(PresenterKind::Keystroke);
         let cfg = PresenterConfig {
@@ -37,7 +37,7 @@ impl Fake {
         real.connect(cfg).await.unwrap();
         Self {
             caps: real.capabilities(),
-            stops: real.stops_at_song_end(),
+            blanks: real.songs_open_on_blank(),
             calls: Mutex::new(Vec::new()),
             behind: AtomicBool::new(false),
         }
@@ -62,8 +62,8 @@ impl PresentationController for Fake {
     fn capabilities(&self) -> Capabilities {
         self.caps
     }
-    fn stops_at_song_end(&self) -> bool {
-        self.stops
+    fn songs_open_on_blank(&self) -> bool {
+        self.blanks
     }
     fn is_connected(&self) -> bool {
         true
@@ -233,42 +233,67 @@ async fn discovery_runs_the_process_strategy() {
 #[tokio::test]
 async fn the_profile_sets_the_flags() {
     let wt = worship().await;
-    assert!(wt.stops && !wt.caps.can_blank);
+    assert!(wt.blanks && !wt.caps.can_blank);
     for profile in [KeystrokeProfile::Universal, KeystrokeProfile::PowerPoint] {
         let other = Fake::like(profile).await;
-        assert!(!other.stops && other.caps.can_blank, "{profile:?}");
+        assert!(!other.blanks && other.caps.can_blank, "{profile:?}");
     }
 }
 
+/// #183: in Presenter every song opens on a blank slide (Presenter's slide 1),
+/// a song is put live on it, and Right on a song's last slide shows the next
+/// song's blank (founder, LHMEZPC01, 2026-11-24). Voxxa's setlist has no
+/// blanks, so dispatch counts them.
 #[tokio::test]
-async fn worshiptools_never_steps_across_a_song() {
+async fn worshiptools_counts_the_blank_each_song_opens_on() {
     let p = worship().await;
     let mut sent = Sent::default();
-    // Inside Song A: steps as before.
+    // The first song is live on its blank: one Right for its first lyrics.
     auto(&p, &mut sent, goto(0, 0)).await.unwrap();
+    assert_eq!(p.take(), ["next"]);
+    // Inside Song A: one Right per slide, as before.
     auto(&p, &mut sent, goto(0, 1)).await.unwrap();
     auto(&p, &mut sent, goto(0, 3)).await.unwrap();
     assert_eq!(p.take(), ["next", "next", "next"]);
-    // Song A's last slide -> Song B: no Right (T2), the amber ask, and the
-    // screen is recorded at Song B's first slide.
-    let r = auto(&p, &mut sent, goto(1, 0)).await;
-    assert_eq!(r.unwrap_err().to_string(), put_live("Song B"));
-    assert_eq!(p.take(), Vec::<&str>::new(), "no key across a song");
+    // Song A's last slide -> Song B's first: Right to Song B's blank, Right to
+    // its first lyrics. No ask: Voxxa runs the song change itself.
+    auto(&p, &mut sent, goto(1, 0)).await.unwrap();
+    assert_eq!(p.take(), ["next", "next"]);
     assert_eq!((sent.global, sent.song), (Some(4), Some(1)));
-    // The next step inside Song B starts from its first slide.
     auto(&p, &mut sent, goto(1, 2)).await.unwrap();
     assert_eq!(p.take(), ["next", "next"]);
-    // A change that lands mid-song: still no key; the first slide is recorded.
-    let r = auto(&p, &mut sent, goto(2, 3)).await;
-    assert_eq!(r.unwrap_err().to_string(), put_live("Song C"));
-    assert_eq!((sent.global, sent.song), (Some(8), Some(2)));
+    // Song B's slide 2 -> Song C's slide 3: B's last slide, C's blank, C 0-3.
     auto(&p, &mut sent, goto(2, 3)).await.unwrap();
-    assert_eq!(p.take(), ["next", "next", "next"]);
-    // A jump back to an earlier song, by the operator's song chip too.
+    assert_eq!(p.take(), ["next"; 6]);
+    assert_eq!((sent.global, sent.song), (Some(11), Some(2)));
+    // Back to an earlier song (the operator's song chip too): keys can't get
+    // there, so nothing is pressed, the light asks, and Song A's blank is
+    // recorded: the operator puts it live on its blank.
     let r = drive(&p, &mut sent, &goto(0, 2), false, true).await;
     assert_eq!(r.unwrap_err().to_string(), put_live("Song A"));
     assert_eq!(p.take(), Vec::<&str>::new());
-    assert_eq!((sent.global, sent.song), (Some(0), Some(0)));
+    assert_eq!((sent.global, sent.song), (Some(-1), Some(0)));
+    // The next line sung in Song A: from its blank to its slide 2.
+    auto(&p, &mut sent, goto(0, 2)).await.unwrap();
+    assert_eq!(p.take(), ["next"; 3]);
+    // Past a song (Song A -> Song C): the same ask, nothing pressed.
+    let r = auto(&p, &mut sent, goto(2, 0)).await;
+    assert_eq!(r.unwrap_err().to_string(), put_live("Song C"));
+    assert_eq!(p.take(), Vec::<&str>::new());
+    assert_eq!((sent.global, sent.song), (Some(7), Some(2)));
+    // Voxxa started while a later song is live and already sung: from that
+    // song's blank, so Song B's slide 2 is three Rights.
+    let mut fresh = Sent::default();
+    auto(&p, &mut fresh, goto(1, 2)).await.unwrap();
+    assert_eq!(p.take(), ["next"; 3]);
+    // The operator's raw Right on a song's last slide reaches the next song's
+    // blank, and the count still holds: then one Right for its first lyrics.
+    let mut sent = Sent::default();
+    auto(&p, &mut sent, goto(0, 3)).await.unwrap();
+    step(&p, &mut sent, 1, false).await.unwrap();
+    p.take();
+    auto(&p, &mut sent, goto(1, 0)).await.unwrap();
+    assert_eq!(p.take(), ["next"]);
 }
 
 /// `commands::dispatch` tells the GUI (`slide-advanced`) when `tell_gui` says
@@ -297,25 +322,29 @@ async fn the_song_change_ask_tells_the_gui_and_the_guards_refusal_does_not() {
         (String::new(), true)
     );
     p.take();
-    // Presenter behind another window: refused, nothing pressed, nothing moved.
+    // Presenter behind another window: refused, nothing pressed, nothing moved,
+    // inside a song and at the step into the next song.
     p.behind.store(true, Ordering::SeqCst);
     let before = sent;
-    let r = told(&p, &mut sent, goto(0, 2), false).await;
-    assert_eq!(
-        r,
-        (FRONT.to_string(), false),
-        "no slide-advanced for a refusal"
-    );
-    assert_eq!(sent, before);
-    // A song change presses no key, so it asks even then, and moves `sent`.
-    let r = told(&p, &mut sent, goto(1, 0), false).await;
-    assert_eq!(r, (put_live("Song B"), true), "slide-advanced");
-    assert_eq!((sent.global, sent.song), (Some(4), Some(1)));
-    // The operator's song chip: the same.
-    p.behind.store(false, Ordering::SeqCst);
-    let r = told(&p, &mut sent, goto(2, 0), true).await;
+    for action in [goto(0, 2), goto(1, 0)] {
+        let r = told(&p, &mut sent, action, false).await;
+        assert_eq!(
+            r,
+            (FRONT.to_string(), false),
+            "no slide-advanced for a refusal"
+        );
+        assert_eq!(sent, before);
+    }
+    // A song change keys can't make (past Song B) presses no key, so it asks
+    // even then, and moves `sent` to Song C's blank.
+    let r = told(&p, &mut sent, goto(2, 0), false).await;
     assert_eq!(r, (put_live("Song C"), true), "slide-advanced");
-    assert_eq!((sent.global, sent.song), (Some(8), Some(2)));
+    assert_eq!((sent.global, sent.song), (Some(7), Some(2)));
+    // The operator's song chip back to Song A: the same.
+    p.behind.store(false, Ordering::SeqCst);
+    let r = told(&p, &mut sent, goto(0, 0), true).await;
+    assert_eq!(r, (put_live("Song A"), true), "slide-advanced");
+    assert_eq!((sent.global, sent.song), (Some(-1), Some(0)));
     assert_eq!(p.take(), Vec::<&str>::new());
     // A refusal that changed only the blank (a goto driver's "select …"
     // blanks first) tells nothing.
@@ -355,6 +384,7 @@ async fn a_blank_worshiptools_cannot_do_is_skipped_or_refused() {
     let p = worship().await;
     let mut sent = Sent::default();
     auto(&p, &mut sent, goto(0, 0)).await.unwrap();
+    p.take();
     // The conductor's blank and unblank (a prayer): nothing pressed, no error.
     auto(&p, &mut sent, Action::Blank).await.unwrap();
     auto(&p, &mut sent, Action::Unblank).await.unwrap();
@@ -372,7 +402,7 @@ async fn a_blank_worshiptools_cannot_do_is_skipped_or_refused() {
 }
 
 #[test]
-fn the_light_gets_no_red_error_at_a_prayer_and_the_amber_ask_at_a_song_change() {
+fn the_light_gets_no_red_error_at_a_prayer_and_the_amber_ask_only_going_back() {
     // The GUI's sink, as `commands::start_listening_with_state` wires it: a failed send is a
     // `presenter-error` event, which Simple mode shows red unless it is one of
     // ADR-019's amber sentences (tests/gui).
@@ -380,7 +410,13 @@ fn the_light_gets_no_red_error_at_a_prayer_and_the_amber_ask_at_a_song_change() 
     let p = rt.block_on(worship());
     let mut sent = Sent::default();
     let mut shown = Vec::new();
-    for action in [goto(0, 3), Action::Blank, Action::Unblank, goto(1, 0)] {
+    for action in [
+        goto(0, 3),
+        Action::Blank,
+        Action::Unblank,
+        goto(1, 0),
+        goto(0, 0),
+    ] {
         gui_sink(
             Event::Action(action, Some(13)),
             &mut |name, payload| shown.push((name, payload)),
@@ -390,7 +426,9 @@ fn the_light_gets_no_red_error_at_a_prayer_and_the_amber_ask_at_a_song_change() 
             },
         );
     }
-    let ask = serde_json::to_string(&put_live("Song B")).unwrap();
-    assert_eq!(shown, [("presenter-error", ask)], "only the song change");
-    assert_eq!(p.take(), Vec::<&str>::new());
+    // Song A from its blank to slide 3, then into Song B (its blank, slide 0):
+    // six Rights and no error. Only the jump back to Song A asks.
+    let ask = serde_json::to_string(&put_live("Song A")).unwrap();
+    assert_eq!(shown, [("presenter-error", ask)], "only going back");
+    assert_eq!(p.take(), ["next"; 6]);
 }
