@@ -87,6 +87,14 @@ jobs:
         if: runner.os == 'Windows'
         run: npm run test:gui:e2e -- "${{ runner.temp }}/gui-e2e"
 
+      # #59 / ADR-021 § 1: the release flag check tests again (the budgets job runs
+      # them on Linux), here with the CRLF checkout and Git Bash that build.yml's
+      # Windows job uses for the check itself.
+      - name: Release flag check tests (Git Bash)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: bash scripts/ci/test-check-msvc-release-flags.sh
+
       - name: cargo fmt
         working-directory: src-tauri
         run: cargo fmt --check
