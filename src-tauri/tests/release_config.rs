@@ -277,6 +277,55 @@ fn the_build_matrix_and_globs_are_current() {
 }
 
 #[test]
+fn windows_installers_build_whisper_cpp_with_o2() {
+    // #59 (ADR-021 § 1): the cmake crate writes the MSVC release flags without
+    // /O2. Two env lines in the Windows job only (-Ob2 breaks gcc and clang), a
+    // new cache key (a cached unoptimised whisper-rs-sys build is never rebuilt),
+    // and the CMakeCache check right after the installer build.
+    let build = workflow("build.yml");
+    let at = |needle: &str| {
+        build
+            .find(needle)
+            .unwrap_or_else(|| panic!("build.yml lacks {needle:?}"))
+    };
+    let windows = &build[at("\n  windows:\n")..at("\n  updater-manifest:\n")];
+    for var in ["CMAKE_C_FLAGS_RELEASE", "CMAKE_CXX_FLAGS_RELEASE"] {
+        let line = format!("\n      {var}: -MD -O2 -Ob2 -DNDEBUG\n");
+        assert!(
+            windows.contains(&line),
+            "the Windows job's env lacks {line:?}"
+        );
+        assert_eq!(
+            build.matches(&format!("{var}:")).count(),
+            1,
+            "{var} must be set in the Windows job's env only"
+        );
+    }
+    assert!(
+        windows.contains("\n          key: release-portable-ggml-o2\n"),
+        "the Windows cache key went back to one that may hold an unoptimised build"
+    );
+    let built = step(&build, "Build the installers (NSIS per-user and MSI)");
+    let check = "      - name: Check that whisper.cpp was built with -O2\n";
+    assert!(
+        build[at(built) + built.len()..].starts_with(check),
+        "the flag check must come right after the installer build"
+    );
+    let check = step(&build, "Check that whisper.cpp was built with -O2");
+    assert!(
+        check.contains("        shell: bash\n")
+            && check.contains(
+                "run: bash scripts/ci/check-msvc-release-flags.sh \"src-tauri/target/$TARGET/release\"\n"
+            ),
+        "{check}"
+    );
+    assert!(
+        !check.contains("if:") && !check.contains("continue-on-error"),
+        "{check}"
+    );
+}
+
+#[test]
 fn release_actions_are_pinned_to_full_commit_shas() {
     // These jobs hold the updater key, the signing secrets and a
     // contents:write token: a moved tag must not change what runs (Q2-28,

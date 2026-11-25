@@ -98,3 +98,23 @@ six Azure values, or Azure is not used. The log warns which values are missing.
   in Azure; the app registration's client secret is the thing to rotate.
 - **winget token:** a classic token with `public_repo` only, from the account whose fork of
   `winget-pkgs` receives the pull requests. Give it an expiry and renew it.
+
+## 7. Whisper speed in Windows release builds (#59)
+
+The `cmake` crate builds whisper.cpp for a Windows release without `/O2`, so Whisper runs
+about 3.5 times slower. `build.yml`'s Windows job sets `CMAKE_C_FLAGS_RELEASE` and
+`CMAKE_CXX_FLAGS_RELEASE` to `-MD -O2 -Ob2 -DNDEBUG` (that job only: `-Ob2` breaks gcc and
+clang), and its step "Check that whisper.cpp was built with -O2" fails when they did not
+take. In each tag run, that step prints the two flag lines.
+
+A local Windows release build, in Windows PowerShell from the repository root:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+. .\scripts\dev\msvc-release-flags.ps1   # this window only; `powershell -File` would lose the flags
+cargo clean --manifest-path src-tauri/Cargo.toml -p whisper-rs-sys --release   # once: cargo never rebuilds whisper.cpp by itself
+npm run tauri build   # or any cargo build --release
+```
+
+Run the script in every window you build a release from. To check a build, in Git Bash:
+`bash scripts/ci/check-msvc-release-flags.sh src-tauri/target/release`.

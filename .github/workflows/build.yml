@@ -337,6 +337,11 @@ jobs:
       BUNDLE: src-tauri/target/x86_64-pc-windows-msvc/release/bundle
       TAG: ${{ needs.release.outputs.tag }}
       VERSION: ${{ needs.release.outputs.version }}
+      # #59 (ADR-021 § 1): the cmake crate writes the MSVC release flags without /O2, so
+      # whisper.cpp ran unoptimised; whisper-rs-sys passes CMAKE_* on to CMake. This job only:
+      # -Ob2 breaks gcc and clang. Dashes, not slashes: Git Bash rewrites /MD as a path.
+      CMAKE_C_FLAGS_RELEASE: -MD -O2 -Ob2 -DNDEBUG
+      CMAKE_CXX_FLAGS_RELEASE: -MD -O2 -Ob2 -DNDEBUG
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -347,11 +352,14 @@ jobs:
           toolchain: 1.99.1
           targets: x86_64-pc-windows-msvc
 
+      # #59: whisper-rs-sys reruns its build only on VULKAN_SDK, HIP_PATH or AMDGPU_TARGETS, so a
+      # restored unoptimised build would stay. The CMAKE_* env above already changes this key's
+      # env hash, so no old cache is restored; the new name says so.
       - name: Rust cache
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri
-          key: release-portable-ggml
+          key: release-portable-ggml-o2
 
       - name: Install Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -450,6 +458,11 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
         run: npm run tauri -- build --target "$TARGET" --config "$TAURI_OVERRIDE"
+
+      # #59: fails when whisper.cpp was built without -O2, or when no CMake cache is found.
+      - name: Check that whisper.cpp was built with -O2
+        shell: bash
+        run: bash scripts/ci/check-msvc-release-flags.sh "src-tauri/target/$TARGET/release"
 
       - name: Collect the installers
         shell: bash
