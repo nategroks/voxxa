@@ -73,7 +73,8 @@ row per fixture plus a total, and checks each row against `baseline.json`.
   --shadow --model tiny`, at file speed. When the fixture has an `audio.json`,
   `audio.wav` is rebuilt from it first. Needs `ggml-tiny.bin` (download it in
   the app). A debug build takes about 2 s per second of audio; a release
-  build on Windows is much slower (Q4-01). It prints numbers only (Q9V,
+  build on Windows is fast only with the MSVC release flags (#59,
+  below). It prints numbers only (Q9V,
   ADR-019 § 7): Whisper's own log (the words it hears, on `voxxad`'s stderr)
   goes to null, and an error names `voxxad`'s exit status or a line number,
   never a line's text. `full-eval.yml` still keeps only `voxxa-eval:` lines of
@@ -88,6 +89,22 @@ row per fixture plus a total, and checks each row against `baseline.json`.
   (each failure is printed as `FAIL <row>: <metric> is <value>, baseline needs …`),
   2 on an error (a missing file, a bad line, `voxxad` failing).
 - `--baseline <file>` checks against another thresholds file.
+
+**A Windows release build (#59).** The `cmake` crate builds whisper.cpp for a
+Windows release without `/O2`, so Whisper runs about 3.5 times slower. In
+Windows PowerShell, from the repository root:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+. .\scripts\dev\msvc-release-flags.ps1   # this window only; `powershell -File` would lose the flags
+cargo clean --manifest-path src-tauri/Cargo.toml -p whisper-rs-sys --release   # once: cargo never rebuilds whisper.cpp by itself
+cargo build --manifest-path src-tauri/Cargo.toml --release --features cli --bin voxxad --bin voxxa-eval
+```
+
+Run the script in every window you build a release from. To check a build, in
+Git Bash: `bash scripts/ci/check-msvc-release-flags.sh
+src-tauri/target/release` (with `CARGO_TARGET_DIR` set, that folder's
+`release`); it prints the two flag lines and fails without `-O2`.
 
 ## truth.jsonl
 

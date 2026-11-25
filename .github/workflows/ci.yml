@@ -87,6 +87,14 @@ jobs:
         if: runner.os == 'Windows'
         run: npm run test:gui:e2e -- "${{ runner.temp }}/gui-e2e"
 
+      # #59 / ADR-021 § 1: the release flag check tests again (the budgets job runs
+      # them on Linux), here with the CRLF checkout and Git Bash that build.yml's
+      # Windows job uses for the check itself.
+      - name: Release flag check tests (Git Bash)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: bash scripts/ci/test-check-msvc-release-flags.sh
+
       - name: cargo fmt
         working-directory: src-tauri
         run: cargo fmt --check
@@ -151,6 +159,10 @@ jobs:
       # standard library only, no network.
       - name: Release script tests
         run: python3 -m unittest discover -s scripts/release -v
+      # #59 / ADR-021 § 1: the whisper.cpp -O2 check that build.yml's Windows job runs
+      # after the installer build, on fixed, broken, stale and missing CMake caches.
+      - name: Release flag check tests
+        run: bash scripts/ci/test-check-msvc-release-flags.sh
 
   # Q9V / ADR-019 § 8: the repository refuses media. The same check as
   # src-tauri/tests/media_guard.rs (which keeps this list in step), in its

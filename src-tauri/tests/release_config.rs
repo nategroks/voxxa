@@ -277,6 +277,94 @@ fn the_build_matrix_and_globs_are_current() {
 }
 
 #[test]
+fn windows_installers_build_whisper_cpp_with_o2() {
+    // #59 (ADR-021 § 1): the cmake crate writes the MSVC release flags without
+    // /O2. Two env lines in the Windows job only (-Ob2 breaks gcc and clang), a
+    // new cache key (a cached unoptimised whisper-rs-sys build is never rebuilt),
+    // and the CMakeCache check right after the installer build.
+    let build = workflow("build.yml");
+    let at = |needle: &str| {
+        build
+            .find(needle)
+            .unwrap_or_else(|| panic!("build.yml lacks {needle:?}"))
+    };
+    let windows = &build[at("\n  windows:\n")..at("\n  updater-manifest:\n")];
+    for var in ["CMAKE_C_FLAGS_RELEASE", "CMAKE_CXX_FLAGS_RELEASE"] {
+        let line = format!("\n      {var}: -MD -O2 -Ob2 -DNDEBUG\n");
+        assert!(
+            windows.contains(&line),
+            "the Windows job's env lacks {line:?}"
+        );
+        assert_eq!(
+            build.matches(&format!("{var}:")).count(),
+            1,
+            "{var} must be set in the Windows job's env only"
+        );
+    }
+    assert!(
+        windows.contains("\n          key: release-portable-ggml-o2\n"),
+        "the Windows cache key went back to one that may hold an unoptimised build"
+    );
+    let built = step(&build, "Build the installers (NSIS per-user and MSI)");
+    assert!(
+        !built[built.find('\n').unwrap()..].contains("\n      - "),
+        "a step with no name follows the installer build:\n{built}"
+    );
+    let check = "      - name: Check that whisper.cpp was built with -O2\n";
+    assert!(
+        build[at(built) + built.len()..].starts_with(check),
+        "the flag check must come right after the installer build"
+    );
+    let check = step(&build, "Check that whisper.cpp was built with -O2");
+    assert!(
+        check.contains("        shell: bash\n")
+            && check.contains(
+                "run: bash scripts/ci/check-msvc-release-flags.sh \"src-tauri/target/$TARGET/release\"\n"
+            ),
+        "{check}"
+    );
+    assert!(
+        !check.contains("if:") && !check.contains("continue-on-error"),
+        "{check}"
+    );
+}
+
+#[test]
+fn the_msvc_release_flags_are_set_nowhere_else() {
+    // #59 (ADR-021 § 1): -Ob2 breaks gcc and clang. PR CI builds debug only, and
+    // a debug build on Linux or macOS never compiles the RELEASE line, so a copy
+    // in another workflow or a cargo config would first fail in a tag build. A
+    // workflow that adds a Windows --release build of whisper-rs-sys changes
+    // this test in the same commit.
+    let root = concat!(env!("CARGO_MANIFEST_DIR"), "/..");
+    let mut texts = Vec::new();
+    for entry in std::fs::read_dir(format!("{root}/.github/workflows")).unwrap() {
+        let name = entry.unwrap().file_name().into_string().unwrap();
+        if name != "build.yml" {
+            texts.push((workflow(&name), name));
+        }
+    }
+    for name in ["ci.yml", "full-eval.yml"] {
+        assert!(texts.iter().any(|(_, n)| n == name), "{name} not found");
+    }
+    for config in [".cargo/config", "src-tauri/.cargo/config"] {
+        for name in [config.to_string(), format!("{config}.toml")] {
+            if let Ok(text) = std::fs::read_to_string(format!("{root}/{name}")) {
+                texts.push((text, name));
+            }
+        }
+    }
+    for (text, name) in texts {
+        for var in ["CMAKE_C_FLAGS_RELEASE", "CMAKE_CXX_FLAGS_RELEASE"] {
+            assert!(
+                !text.contains(var),
+                "{name} names {var}: it belongs in build.yml's Windows job only"
+            );
+        }
+    }
+}
+
+#[test]
 fn release_actions_are_pinned_to_full_commit_shas() {
     // These jobs hold the updater key, the signing secrets and a
     // contents:write token: a moved tag must not change what runs (Q2-28,
