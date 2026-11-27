@@ -31,7 +31,7 @@ kit work rules in V5/V17, GUI testing in V10/V14).
 - Caps only go down. A new module gets a new recorded row through an ADR; never raise a cap; stop and report at 95 %.
 - V7 (2026-11-27) landed the wiring row (`dispatch.rs`, `listen.rs`, `http_api/`, `commands/`: 1,288 / 1,438, 150 left,
   spent only through the ceilings in ADR-028 amendment 1 § 5) and lowered "everything else in `src-tauri/src`" to
-  900 / 904: its 4 lines are the `lib.rs` `mod` lines for `input`, `position`, `readiness`, `practice`. Row table: `.10x/handoff.md`.
+  900 / 904: its 4 lines are reserved for the `lib.rs` `mod` lines of `input`, `position`, `readiness`, `practice`. Row table: `.10x/handoff.md`.
 - Rows V7 added (ADR-028 amendment 1; the founder's "× 3" rule, FA-54): `onset` 750 (estimate 250), `input chain` 600
   (200), `health check (src/health/)` 450 (150), `position` 900 (300, ADR-036), all at 0; `vad/` moved into the recognizer
   row (557 / 825, headroom unchanged); `align` 1,200 only on an R5 pass. The review trigger fires when a tripled row passes its estimate.
