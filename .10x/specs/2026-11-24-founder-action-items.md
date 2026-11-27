@@ -239,6 +239,13 @@ FA-72 are deferred by the founder; FA-71 raises a cap with the number still to c
 **Nothing is open.** Every FA from FA-01 to FA-77 is answered or closed; FA-76 (voxxa's own licence) is parked by the
 founder's choice. The commit gate in `process.md` is now the founder's "go" on committing the round-3 outputs.
 
+**Lab report (same day, numbers in `reviews/2026-11-27-lab-r14-reanchor-lag.md`).** The R14 fixes, the re-anchor hook
+with 18 tests and the capture probe for V8c task 0 are done in the private lab (nothing committed). One finding changes
+a number the plan assumed: the live path reads words **2.15 s** after they are sung, not 1.0 s, so every offline result
+was optimistic by about 1.15 s; the recogniser pass itself is about 0.5 s, so about 1.6 s sits in the hop wait, the
+pipe, the log flush and the read. Because reaction time is the founder's first measure, V3b gains **task 8, the
+lag-breakdown row**, and the fix is proposed from its numbers. No founder decision is needed for it.
+
 ## A. This week (blocks the first wave)
 
 **FA-01 — Approve the #59 fix (V0) and the wave-1 pre-approvals.**

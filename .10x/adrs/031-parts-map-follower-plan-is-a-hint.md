@@ -190,3 +190,13 @@ follower there" was already the stated intent.
 
 **Dependencies added.** FA-61 (answered); V3d task 3 (the hook and tests in the lab, once the founder says go on the
 lab edits); V11 task 1 (the port); V14 task 1c (the UI rule); ADR-034 § 25; spec § 4.3 and § 4.7.
+
+**Lab status and a measured correction (2026-11-27, `reviews/2026-11-27-lab-r14-reanchor-lag.md`).** The hook, the R14
+fixes and 18 pytests are done in the private lab. Two details for the port: (a) windows carry no word times, so the lab
+approximates "drop words stamped before t" with a one-window-span cut (what a later window shares with the last
+window before the move is cut from its front); the port uses word times if the recognizer gives them, else the same
+cut; (b) a `words` move inside a guessed part ends the review (the guess is confirmed), otherwise leaving the part
+early rewound the plan pointer (plan V1 C V2 C: pointer 1 instead of 3). **Measured correction:** the live read lag is
+2,148 ms median (p95 2,183) against the 1,000 ms the offline replays assume, so every offline number in this ADR is
+optimistic by about 1.15 s; at `--lag-ms 2150` the parts map's wrong-slide seconds over the six sung takes go 94.0 →
+160.4 (the plan-order follower: 322.4). The bars do not move; the lag itself becomes V3b task 8 (the breakdown row).
