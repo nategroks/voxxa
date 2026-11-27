@@ -40,3 +40,10 @@ Today everything runs inside one Tauri process: audio, VAD, Whisper, alignment a
 
 ## Review trigger
 Re-open if the stdio protocol needs more than 8 event types, or if a church asks for phone/remote control (then add an HTTP shim, do not fold logic back into the GUI).
+
+## Amendment 1 (Accepted, FA-65, 2026-11-27; written in V7, no code): the `trace` line, by cross-reference
+
+**Status: Accepted** (founder FA-65, option (a), 2026-11-27; recorded by V7's 10x lane). ADR-003 amendment 1 carries the decision's text (the kinds, the numbers-only rule, the replay rule, the test, the table of field lists); this amendment records what it means for ADR-001's own decisions.
+1. **The stdout protocol does not change.** `trace` lines are session-log only, like `tick`, `speech` and `window` (`src-tauri/src/cli/voxxad/events.rs:103-105`, `on_stdout`). A Companion or Stream Deck consumer of `voxxad`'s stdout still sees exactly `status`, `hypothesis`, `action` and `error`. A kind that must reach stdout amends ADR-003's table first.
+2. **The review trigger is reached, not passed.** Line types in schema v1 after this amendment: `status`, `hypothesis`, `action`, `error`, `tick`, `speech`, `window`, `trace` = 8 (`events.rs:28-57`, counted 2026-11-27). The trigger says "more than 8", so a ninth line type reopens this ADR; the kinds of `trace` are the way to add a numbers-only record without a ninth type, and no `follow`, `cue` or read-back **line type** is ever added.
+3. **The MIT protocol documents (ADR-005)** gain the `trace` line when the first kind merges (V3b, `level`), not in V7: a documented line that no build writes would mislead an integrator.

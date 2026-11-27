@@ -8,6 +8,7 @@
   (batches of 2026-11-26/27 at the top). Every FA is answered; FA-76 is parked.
 - **Order:** V7 (full scope) → V8c (ADR-036 position sources; task 0 = booth capture probe before any build) → F5 (founder) → V3e → V8b → … as the
   prompt pack's sequencing table. V7 adds the `position` row (estimate 300, cap 900) with the FA-54 rows.
+  **V7 merged** (2026-11-27): `scripts/loc_budget.py` has the wiring row (1,288 / 1,438), `vad/` in the recognizer row (557 / 825), "everything else" 900 / 904, and `onset` 750, `input chain` 600, `position` 900, `health check` 450 at 0; ADR-028 is Accepted with amendment 1 (every row, estimate, cap, owner, step and the shares); ADR-001/003 amendment 1 records the `trace` line (FA-65); ADR-005 amendment 1 the licence inventory (FA-50). The row table below is current. Next: V8c (its Phase 2 check reads the wiring row's "left" and its ≤ 20 ceiling from ADR-028 amendment 1 § 5).
 - **Staging → repo file map** (the records cite their staging names): `out/spec.md` → `specs/2026-11-24-church-autoadvance-spec.md`;
   `out/plan.md` → `specs/2026-11-24-church-autoadvance-plan.md`; `out/process.md` → `specs/2026-11-24-process.md`;
   `out/founder-action-items.md` → `specs/2026-11-24-founder-action-items.md`; `plan-round3.md` = `round2/52` → `specs/2026-11-26-prompts-round-3.md`;
@@ -132,29 +133,49 @@ Plan step V0 of the 2026-11-24 strategy draft (not yet committed), with the orch
 - `tests/release_config.rs` pins `build.yml` and `winget.yml`: the draft rule, the signing order, the skip conditions, the matrix, the SHA pins and the macOS env rule (since V0 also the #59 flags, the Windows cache key and the flag check, and no copy of the flags in another workflow or a cargo config). A workflow change updates the test in the same commit. A new action needs a full SHA and a `# version` comment.
 - The updater's source-text tests (`tests/updater.rs`) read the guard as rustfmt lays it out; a deliberate reformat must update the constant there.
 - `capabilities/` must hold only `default.json` (`core:event:default`); `tests/capabilities.rs` refuses anything else.
-- Budget: "everything else in `src-tauri/src`" has **1 line left**; any backend change needs lines removed first or a budget decision before code. The updater row has 52 left.
+- Budget (as of V7, 2026-11-27; the row table below): "everything else in `src-tauri/src`" is 900 / 904, **4 left**, and those 4 are the `lib.rs` `mod` lines for `input`, `position`, `readiness` and `practice`; any other change to `lib.rs`, `audio/`, `diagnostics/`, `help/`, `hymnary/`, `net_stats/` or `tray/` needs lines removed first. The wiring row (`dispatch.rs`, `listen.rs`, `http_api/`, `commands/`) has **150 left**, spent only through the ceilings in ADR-028 amendment 1 § 5 (they sum to 170, so a step's Phase 2 check reads what is left first). The updater row has 52 left.
 - Never click **Check for updates** in a real app; the guarded real app (scratch identifier, CDP port, `--no-bundle`, `VOXXA_HELP_DIR` a scratch folder) is the only way agents run the GUI. `scripts/qa/csp-real-app.mjs` re-checks the CSP.
 - Keep the ci.yml `media` job intact; `media_guard.rs` now also refuses an `if:` on it. "Media guard" is a required check since 2026-11-24 (ruleset `main`, id 27988429; #159 closed).
 
 ### Numbers at the finish (Q10)
 Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double advances, median 2,310 ms, p95 4,870 ms (#84), unchanged since Q6. `baseline.json` unchanged. Tests: `cargo test --features cli` 266 passed, 1 ignored; `scripts/release` 11/11; GUI `test:gui` 18/18, e2e 209/209 with zero CSP violations.
 
+**Budget rows after V7** (measured 2026-11-27, tokei 15.0.0, `python scripts/loc_budget.py` at 0190515 + the V7 change; ADR-028 Accepted with amendment 1, which has every row's estimate, owner, step and the reason for its headroom). Caps only go down; a new module gets a new row through an ADR; stop and report at 95 %, and a tripled row reports when it passes its estimate.
+
 | Row | Used / cap | Left |
 |---|---|---|
-| everything else in src-tauri/src | 2,316 / 2,317 | **1** |
-| updater (`src/updater/`, new in Q10) | 98 / 150 | 52 |
+| everything else in src-tauri/src (`lib.rs`, `main.rs`, `audio/`, `diagnostics/`, `help/`, `hymnary/`, `net_stats/`, `tray/`) | 900 / 904 | **4** (the `lib.rs` `mod` lines for `input`, `position`, `readiness`, `practice`) |
+| wiring (`dispatch.rs`, `listen.rs`, `http_api/`, `commands/`; new in V7, FA-10: measured 1,288 + 150) | 1,288 / 1,438 | **150** (ceilings below) |
+| updater (`src/updater/`) | 98 / 150 | 52 |
 | discovery (`src/discovery/`) | 223 / 250 | 27 |
-| conductor (`aligner/`, without `evidence/`) | 1,173 / 1,200 | 27 |
+| conductor (`aligner/`, without `evidence/` and `onset/`) | 1,173 / 1,200 | 27 (V5a 3 · V11 20 + `pub mod onset;` 1) |
 | conductor evidence (`aligner/evidence/`) | 215 / 500 | 285 |
-| recognizer | 432 / 700 | 268 |
-| voxxad (`src/cli/voxxad/`) | 552 / 600 | 48 |
-| voxxa-eval (`src/cli/voxxa-eval/`) | 488 / 600 | 112 |
-| presenters (`keystroke.rs` 396 / 400) | 1,374 / 2,000 | 626 |
-| importers + planning_center | 1,386 / 1,600 | 214 |
-| GUI (without `src/simple/`) | 2,859 / 3,000 | 141 |
-| Simple mode (`src/simple/*`) | 450 / 600 | 150 |
+| onset (`aligner/onset/`; new in V7, estimate 250 × 3, FA-54; V11) | 0 / 750 | 750 |
+| recognizer (`transcription/` + `vad/`; `vad/` 125 moved in V7, headroom unchanged) | 557 / 825 | 268 (V3 60 · V4 40 · V3b gate 40) |
+| input chain (`src-tauri/src/input/`; new in V7, estimate 200 × 3, FA-54; V3b task 6) | 0 / 600 | 600 |
+| position (`src-tauri/src/position/`; new in V7, estimate 300 × 3, ADR-036 Decision 10, FA-77; V8c) | 0 / 900 | 900 |
+| voxxad (`src/cli/voxxad/`) | 552 / 600 | 48 (V12 20 · V8b 10 · V13s 8 · V3b `Kind::Trace` 4) |
+| voxxa-eval (`src/cli/voxxa-eval/`) | 488 / 600 | 112 (V2 105) |
+| presenters (`keystroke.rs` 396 / 400) | 1,396 / 2,000 | 604 (V8b 150 · V8c 30) |
+| importers + planning_center | 1,386 / 1,600 | 214 (V5a 40) |
+| GUI (without `src/simple/` and `src/health/`) | 2,860 / 3,000 | 140 (V14 net +15) |
+| Simple mode (`src/simple/*`) | 450 / 600 | 150 (V9 5 · V14 60 · V13s 10) |
+| health check (`src/health/`; new in V7, estimate 150 × 3, FA-54; V13s) | 0 / 450 | 450 |
 
-Tests in `src-tauri/tests/`, `tests/gui/`, `scripts/qa/` and `scripts/release/` are not counted.
+Wiring-row ceilings (the prompt pack's "How to use" table plus the two steps it predates; ADR-028 amendment 1 § 5). They sum to 170 against 150 left, so they are ceilings, not allocations: the row is spent in merge order, and a step starts only if its ceiling fits what `loc_budget.py` shows left, or records a smaller share with the logic moved into its own row behind one call line.
+
+| Step | Wiring lines | Ceiling |
+|---|---|---|
+| V8-lite | `position_uncertain` flag, setter, per-key clear | ≤ 20 |
+| V8c | `PositionSource` polled by dispatch, `reanchor` call, config field | ≤ 20 |
+| V8b | `select_presentation` first; consume the verify result | ≤ 30 |
+| V3b task 6 | input config field, the chain call, the `level` emission, `Event::Trace` + `Trace` enum | ≤ 15 |
+| V9 | session-folder helper and the one-time move | ≤ 10 |
+| V13a | `holding` / `following_stopped` flags, four routes, hotkey call sites, `operator` trace | ≤ 40 |
+| V13s | heartbeat publish calls | ≤ 15 |
+| V11 | Tier A/B dispatch of `Action::Goto`, follower hand-off | ≤ 20 |
+
+Named, not added: `align` 1,200 (400 × 3) only on an R5 pass (ADR-033 then); `readiness` 900 (300 × 3) only on the founder's yes at V13s (ADR-034 § 11); no row for `scripts/lab/` (EM, V7: lab tooling, uncounted like `scripts/qa/`). Tests in `src-tauri/tests/`, `tests/gui/`, `scripts/qa/`, `scripts/release/` and `scripts/lab/` are not counted.
 
 **Other things to keep.**
 - Safety rules for unattended runs: no microphone, no keystroke dispatch, never the real identifier `com.voxxa.app`, `--shadow`/`--replay`/`--presenter none` only for `voxxad`, never the real Desktop, never the mail program or Explorer, never install a built installer, never handle a key or secret, and stop every process you start, by PID. `test:gui:e2e` can leave headless Edge processes behind; check after each run.

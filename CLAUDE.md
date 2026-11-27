@@ -29,11 +29,12 @@ kit work rules in V5/V17, GUI testing in V10/V14).
 
 ## Budget rows
 - Caps only go down. A new module gets a new recorded row through an ADR; never raise a cap; stop and report at 95 %.
-- "Everything else in `src-tauri/src`" has 1 line left (`.10x/handoff.md` row table) until V7 lands the wiring row
-  (measured size + 150, FA-10) and lowers "everything else" by the moved size.
-- Rows V7 adds (ADR-028 amendment 1; the founder's "× 3" rule, FA-54): `onset` 750 (estimate 250), `input chain` 600
-  (200), `health check (src/health/)` 450 (150), `position` 900 (300, ADR-036); `vad/` moves into the recognizer row;
-  `align` 1,200 only on an R5 pass. The review trigger fires when a tripled row passes its estimate.
+- V7 (2026-11-27) landed the wiring row (`dispatch.rs`, `listen.rs`, `http_api/`, `commands/`: 1,288 / 1,438, 150 left,
+  spent only through the ceilings in ADR-028 amendment 1 § 5) and lowered "everything else in `src-tauri/src`" to
+  900 / 904: its 4 lines are reserved for the `lib.rs` `mod` lines of `input`, `position`, `readiness`, `practice`. Row table: `.10x/handoff.md`.
+- Rows V7 added (ADR-028 amendment 1; the founder's "× 3" rule, FA-54): `onset` 750 (estimate 250), `input chain` 600
+  (200), `health check (src/health/)` 450 (150), `position` 900 (300, ADR-036), all at 0; `vad/` moved into the recognizer
+  row (557 / 825, headroom unchanged); `align` 1,200 only on an R5 pass. The review trigger fires when a tripled row passes its estimate.
 - The earlier rows keep their caps (follower ≤ 500, practice 300, layout 300, Run 350, kit tools 300); a step whose
   measured code cannot fit stops at its Phase 2 check and asks for 3 × the measured number for that row (FA-74).
 - V11 ports one module, `aligner/follower/parts.rs`, replacing `aligner/evidence/` under one switch (R12).

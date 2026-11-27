@@ -32,3 +32,7 @@ Log: `reviews/2026-11-11-q0-claim-verification.md`.
 - The CLI lives in `src-tauri/src/bin/voxxad/` (`main.rs` for flags and I/O, `events.rs` for the wire format, the session recorder and replay). `events.rs` refers only to `voxxa_lib::…`, so `src-tauri/tests/voxxad_events.rs` includes it with `#[path]` and tests it without the binary or the model.
 - No new crates: flags and the WAV header are parsed by hand; `chrono`, `dirs`, `serde_json`, `tokio` are already dependencies.
 - Shared behaviour goes in the library or not at all: the loop (`listen::run`), the conductor input (`Conductor::apply`) and dispatch (`dispatch::drive`) each have one implementation.
+
+## V7 (2026-11-27): conventions for `trace` lines and the licence inventory (`church-autoadvance.md`, "V7")
+- Schema v1 has one extensible numbers-only line type, `trace`, with a required `kind` (ADR-003 amendment 1); line types are 8 and a ninth reopens ADR-001. New numbers-only records are kinds, never line types; the `Trace` enum lives beside `Event` in `listen.rs`, each kind's payload struct in the emitting module's own row; session-log only, replay-skipped, and a kind that carries text fails `a_trace_line_carries_numbers_only`.
+- Every model, weight file and aligner is a row in ADR-005 amendment 1's inventory (name, version, licence, lab-only or product, step, (cited)/(measured)); the step that adds one edits the row in the same PR; non-permissive licences are flagged, not blocked (FA-50).
