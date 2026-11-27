@@ -19,7 +19,7 @@
   `out/adrs/022 … 036` → `adrs/` (033 is reserved for an aligner row, written only on an R5 pass); `out/kit/` stays in staging until V5 (kit-v0.1.0).
 - **ADR status:** 022–036 are Proposed; their dated amendment sections are drafts that the named step accepts with its numbers.
   ADR-036 is at revision 1 (the lab's hash probe: 64-bit whole-frame hashes collide on lyric slides; 256-bit text-region hashes separate).
-- **Lab (private, never committed), done 2026-11-27:** the R14 must-fixes, the `reanchor(slide, t)` hook with 18 pytests (ADR-031 amendment 3)
+- **Lab (private, never committed), done 2026-11-27:** the V3d break-gate arm (gate alone loses at the live lag; on by default only with `head_min_words` = 2: ADR-031 amendment 4, `reviews/2026-11-27-lab-v3d-break-gate.md`); the R14 must-fixes, the `reanchor(slide, t)` hook with 18 pytests (ADR-031 amendment 3)
   and the capture probe for V8c task 0 (`reviews/2026-11-27-lab-r14-reanchor-lag.md`); lanes receive edit lists and numbers only. **Measured:** the
   live read lag is 2,148 ms median against the 1,000 ms replays assume; V3b task 8 breaks it down; offline follower numbers are optimistic by ≈ 1.15 s.
 - **Pre-existing names in this file and `status.md`** (the pilot church and the test song in older sections) stay per FA-12 (c); new text uses

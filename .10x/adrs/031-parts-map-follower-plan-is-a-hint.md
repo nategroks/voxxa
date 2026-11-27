@@ -112,7 +112,8 @@ ADR's evidence is read and add one optional switch.
    two windows otherwise. It is measured before/after on F1–F4, the real detour takes and the spoken-aside take, never
    on live4. In V11 it ships as `PartsConfig.break_gate`, **on by default** (FA-63 as answered 2026-11-27, a deviation from
    this draft); the before/after table still goes in the record, and a measured loss on the detour takes turns the
-   default back off by a dated amendment with the numbers.
+   default back off by a dated amendment with the numbers. (Amendment 4: measured; on by default only together with
+   `head_min_words` = 2.)
 4. **`boundary = plan` is not a per-leader fix (C8).** Measured worse even on T1, where the plan was kept (9/11 right,
    3 wrong, 2 early, 24.2 wrong-slide s, against 11/11, 1, 0, 10.7 by default; over the 7 sung takes 68/19/9/223
    against 74/4/1/112). Practice memory never turns it on (FA-64); learned handicaps come only after ≥ 3 confirmed
@@ -200,3 +201,28 @@ early rewound the plan pointer (plan V1 C V2 C: pointer 1 instead of 3). **Measu
 2,148 ms median (p95 2,183) against the 1,000 ms the offline replays assume, so every offline number in this ADR is
 optimistic by about 1.15 s; at `--lag-ms 2150` the parts map's wrong-slide seconds over the six sung takes go 94.0 →
 160.4 (the plan-order follower: 322.4). The bars do not move; the lag itself becomes V3b task 8 (the breakdown row).
+
+## Amendment 4 (draft, 2026-11-27, lab result for FA-63: the break gate ships on only with the head-word rule)
+
+**Measured (lab, `reviews/2026-11-27-lab-v3d-break-gate.md`).** Seven sung takes, wrong / early > 1 s / wrong-slide seconds. At
+the offline lag of 1,000 ms: base 4 / 0 / 161.0; gate alone 4 / 0 / 152.0; gate + head rule 4 / 0 / 153.0. At the measured
+live lag of 2,150 ms: base 6 / 1 / 235.8; **gate alone 8 / 1 / 229.8 (a loss: T1 wrong 2 → 4)**; head rule alone 4 / 0 /
+223.3; **gate + head rule 4 / 0 / 214.3 (a win)**. Root cause of the loss: an alignment running past a chorus end picked up one
+stray word of the next verse's head and entered it 8.6 s early; the gate then sped up the back-and-forth.
+
+**Decision.**
+1. **Head-word rule.** `PartsConfig.head_min_words` (default **2**): on a branch path, a candidate inside a new part needs at
+   least this many matched words in a head-only alignment before the part is entered. A slide moves on words of that slide.
+   This is a correctness fix in its own right and stands whether or not the gate is on. 3 measured identical to 2.
+2. **Break gate on by default, only together with rule 1.** FA-63's answer ("build it on by default") stands; its flip-back
+   clause is satisfied because the combination wins at both lags, while the gate alone is recorded as a loss at the live lag
+   and never ships without rule 1. Gate parameters from the lab: grace 1,000 ms, gap ≥ 300 ms, the jumped-to words' start
+   bracketed at 1.5–3.5 words/s when word times are absent (the port uses word times if the recognizer gives them).
+3. **Both lags in every table.** V3d's before/after tables, and V11's acceptance, report `--lag-ms 1000` and `2150`; a
+   change that wins at 1,000 and loses at 2,150 is a loss.
+4. **Tests for the port** (from the lab's 21): `break_gate_accepts_a_jump_on_one_window_after_a_break`,
+   `break_gate_ignores_a_break_long_before_the_new_words`, `a_new_part_is_not_entered_on_one_stray_word`.
+5. **OLTW arm deferred** until the founder's FA-45 solo takes give fair reference pairs (F1–F4 are re-cuts of T1); R5 and
+   ADR-033 unchanged.
+
+**Dependencies added.** V3d task 3 (done in the lab); V11 task 1 and 2b (`head_min_words`, both lags); spec § 4.3.
