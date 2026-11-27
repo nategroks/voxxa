@@ -6,9 +6,16 @@
 - PR #184 (866b51e) counts the blank slide each WorshipTools Presenter song opens on (#183).
 - "media guard" is a required check on `main` (#159 closed).
 - **V0 (#59, ADR-021 § 1) is built on `fix/59-msvc-release-flags`, not merged** (the comparator's branch after the lanes `v0/10x` and `v0/ponytail`): Windows release builds compile whisper.cpp with `-O2`, and the next founder-approved rc draft must show the new check passing.
-- **Next:** the V0 PR and merge (pre-approved, FA-01), then Q11.
+- **V0 merged 2026-11-25:** PR #186 (a5f7e2e), #59 closed. Booth timing of the 2:00 P1 take with Tiny on the fixed CPU release build: **138.2 s** (target ≤ 150 s; it was 461 s; measured by the orchestrator). The end-to-end check runs at the next founder-approved rc.
 
-**Last Updated:** 2026-11-25 by the V0 comparator (V0 recorded on `fix/59-msvc-release-flags`)
+**Since V0 (2026-11-25 … 27): the round-3 strategy is adopted.**
+- The autonomy round (10x-Team roles plus the ponytail lane, two review rounds, a critic and two fix rounds) produced the strategy spec, the plan V0–V18 with a FreeShow track, the round-3 prompt pack, the process, 77 founder decision items and ADRs 022–036. The founder answered **every item FA-01 … FA-77** by 2026-11-27 (FA-76, voxxa's own licence, parked by choice). Records: `specs/2026-11-24-church-autoadvance-spec.md`, `specs/2026-11-24-church-autoadvance-plan.md`, `specs/2026-11-26-prompts-round-3.md`, `specs/2026-11-24-founder-action-items.md`, `specs/2026-11-26-strategy-and-build-plan.md`, `specs/2026-11-26-skills-and-context-layout.md`, `specs/2026-11-26-research-autonomous-following.md` (+ `research-notes-2026-11-26/`), `reviews/2026-11-24-r1-adjudication.md`, `reviews/2026-11-26-r2-*.md`, root `CLAUDE.md`.
+- **Founder direction (2026-11-27):** re-anchor must work consistently on every presentation software on the market; most development effort goes there (reaction time, interoperability, interface, security, Unix / suckless, no bloat). ADR-036 (position sources: 256-bit text-region frame hashes first, a scoped navigation-key hint second, read-back APIs as data third) and step **V8c** right after V7 carry it. A booth capture probe (V8c task 0) runs before any build.
+- **Deviations the founder chose** (all in the action items with their effects): no USB interface for now, the full mix on the current feed is a supported degraded condition (FA-38/39); new budget rows at 3 × the estimate (FA-54) but only on a measured overrun for the earlier rows (FA-74); keep FreeShow's 500 ms fade (FA-57); a manual move re-anchors, never demotes (FA-61); break gate on by default, still measured (FA-63); voxxa may auto-start on service days, Songs armed by a person (FA-67); fewer minders to start (FA-69); no congregation notice (FA-70); Linux after Easter (FA-73); V16 rename now (FA-72); all Presenter output is a YouTube lower third via the Blackmagic chain (FA-29), so the FreeShow switch needs the same path (FA-75).
+- Private test song: the records say **P1**. The earlier lines in this file that name it stay as they are (FA-12 (c), no scrub).
+- **Next:** V7 in full (wiring row + 150; `onset` 750, `input chain` 600, `health check` 450, `position` 900; `vad/` into the recognizer row; the `trace` line; ADR-028 amendment 1 and ADR-001/003 amendment), then V8c, then the FreeShow track (F5 by the founder on a weekday before Dec 18 per `specs/2026-11-27-founder-freeshow-setup.md`, then V3e). Each lane follows `specs/2026-11-26-skills-and-context-layout.md` §§ 4–5.
+
+**Last Updated:** 2026-11-27 by the round-3 Records PR (`records/round3-strategy`)
 **Health:** On Track
 
 ## Progress

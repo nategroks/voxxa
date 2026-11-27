@@ -1,5 +1,29 @@
 # Current Handoff
 
+## Round 3 strategy adopted (2026-11-27): read this before any V-step
+
+- **Read first:** root `CLAUDE.md` (safety lines, budget rows, plugins, records), then `specs/2026-11-26-skills-and-context-layout.md`
+  (where files go, the lane scan § 4.4, what each step reads § 5), then the step's block in `specs/2026-11-26-prompts-round-3.md`
+  over `specs/2026-11-24-church-autoadvance-plan.md`. Founder decisions FA-01 … FA-77 and their effects: `specs/2026-11-24-founder-action-items.md`
+  (batches of 2026-11-26/27 at the top). Every FA is answered; FA-76 is parked.
+- **Order:** V7 (full scope) → V8c (ADR-036 position sources; task 0 = booth capture probe before any build) → F5 (founder) → V3e → V8b → … as the
+  prompt pack's sequencing table. V7 adds the `position` row (estimate 300, cap 900) with the FA-54 rows.
+- **Staging → repo file map** (the records cite their staging names): `out/spec.md` → `specs/2026-11-24-church-autoadvance-spec.md`;
+  `out/plan.md` → `specs/2026-11-24-church-autoadvance-plan.md`; `out/process.md` → `specs/2026-11-24-process.md`;
+  `out/founder-action-items.md` → `specs/2026-11-24-founder-action-items.md`; `plan-round3.md` = `round2/52` → `specs/2026-11-26-prompts-round-3.md`;
+  `round2/51` → `specs/2026-11-26-strategy-and-build-plan.md`; `round2/53` → `specs/2026-11-26-skills-and-context-layout.md`;
+  `round2/40 … 47, 50` → `reviews/2026-11-26-r2-<nn>-<role>.md`; `out/adjudication.md` (round 1) → `reviews/2026-11-24-r1-adjudication.md`;
+  the research report → `specs/2026-11-26-research-autonomous-following.md`, its notes → `specs/research-notes-2026-11-26/`;
+  `out/adrs/022 … 036` → `adrs/` (033 is reserved for an aligner row, written only on an R5 pass); `out/kit/` stays in staging until V5 (kit-v0.1.0).
+- **ADR status:** 022–036 are Proposed; their dated amendment sections are drafts that the named step accepts with its numbers.
+  ADR-036 is at revision 1 (the lab's hash probe: 64-bit whole-frame hashes collide on lyric slides; 256-bit text-region hashes separate).
+- **Lab (private, never committed), done 2026-11-27:** the R14 must-fixes, the `reanchor(slide, t)` hook with 18 pytests (ADR-031 amendment 3)
+  and the capture probe for V8c task 0 (`reviews/2026-11-27-lab-r14-reanchor-lag.md`); lanes receive edit lists and numbers only. **Measured:** the
+  live read lag is 2,148 ms median against the 1,000 ms replays assume; V3b task 8 breaks it down; offline follower numbers are optimistic by ≈ 1.15 s.
+- **Pre-existing names in this file and `status.md`** (the pilot church and the test song in older sections) stay per FA-12 (c); new text uses
+  "the pilot church" and "P1". The lane scan runs on staged files only.
+
+
 ## User decisions for Q10 (2026-11-23)
 - **Stop at a DRAFT release.** Tag builds create drafts only; the founder publishes the real release by hand, soon after. Agents never publish a draft.
 - **Signing secrets:** the founder is still working on them. Build so that everything works without them and lights up when they are added; list exactly which secrets and variables to add (`docs/RELEASING.md` § 1; `status.md`, founder items).
