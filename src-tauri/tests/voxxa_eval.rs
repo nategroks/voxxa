@@ -10,7 +10,7 @@ mod audio;
 mod score;
 
 use score::{check, delays, parse_actions, parse_screen, parse_truth, score, screen_time, table};
-use score::{At, Cue, Metrics};
+use score::{At, Cue, Metrics, V2};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
@@ -990,4 +990,247 @@ fn a_screen_truth_scores_the_correct_bar_and_prints_n_a_for_timing() {
     assert_eq!(parse_screen(past, &songs).unwrap_err(), "session line 1");
     let other = r#"{"v":1,"t":1,"type":"trace","kind":"level","slide":99}"#;
     assert_eq!(parse_screen(other, &songs).unwrap(), []);
+}
+
+// V2 grafts from the 10x lane (v2/10x 5c9ef45, tests/voxxa_eval_v2.rs) on its
+// two-song truth: A (slides 0, 1, 2) at 2, 10 and 18 s, a prayer blanked at
+// 26 s, B (slides 0, 1) at 34 and 42 s. Two song starts, three other rows.
+fn two_songs() -> Vec<At> {
+    vec![
+        slide(2000, 0),
+        slide(10000, 1),
+        slide(18000, 2),
+        blank(26000),
+        song(34000, 1, 0),
+        song(42000, 1, 1),
+    ]
+}
+
+/// +400, -400, +200, the blank +300, +500 (a song start), +100.
+fn two_songs_moves() -> Vec<At> {
+    vec![
+        slide(2400, 0),
+        slide(9600, 1),
+        slide(18200, 2),
+        blank(26300),
+        song(34500, 1, 0),
+        song(42100, 1, 1),
+    ]
+}
+
+#[test]
+fn the_helper_times_every_truth_row_and_the_scorer_sets_the_starts_apart() {
+    // One signed delay per truth row, blank rows too (a blank gets its first blank).
+    assert_eq!(
+        delays(&two_songs(), &two_songs_moves()),
+        [
+            Some(400),
+            Some(-400),
+            Some(200),
+            Some(300),
+            Some(500),
+            Some(100)
+        ]
+    );
+    let m = score(&two_songs(), &two_songs_moves());
+    assert_eq!(m.starts, [Some(400), Some(500)]);
+    assert_eq!(m.signed, [Some(-400), Some(200), Some(100)]);
+    // A row whose slide was never shown has no delay.
+    assert_eq!(delays(&two_songs(), &[slide(2400, 0)])[1], None);
+    // The table: the eight names in place, then the nine columns.
+    let text = table(&[("made-up".to_string(), m)], true);
+    let head: Vec<&str> = text.lines().next().unwrap().split_whitespace().collect();
+    assert_eq!(head[17..].join(" "), V2, "{text}");
+    let want = "made-up 5 5 5 0 1.00 1.00 200 500 0 0 300 500 1.00 0.67 1 0 0.00 0 400 500 1.90";
+    let cells: Vec<&str> = text.lines().nth(1).unwrap().split_whitespace().collect();
+    assert_eq!(cells.join(" "), want, "{text}");
+}
+
+#[test]
+fn an_early_move_inside_the_match_window_is_a_hit_and_an_early_300() {
+    // 900 ms early: a hit for the eight names (the 1 s window is unchanged)
+    // and an early_300, not an early_1000.
+    let m = score(&two_songs(), &[slide(2400, 0), slide(9100, 1)]);
+    assert_eq!((m.hits, m.false_advances), (2, 0));
+    assert_eq!(m.v2()[2..4], [Some(1.0), Some(0.0)]);
+    // 1,200 ms early: a false advance and a missed slide for the eight names;
+    // -1,200 in the helper, so both early counts see it.
+    let m = score(&two_songs(), &[slide(2400, 0), slide(8800, 1)]);
+    assert_eq!((m.hits, m.false_advances), (1, 1));
+    assert_eq!(m.signed[0], Some(-1200));
+    assert_eq!(m.v2()[2..4], [Some(1.0), Some(1.0)]);
+}
+
+#[test]
+fn a_move_back_and_another_songs_slide_are_wrong_moves_a_double_is_not() {
+    // Song B's first slide while song A's first slide is sung.
+    let m = score(&two_songs(), &[slide(2400, 0), song(5000, 1, 0)]);
+    assert_eq!(m.wrong_moves, 1);
+    // Back to slide 0 while slide 1 is sung.
+    let m = score(
+        &two_songs(),
+        &[slide(2400, 0), slide(10200, 1), slide(12000, 0)],
+    );
+    assert_eq!(m.wrong_moves, 1);
+    // The next slide early, then the same slide again (a double advance).
+    let m = score(
+        &two_songs(),
+        &[slide(2400, 0), slide(9100, 1), slide(9200, 1)],
+    );
+    assert_eq!((m.double_advances, m.wrong_moves), (1, 0));
+    // A skip of two in a two-song set: 5 per 10 songs.
+    let m = score(&two_songs(), &[slide(2400, 0), slide(5000, 2)]);
+    assert_eq!((m.wrong_moves, m.v2()[4]), (1, Some(5.0)));
+}
+
+#[test]
+fn a_blank_lifted_by_a_goto_is_hidden_only_past_one_second() {
+    // A blank at 12 s while slide 1 is sung, lifted by a goto at 14 s: hidden once.
+    let moves = [
+        slide(2400, 0),
+        slide(10200, 1),
+        blank(12000),
+        slide(14000, 1),
+    ];
+    let m = score(&two_songs(), &moves);
+    assert_eq!((m.hidden, m.v2()[5]), (1, Some(1.0)));
+    // Lifted at 13 s, one second exactly: not hidden.
+    let moves = [
+        slide(2400, 0),
+        slide(10200, 1),
+        blank(12000),
+        slide(13000, 1),
+    ];
+    assert_eq!(score(&two_songs(), &moves).hidden, 0);
+    // Never lifted inside the song: once; the prayer's blank matches the truth's.
+    assert_eq!(
+        score(&two_songs(), &[slide(2400, 0), blank(5000)]).hidden,
+        1
+    );
+    assert_eq!(score(&two_songs(), &two_songs_moves()).hidden, 0);
+}
+
+#[test]
+fn wrong_slide_seconds_on_two_songs_and_the_total_row_pools_the_nine_columns() {
+    // 400 + 400 + 200 + 300 + 500 + 100 ms, first truth row to 10 s after the last.
+    let m = score(&two_songs(), &two_songs_moves());
+    assert_eq!((m.wrong_ms, m.v2()[8]), (1900, Some(1.9)));
+    // Nothing shown: the window 2 s .. 52 s is wrong except the 8 s both are blank.
+    assert_eq!(score(&two_songs(), &[]).wrong_ms, 42_000);
+    // Scored by slide id: the same ids shown in an unplanned truth order agree.
+    let t = [slide(1000, 0), slide(5000, 2)];
+    assert_eq!(score(&t, &[slide(1000, 0), slide(5000, 2)]).wrong_ms, 0);
+    // Two sets pooled: four song starts, one wrong move, ten rows, 1,900 + 39,400 ms.
+    let mut total = Metrics::default();
+    total.add(&m);
+    total.add(&score(&two_songs(), &[slide(2400, 0), slide(5000, 2)]));
+    let rows = total.starts.len() + total.signed.len();
+    assert_eq!((total.wrong_moves, rows, total.wrong_ms), (1, 10, 41_300));
+    assert_eq!(total.v2()[4], Some(2.5));
+}
+
+#[test]
+fn an_old_truth_file_scores_identically_on_the_eight_names() {
+    // The committed fixture's truth (indices and a blank) through today's
+    // parser and scorer with made-up moves: the eight values of ADR-015.
+    let text =
+        fs::read_to_string("../fixtures/recordings/prayer-then-reprise/truth.jsonl").unwrap();
+    let songs = [
+        ("a".to_string(), 4),
+        ("b".to_string(), 4),
+        ("c".to_string(), 5),
+    ];
+    let t = parse_truth(&text, &songs).unwrap();
+    let moves = [
+        slide(5000, 0),
+        slide(18000, 1),
+        blank(30600),
+        slide(42500, 1),
+    ];
+    let m = score(&t, &moves);
+    let v = m.values();
+    assert_eq!(v[..2], [Some(1.0), Some(1.0)]);
+    assert_eq!(v[2..6], [Some(2000.0), Some(2900.0), Some(0.0), Some(0.0)]);
+    assert_eq!(v[6..], [Some(200.0), Some(2000.0)]);
+    assert_eq!((m.slides, m.gotos, m.hits), (3, 3, 3));
+    // The ruling: the reprise after the prayer is a song start (+2,000), so
+    // the one other row (+1,900) is late, not on time.
+    assert_eq!(m.starts, [Some(2900), Some(2000)]);
+    assert_eq!(m.signed, [Some(1900)]);
+    assert_eq!(m.v2()[..2], [Some(0.0), Some(0.0)]);
+}
+
+/// A made-up fixture: two songs with placeholder words, one truth row by title.
+fn made_up_fixture(dir: &Path) -> std::path::PathBuf {
+    let fixture = dir.join("made-up");
+    fs::create_dir(&fixture).unwrap();
+    let setlist = json!({"setlist": [
+        {"title": "Song A", "slides": [{"id": 0, "text": "alpha"}, {"id": 1, "text": "bravo"}, {"id": 2, "text": "charlie"}]},
+        {"title": "Song B", "slides": [{"id": 0, "text": "delta"}, {"id": 1, "text": "echo"}]}
+    ]});
+    fs::write(fixture.join("setlist.json"), setlist.to_string()).unwrap();
+    let truth = "{\"t_ms\":2000,\"song\":0,\"slide\":0}\n{\"t_ms\":10000,\"song\":0,\"slide\":1}\n\
+                 {\"t_ms\":18000,\"song\":\"song b\",\"slide\":0}\n";
+    fs::write(fixture.join("truth.jsonl"), truth).unwrap();
+    fixture
+}
+
+fn action(t: u64, song: usize, slide: usize) -> String {
+    json!({"v": 1, "t": t, "type": "action", "action": "goto", "song": song, "slide": slide, "global": 0, "title": "x"}).to_string()
+}
+
+#[test]
+fn an_actions_file_against_a_made_up_fixture_prints_the_nine_columns_and_wants_one_dir() {
+    let dir = tempfile::tempdir().unwrap();
+    let fixture = made_up_fixture(dir.path());
+    let actions = dir.path().join("actions.jsonl");
+    let lines = [
+        r#"{"v":1,"t":100,"type":"hypothesis","text":"alpha bravo"}"#.to_string(),
+        action(2400, 0, 0),
+        action(9700, 0, 1),
+        action(18200, 1, 0),
+    ];
+    fs::write(&actions, lines.join("\n") + "\n").unwrap();
+    let baseline = dir.path().join("baseline.json");
+    let limits = json!({"made-up": {"precision": 1.0, "recall": 1.0, "median_ms": 400, "p95_ms": 400,
+        "false_advances": 0, "double_advances": 0}, "total": {"precision": 1.0, "recall": 1.0,
+        "median_ms": 400, "p95_ms": 400, "false_advances": 0, "double_advances": 0}});
+    fs::write(&baseline, limits.to_string()).unwrap();
+    let (file, limits) = (actions.to_str().unwrap(), baseline.to_str().unwrap());
+    let (out, code) = eval(&[
+        "--actions",
+        file,
+        "--baseline",
+        limits,
+        fixture.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.starts_with("mode: replay\n"), "{out}");
+    let row = out.lines().find(|l| l.starts_with("made-up")).unwrap();
+    let row: Vec<&str> = row.split_whitespace().collect();
+    // +400 (a song start), -300 (tight, not an early_300), +200 (song B's start).
+    assert_eq!(
+        row[1..13].join(" "),
+        "3 3 3 0 1.00 1.00 200 400 0 0 - -",
+        "{out}"
+    );
+    assert_eq!(
+        row[13..].join(" "),
+        "1.00 1.00 0 0 0.00 0 200 400 0.90",
+        "{out}"
+    );
+    assert!(out.contains("OK: no metric is worse"), "{out}");
+    // `--actions` scores exactly one fixture dir: none or several is a usage error.
+    let none = Command::new(eval_exe())
+        .args(["--actions", file])
+        .output()
+        .unwrap();
+    assert_eq!(none.status.code(), Some(2));
+    let two = Command::new(eval_exe())
+        .args(["--actions", file])
+        .arg(&fixture)
+        .arg(&fixture)
+        .output()
+        .unwrap();
+    assert_eq!(two.status.code(), Some(2));
 }

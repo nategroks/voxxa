@@ -22,7 +22,7 @@ folder in fixtures/recordings): the eight baseline metrics, then the V2 columns.
   --full      voxxad --stdin-audio <fixture>/audio.wav --shadow --model tiny;
               audio.wav is rebuilt from audio.json first when there is one
   --record    with --full: save the session log as <fixture>/session.jsonl
-  --actions   score this file's action lines (voxxad's stdout format) instead
+  --actions   score this file's action lines (voxxad's stdout format); one fixture dir
   --baseline  thresholds (default fixtures/baseline.json); exit 1 when a
               metric is worse, 2 on an error
   --truth-from-screen <log>  truth from its screen trace lines (setlist.json beside it); timing is n/a";
@@ -69,6 +69,10 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
         let rows = [("screen".into(), m)];
         println!("truth: operator-timed\n{}", score::table(&rows, false));
         return Ok(true);
+    }
+    // --actions scores one fixture dir (plan V2 task 3): none or several is a usage error.
+    if opt.contains_key("--actions") && dirs.len() != 1 {
+        return Err("--actions scores one fixture dir: name it".into());
     }
     if dirs.is_empty() {
         let all = fs::read_dir(format!("{FIXTURES}/recordings")).map_err(|e| e.to_string())?;
