@@ -594,28 +594,28 @@ fn replay_of_the_committed_fixtures_passes_the_baseline() {
     assert_eq!(total[1..4], ["21", "21", "21"], "{out}");
     assert_eq!(total[11..13], ["7280", "2490"], "{out}");
     // V2 (plan task 5): an old truth file scores identically on the eight
-    // names. The first 13 cells of every row, measured at 8df5893 before the
-    // V2 columns existed; a re-recorded log (fixtures/README.md) updates them.
-    let eight = [
-        "jump-be-thou-my-vision 4 4 4 0 1.00 1.00 1200 5850 0 0 - -",
-        "prayer-before-first-song 2 2 2 0 1.00 1.00 1710 2800 0 0 6800 1710",
-        "prayer-between-songs 4 4 4 0 1.00 1.00 2490 4870 0 0 7280 2490",
-        "prayer-then-reprise 3 3 3 0 1.00 1.00 2900 2900 0 0 200 1500",
-        "prayer-without-pause 2 2 2 0 1.00 1.00 1900 2900 0 0 6600 -",
-        "refrain-it-is-well 6 6 6 0 1.00 1.00 2120 3900 0 0 - -",
-        "total 21 21 21 0 1.00 1.00 2310 4870 0 0 7280 2490",
+    // names (cells 2 to 13, measured at 8df5893 before the V2 columns
+    // existed), and the nine columns per fixture follow the comparator's
+    // ruling (reviews/2026-11-28-v2-comparator.md section 2: a song start is
+    // the first row, the row after a blank or a new song; on_time_1500 and
+    // tight_300 divide by the other rows, `-` with none). A re-recorded log
+    // (fixtures/README.md) updates its row.
+    let rows = [
+        "jump-be-thou-my-vision 4 4 4 0 1.00 1.00 1200 5850 0 0 - - 0.33 0.00 0 0 0.00 0 900 900 10.35",
+        "prayer-before-first-song 2 2 2 0 1.00 1.00 1710 2800 0 0 6800 1710 - - 0 0 0.00 0 1710 2800 11.30",
+        "prayer-between-songs 4 4 4 0 1.00 1.00 2490 4870 0 0 7280 2490 0.00 0.00 0 0 0.00 0 2490 3900 20.65",
+        "prayer-then-reprise 3 3 3 0 1.00 1.00 2900 2900 0 0 200 1500 0.00 0.00 0 0 0.00 0 1500 2900 7.50",
+        "prayer-without-pause 2 2 2 0 1.00 1.00 1900 2900 0 0 6600 - 0.00 0.00 0 0 0.00 0 2900 2900 11.40",
+        "refrain-it-is-well 6 6 6 0 1.00 1.00 2120 3900 0 0 - - 0.40 0.00 0 0 0.00 0 3900 3900 13.10",
+        "total 21 21 21 0 1.00 1.00 2310 4870 0 0 7280 2490 0.25 0.00 0 0 0.00 0 2800 3900 74.30",
     ];
-    for want in eight {
+    for want in rows {
         let name = want.split(' ').next().unwrap();
         let row = out.lines().find(|l| l.starts_with(name)).unwrap();
-        let cells: Vec<&str> = row.split_whitespace().take(13).collect();
+        let cells: Vec<&str> = row.split_whitespace().collect();
+        // Every V2 cell is a number or `-`, never `n/a`, on a tapped truth.
         assert_eq!(cells.join(" "), want, "{out}");
-        // Every V2 cell is a number, never `-` or `n/a`, on a tapped truth.
-        assert_eq!(row.split_whitespace().count(), 22, "{out}");
-        assert!(
-            !row.split_whitespace().skip(13).any(|c| c == "n/a"),
-            "{out}"
-        );
+        assert_eq!(cells.len(), 22, "{out}");
     }
 }
 
