@@ -56,10 +56,7 @@ pub fn parse(text: &str, fallback_title: &str) -> Result<Song> {
                     in_verse = false;
                     let body = current_text.trim().to_string();
                     if !body.is_empty() {
-                        slides.push(Slide {
-                            id: slides.len(),
-                            text: body,
-                        });
+                        slides.push(Slide::new(slides.len(), body));
                     }
                     current_text.clear();
                 }

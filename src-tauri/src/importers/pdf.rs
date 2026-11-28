@@ -31,10 +31,7 @@ pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
     let slides: Vec<Slide> = pages
         .iter()
         .enumerate()
-        .map(|(id, page)| Slide {
-            id,
-            text: page.trim().to_string(),
-        })
+        .map(|(id, page)| Slide::new(id, page.trim().to_string()))
         .collect();
     if slides.iter().all(|s| s.text.is_empty()) {
         return Err(anyhow!(

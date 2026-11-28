@@ -44,10 +44,7 @@ pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
             continue;
         }
         previous = key;
-        slides.push(Slide {
-            id: slides.len(),
-            text: trimmed,
-        });
+        slides.push(Slide::new(slides.len(), trimmed));
     }
     if slides.is_empty() {
         return Err(anyhow!("no readable lyric text in .pro7 RTF blocks"));
