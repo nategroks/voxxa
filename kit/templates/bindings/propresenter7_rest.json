@@ -1,0 +1,34 @@
+{
+  "kind": "voxxa.bindings",
+  "bindings_version": 1,
+  "profile": "propresenter7_rest",
+  "driver": "propresenter7_rest",
+  "app": "ProPresenter",
+  "app_versions": "7.9+",
+  "note": "Reference copy. Only the `driver` steps run today (the existing driver methods). Every http step below is UNVERIFIED on a live install: it runs only after a recorded-traffic contract test (prompt pack Q13) passes for it, and until then the driver turns it into a hint (ADR-024 § 5). The goto.item path order is unconfirmed.",
+  "transport": { "http": { "default_port": 1025, "auth": "none", "timeout_ms": 750 } },
+  "identity": { "http": { "method": "GET", "path": "/v1/version", "expect": [200] } },
+  "goto_scope": "presentation",
+  "actions": {
+    "next": [ { "driver": "next_slide" } ],
+    "prev": [ { "driver": "prev_slide" } ],
+    "goto": [ { "driver": "goto_slide" } ],
+    "blank": [ { "driver": "blank" } ],
+    "unblank": [ { "driver": "unblank" } ],
+    "goto.item": [ { "http": { "method": "GET", "path": "/v1/presentation/{item.presentation_uuid}/{app_slide}/trigger", "expect": [200, 204] } } ],
+    "show_graphic.hint": { "hint": "Show the {graphic.label_hint} graphic in ProPresenter." },
+    "show_graphic.macro": [ { "http": { "method": "GET", "path": "/v1/macro/{graphic.id}/trigger", "expect": [200, 204] } } ],
+    "show_graphic.prop": [ { "http": { "method": "GET", "path": "/v1/prop/{graphic.id}/trigger", "expect": [200, 204] } } ],
+    "show_graphic.look": [ { "http": { "method": "GET", "path": "/v1/look/{graphic.id}/trigger", "expect": [200, 204] } } ],
+    "clear_graphic.prop": [ { "http": { "method": "GET", "path": "/v1/prop/{graphic.id}/clear", "expect": [200, 204] } } ],
+    "show_scripture": { "hint": "Show {ref.display} in ProPresenter." },
+    "clear_slide": [ { "http": { "method": "GET", "path": "/v1/clear/layer/slide", "expect": [200, 204] } } ],
+    "clear_media": { "unsupported": "never automatic" },
+    "clear_all": { "unsupported": "never automatic" }
+  },
+  "refused": ["PUT", "DELETE", "/v1/stage/message", "message triggers with text tokens"],
+  "readback": {
+    "current": [ { "http": { "method": "GET", "path": "/v1/presentation/slide_index", "expect": [200] } } ],
+    "items": [ { "http": { "method": "GET", "path": "/v1/playlist/active", "expect": [200] } } ]
+  }
+}

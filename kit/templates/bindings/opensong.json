@@ -1,0 +1,30 @@
+{
+  "kind": "voxxa.bindings",
+  "bindings_version": 1,
+  "profile": "opensong",
+  "driver": "opensong",
+  "app": "OpenSong",
+  "app_versions": "Automation API",
+  "note": "Reference copy, written to OpenSong's published API page. Known open question W3: the current driver's paths (next, previous, black toggle) and its Basic auth value differ from the documentation. Until a live test and a driver fix land (prompt pack Q13), nothing here runs: no step has passed its contract test, so the driver turns each into a hint (ADR-024 § 5). Using screen/black and screen/normal instead of a toggle removes a class of inverted-blank bugs.",
+  "transport": { "http": { "default_port": 8082, "auth": "basic_key", "timeout_ms": 750 } },
+  "identity": { "http": { "method": "GET", "path": "/presentation/status", "expect": [200] } },
+  "goto_scope": "set",
+  "actions": {
+    "next": [ { "http": { "method": "POST", "path": "/presentation/slide/next", "expect": [200] } } ],
+    "prev": [ { "http": { "method": "POST", "path": "/presentation/slide/previous", "expect": [200] } } ],
+    "goto.item": [ { "http": { "method": "POST", "path": "/presentation/slide/{item.set_slide_offset_plus_app_slide1}", "expect": [200] } } ],
+    "show_graphic.hint": { "hint": "Show the {graphic.label_hint} graphic in OpenSong." },
+    "blank": [ { "http": { "method": "POST", "path": "/presentation/screen/black", "expect": [200] } } ],
+    "unblank": [ { "http": { "method": "POST", "path": "/presentation/screen/normal", "expect": [200] } } ],
+    "show_graphic.logo": [ { "http": { "method": "POST", "path": "/presentation/screen/logo", "expect": [200] } } ],
+    "show_scripture": { "hint": "Show {ref.display} in OpenSong." },
+    "clear_slide": [ { "http": { "method": "POST", "path": "/presentation/screen/hide", "expect": [200] } } ],
+    "clear_media": { "unsupported": "never automatic" },
+    "clear_all": { "unsupported": "never automatic" }
+  },
+  "refused": ["/presentation/screen/alert", "/presentation/slide/song", "/song/load"],
+  "readback": {
+    "current": [ { "http": { "method": "GET", "path": "/presentation/status", "expect": [200] } } ],
+    "items": [ { "http": { "method": "GET", "path": "/set/list", "expect": [200] } } ]
+  }
+}

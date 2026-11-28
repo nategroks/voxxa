@@ -1,0 +1,13 @@
+code,spdx,needs_credit,allows_adapt,share_alike,noncommercial,when_streamed_or_recorded,public_fixture_ok,church_to_church,required_fields,notes
+PD,LicenseRef-PublicDomain,0,1,0,0,ok,1,1,pd_basis;evidence,"pd_basis is one of us_published_95_years, author_died_70_years, traditional, dedicated_cc0. us_published_95_years also needs published_year: songcheck passes it when published_year <= current year - 96, worked out from today's date on every run, so it never goes stale. Check that this version is public domain: a modern chorus, arrangement or translation may not be. Credit is shown anyway."
+CC0,CC0-1.0,0,1,0,0,ok,1,1,evidence,"Credit recommended."
+CC-BY,CC-BY-{v},1,1,0,0,ok,0,1,licence_version;credit_line;source_url;evidence,"Credit by title, author, source and licence (TASL). Mark changes. Public fixtures only after a founder decision."
+CC-BY-SA,CC-BY-SA-{v},1,1,1,0,amber,0,1,licence_version;credit_line;source_url;evidence,"A shared recording or stream of the service may need to carry the same licence [UNVERIFIED legal]."
+CC-BY-NC,CC-BY-NC-{v},1,1,0,1,amber,0,1,licence_version;credit_line;source_url;evidence,"Fine for worship; not on a monetised stream; voxxa staff never type NC lyrics as paid work [UNVERIFIED legal]."
+CC-BY-NC-SA,CC-BY-NC-SA-{v},1,1,1,1,amber,0,1,licence_version;credit_line;source_url;evidence,"NC and SA rules both apply [UNVERIFIED legal]."
+CC-BY-ND,CC-BY-ND-{v},1,0,0,0,red,0,1,licence_version;credit_line;source_url;evidence,"Words unchanged (typo fixes against the source only). Music synced with video counts as an adaptation: not for streamed or recorded services [UNVERIFIED legal; ask counsel]."
+CC-BY-NC-ND,CC-BY-NC-ND-{v},1,0,0,1,red,0,1,licence_version;credit_line;source_url;evidence,"NC and ND rules both apply [UNVERIFIED legal]."
+CHURCH-OWNED,LicenseRef-ChurchOwned,0,1,0,0,ok,0,0,owner;evidence,"The owner decides. Shared with other churches only when owner_permits_sharing is 1."
+PERMISSION,LicenseRef-WrittenPermission,1,0,0,0,check,0,0,credit_line;evidence,"Keep the written permission in licences\; follow its terms."
+CCLI,LicenseRef-CCLI,1,0,0,0,check,0,0,ccli_song,"Optional, legacy. Red when church-profile ccli.active is false."
+UNKNOWN,NOASSERTION,0,0,0,0,check,0,0,,"Draft. Amber on the Sunday checklist; never blocks Sunday."

@@ -1,0 +1,51 @@
+{
+  "kind": "voxxa.church-profile",
+  "v": 1,
+  "church_id": "example-church",
+  "note": "Intake answers for one church. Private: stays in <church_root>. No lyrics, no passwords, no licence numbers needed. presentation_app uses the kit's profile ids; voxxa's loader maps them to the names its saved config already uses: kit id keystroke.worshiptools_presenter = saved config keystroke_profile \"worship_tools_presenter\". Existing configs are not changed.",
+  "kit_version": "kit-v0.1.0",
+  "kit_version_note": "The kit tag this folder was set up from or last upgraded to. To upgrade, follow kit/README.md (Versioning): read the upgrade notes of every newer tag, copy only the templates they name (never over the church's own files), run kit_check and songcheck, then set this field to the new tag.",
+  "os": "windows-11",
+  "hardware": {
+    "cpu": "fill from: Get-CimInstance Win32_Processor | Select Name, NumberOfCores",
+    "gpu": "fill from: Get-CimInstance Win32_VideoController | Select Name, AdapterRAM",
+    "vulkan_loader_present": false,
+    "class": "unknown",
+    "class_note": "G = Vulkan GPU with >= 2 GB; C6 = 6-8 core AVX2 CPU (2019+); C4 = older 4-core. Volunteer-ready promises depend on the class (decided after voxxa's speed proofs)."
+  },
+  "presentation_app": "keystroke.worshiptools_presenter",
+  "presentation_app_runs_as_admin": false,
+  "presentation_app_tier": "B",
+  "presentation_app_tier_note": "A = the app can jump to a named slide and report the slide it shows (FreeShow, once voxxa's FreeShow driver ships in step V8b). B = keys only (WorshipTools Presenter, the universal keystroke profile): voxxa moves to the next slide and offers anything else as a suggestion. Only a tier A app may ever follow without a person at the PC (FA-47).",
+  "freeshow_version": null,
+  "freeshow_version_note": "FreeShow churches only: the installed stable version, from test card FS1 (FA-51). Auto-update stays off; upgrade only on a weekday, then answer FS1 and FS18 again. The health check checks this value. null when the church does not use FreeShow. Never put the FreeShow API password here or in any church file.",
+  "audio_feed": "desk aux out -> USB audio interface",
+  "display": {
+    "booth_desktop_duplicated_to_projector": false,
+    "booth_desktop_captured_for_stream": false,
+    "note": "If either is true, voxxa's operator screens would be visible to the room or the stream: fix the display setup before showing slide lines on the Run screen."
+  },
+  "streaming": {
+    "streams": false,
+    "records_services": false,
+    "stream_monetised": false,
+    "asks_for_gifts_on_stream": false,
+    "note": "If the church streams or records: CC BY-ND songs are red (not ready), CC BY-SA and NC songs amber. Ask counsel before adopting ND or SA songs."
+  },
+  "stream_capture": "none",
+  "stream_capture_note": "How the projector and the stream get the slides: hdmi_split, window_capture, other, or none when the church does not stream (test card FS17). Check it again before moving to another presentation app: a window capture may be set up for the old app's window.",
+  "stage_display": "none",
+  "stage_display_note": "What the worship leader sees at the front: none, voxxa_strip (voxxa's own three-state strip) or app_stage (the presentation app's stage display; FreeShow: test card FS16). Before any is turned on, confirm the stage output is never captured into the stream (FA-29). voxxa never writes stage text in the presentation app.",
+  "scripture_source": "app_bible",
+  "scripture_source_note": "Where scripture slides come from: app_bible (the presentation app's own Bible), prepared_slides (made before the service) or none. Moving to another app means rebuilding these before the first service in it.",
+  "announcement_items_per_service": 3,
+  "announcement_items_per_service_note": "About how many announcement and graphic items a usual service has (an estimate). They are rebuilt in the new app before a church switches apps, because the switch is for a whole service at a time.",
+  "ccli": {
+    "active": false,
+    "note": "When false, a song marked CCLI is red and UNKNOWN is amber: it may need a licence the church no longer holds. Sunday is never blocked."
+  },
+  "allowed_licences": ["PD", "CC0", "CC-BY", "CC-BY-SA", "CHURCH-OWNED", "PERMISSION"],
+  "recording_consent_on_file": false,
+  "bitlocker_on": false,
+  "backup_drive": "encrypted USB drive kept at the church"
+}

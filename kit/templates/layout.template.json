@@ -1,0 +1,102 @@
+{
+  "kind": "voxxa.layout",
+  "layout_version": 1,
+  "church_id": "example-church",
+  "note": "Master layout for one church: WHAT happens in its services, never HOW. The binding profile for the presentation app (kit/templates/bindings/) says how. No lyrics, no passwords, no hosts, no program commands in this file. Copy to <church_root>\\layout.json and edit. A graphic has one entry per binding profile, `graphics.<id>.<profile> = {\"via\": ..., ...}`. Its `via` is a name defined by that profile: it must exist in that profile as `show_graphic.<via>` (and `clear_graphic.<via>` if a service clears it); it need not exist in any other profile. `hint` is a via every binding profile has implicitly: it shows the operator the graphic's name and never sends anything, so use `hint` when the app has nothing else. A graphic with no entry for the active profile falls back to `hint`, and `voxxad --check-layout` prints a warning, not an error. A key that exists in the profile runs only after its contract test passes; until then the driver turns it into a hint (ADR-024 § 5).",
+  "presenter": {
+    "profile": "keystroke.worshiptools_presenter",
+    "note": "One of: keystroke.worshiptools_presenter, keystroke.universal, propresenter7_rest, freeshow, openlp_v2, opensong. Changing app = changing this one field: a graphic with no entry for the new app degrades to a hint."
+  },
+  "graphics": {
+    "logo": {
+      "label": "Church logo",
+      "keystroke.worshiptools_presenter": { "via": "hint" },
+      "keystroke.universal": { "via": "hint" },
+      "freeshow": { "via": "overlay", "id": "ovl-logo" },
+      "propresenter7_rest": { "via": "look", "id": "look-logo" },
+      "openlp_v2": { "via": "logo" },
+      "opensong": { "via": "logo" }
+    },
+    "welcome": {
+      "label": "Welcome loop",
+      "keystroke.worshiptools_presenter": { "via": "hint" },
+      "keystroke.universal": { "via": "hint" },
+      "freeshow": { "via": "action", "id": "act-welcome-loop" },
+      "propresenter7_rest": { "via": "macro", "id": "macro-welcome" }
+    },
+    "prayer": {
+      "label": "Prayer card",
+      "keystroke.worshiptools_presenter": { "via": "hint" },
+      "keystroke.universal": { "via": "hint" },
+      "freeshow": { "via": "overlay", "id": "ovl-prayer" },
+      "propresenter7_rest": { "via": "prop", "id": "prop-prayer" },
+      "openlp_v2": { "via": "image", "id": "img-prayer" }
+    },
+    "scripture_bg": {
+      "label": "Scripture background",
+      "keystroke.worshiptools_presenter": { "via": "hint" },
+      "keystroke.universal": { "via": "hint" },
+      "freeshow": { "via": "overlay", "id": "ovl-scripture" }
+    },
+    "giving": {
+      "label": "Giving slide",
+      "keystroke.worshiptools_presenter": { "via": "hint" },
+      "keystroke.universal": { "via": "hint" },
+      "freeshow": { "via": "hint" },
+      "propresenter7_rest": { "via": "hint" }
+    }
+  },
+  "cues": [
+    {
+      "id": "kw.prayer",
+      "label": "Prayer card",
+      "phrases": ["let us pray", "bow your heads", "pray with me"],
+      "do": [ { "do": "show_graphic", "graphic": "prayer" } ],
+      "mode": "suggest",
+      "cooldown_s": 120,
+      "note": "Phrases are 2 to 8 words, letters only, matched in order. A cue is armed only inside a spoken service item that lists it, never during a song. Auto mode needs the proven-safe bar and a typed confirm; leave it at suggest."
+    },
+    {
+      "id": "kw.giving",
+      "label": "Giving slide",
+      "phrases": ["tithes and offerings", "time of giving"],
+      "do": [ { "do": "show_graphic", "graphic": "giving" } ],
+      "mode": "suggest",
+      "cooldown_s": 300
+    }
+  ],
+  "defaults": {
+    "song_start": "auto",
+    "song_advance": "auto",
+    "song_end": "auto",
+    "scripture": "suggest",
+    "cues": "suggest",
+    "suggest_expiry_s": 10,
+    "note": "Modes: auto (voxxa does it), suggest (voxxa shows a card; the operator accepts), off. A service plan may lower these, never raise them."
+  },
+  "hotkeys": {
+    "note": "Global keys work while Songs is on, even with the presentation app in front. F13-F19 are for a foot pedal, Stream Deck or Companion (no keyboard has them). No hotkey stops listening or turns voxxa off.",
+    "next": "F13",
+    "back": "F14",
+    "pause": "F15",
+    "accept": "F16",
+    "dismiss": "F17",
+    "screen_ahead": "F18",
+    "screen_behind": "F19"
+  },
+  "keyboard_hotkeys": {
+    "enabled": false,
+    "note": "Optional keyboard keys, registered only after voxxa checks no other program uses them. Never Ctrl+Alt+arrows (they rotate the screen on some PCs). Leave this off with WorshipTools Presenter: F6 to F9 are Presenter's own keys (Countdown, Alert, Media Library, Stage Display alert), and a voxxa hotkey would take them away from it while Songs is on.",
+    "next": "F8",
+    "back": "F7",
+    "pause": "F9",
+    "accept": "F6"
+  },
+  "actions": {
+    "pre_service": {
+      "label": "Pre-service loop",
+      "service_callable": true,
+      "do": [ { "do": "show_graphic", "graphic": "welcome" } ]
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "kind": "voxxa.bindings",
+  "bindings_version": 1,
+  "profile": "keystroke.worshiptools_presenter",
+  "driver": "keystroke",
+  "app": "WorshipTools Presenter",
+  "app_versions": "*",
+  "note": "Reference copy. voxxa compiles its binding profiles into the app; churches do not edit them. Keys only: Presenter has no remote-control API and no read-back. Keys are sent only while Presenter's window is in front. Goto inside a song and the step into the next song in Presenter's list are Right/Left presses counted by voxxa (songs open on a blank slide); any other song change is a sentence to the operator.",
+  "keys_note": "Example keys step, [UNVERIFIED] as a profile step: confirm on the presenter test card (T8) before use. `goto.keys` is the move from the live song's last slide into the next song, only when that song is the next item in Presenter's list (its service_position is one higher, nothing between): Right shows the next song's blank, Right shows its first slide. The founder saw those two key effects on the booth PC (#183, 2026-11-24), and the driver makes this move today with counted Right presses; the same move sent as a keys step has never run, so goto.keys runs only after test card T8 confirms it; until then the driver turns it into a hint (ADR-024 § 5), and voxxa keeps making this move with counted Right presses as it does today. A keys step holds 1 to 4 chords, only from allowed_keys. Never sent: F10, F11, F12 (they clear slide content, media, everything), Up, Down, numpad + and - (they change the service item), '.', Esc, Enter, any Ctrl+Alt+arrow; also F2 and F3 (they create service items) and F6 to F9 (they open Presenter windows), per WorshipTools' keyboard shortcuts page.",
+  "identity": { "wait_ms": 0 },
+  "target_process": ["Presenter.exe"],
+  "allowed_keys": ["Right", "Left"],
+  "never_keys": ["F10", "F11", "F12", "Up", "Down", "Add", "Subtract", "+", "-", ".", "Esc", "Enter", "F2", "F3", "F6", "F7", "F8", "F9", "Ctrl+Alt+Left", "Ctrl+Alt+Right", "Ctrl+Alt+Up", "Ctrl+Alt+Down"],
+  "leading_blank": true,
+  "goto_scope": "steps_only",
+  "actions": {
+    "next": [ { "driver": "next_slide" } ],
+    "prev": [ { "driver": "prev_slide" } ],
+    "goto.item": { "hint": "Put \"{item.label_hint}\" live in Presenter." },
+    "goto.keys": [ { "keys": ["Right", "Right"] } ],
+    "blank": { "unsupported": "F10 clears lyrics; the key that brings them back is not confirmed (test card T4)." },
+    "unblank": { "unsupported": "see blank" },
+    "show_graphic.hint": { "hint": "Show the {graphic.label_hint} graphic in Presenter." },
+    "show_scripture": { "hint": "Show {ref.display} in Presenter." },
+    "clear_slide": { "unsupported": "no safe key" },
+    "clear_media": { "unsupported": "F11/F12 clear media; voxxa never sends them" },
+    "clear_all": { "unsupported": "never automatic" }
+  },
+  "readback": {}
+}
