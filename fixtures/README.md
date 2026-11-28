@@ -89,6 +89,18 @@ row per fixture plus a total, and checks each row against `baseline.json`.
   (each failure is printed as `FAIL <row>: <metric> is <value>, baseline needs …`),
   2 on an error (a missing file, a bad line, `voxxad` failing).
 - `--baseline <file>` checks against another thresholds file.
+- `--actions <file.jsonl> <fixture dir>` (plan V2 task 3) scores an action list
+  in `voxxad`'s stdout format (a saved `voxxad … > actions.jsonl`, or a session
+  log) against the fixture's `truth.jsonl` instead of running `voxxad`; an
+  error names the file and the line number only.
+- `--truth-from-screen <session.jsonl>` (plan V2 task 7, FA-66) builds the truth
+  from the log's `trace` lines of `kind: screen` (read-back of the operator's
+  moves, so operator-timed) and scores the log's own action lines; needs
+  `setlist.json` beside the log. Only `t` and `slide` (the slide's index in the
+  whole setlist) are read from a `screen` line. The header says
+  `truth: operator-timed` and every timing column prints `n/a`: operator
+  presses lag about 0.5 s, so only the Correct bar (precision, recall, false and
+  double advances, wrong moves, hidden mid-song, wrong-slide seconds) is scored.
 
 **A Windows release build (#59).** The `cmake` crate builds whisper.cpp for a
 Windows release without `/O2`, so Whisper runs about 3.5 times slower. In
@@ -157,6 +169,25 @@ they are never counted as false or double advances, even when one re-shows
 lyrics in the middle of a prayer. That is a known gap; the conductor emits
 `unblank` rarely and neither committed log has one.
 Word timing is not measured: word times are rough and not logged (Q4-13).
+
+**The V2 columns** (plan step V2, spec § 2.2; after the eight, never in
+`baseline.json`) come from one per-row table: for every truth row, the
+**signed error** shown − truth in ms, the first `goto` to that row's slide
+between the neighbouring rows' times (so a move 2 s early still counts, unlike
+the 1 s match window above), or nothing when the slide never came. A **song
+start** is a slide row whose previous truth row is not a slide of the same
+song: the first row, the row after a blank, a new song. Song performances =
+song starts.
+
+| Column | Definition |
+|---|---|
+| on_time_1500 | share of non-song-start rows with a signed error in [−1000, +1500] ms (`-` with none) |
+| tight_300 | share of non-song-start rows with a signed error within ±300 ms (the spec's "Tight on time") |
+| early_300, early_1000 | rows (song starts included) shown more than 0.3 s and more than 1.0 s before the truth |
+| wrong_per_10_songs | gotos to a slide that is neither the current truth row's nor the next slide row's (a skip of two is one), × 10 / song performances |
+| hidden_mid_song | blanks that start while the truth shows a slide and last over 1 s (the screen's blank start and a blank carried out of a truth blank are late starts, not hides; a blank after the last truth row is never one until truth v2 has a song end) |
+| song_start_median_ms, song_start_p95_ms | the signed error of the song starts, nearest rank |
+| wrong_slide_s | seconds the shown slide (by slide id; blank counts) differs from the truth slide, from the first truth row to 10 s after the last, in 50 ms steps |
 
 ## baseline.json
 

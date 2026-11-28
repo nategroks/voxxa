@@ -66,6 +66,38 @@
 - **Next after V5a: V2** (eval columns), then V8-lite, V13a, V10 mock, V18 slice 1; V8c still waits on the founder's probe line (task 0).
   **FA-78 is open** (the follower row's cap, from the V3d port plan).
 
+## V2 (2026-11-28; `v2/final` off 8df5893, base the ponytail lane; PR #194): what V3b scoring, V3d, V6, V13s and V15 now have
+
+- **Records:** `reviews/2026-11-28-v2-comparator.md` (the comparison column by column, the song-start ruling, the gates, the budget rows, the scan
+  counts), beside `reviews/2026-11-28-v2-10x.md` and `reviews/2026-11-28-ponytail-v2.md`; `decisions/sde/church-autoadvance.md` and
+  `decisions/qa/church-autoadvance.md` ("V2"). Commits: 313f37e eval code and tests (ponytail 92f6d66), 47553a3 prompt 07, 9c11ab5 the per-fixture
+  pins, 11cbcdc the 10x graft, then the records commit.
+- **V3b scoring and V3d have:** nine columns after the eight names in `voxxa-eval`'s table (`src-tauri/src/cli/voxxa-eval/score.rs`, `V2`,
+  `Metrics::v2`): `on_time_1500 tight_300 early_300 early_1000 wrong_per_10_songs hidden_mid_song song_start_median_ms song_start_p95_ms wrong_slide_s`; the per-row signed error (`score::delays`, `Metrics.signed` for the other rows and `.starts` for the song starts); the
+  50 ms screen walk (`score::screen_time`); `--actions <file.jsonl> <fixture dir>` to score a saved action list (the lab follower, a
+  `voxxad … > actions.jsonl` run) against one fixture's truth with the same scorer, errors naming the file and line only. The eight names,
+  `baseline.json` and the 1 s match window are unchanged; the early counts use the signed error (a 0.9 s early move is a hit and an `early_300`; a
+  1.2 s early move is a false advance and an `early_1000`). **Ruling:** a song start is a slide row whose previous truth row is not a slide of the same
+  song (the first row, the row after a blank, a new song); `on_time_1500` and `tight_300` are shares of the other rows, missed ones included, `-`
+  with none; "current" in the wrong-move rule is the row being sung at the goto's time. Total row on the committed fixtures `0.25 0.00 0 0 0.00 0 2800 3900 74.30`.
+- **V6 has:** truth v2 is still its own (`last_ms`, `talk_start`, `talk_end`, `song_end`): `screen_time` cannot tell a song's end, so a blank after
+  the last truth row is never a hide until `song_end` lands; the spec's early-hide clause of "wrong moves" needs `last_ms`.
+- **V13s has:** the **`--service-report` writer as its task 7** (from V2 task 6 as written; deferred 2026-11-28, **FA-79** open on the row: cap 750,
+  a `report.rs` row at 150, or the proposal beside the readiness row; (c) recommended). The design, measured at about 50 lines in its leanest form
+  and 93 + about 50 in the 10x lane's, is in `reviews/2026-11-28-v2-10x.md` § 6 (the field set, `trend.csv` header, FNV-1a config hash, the
+  numbers-only walk test) and on the 10x lane's local branch `v2/10x-full-held` (never pushed). S1–S4's inputs are already the eval columns
+  (`false_advances`, `early_1000`, `wrong_slide_s`, `recall`, `on_time_1500`). `kit/prompts/07-review.md` reads the `--actions` table until then.
+- **V15 (and V8b/V8c) have:** `--truth-from-screen <session.jsonl>` (FA-66): truth from `trace` lines of `kind: screen`, reading only `t` and
+  `slide` (the slide's index in the whole setlist, as `global` on action lines; `score::parse_screen`), every other field ignored so V8c's list can
+  grow; `setlist.json` beside the log; header `truth: operator-timed`; `n/a` in every timing cell (median, p95, blank, unblank, `on_time_1500`,
+  `tight_300`, `early_300`, `early_1000`, the song-start cells); the Correct bar prints. When V8c writes the `screen` field list into ADR-003's table,
+  check the index meaning against `parse_screen` and keep `t` and `slide` stable.
+- **Budget after V2** (tokei 15.0.0, `v2/final`): voxxa-eval 488 → **594 / 600** (6 left); no other row moved; the row table below is updated. ADR-015's
+  review trigger ("more than 600 lines") is marked reached; FA-79 answers it.
+- **Process:** lanes build in separate target directories from V8-lite on (`specs/2026-11-24-process.md` § 3 item 3, dated line): cargo's lock covers
+  compiling, not running, and identically named test binaries collide; `-j 2`, one cargo command at a time.
+- **Next after V2: V8-lite**, then V13a, V10 mock, V18 slice 1; V8c still waits on the founder's probe line (task 0). **FA-78 and FA-79 are open.**
+
 ## User decisions for Q10 (2026-11-23)
 - **Stop at a DRAFT release.** Tag builds create drafts only; the founder publishes the real release by hand, soon after. Agents never publish a draft.
 - **Signing secrets:** the founder is still working on them. Build so that everything works without them and lights up when they are added; list exactly which secrets and variables to add (`docs/RELEASING.md` § 1; `status.md`, founder items).
@@ -196,7 +228,7 @@ Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double a
 | input chain (`src-tauri/src/input/`; new in V7, estimate 200 × 3, FA-54; V3b task 6) | 0 / 600 | 600 |
 | position (`src-tauri/src/position/`; new in V7, estimate 300 × 3, ADR-036 Decision 10, FA-77; V8c) | 0 / 900 | 900 |
 | voxxad (`src/cli/voxxad/`) | 552 / 600 | 48 (V12 20 · V8b 10 · V13s 8 · V3b `Kind::Trace` 4) |
-| voxxa-eval (`src/cli/voxxa-eval/`) | 488 / 600 | 112 (V2 105) |
+| voxxa-eval (`src/cli/voxxa-eval/`) | 594 / 600 | 6 (V2 done: columns, `--actions`, `--truth-from-screen`; `--service-report` about 50 measured, FA-79 → V13s task 7) |
 | presenters (`keystroke.rs` 396 / 400) | 1,396 / 2,000 | 604 (V8b 150 · V8c 30) |
 | importers + planning_center | 1,373 / 1,600 | 227 (V5a done at −13: `txt.rs` +11, `Slide::new` at 8 sites −24) |
 | GUI (without `src/simple/` and `src/health/`) | 2,860 / 3,000 | 140 (V14 net +15) |

@@ -7,6 +7,7 @@ mod score;
 
 use score::Metrics;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -14,16 +15,17 @@ use std::process::{Command, Stdio};
 use voxxa_lib::Setlist;
 
 const USAGE: &str = "\
-usage: voxxa-eval [--full [--record]] [--baseline <json>] [<fixture dir>...]
+usage: voxxa-eval [--full [--record]] [--baseline <json>] [--actions <jsonl>] [<fixture dir>...]
 Scores voxxad's actions against each fixture's truth.jsonl (default: every
-folder in fixtures/recordings) and prints precision, recall, median/p95
-latency, false and double advances, blank and unblank timing.
+folder in fixtures/recordings): the eight baseline metrics, then the V2 columns.
   (default)   replay <fixture>/session.jsonl: no model, no audio
   --full      voxxad --stdin-audio <fixture>/audio.wav --shadow --model tiny;
               audio.wav is rebuilt from audio.json first when there is one
   --record    with --full: save the session log as <fixture>/session.jsonl
+  --actions   score this file's action lines (voxxad's stdout format); one fixture dir
   --baseline  thresholds (default fixtures/baseline.json); exit 1 when a
-              metric is worse, 2 on an error";
+              metric is worse, 2 on an error
+  --truth-from-screen <log>  truth from its screen trace lines (setlist.json beside it); timing is n/a";
 
 const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../fixtures");
 
@@ -39,13 +41,16 @@ fn main() {
 }
 
 fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
-    let (mut full, mut record) = (false, false);
-    let (mut baseline, mut dirs) = (format!("{FIXTURES}/baseline.json"), Vec::new());
+    let (mut full, mut record, mut dirs, mut opt) = (false, false, Vec::new(), HashMap::new());
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--full" => full = true,
             "--record" => record = true,
-            "--baseline" => baseline = args.next().ok_or("--baseline needs a value")?,
+            // The flags with a value (--actions and --truth-from-screen: plan V2 tasks 3, 7).
+            flag if ["--baseline", "--actions", "--truth-from-screen"].contains(&flag) => {
+                let value = args.next().ok_or(format!("{flag} needs a value"))?;
+                opt.insert(flag.to_string(), value);
+            }
             "--help" | "-h" => {
                 println!("{USAGE}");
                 return Ok(true);
@@ -57,6 +62,18 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
     if record && !full {
         return Err("--record needs --full".into());
     }
+    if let Some(log) = opt.get("--truth-from-screen").map(Path::new) {
+        let (text, songs) = (read(log)?, songs(&log.with_file_name("setlist.json"))?);
+        let truth = score::parse_screen(&text, &songs)?;
+        let m = score::score(&truth, &score::parse_actions(&text)?);
+        let rows = [("screen".into(), m)];
+        println!("truth: operator-timed\n{}", score::table(&rows, false));
+        return Ok(true);
+    }
+    // --actions scores one fixture dir (plan V2 task 3): none or several is a usage error.
+    if opt.contains_key("--actions") && dirs.len() != 1 {
+        return Err("--actions scores one fixture dir: name it".into());
+    }
     if dirs.is_empty() {
         let all = fs::read_dir(format!("{FIXTURES}/recordings")).map_err(|e| e.to_string())?;
         dirs = all
@@ -66,28 +83,21 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
             .collect();
         dirs.sort();
     }
-    let limits: Value = serde_json::from_str(&read(Path::new(&baseline))?)
+    let default = format!("{FIXTURES}/baseline.json");
+    let baseline = opt.get("--baseline").unwrap_or(&default);
+    let limits: Value = serde_json::from_str(&read(Path::new(baseline))?)
         .map_err(|e| format!("{baseline}: {e}"))?;
 
     let mut rows = Vec::new();
     for dir in &dirs {
         let name = dir.file_name().unwrap_or_default().to_string_lossy();
         let setlist = dir.join("setlist.json");
-        // Where, not what: serde quotes a wrong value, which may be lyrics.
-        let songs = serde_json::from_str::<Setlist>(&read(&setlist)?).map_err(|e| {
-            let at = format!("line {}, column {}", e.line(), e.column());
-            format!(
-                "{}: not a setlist ({:?} error at {at})",
-                setlist.display(),
-                e.classify()
-            )
-        })?;
-        let songs: Vec<_> = (songs.setlist.into_iter())
-            .map(|s| (s.title, s.slides.len()))
-            .collect();
+        let songs = songs(&setlist)?;
         let truth = score::parse_truth(&read(&dir.join("truth.jsonl"))?, &songs)
             .map_err(|e| format!("{name}: {e}"))?;
-        let stdout = if full {
+        let stdout = if let Some(file) = opt.get("--actions") {
+            read(Path::new(file))?
+        } else if full {
             run_full(dir, &setlist, record)?
         } else {
             let session = dir.join("session.jsonl");
@@ -101,32 +111,28 @@ fn run(mut args: impl Iterator<Item = String>) -> Result<bool, String> {
             voxxad(&args, None, false)?
         };
         // Only a recognizer run prints a start line; replay never does.
-        if stdout.contains(r#""state":"start""#) != full {
+        if !opt.contains_key("--actions") && stdout.contains(r#""state":"start""#) != full {
             return Err(format!("{name}: voxxad did not run in the mode asked for"));
         }
-        let errors = stdout.lines().enumerate();
-        for (n, error) in errors.filter(|(_, l)| l.contains(r#""type":"error""#)) {
-            // --full: its number only; the message may quote what was heard.
-            let error = if full {
-                format!("an error on its line {}", n + 1)
-            } else {
-                error.into()
-            };
-            eprintln!("voxxa-eval: {name}: voxxad reported {error}");
+        // --full, or a saved --full run given as --actions: the error's line
+        // number only; its message may quote what was heard (ADR-019 § 7).
+        let quiet = full || opt.contains_key("--actions");
+        let errors = stdout.lines().zip(1..);
+        for (line, n) in errors.filter(|(l, _)| l.contains(r#""type":"error""#)) {
+            let said = if quiet { "an error" } else { line };
+            eprintln!("voxxa-eval: {name}: voxxad reported {said} on its line {n}");
         }
-        let actions = score::parse_actions(&stdout).map_err(|e| format!("{name}: {e}"))?;
+        // Errors name the actions file and the line number only (ADR-019 § 7).
+        let source = opt.get("--actions").map_or(&*name, String::as_str);
+        let actions = score::parse_actions(&stdout).map_err(|e| format!("{source}: {e}"))?;
         rows.push((name.into_owned(), score::score(&truth, &actions)));
     }
     let mut total = Metrics::default();
     rows.iter().for_each(|(_, m)| total.add(m));
     rows.push(("total".into(), total));
 
-    let mode = if full {
-        "full (Whisper Tiny)"
-    } else {
-        "replay"
-    };
-    println!("mode: {mode}\n{}", score::table(&rows));
+    let mode = ["replay", "full (Whisper Tiny)"][usize::from(full)];
+    println!("mode: {mode}\n{}", score::table(&rows, true));
     let fails: Vec<String> = (rows.iter())
         .flat_map(|(name, m)| score::check(name, m, &limits))
         .collect();
@@ -143,6 +149,22 @@ fn read(path: &Path) -> Result<String, String> {
     fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))
 }
 
+/// `(title, slide count)` per song of a setlist file. Where, not what: serde
+/// quotes a wrong value, which may be lyrics.
+fn songs(setlist: &Path) -> Result<Vec<(String, usize)>, String> {
+    let songs = serde_json::from_str::<Setlist>(&read(setlist)?).map_err(|e| {
+        let at = format!("line {}, column {}", e.line(), e.column());
+        format!(
+            "{}: not a setlist ({:?} error at {at})",
+            setlist.display(),
+            e.classify()
+        )
+    })?;
+    Ok((songs.setlist.into_iter())
+        .map(|s| (s.title, s.slides.len()))
+        .collect())
+}
+
 /// Runs the `voxxad` built beside this binary (in `cwd` if given) and
 /// returns its stdout. With `full` (ADR-019 § 7), Whisper's log of the words
 /// it hears (stderr) goes to null, and a failure names the exit code only:
@@ -154,11 +176,7 @@ fn voxxad(args: &[&OsStr], cwd: Option<&Path>, full: bool) -> Result<String, Str
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }
-    let stderr = if full {
-        Stdio::null()
-    } else {
-        Stdio::inherit()
-    };
+    let stderr = full.then(Stdio::null).unwrap_or_else(Stdio::inherit);
     let out = (cmd.args(args).stderr(stderr).output())
         .map_err(|e| format!("{}: {e} (cargo build --features cli --bins)", exe.display()))?;
     let stdout = String::from_utf8_lossy(&out.stdout).into_owned();
