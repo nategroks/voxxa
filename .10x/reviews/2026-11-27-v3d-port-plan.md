@@ -281,3 +281,55 @@ A smaller port is not proposed (round-3 prompt).
 2. **The eleven ADR-031 names without a lab pytest,** with made-up words, written from the ADR text. Pass counts
    are reported before the port.
 3. **The reference move lists** for the equivalence check (§ 9).
+
+## Addendum (same day, lab): the three items of § 11 are closed
+
+Reported by the lab session later on 2026-11-27; numbers only; nothing committed by the lab.
+
+1. **`dr_show` arm (finding 1 settled).** Lab `parts.py` gained a dead-reckoning step for one-part songs only
+   (11 lab code lines against the 8 estimated; about +5 Rust on the port estimate): a window with fewer than 3 matched
+   words, or with no candidate, goes to the step; the step needs voice over the last 2 s and moves to the next slide
+   when the pace times the elapsed time reaches the words left in the slide. No default number changed. P1, the only
+   one-part take:
+
+   | | lag 1,000 | lag 2,150 |
+   |---|---|---|
+   | parts map with `dr_show` | 11/11, 0 wrong, 0 early > 1 s, median 4,218 ms, 45.9 wrong-slide s | 11/11, 0 wrong, median 4,947 ms, 56.6 s |
+   | plan-order follower | the same | the same |
+   | parts map without dead-reckoning | 8/11, 1 wrong, 66.0 s | 8/11, 1 wrong, 74.4 s |
+
+   The move lists are **identical** to the plan-order follower's at both lags (11 of 11 moves, same time and slide). On
+   the seven labelled takes `dr_show` changes nothing (identical move lists with and without it). With P1 scored under
+   `dr_show`, the seven-take default totals become **132.9 s** at lag 1,000 and **196.5 s** at lag 2,150 (§ 7 scored P1
+   without it: 153.0 / 214.3). Caveat: one take of 11 moves plus one synthetic test; the held-out V6 corpus stays the
+   real check. **For V11:** the `trace` `why` list has no dead-reckoning code, so these moves would log as `anchor`; the
+   code `dr` is added (prompt pack V11 task 4).
+2. **The eleven ADR-031 pytests** are written from the ADR text with made-up words, plus
+   `one_part_song_with_dr_show_matches_plan_order_follower` (a synthetic one-part song with 8 s of missed words;
+   identical moves to the lab's predictive follower, including one `dr` step). Lab pytest: **33 of 33 pass** (27 parts,
+   6 onset). Mutation check: 13 rules removed one at a time in a scratch copy, **13 of 13 caught**, each by its named
+   test. Four first drafts passed through another gate and caught nothing; they were fixed with control cases before
+   the count. tokei after: `parts.py` 448 (+21), `test_parts.py` 291 (+146).
+
+   | Rule removed | Caught by |
+   |---|---|
+   | family check | `no_jump_between_look_alike_slides` |
+   | skip-to | `no_skip_to_look_alike_too_soon` |
+   | line branch on a self-repeating slide | `no_repeat_branch_on_self_repeating_slide` |
+   | part-again on a self-repeating slide | `no_repeat_branch_on_self_repeating_slide` |
+   | lost forward-first | `lost_searches_forward_first` |
+   | `M_OFF` | `shared_line_never_moves_alone` |
+   | review pointer restore | `guess_corrected_within_review` |
+   | review reach | `guess_corrected_within_review` |
+   | dead-reckoning in songs with parts | `no_dr_move_in_song_with_parts` |
+   | no dead-reckoning at all | `no_dr_move_in_song_with_parts` and `one_part_song_with_dr_show_matches_plan_order_follower` |
+   | onset at every part end | `onset_fires_verse_to_chorus_only` (and 3 others) |
+   | elimination before `ELIM_MS` | `elimination_shows_planned_part` |
+   | head-only part entry | `part_entered_at_first_slide` |
+
+3. **Reference move lists** for the equivalence check (§ 9) exist in the private lab's `baselines/` (one JSON file,
+   20,871 bytes): 8 takes × lags 1,000 and 2,150; configurations default, gate off with `HEAD_N` 2, base, and `dr_show`
+   for P1; moves as `[t_known_ms, slide, why]` plus each take's onset events as `[t_on_ms, t_known_ms, gap_ms]`, so a
+   harness can feed identical inputs; the input recipe is in the file; scan 0 hits. Never committed (layout § 4).
+
+With this, every lab input V11 names exists except the OLTW arm (deferred until the FA-45 takes) and FA-78's answer.
