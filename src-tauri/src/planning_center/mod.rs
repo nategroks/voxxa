@@ -202,10 +202,7 @@ fn parse_pco_lyrics(lyrics: &str, title: &str, start_id: usize) -> Result<Song> 
         };
         let text = body.join("\n").trim().to_string();
         if !text.is_empty() {
-            slides.push(Slide {
-                id: start_id + slides.len(),
-                text,
-            });
+            slides.push(Slide::new(start_id + slides.len(), text));
         }
     }
     if slides.is_empty() {

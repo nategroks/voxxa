@@ -43,10 +43,7 @@ pub fn parse(bytes: &[u8], fallback_title: &str) -> Result<Song> {
         file.read_to_string(&mut xml)
             .with_context(|| format!("decoding {name} as UTF-8"))?;
         let text = extract_slide_text(&xml)?;
-        slides.push(Slide {
-            id: slides.len(),
-            text: text.trim().to_string(),
-        });
+        slides.push(Slide::new(slides.len(), text.trim().to_string()));
     }
     // Blank slides (title-only, image-only, etc.) stay as empty slides so the
     // numbering matches the deck the presentation app steps through; the

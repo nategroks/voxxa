@@ -1,0 +1,25 @@
+# Private evaluation lab for one church: copy to <church_root>\lab\pyproject.toml
+# (on the founder's development booth: C:\dev\voxxa-church-private\lab\pyproject.toml, shared by pilot\ and fake-church-2\).
+# Never commit it, the lock file, or anything in this folder to the voxxa repository.
+# Run tools with `uv run <script>.py`; `uv sync` creates .venv from uv.lock.
+# The minimum uv version is in kit/README.md, "Keeping the tools current".
+# Before an agent edits or moves any script here, run kit_check.py's lyric scan on it.
+
+[project]
+name = "voxxa-lab"
+version = "0.1.0"
+description = "Private evaluation tools (numbers-only output)"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "numpy>=2.1",
+    "rapidfuzz>=3.9",
+    "soundfile>=0.12",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+# Cooldown: take no package version younger than 7 days.
+# [UNVERIFIED] whether pyproject accepts a duration here; if not, use an ISO date and update it monthly.
+exclude-newer = "7 days"

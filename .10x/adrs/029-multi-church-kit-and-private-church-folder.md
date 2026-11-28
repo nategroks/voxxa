@@ -1,6 +1,6 @@
 # ADR-029: A public multi-church kit under `kit/`, one private folder per church, and guards that keep church data out of the public repo
 
-**Status:** Proposed (2026-11-24) · **Date:** 2026-11-24 · **Feature:** church-autoadvance · **Reversibility:** Easy for the kit (files); Hard for anything already published (hence the guards) · **Owner:** nategroks · **Author:** 10x-Team synthesiser, from drafts 12, 14 and reviews 20, 21
+**Status:** Accepted 2026-11-27 (V5a; amendment 1 below: FA-01 and FA-12 (c)) · Proposed 2026-11-24 · **Date:** 2026-11-24 · **Feature:** church-autoadvance · **Reversibility:** Easy for the kit (files); Hard for anything already published (hence the guards) · **Owner:** nategroks · **Author:** 10x-Team synthesiser, from drafts 12, 14 and reviews 20, 21
 
 ## Context
 - Founder decision (brief § 2): reusable kit (templates, prompts, skills, process) in the public repo under `kit/`; anything church-specific (song lists, licences, recordings, practice data) in a private folder that never leaves the booth PC (`C:\dev\voxxa-church-private` for the founder; § 2 splits it into `pilot\`, `fake-church-2\` and `lab\`).
@@ -61,3 +61,8 @@
 
 ## Review trigger
 Church #2 starts (re-validate the kit with a real church); any private string found in the public repo; a kit PR from outside the team.
+
+## Amendment 1 (2026-11-27, V5a): accepted; FA-12 (c) and FA-70; what V5a built
+- Accepted on FA-01 (V5 pre-approved, `specs/2026-11-24-founder-action-items.md:14`) and FA-12 (c) (`specs/2026-11-24-founder-action-items.md:23-24`): there is no scrub PR, so Decision 3's "order" bullet and Decision 5's scrub are void; the deny-file scan gates `kit/` only, never `.10x/` or `fixtures/`.
+- FA-70 (no congregation notice): `templates/congregation-notice.template.md` is not part of the kit; what voxxa keeps and does not keep stays stated in `private-folder.md`.
+- Built in V5a: `kit/` (42 files: `README.md` with the FA-47 tier table, `private-folder.md`, 27 templates with the 6 binding profiles among them, 8 prompts, 5 skills), `.github/CODEOWNERS` (Decision 3) and the `.gitignore` half of Decision 3's guard (the eleven names, with `kit/templates/` and the public fixtures' `truth.jsonl` and the voxxad test log re-included by path). The media-guard test and CI job, `kit_check.py`, the tagged-kit manifest and Decision 6's fake-church acceptance are V5b; Decision 7 is V5c.

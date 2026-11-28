@@ -1,0 +1,279 @@
+{
+  "kind": "voxxa.bindings",
+  "bindings_version": 1,
+  "profile": "freeshow",
+  "driver": "freeshow",
+  "app": "FreeShow",
+  "app_versions": "1.x",
+  "version_pin": {
+    "channel": "stable",
+    "auto_update": false,
+    "pinned_version": null,
+    "church_profile_field": "freeshow_version",
+    "note": "FA-51. Install FreeShow from its official release page, stable channel only, never a beta; turn auto-update off; upgrade only on a weekday, then answer test card rows FS1 and FS18 again. pinned_version is the FreeShow release this profile passed its contract checklist on: null until V8b's checklist passes on a live install (UNVERIFIED). The church writes its installed version into its private church-profile.json (`freeshow_version`), and the health check checks it."
+  },
+  "note": "Reference copy, rewritten 2026-11-26 from FreeShow's source (commit c84386f3; voxxa review 42 § 1). These are source facts, UNVERIFIED on a live install until test card rows FS3 to FS7 and V8b's contract checklist pass. (1) Body: FreeShow reads every action's fields at the top level of the JSON body (electron/utils/api.ts:141,151; actions/api.ts:448-462), never under \"data\". voxxa's current driver nests them under \"data\" (freeshow.rs:47-49), so its goto_slide has been a silent no-op; V8b flattens the body. Every http step below is already flat. (2) Index: 1-based on the wire, 0-based in read-back. FreeShow subtracts 1 from every `index` field it receives (actions/api.ts:453-454), get_output returns the stored 0-based index (actions/apiGet.ts:37-40), and `index: 0` selects nothing. So the steps use the 1-based placeholders {app_slide1} and {item.project_item_index1} (V8b adds both to ADR-024 § 2's list), and the driver's goto_slide(i) sends index i + 1. (3) Target: every index_select_slide names showId and layoutId. Without them FreeShow jumps inside the show open in its editor, not the one on the output (apiHelper.ts:200). The driver takes both from the last get_output; goto.item takes them from the service plan. (4) Replies: every action that is not a getter, and any unknown action, answers 204 even when nothing moved (electron/utils/api.ts:152-156), and a locked output turns a select into a no-op with no error. So action steps expect 204 and getters 200, and 204 means accepted, not done: every move is checked by one get_output re-read (see readback). (5) Only the `driver` steps run today, and the driver's goto works only after V8b. Each http step runs only after its contract test passes; until then the driver turns it into a hint (ADR-024 § 5). The start_scripture reference format is undocumented.",
+  "transport": {
+    "http": {
+      "default_port": 5506,
+      "auth": "bearer",
+      "timeout_ms": 750,
+      "note": "FA-55 (a). FreeShow's REST and WebSocket servers listen on every network interface, the WebSocket one with cors * (electron/utils/api.ts:54-65,121), and its API password is optional (:17-38). So the church sets an API password in FreeShow (Settings → Connections) and firewalls TCP 5505 and 5506 to 127.0.0.1 (test card FS2, FS13, FS14). voxxa sends the password only as the `Authorization: Bearer <token>` header of every request, never in a URL, query string or body (FreeShow also reads `?auth=` and body fields such as `password` or `token`, :20-36; voxxa never uses them). The token comes from voxxa's presenter settings and is never logged, printed, written to a record, a kit file or a church file, or put in a help bundle. A 401 reply means a missing or wrong password (AuthRequired). On connect voxxa sends one request without the header: any answer but 401 means the API has no password, and voxxa refuses to connect (red: \"FreeShow's API has no password. Set one in Settings → Connections.\") unless require_password is set to false in voxxa's settings (default true). voxxa talks to 127.0.0.1; any other host keeps ADR-025 § 6's amber warning. UNVERIFIED live until FS2 and FS13.",
+      "require_password": true,
+      "require_password_note": "Default true: voxxa refuses a FreeShow API that answers without a password; only an explicit false allows it (FA-55). Replaces the draft names allow_open_api and refuse_open_api (ruling after integration, 2026-11-26)."
+    }
+  },
+  "identity": {
+    "http": {
+      "method": "POST",
+      "path": "/",
+      "json": {
+        "action": "get_shows"
+      },
+      "expect": [
+        200
+      ]
+    }
+  },
+  "identity_note": "get_shows answers with the list of shows. The driver keeps show ids and a count only. For a song change (V8b) it compares show names in memory with the setlist's own titles, then sends name_select_show and accepts the change only when get_output shows the show id get_shows gave for that title; a show name is never logged, printed or stored. UNVERIFIED live.",
+  "goto_scope": "presentation",
+  "layout_rule": "unique",
+  "layout_note": "FA-56. A followed song's FreeShow layout lists each slide once; a repeated chorus is shown again by jumping back to its slide (test card FS7), not by a second copy in the layout. Then FreeShow's layout index equals voxxa's slide index, and songs.csv `presenter_slides` counts both (FS9, FS15). A song whose layout lists a slide twice fails FS15 and is not followed in v1; a per-song resolver for repeated slides comes later with Q12.",
+  "output_style": {
+    "text_transition_ms": 500,
+    "note": "FA-57 (answered 2026-11-27): the output style that followed songs use keeps FreeShow's default 500 ms text fade (src/frontend/stores.ts:245-247), because a fade follows human reading time; voxxa never changes it (it sends no write action, see `refused`). The visible change lands about 0.25 s after the command; the eval notes that beside the on-time bar. Test card FS12 records the default; FS19 confirms the style still uses it. UNVERIFIED live."
+  },
+  "actions": {
+    "next": [
+      {
+        "driver": "next_slide"
+      }
+    ],
+    "prev": [
+      {
+        "driver": "prev_slide"
+      }
+    ],
+    "goto": [
+      {
+        "driver": "goto_slide"
+      }
+    ],
+    "blank": [
+      {
+        "driver": "blank"
+      }
+    ],
+    "unblank": [
+      {
+        "driver": "unblank"
+      }
+    ],
+    "goto.item": [
+      {
+        "http": {
+          "method": "POST",
+          "path": "/",
+          "json": {
+            "action": "index_select_project_item",
+            "index": "{item.project_item_index1}"
+          },
+          "expect": [
+            204
+          ]
+        }
+      },
+      {
+        "http": {
+          "method": "POST",
+          "path": "/",
+          "json": {
+            "action": "index_select_slide",
+            "showId": "{item.show_id}",
+            "layoutId": "{item.layout_id}",
+            "index": "{app_slide1}"
+          },
+          "expect": [
+            204
+          ]
+        }
+      }
+    ],
+    "show_graphic.hint": {
+      "hint": "Show the {graphic.label_hint} graphic in FreeShow."
+    },
+    "show_graphic.overlay": [
+      {
+        "http": {
+          "method": "POST",
+          "path": "/",
+          "json": {
+            "action": "id_select_overlay",
+            "id": "{graphic.id}"
+          },
+          "expect": [
+            204
+          ]
+        }
+      }
+    ],
+    "clear_graphic.overlay": [
+      {
+        "http": {
+          "method": "POST",
+          "path": "/",
+          "json": {
+            "action": "clear_overlay",
+            "id": "{graphic.id}"
+          },
+          "expect": [
+            204
+          ]
+        }
+      }
+    ],
+    "show_graphic.action": [
+      {
+        "http": {
+          "method": "POST",
+          "path": "/",
+          "json": {
+            "action": "run_action",
+            "id": "{graphic.id}"
+          },
+          "expect": [
+            204
+          ]
+        }
+      }
+    ],
+    "show_scripture": [
+      {
+        "http": {
+          "method": "POST",
+          "path": "/",
+          "json": {
+            "action": "start_scripture",
+            "reference": "{ref.display}"
+          },
+          "expect": [
+            204
+          ]
+        }
+      }
+    ],
+    "scripture_next": [
+      {
+        "http": {
+          "method": "POST",
+          "path": "/",
+          "json": {
+            "action": "scripture_next"
+          },
+          "expect": [
+            204
+          ]
+        }
+      }
+    ],
+    "scripture_prev": [
+      {
+        "http": {
+          "method": "POST",
+          "path": "/",
+          "json": {
+            "action": "scripture_previous"
+          },
+          "expect": [
+            204
+          ]
+        }
+      }
+    ],
+    "clear_slide": [
+      {
+        "http": {
+          "method": "POST",
+          "path": "/",
+          "json": {
+            "action": "clear_slide"
+          },
+          "expect": [
+            204
+          ]
+        }
+      }
+    ],
+    "clear_media": {
+      "unsupported": "never automatic"
+    },
+    "clear_all": {
+      "unsupported": "never automatic"
+    }
+  },
+  "not_for_following": [
+    "id_select_group",
+    "name_select_slide"
+  ],
+  "not_for_following_note": "C3. id_select_group takes a global group key (verse, chorus, bridge, ...) and plays the next slide with that key after the current one, wrapping (apiHelper.ts:68-91; showActions.ts:622-661): it cannot address verse 3, and on shows imported with keys like `verse 1` it does nothing (test card FS6). name_select_slide matches group names loosely (apiHelper.ts:210-240). voxxa follows only with index_select_slide naming the show and the layout. A church may still put id_select_group on a Companion button for a person to press.",
+  "refused": [
+    "create_show",
+    "set_plain_text",
+    "set_show",
+    "add_group",
+    "rearrange_groups",
+    "send_rest_command",
+    "emit_action",
+    "delete_project",
+    "remove_project_item",
+    "start_slide_recording",
+    "get_output_slide_text",
+    "get_output_group_name",
+    "get_plain_text",
+    "get_slide"
+  ],
+  "getters_allowed": [
+    "get_output",
+    "get_shows",
+    "get_show"
+  ],
+  "never_read": [
+    "get_output_slide_text",
+    "get_output_group_name",
+    "get_plain_text",
+    "get_slide"
+  ],
+  "never_read_note": "Getters whose reply carries slide words or a group label: get_output_slide_text returns the live slide's words (actions/apiGet.ts:42-48), get_output_group_name the group label (:50-56), and get_plain_text, get_show and get_slide return show text. voxxa never calls them: not in the driver, the probe, --watch, a test or a contract recording. Each is also in `refused`. Any getter not in getters_allowed is refused too, because FreeShow's getter list is not fully documented and another getter may return words. get_show moved to parsed_only (ruling after integration).",
+  "readback": {
+    "note": "Ids and index only. `current` calls get_output, which returns the output's state (actions/apiGet.ts:37-40), never get_output_slide_text. A getter's reply is {...request, data: <result>} (actions/api.ts:461); keep_fields are paths inside `data`. The driver keeps only slide.id (the show id), slide.layout and slide.index (0-based) and drops every other field when it parses the reply, before anything is logged, stored or bundled: a temporary scripture slide can carry text items, and the background carries a media path. After every move the driver reads get_output once more within verify_timeout_ms (3 × the median that FS5 measured, at most 750). If (id, layout, index) differs or no reply comes, it sets position_uncertain (amber \"FreeShow shows a different slide.\"), sends nothing automatic until the operator confirms, and never retries (ADR-025 § 6). Key paths UNVERIFIED live until FS5.",
+    "current": [
+      {
+        "http": {
+          "method": "POST",
+          "path": "/",
+          "json": {
+            "action": "get_output"
+          },
+          "expect": [
+            200
+          ]
+        }
+      }
+    ],
+    "keep_fields": [
+      "slide.id",
+      "slide.layout",
+      "slide.index"
+    ],
+    "verify_after_move": true,
+    "verify_timeout_ms": 750,
+    "items": {
+      "unsupported": "no item read-back: get_project is not called; read-back is get_output ids only, and a song change is checked by show id (see identity_note)"
+    }
+  },
+  "parsed_only": [
+    "get_shows",
+    "get_show"
+  ],
+  "parsed_only_note": "Either reply may carry slide text. They are called only through one parser that keeps each show's id and name and discards the rest of the body before anything is logged or stored; a test asserts the raw body is never written. get_output_slide_text and get_output_group_name stay never-call. V3e's probe records which getters carry text (ruling after integration)."
+}

@@ -132,7 +132,7 @@ fn a_chorus_of_two_slides_is_followed_through_both_and_on_to_the_next_verse() {
     let parts = [&old[0], &refrain[..2].join("\n"), &refrain[2..].join("\n")];
     let texts = parts.into_iter().chain([&old[2], &old[3]]).cloned();
     songs[0].slides = (texts.enumerate())
-        .map(|(id, text)| Slide { id, text })
+        .map(|(id, text)| Slide::new(id, text))
         .collect();
     let section = |kind, slides: &[usize]| Section {
         kind,
@@ -394,10 +394,7 @@ fn synthetic(slides: &[&str], sections: Vec<Section>) -> Song {
     Song {
         title: "Synthetic".into(),
         slides: (slides.iter().enumerate())
-            .map(|(id, text)| Slide {
-                id,
-                text: text.to_string(),
-            })
+            .map(|(id, text)| Slide::new(id, text.to_string()))
             .collect(),
         sections,
     }

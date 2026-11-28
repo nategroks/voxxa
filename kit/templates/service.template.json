@@ -1,0 +1,50 @@
+{
+  "kind": "voxxa.service",
+  "layout_version": 1,
+  "service_id": "2026-12-06-am",
+  "date": "2026-12-06",
+  "label": "Sunday morning",
+  "layout": "layout.json",
+  "note": "Weekly service plan: the items in the presentation app's order. Data only. It may lower a mode from layout.json (auto -> suggest -> off), never raise one. Notes are for the team, not for personal details or prayer requests. Songs are named by their file in songs\\ (no lyrics here). Any item may carry on_start and on_end: lists of show_graphic, clear_graphic, blank or unblank run when the item starts or ends (ADR-024 § 3); on a keys-only app a graphic action is a sentence to the operator. A song item's app.freeshow holds the FreeShow show id, layout id and project_item_index (the item's place in the FreeShow project, counted from 0; the binding sends it plus 1 as {item.project_item_index1}): empty until the church fills them from its own FreeShow. They stay in this private file and never in the kit [UNVERIFIED until step V8b].",
+  "items": [
+    { "id": "welcome", "type": "graphic", "graphic": "welcome" },
+    { "id": "greeting", "type": "spoken", "kind": "welcome", "cues": [] },
+    {
+      "id": "song-1", "type": "song", "song": "amazing-grace",
+      "arrangement": ["v1", "v2", "v3", "v4"],
+      "app": {
+        "keystroke.worshiptools_presenter": { "service_position": 2, "leading_blank": true },
+        "freeshow": { "show_id": "", "layout_id": "", "project_item_index": null }
+      }
+    },
+    {
+      "id": "song-2", "type": "song", "song": "lantern-song",
+      "arrangement": "library_default",
+      "app": {
+        "keystroke.worshiptools_presenter": { "service_position": 3, "leading_blank": true },
+        "freeshow": { "show_id": "", "layout_id": "", "project_item_index": null }
+      }
+    },
+    { "id": "prayer", "type": "spoken", "kind": "prayer", "cues": ["kw.prayer"] },
+    {
+      "id": "reading", "type": "scripture", "ref": { "book": "PSA", "chapter": 23, "verse_start": 1, "verse_end": 6 },
+      "on_start": [ { "do": "show_graphic", "graphic": "scripture_bg" } ]
+    },
+    {
+      "id": "sermon", "type": "spoken", "kind": "sermon", "cues": [], "overrides": { "cues": "off" },
+      "on_end": [ { "do": "show_graphic", "graphic": "logo" } ]
+    },
+    {
+      "id": "song-3", "type": "song", "song": "our-harbor-song",
+      "arrangement": "library_default",
+      "overrides": { "song_start": "suggest" },
+      "app": {
+        "keystroke.worshiptools_presenter": { "service_position": 6, "leading_blank": true },
+        "freeshow": { "show_id": "", "layout_id": "", "project_item_index": null }
+      },
+      "note": "Items sit between song 2 and song 3, so with a keys-only app voxxa will ask the operator to put song 3 live."
+    },
+    { "id": "giving", "type": "announcement", "graphic": "giving" },
+    { "id": "end", "type": "blank" }
+  ]
+}

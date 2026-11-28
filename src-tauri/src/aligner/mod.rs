@@ -19,6 +19,22 @@ use std::time::{Duration, Instant};
 pub struct Slide {
     pub id: usize,
     pub text: String,
+    /// `"credit"` on a credit slide (the `.txt` importer, spec § 4.5); absent
+    /// and then not written on every other slide, so old setlists and session
+    /// logs serialise byte for byte (like `sections`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+}
+
+impl Slide {
+    /// A lyric slide: no `kind`.
+    pub fn new(id: usize, text: String) -> Self {
+        Self {
+            id,
+            text,
+            kind: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -762,50 +778,41 @@ mod tests {
             Song {
                 title: "Amazing Grace".into(),
                 slides: vec![
-                    Slide {
-                        id: 0,
-                        text: "Amazing grace how sweet the sound that saved a wretch like me"
+                    Slide::new(
+                        0,
+                        "Amazing grace how sweet the sound that saved a wretch like me".into(),
+                    ),
+                    Slide::new(
+                        1,
+                        "I once was lost but now am found was blind but now I see".into(),
+                    ),
+                    Slide::new(
+                        2,
+                        "Twas grace that taught my heart to fear and grace my fears relieved"
                             .into(),
-                    },
-                    Slide {
-                        id: 1,
-                        text: "I once was lost but now am found was blind but now I see".into(),
-                    },
-                    Slide {
-                        id: 2,
-                        text: "Twas grace that taught my heart to fear and grace my fears relieved"
-                            .into(),
-                    },
+                    ),
                 ],
                 sections: Vec::new(),
             },
             Song {
                 title: "Holy, Holy, Holy".into(),
                 slides: vec![
-                    Slide {
-                        id: 3,
-                        text: "Holy holy holy Lord God Almighty".into(),
-                    },
-                    Slide {
-                        id: 4,
-                        text: "Early in the morning our song shall rise to Thee".into(),
-                    },
+                    Slide::new(3, "Holy holy holy Lord God Almighty".into()),
+                    Slide::new(4, "Early in the morning our song shall rise to Thee".into()),
                 ],
                 sections: Vec::new(),
             },
             Song {
                 title: "Come, Thou Fount".into(),
                 slides: vec![
-                    Slide {
-                        id: 5,
-                        text: "Come Thou fount of every blessing tune my heart to sing Thy grace"
-                            .into(),
-                    },
-                    Slide {
-                        id: 6,
-                        text: "Streams of mercy never ceasing call for songs of loudest praise"
-                            .into(),
-                    },
+                    Slide::new(
+                        5,
+                        "Come Thou fount of every blessing tune my heart to sing Thy grace".into(),
+                    ),
+                    Slide::new(
+                        6,
+                        "Streams of mercy never ceasing call for songs of loudest praise".into(),
+                    ),
                 ],
                 sections: Vec::new(),
             },
@@ -1279,13 +1286,7 @@ mod tests {
     fn empty_slides_are_never_matched() {
         // Q2-05: importers keep empty slides as placeholders.
         let mut songs = example_setlist();
-        songs[0].slides.insert(
-            1,
-            Slide {
-                id: 99,
-                text: String::new(),
-            },
-        );
+        songs[0].slides.insert(1, Slide::new(99, String::new()));
         let mut c = Conductor::new(songs, SmartConfig::default());
         let t0 = Instant::now();
         assert_eq!(slide_of(&c.on_transcript(VERSE_1, t0)), Some((0, 0)));

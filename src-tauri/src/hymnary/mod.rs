@@ -103,10 +103,7 @@ fn song_from_text(title: &str, text: &str) -> Result<Song> {
         let trimmed = raw.trim();
         if trimmed.is_empty() {
             if !current.is_empty() {
-                slides.push(Slide {
-                    id: slides.len(),
-                    text: current.join("\n"),
-                });
+                slides.push(Slide::new(slides.len(), current.join("\n")));
                 current.clear();
             }
             continue;
@@ -114,10 +111,7 @@ fn song_from_text(title: &str, text: &str) -> Result<Song> {
         current.push(strip_stanza_prefix(trimmed).to_string());
     }
     if !current.is_empty() {
-        slides.push(Slide {
-            id: slides.len(),
-            text: current.join("\n"),
-        });
+        slides.push(Slide::new(slides.len(), current.join("\n")));
     }
     if slides.is_empty() {
         return Err(anyhow!("hymnary text body was empty"));

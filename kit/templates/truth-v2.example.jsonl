@@ -1,0 +1,13 @@
+{"t_ms":4200,"song":0,"slide":0,"last_ms":9800}
+{"t_ms":11300,"song":0,"slide":1,"last_ms":17100}
+{"t_ms":18600,"song":0,"slide":2,"last_ms":24900}
+{"t_ms":26400,"song":0,"slide":3,"last_ms":32600}
+{"t_ms":34100,"song":0,"slide":2,"last_ms":40300}
+{"t_ms":41900,"event":"song_end"}
+{"t_ms":46000,"event":"talk_start"}
+{"t_ms":46500,"blank":true}
+{"t_ms":78200,"event":"talk_end"}
+{"t_ms":81900,"song":1,"slide":0,"last_ms":88400}
+{"t_ms":90200,"song":1,"slide":1}
+{"t_ms":97700,"song":1,"slide":2,"last_ms":104100}
+{"t_ms":106800,"event":"song_end"}

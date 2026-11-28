@@ -1,0 +1,34 @@
+{
+  "kind": "voxxa.bindings",
+  "bindings_version": 1,
+  "profile": "openlp_v2",
+  "driver": "openlp_v2",
+  "app": "OpenLP",
+  "app_versions": "3.0+",
+  "note": "Reference copy, written to OpenLP 3.1.2's published source. Known open question W2: the current driver uses other paths and HTTP Basic auth, which may fail on OpenLP 3.x (connect probe, next, previous, blank). Until a live test and a driver fix land (prompt pack Q13), nothing here runs: no step has passed its contract test, so the driver turns each into a hint (ADR-024 § 5). Auth: POST /api/v2/core/login returns a token sent as the Authorization value.",
+  "transport": { "http": { "default_port": 4316, "auth": "openlp_token", "timeout_ms": 750 } },
+  "identity": { "http": { "method": "GET", "path": "/api/v2/core/system", "expect": [200] } },
+  "goto_scope": "presentation",
+  "actions": {
+    "next": [ { "http": { "method": "POST", "path": "/api/v2/controller/progress", "json": { "action": "next" }, "expect": [200, 204] } } ],
+    "prev": [ { "http": { "method": "POST", "path": "/api/v2/controller/progress", "json": { "action": "previous" }, "expect": [200, 204] } } ],
+    "goto": [ { "http": { "method": "POST", "path": "/api/v2/controller/show", "json": { "id": "{app_slide}" }, "expect": [200, 204] } } ],
+    "goto.item": [
+      { "http": { "method": "POST", "path": "/api/v2/service/show", "json": { "id": "{item.service_item_id}" }, "expect": [204] } },
+      { "http": { "method": "POST", "path": "/api/v2/controller/show", "json": { "id": "{app_slide}" }, "expect": [200, 204] } }
+    ],
+    "show_graphic.hint": { "hint": "Show the {graphic.label_hint} graphic in OpenLP." },
+    "blank": [ { "http": { "method": "POST", "path": "/api/v2/core/display", "json": { "display": "blank" }, "expect": [204] } } ],
+    "unblank": [ { "http": { "method": "POST", "path": "/api/v2/core/display", "json": { "display": "show" }, "expect": [204] } } ],
+    "show_graphic.logo": [ { "http": { "method": "POST", "path": "/api/v2/core/display", "json": { "display": "theme" }, "expect": [204] } } ],
+    "show_graphic.image": [ { "http": { "method": "POST", "path": "/api/v2/plugins/images/live", "json": { "id": "{graphic.id}" }, "expect": [204] } } ],
+    "show_scripture": { "hint": "Show {ref.display} in OpenLP." },
+    "clear_slide": [ { "http": { "method": "POST", "path": "/api/v2/controller/clear/live", "expect": [200, 204] } } ],
+    "clear_media": { "unsupported": "never automatic" },
+    "clear_all": { "unsupported": "never automatic" }
+  },
+  "readback": {
+    "current": [ { "http": { "method": "GET", "path": "/api/v2/controller/live-item", "expect": [200] } } ],
+    "items": [ { "http": { "method": "GET", "path": "/api/v2/service/items", "expect": [200] } } ]
+  }
+}

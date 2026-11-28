@@ -29,10 +29,7 @@ pub fn parse(text: &str, fallback_title: &str) -> Result<Song> {
     let finalize = |current: &mut String, slides: &mut Vec<Slide>| {
         let body = current.trim().to_string();
         if !body.is_empty() {
-            slides.push(Slide {
-                id: slides.len(),
-                text: body,
-            });
+            slides.push(Slide::new(slides.len(), body));
         }
         current.clear();
     };

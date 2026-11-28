@@ -1,0 +1,23 @@
+{
+  "kind": "voxxa.intake",
+  "v": 1,
+  "note": "Private: one per recording, saved as <church_root>\\recordings\\<date>-<id>\\intake.json beside that folder's audio.wav and copied with it into <church_root>\\fixtures\\{tune,heldout}\\<date>-<id>\\. Numbers and licence classes only: no titles, no words, no paths. Every value here is made up. recording is rehearsal, service or song_video. channel_used is c<N> for one desk channel picked with ffmpeg pan (c0 is the first channel) or mix for a stereo recording folded to mono. talk_spans_muted counts the spans replaced with silence; their times stay in source.md. songs lists the songs in the order sung by position, slide_count and licence_class (a code from licence-kinds.csv). consent_files names the signed forms in consent\\.",
+  "id": "2026-11-29-r1",
+  "recording": "rehearsal",
+  "duration_s": 1262.4,
+  "source_sample_rate_hz": 48000,
+  "sample_rate_hz": 16000,
+  "source_channels": 8,
+  "channel_used": "c3",
+  "talk_spans_muted": 2,
+  "songs": [
+    { "position": 1, "slide_count": 14, "licence_class": "PD" },
+    { "position": 2, "slide_count": 18, "licence_class": "CC-BY" },
+    { "position": 3, "slide_count": 12, "licence_class": "CHURCH-OWNED" }
+  ],
+  "consent_files": [
+    "2026-11-20-singer-1-example.pdf",
+    "2026-11-20-reader-1-example.pdf"
+  ],
+  "retention_date": "2027-05-31"
+}

@@ -181,10 +181,7 @@ fn split_into_slides(text: &str, start_id: usize) -> Vec<Slide> {
         .map(|b| b.join("\n").trim().to_string())
         .filter(|s| !s.is_empty())
         .enumerate()
-        .map(|(i, text)| Slide {
-            id: start_id + i,
-            text,
-        })
+        .map(|(i, text)| Slide::new(start_id + i, text))
         .collect()
 }
 

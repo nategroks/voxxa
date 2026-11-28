@@ -1,0 +1,27 @@
+{
+  "kind": "voxxa.bindings",
+  "bindings_version": 1,
+  "profile": "keystroke.universal",
+  "driver": "keystroke",
+  "app": "Any presentation app that moves on Right/Left",
+  "app_versions": "*",
+  "note": "Reference copy. When Songs starts, the operator clicks the presentation window once and voxxa records its process; keys go only there (amber otherwise). Only the `driver` steps run today (next, prev, blank, unblank); every other action is a sentence to the operator, and a keys step runs only after its contract test passes (ADR-024 § 5).",
+  "keys_note": "Example keys step, [UNVERIFIED] in every app: confirm on the presenter test card (T8) before use. `goto.keys` sends one chord, Home: back to the first slide of the live presentation (the practice learner's \"back to the song start\"), only in an app that keeps each song as its own presentation; never in an app that holds every song in one presentation, where Home would show the first song. Home is the first-slide key in PowerPoint and LibreOffice Impress slide shows, but nobody has pressed it in any app with voxxa. After Home, voxxa sets its position to the song's first slide instead of counting one Left per slide. Home is in allowed_keys so that goto.keys passes its own allowlist; no other action sends it. goto.keys runs only after test card T8 confirms it for the church's app; until then the driver turns it into a hint (ADR-024 § 5). A keys step holds 1 to 4 chords (a chord is one key, or keys pressed together written with +), only from allowed_keys, never from never_keys, never Ctrl+Alt+arrows (they rotate the screen on some PCs).",
+  "identity": { "wait_ms": 0 },
+  "target_process": "capture",
+  "allowed_keys": ["Right", "Left", ".", "Home"],
+  "never_keys": ["Esc", "Enter", "Alt+Tab", "Alt+F4", "Delete", "F10", "Ctrl+Alt+Left", "Ctrl+Alt+Right", "Ctrl+Alt+Up", "Ctrl+Alt+Down"],
+  "leading_blank": false,
+  "goto_scope": "steps_only",
+  "actions": {
+    "next": [ { "driver": "next_slide" } ],
+    "prev": [ { "driver": "prev_slide" } ],
+    "blank": [ { "driver": "blank" } ],
+    "unblank": [ { "driver": "unblank" } ],
+    "goto.item": { "hint": "Put \"{item.label_hint}\" live in your presentation app." },
+    "goto.keys": [ { "keys": ["Home"] } ],
+    "show_graphic.hint": { "hint": "Show the {graphic.label_hint} graphic." },
+    "show_scripture": { "hint": "Show {ref.display}." }
+  },
+  "readback": {}
+}
