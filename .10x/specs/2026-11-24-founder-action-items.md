@@ -236,7 +236,7 @@ FA-72 are deferred by the founder; FA-71 raises a cap with the number still to c
 | FA-72 deferrals | V13b (cue engine), V5b/V5c (second-church kit tools), V8 steps 2–4 (burst keys, per-app key profiles) and the product aligner: **as recommended** (after the first autonomous Sunday; V8 steps 2–4 after V8c proves re-anchor; the aligner lab-first, product only on a measured pass). **V16 (rename and icon): do it now.** | V16 moves into the current wave as a small step (installer, updater and docs touched); the others stay deferred with their triggers. |
 | FA-71 | **90 min per scored Sunday, 4 h per week.** | V15's close line and the kit's "founder's week" use these numbers. |
 
-**Nothing is open.** Every FA from FA-01 to FA-77 is answered or closed; FA-76 (voxxa's own licence) is parked by the
+**One item is open: FA-78 (batch 7, below).** Every FA from FA-01 to FA-77 is answered or closed; FA-76 (voxxa's own licence) is parked by the
 founder's choice. The commit gate in `process.md` is now the founder's "go" on committing the round-3 outputs.
 
 **Lab report (same day, numbers in `reviews/2026-11-27-lab-r14-reanchor-lag.md`).** The R14 fixes, the re-anchor hook
@@ -245,6 +245,29 @@ a number the plan assumed: the live path reads words **2.15 s** after they are s
 was optimistic by about 1.15 s; the recogniser pass itself is about 0.5 s, so about 1.6 s sits in the hop wait, the
 pipe, the log flush and the read. Because reaction time is the founder's first measure, V3b gains **task 8, the
 lag-breakdown row**, and the fix is proposed from its numbers. No founder decision is needed for it.
+
+## Open item (2026-11-27, batch 7): FA-78, the follower row's cap, from the V3d port plan
+
+**FA-78 — How large may the follower row be?** The lab's port plan (`reviews/2026-11-27-v3d-port-plan.md`) measured the
+size factor from lab code to compiling Rust at 2.37 (104 lab code lines became 246 tokei lines) and estimates the
+parts-map follower at **about 860 Rust lines (765–955)**, over ADR-028's 500 ceiling for that row. FA-74 (b) lets a
+measured overrun ask for 3 × at the step's Phase 2 check; 3 × here is about 2,580, and the core-engine sum in caps
+becomes about 4,580 against the 3,000 bound that ADR-028 amendment 1 § 6 keeps. One of the two has to give.
+- Options: **(a)** 3 × the measured port (about 2,580); the 3,000 core bound moves. **(b)** 1.3 × the measured port
+  (about 1,120; ADR-028's original row formula without the 500 ceiling); core sum about 3,120. **(c)** as (b), and the
+  `evidence/` row (215 / 500 today: the Q6 position tracker the parts map replaces) retires once the follower's default
+  becomes `Some`; core sum about 2,620, inside the bound.
+- **Recommend (c).** Why: it holds the measured estimate with about 17 % over the top of its range, keeps the core bound
+  the strategy set, and removes the second follower instead of carrying two (the suckless rule in the founder's
+  direction). If V11's Phase 2 count still overruns 1,120, FA-74 (b) applies again with the number in hand.
+- Blocks: V11's Phase 2 check (the row is added in V11's first commit). Nothing before it.
+- Recorded from the same plan, no decision needed: the V11 prompt's test `break_gate_off_by_default_changes_nothing` is
+  renamed `break_gate_none_keeps_two_windows` (FA-63: the default is on), and `BreakGate` carries `grace_ms`,
+  `min_gap_ms`, `rate_lo`, `rate_hi` (the lab's parameters; there is no `delta`). The evidence row's "may shrink,
+  never grow" line gets one exception asked at V11: about 4 lines for `PreChorus` and `Ending` in `sections.rs`
+  (ADR-031 § 1). Five findings for V11 (no `dr_show` in the lab; no follower row in `loc_budget.py` yet; no audio time
+  in `Conductor::apply`; the `SectionKind` variants; two slide-id spaces) are in the plan's § 1. The lab closes the
+  `dr_show` arm, the eleven ADR-031 pytests still unwritten, and the reference move lists before V11 (numbers only).
 
 ## A. This week (blocks the first wave)
 
