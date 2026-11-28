@@ -6,8 +6,9 @@ numbered prompts with them.
 
 **Windows booth PCs only** until voxxa's macOS and Linux steps ship.
 
-Status: `kit-v0.1.0`, written 2026-11-24, committed on 2026-11-27 by plan step V5a. Tools marked *(built in step Vn)*
-do not exist yet; until then, the checklists say how to do the same check by hand.
+Status: kit `kit-v0.1.0`, written 2026-11-24 and committed in plan step V5a (2026-11-27). Tools marked *(built in
+step Vn)* do not exist yet; until then, the checklists say how to do the same check by hand. The kit's own tools
+(`tools/songcheck.py`, `tools/kit_check.py`) come with step V5b.
 
 **Practice sessions, recording intake and the layout check need voxxa's command-line tools** (`voxxad`,
 `voxxa-eval`). The voxxa installer does not include them. They will ship as a separate signed download,
@@ -107,7 +108,7 @@ kit/
     rota.template.csv            draft for step V18: columns only, no names
   prompts/01-…08-…md             what an agent runs, in order
   skills/<name>/SKILL.md         five skills that wrap the prompts
-  tools/                         songcheck.py, kit_check.py (built in step V5b)
+  tools/                         songcheck.py, kit_check.py (built in step V5b; not in kit-v0.1.0)
 ```
 
 ## Install the skills

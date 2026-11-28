@@ -16,7 +16,7 @@
   "presentation_app": "keystroke.worshiptools_presenter",
   "presentation_app_runs_as_admin": false,
   "presentation_app_tier": "B",
-  "presentation_app_tier_note": "A = the app can jump to a named slide and report the slide it shows (FreeShow, once voxxa's FreeShow driver ships in step V8b). B = keys only (WorshipTools Presenter, the universal keystroke profile): voxxa moves to the next slide and offers anything else as a suggestion. Only a tier A app may ever follow without a person at the PC (FA-47).",
+  "presentation_app_tier_note": "A = the app can jump to a named slide and report the slide it shows (FreeShow, once voxxa's FreeShow driver ships in step V8b). B = keys only (WorshipTools Presenter, the universal keystroke profile): voxxa moves to the next slide and offers anything else as a suggestion. Only a tier A app may ever follow without a person at the PC (FA-47, approved 2026-11-26).",
   "freeshow_version": null,
   "freeshow_version_note": "FreeShow churches only: the installed stable version, from test card FS1 (FA-51). Auto-update stays off; upgrade only on a weekday, then answer FS1 and FS18 again. The health check checks this value. null when the church does not use FreeShow. Never put the FreeShow API password here or in any church file.",
   "audio_feed": "desk aux out -> USB audio interface",
