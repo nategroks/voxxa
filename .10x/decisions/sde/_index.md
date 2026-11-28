@@ -5,6 +5,7 @@
 
 ## Active features
 - `church-autoadvance` — Increment 0 complete; **Q1 merge done (2026-11-11)**; merge record, dependency table and debt in `church-autoadvance.md`. Next: Q2.
+  - 2026-11-28 **V2** (comparator, `v2/final`; base the ponytail lane): `voxxa-eval`'s nine columns, the signed-delay helper, `--actions` and `--truth-from-screen` at 594 / 600; `--service-report` deferred to V13s pending FA-79 (both lanes measured the whole scope over the cap). Entry in `church-autoadvance.md`; records `reviews/2026-11-28-v2-comparator.md`, `reviews/2026-11-28-v2-10x.md`, `reviews/2026-11-28-ponytail-v2.md`.
 
 ## [DISCOVERED 2026-11-11] What the May branch already built
 See `decisions/architect/_index.md`. Net effect on the plan: P1.1 (wire the loop) is obsolete; P1.2–P1.6 (recognizer trait, eval, CLI) remain; P2.x narrows to "simple mode in front of the existing panels" plus signing; P3.1–P3.4 narrow to read-back, in-app playlist import and recorded-traffic fixtures; P3.5 (Planning Center) exists; P4–P7 unchanged except Flatpak already exists. Regenerated prompts: `specs/2026-11-11-prompts-10x-team.md`.

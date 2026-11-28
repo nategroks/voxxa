@@ -102,4 +102,4 @@ Forces:
 - Constrains Q6 (conductor tuning is judged by `voxxa-eval` against `fixtures/baseline.json`), the founder's recordings (Q5-01), and any future `--log-keys` (it should write this `truth.jsonl` shape).
 
 ## Review trigger
-Re-open when real recordings replace the stand-ins (the tolerance and thresholds may need new values), when word times are logged (Q4-13: word-level latency), when `SmartConfig` defaults start changing (Q5-07), or if `voxxa-eval` needs more than 600 lines.
+Re-open when real recordings replace the stand-ins (the tolerance and thresholds may need new values), when word times are logged (Q4-13: word-level latency), when `SmartConfig` defaults start changing (Q5-07), or if `voxxa-eval` needs more than 600 lines (**reached 2026-11-28**: step V2's whole scope measured 774 / 600 on the 10x lane and about 641 / 600 on the ponytail lane; 594 / 600 merged without `--service-report`; founder item FA-79 decides the row, `.10x/specs/2026-11-24-founder-action-items.md` batch 8; `.10x/reviews/2026-11-28-v2-comparator.md`).

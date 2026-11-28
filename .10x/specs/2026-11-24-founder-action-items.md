@@ -236,7 +236,7 @@ FA-72 are deferred by the founder; FA-71 raises a cap with the number still to c
 | FA-72 deferrals | V13b (cue engine), V5b/V5c (second-church kit tools), V8 steps 2–4 (burst keys, per-app key profiles) and the product aligner: **as recommended** (after the first autonomous Sunday; V8 steps 2–4 after V8c proves re-anchor; the aligner lab-first, product only on a measured pass). **V16 (rename and icon): do it now.** | V16 moves into the current wave as a small step (installer, updater and docs touched); the others stay deferred with their triggers. |
 | FA-71 | **90 min per scored Sunday, 4 h per week.** | V15's close line and the kit's "founder's week" use these numbers. |
 
-**One item is open: FA-78 (batch 7, below).** Every FA from FA-01 to FA-77 is answered or closed; FA-76 (voxxa's own licence) is parked by the
+**Two items are open: FA-78 and FA-79 (batches 7 and 8, below).** Every FA from FA-01 to FA-77 is answered or closed; FA-76 (voxxa's own licence) is parked by the
 founder's choice. The commit gate in `process.md` is now the founder's "go" on committing the round-3 outputs.
 
 **Lab report (same day, numbers in `reviews/2026-11-27-lab-r14-reanchor-lag.md`).** The R14 fixes, the re-anchor hook
@@ -268,6 +268,34 @@ becomes about 4,580 against the 3,000 bound that ADR-028 amendment 1 § 6 keeps.
   (ADR-031 § 1). Five findings for V11 (no `dr_show` in the lab; no follower row in `loc_budget.py` yet; no audio time
   in `Conductor::apply`; the `SectionKind` variants; two slide-id spaces) are in the plan's § 1. The lab closes the
   `dr_show` arm, the eleven ADR-031 pytests still unwritten, and the reference move lists before V11 (numbers only).
+
+## Open item (2026-11-28, batch 8): FA-79, the voxxa-eval row and `--service-report`
+
+**FA-79 — Where does `--service-report` live, and may the voxxa-eval row grow?** Step V2 was prompted at ≤ 105 lines for the
+voxxa-eval row (488 / 600): columns and helper ≤ 45, `--service-report` ≤ 35, `--truth-from-screen` ≤ 25. Both lanes built the whole
+scope and measured it (tokei 15.0.0, after rustfmt): the 10x lane **774 / 600** (`main.rs` 254, `score.rs` 374, `report.rs` 93: +286),
+the ponytail lane **about 641 / 600** (591 for the columns, `--actions` and `--truth-from-screen`, the leanest `--service-report` about
+50 more). The prompt's shares were about 2.7 × short because rustfmt's 60-character chain and call widths break most one-line iterator
+chains and calls into three to six lines (`reviews/2026-11-28-v2-10x.md` § 3, `reviews/2026-11-28-ponytail-v2.md` § 6). Merged (PR
+#194, `reviews/2026-11-28-v2-comparator.md`): the nine columns, the helper, `--actions` and `--truth-from-screen` at **594 / 600**
+(6 left); `--service-report` is written, tested and measured on the 10x lane's local branch (`v2/10x-full-held`, never pushed) and
+described in its record § 6, not merged. The row is not one of FA-74's five, so FA-74 (b)'s "ask at the Phase 2 check" needs the
+founder's line here rather than a lane's.
+- Options: **(a)** raise the voxxa-eval cap to **750** = 600 + 3 × the measured 50 (FA-74 (b), a measured overrun; the first
+  existing-row raise under ADR-028 amendment 1's "caps only go down", on a tools row outside the 3,000-line core bound). **(b)** a new
+  module `src-tauri/src/cli/voxxa-eval/report.rs` with its own row "service report" capped at **150** (3 × 50, FA-54's rule for new
+  rows); the voxxa-eval row keeps 600, and the flag's dispatch lines in `main.rs` (about 5) still come out of its 6. **(c)** defer
+  `--service-report` to **V13s**, whose title already carries "per-service report" and whose inputs (the `level` trace, the service
+  manifest, dispatch timing `t_decision` / `t_sent` / `t_ack`, the SLO table's hold, panic and override counts) do not exist before
+  V3b, V13a and V13s; V13s's Phase 2 check then proposes the row together with the `readiness` row (ADR-034 § 11), with the number in
+  hand.
+- **Recommend (c).** Why: nothing the report would carry exists yet (every consumer field would be `null` or an empty cell; S1–S4 are
+  already the eval table's `false_advances`, `early_1000`, `wrong_slide_s`, `recall` and `on_time_1500`); no cap moves; the written
+  design (the field set, the `trend.csv` header, the FNV-1a config hash, the numbers-only walk test) is kept on the 10x lane's local
+  branch and in `reviews/2026-11-28-v2-10x.md` § 6, so V13s ports it rather than designing it twice; `kit/prompts/07-review.md` reads
+  the `--actions` table until then.
+- Blocks: nothing before V13s (`specs/2026-11-26-prompts-round-3.md` § V13s task 7 carries the writer; the row question is asked
+  there with the readiness row if (c) stands).
 
 ## A. This week (blocks the first wave)
 
