@@ -11,7 +11,7 @@ use common::committed_logs;
 use std::path::Path;
 use std::process::Command;
 use voxxa_lib::evidence::{check_sections, Section, SectionKind};
-use voxxa_lib::{txt_parse, Setlist};
+use voxxa_lib::{txt_parse, Setlist, Slide};
 
 /// Verse 1 spans two slides (the second block has no label), a `Bridge`
 /// label has no slide after it, Verse 2 is split by `---`, and the credit
@@ -63,6 +63,21 @@ fn txt_section_labels_fill_sections() {
     // A song without labels has no sections, as before.
     let plain = txt_parse("T\n\nabc def\n\nghi jkl\n", "fallback").unwrap();
     assert!(plain.sections.is_empty());
+    // Slides before the first label are in no section; a label may end in a
+    // colon and carry a number.
+    let lead = txt_parse(
+        "T\n\nabc def\n\nVerse 1\nghi jkl\n\nmno pqr\n\nRefrain 2:\nstu vwx\n",
+        "fallback",
+    )
+    .unwrap();
+    assert_eq!(lead.slides.len(), 4);
+    assert_eq!(
+        lead.sections,
+        [
+            section(SectionKind::Verse, &[1, 2]),
+            section(SectionKind::Chorus, &[3]),
+        ]
+    );
 }
 
 #[test]
@@ -83,6 +98,9 @@ fn credit_slide_kind_detected() {
     // Only a first line that starts with `Credit:` counts.
     let later = txt_parse("T\n\nabc\nCredit: x\n\ncredit: y\n", "fallback").unwrap();
     assert!(later.slides.iter().all(|s| s.kind.is_none()));
+    // A slide written before the field existed reads back with no kind.
+    let old: Slide = serde_json::from_str(r#"{"id":0,"text":"zeloma"}"#).unwrap();
+    assert!(old.kind.is_none());
 }
 
 /// The binary is built only with `--features cli` (see replay_determinism).
