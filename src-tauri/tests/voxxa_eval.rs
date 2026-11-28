@@ -9,8 +9,11 @@ mod audio;
 #[path = "../src/cli/voxxa-eval/score.rs"]
 mod score;
 
-use score::{check, parse_actions, parse_truth, score, table, At, Cue, Metrics};
-use serde_json::json;
+use score::{check, delays, parse_actions, parse_screen, parse_truth, score, screen_time, table};
+use score::{At, Cue, Metrics};
+use serde_json::{json, Value};
+use std::fs;
+use std::path::Path;
 use std::process::Command;
 
 /// The binary is built only with `--features cli`. Cargo sets `CARGO_BIN_EXE_voxxa-eval`
@@ -309,7 +312,7 @@ fn the_total_row_sums_counts_and_pools_latencies() {
         ("a".to_string(), Metrics::default()),
         ("total".into(), total),
     ];
-    let text = table(&rows);
+    let text = table(&rows, true);
     assert_eq!(text.lines().count(), 3, "{text}");
     assert!(text.lines().nth(2).unwrap().starts_with("total "), "{text}");
     assert!(text.contains("miss"), "{text}");
@@ -328,17 +331,22 @@ fn the_table_prints_every_count_and_metric_cell() {
         ("wrong".into(), wrong),
         ("total".into(), total),
     ];
-    let text = table(&rows);
+    let text = table(&rows, true);
     let cells: Vec<Vec<&str>> = text
         .lines()
         .map(|l| l.split_whitespace().collect())
         .collect();
     // fixture, slides, gotos, hits, missed, precision, recall, median ms,
-    // p95 ms, false/set, double, blank ms, unblank ms.
+    // p95 ms, false/set, double, blank ms, unblank ms; then V2: on_time_1500,
+    // tight_300, early_300, early_1000, wrong_per_10_songs, hidden_mid_song,
+    // song_start_median_ms, song_start_p95_ms, wrong_slide_s. Verse 2 is
+    // never shown (its on-time and tight shares are 0 of 1); the wrong run's
+    // slide 2 is a wrong move (10 per 10 songs for one song, 5 for the two)
+    // and stays up from 5 s: 0.5 + 8 + 12 + 0.3 s of wrong slide.
     let want = [
-        "missed 2 1 1 1 1.00 0.50 500 500 0 0 300 -",
-        "wrong 2 2 1 1 0.50 0.50 500 500 1 0 300 -",
-        "total 4 3 2 2 0.67 0.50 500 500 1 0 300 -",
+        "missed 2 1 1 1 1.00 0.50 500 500 0 0 300 - 0.00 0.00 0 0 0.00 0 500 500 12.80",
+        "wrong 2 2 1 1 0.50 0.50 500 500 1 0 300 - 0.00 0.00 0 0 10.00 0 500 500 20.80",
+        "total 4 3 2 2 0.67 0.50 500 500 1 0 300 - 0.00 0.00 0 0 5.00 0 500 500 33.60",
     ];
     for (got, want) in cells[1..].iter().zip(want) {
         assert_eq!(got.join(" "), want, "{text}");
@@ -585,6 +593,30 @@ fn replay_of_the_committed_fixtures_passes_the_baseline() {
         .collect();
     assert_eq!(total[1..4], ["21", "21", "21"], "{out}");
     assert_eq!(total[11..13], ["7280", "2490"], "{out}");
+    // V2 (plan task 5): an old truth file scores identically on the eight
+    // names. The first 13 cells of every row, measured at 8df5893 before the
+    // V2 columns existed; a re-recorded log (fixtures/README.md) updates them.
+    let eight = [
+        "jump-be-thou-my-vision 4 4 4 0 1.00 1.00 1200 5850 0 0 - -",
+        "prayer-before-first-song 2 2 2 0 1.00 1.00 1710 2800 0 0 6800 1710",
+        "prayer-between-songs 4 4 4 0 1.00 1.00 2490 4870 0 0 7280 2490",
+        "prayer-then-reprise 3 3 3 0 1.00 1.00 2900 2900 0 0 200 1500",
+        "prayer-without-pause 2 2 2 0 1.00 1.00 1900 2900 0 0 6600 -",
+        "refrain-it-is-well 6 6 6 0 1.00 1.00 2120 3900 0 0 - -",
+        "total 21 21 21 0 1.00 1.00 2310 4870 0 0 7280 2490",
+    ];
+    for want in eight {
+        let name = want.split(' ').next().unwrap();
+        let row = out.lines().find(|l| l.starts_with(name)).unwrap();
+        let cells: Vec<&str> = row.split_whitespace().take(13).collect();
+        assert_eq!(cells.join(" "), want, "{out}");
+        // Every V2 cell is a number, never `-` or `n/a`, on a tapped truth.
+        assert_eq!(row.split_whitespace().count(), 22, "{out}");
+        assert!(
+            !row.split_whitespace().skip(13).any(|c| c == "n/a"),
+            "{out}"
+        );
+    }
 }
 
 #[test]
@@ -647,4 +679,315 @@ fn a_session_log_recorded_with_another_setlist_is_an_error_not_a_score() {
     assert_eq!(out.status.code(), Some(2), "{stderr}");
     assert!(stderr.contains("different setlist"), "{stderr}");
     assert!(!String::from_utf8_lossy(&out.stdout).contains("mode:"));
+}
+
+// V2 (plan task 5): the new columns on made-up truth and action lists. The
+// v2() order: on_time_1500, tight_300, early_300, early_1000,
+// wrong_per_10_songs, hidden_mid_song, song_start_median_ms,
+// song_start_p95_ms, wrong_slide_s.
+
+/// One song: verse 1 at 1 s, verse 2 at 13 s, verse 3 at 25 s.
+fn verses() -> Vec<At> {
+    vec![slide(1000, 0), slide(13000, 1), slide(25000, 2)]
+}
+
+#[test]
+fn the_signed_error_is_shown_minus_truth_and_feeds_the_early_counts() {
+    // +400 (late), -400 (early, inside the match window: a hit and an
+    // early_300), 0. The first row is the song start, reported apart.
+    let acts = [slide(1400, 0), slide(12600, 1), slide(25000, 2)];
+    assert_eq!(delays(&verses(), &acts), [Some(400), Some(-400), Some(0)]);
+    let m = score(&verses(), &acts);
+    assert_eq!(
+        (m.hits, m.false_advances, m.latency.clone()),
+        (3, 0, vec![400, -400, 0])
+    );
+    assert_eq!(
+        (m.starts.clone(), m.signed.clone()),
+        (vec![Some(400)], vec![Some(-400), Some(0)])
+    );
+    let v = m.v2();
+    assert_eq!(
+        v[..6],
+        [
+            Some(1.0),
+            Some(0.5),
+            Some(1.0),
+            Some(0.0),
+            Some(0.0),
+            Some(0.0)
+        ]
+    );
+    assert_eq!(v[6..], [Some(400.0), Some(400.0), Some(0.8)]);
+    // A slide never shown for its row is None: not early, not tight, not on time.
+    let m = score(&verses(), &[slide(1000, 0), slide(25000, 2)]);
+    assert_eq!(m.signed, [None, Some(0)]);
+    assert_eq!(m.v2()[..4], [Some(0.5), Some(0.5), Some(0.0), Some(0.0)]);
+}
+
+#[test]
+fn an_early_move_beyond_the_match_window_is_counted_early_but_not_a_hit() {
+    // 1.5 s early: the eight names call it a false advance and a missed
+    // slide (the 1 s window stays as it is); early_300 and early_1000 see it.
+    let m = score(
+        &verses(),
+        &[slide(1000, 0), slide(11500, 1), slide(25000, 2)],
+    );
+    assert_eq!((m.hits, m.false_advances, m.wrong_moves), (2, 1, 0));
+    assert_eq!(m.signed, [Some(-1500), Some(0)]);
+    assert_eq!(m.v2()[..4], [Some(0.5), Some(0.5), Some(1.0), Some(1.0)]);
+    // Early by exactly 300 ms is tight, not early; 301 ms is early.
+    let m = score(
+        &verses(),
+        &[slide(1000, 0), slide(12700, 1), slide(24699, 2)],
+    );
+    assert_eq!(m.v2()[..4], [Some(1.0), Some(0.5), Some(1.0), Some(0.0)]);
+}
+
+#[test]
+fn song_starts_are_timed_apart_and_follow_a_blank_or_a_song_change() {
+    // Song 0 verses, a prayer, verse 2 again, then song 1: three starts
+    // (the first row, the row after the blank, the new song), two others.
+    let t = [
+        song(1000, 0, 0),
+        song(13000, 0, 1),
+        blank(25000),
+        song(40000, 0, 1),
+        song(60000, 1, 0),
+        song(72000, 1, 1),
+    ];
+    let acts = [
+        song(3000, 0, 0),
+        song(13100, 0, 1),
+        blank(25200),
+        song(42000, 0, 1),
+        song(61500, 1, 0),
+        song(72200, 1, 1),
+    ];
+    let m = score(&t, &acts);
+    assert_eq!(m.starts, [Some(2000), Some(2000), Some(1500)]);
+    assert_eq!(m.signed, [Some(100), Some(200)]);
+    let v = m.v2();
+    assert_eq!(
+        v[..2],
+        [Some(1.0), Some(1.0)],
+        "starts never count against on time or tight"
+    );
+    assert_eq!(v[6..8], [Some(2000.0), Some(2000.0)]);
+    assert_eq!(
+        v[4],
+        Some(0.0),
+        "no wrong move over three song performances"
+    );
+    // No non-start row: on time and tight have nothing to measure.
+    let m = score(&[slide(1000, 0)], &[slide(1500, 0)]);
+    assert_eq!(m.v2()[..2], [None, None]);
+}
+
+#[test]
+fn wrong_per_10_songs_counts_gotos_to_neither_the_current_nor_the_next_row() {
+    // Slide 2 while verse 1 is sung (a skip of two): wrong. Verse 2 one
+    // second before its row is the next row, so not wrong.
+    let acts = [
+        slide(1500, 0),
+        slide(5000, 2),
+        slide(12000, 1),
+        slide(25400, 2),
+    ];
+    let m = score(&verses(), &acts);
+    assert_eq!((m.wrong_moves, m.v2()[4]), (1, Some(10.0)), "one song");
+    // Two songs: the same count is 5 per 10. A goto before the first row to
+    // a slide that is not the first row's is wrong too.
+    let t = [song(1000, 0, 0), song(13000, 1, 0)];
+    let m = score(&t, &[song(500, 1, 0), song(1200, 0, 0), song(13100, 1, 0)]);
+    assert_eq!((m.wrong_moves, m.v2()[4]), (1, Some(5.0)));
+    // The scorer's own cases: a double advance is not a wrong move.
+    let m = score(&truth(), &[slide(1500, 0), slide(4000, 0), slide(13400, 1)]);
+    assert_eq!((m.double_advances, m.wrong_moves), (1, 0));
+}
+
+#[test]
+fn wrong_slide_seconds_count_the_time_the_wrong_slide_id_is_up() {
+    let t = [slide(1000, 0), slide(11000, 1)];
+    // 2 s late into verse 2: 2.00 s wrong, then right until 10 s after the last row.
+    assert_eq!(
+        screen_time(&t, &[slide(1000, 0), slide(13000, 1)]),
+        (2000, 0)
+    );
+    assert_eq!(
+        score(&t, &[slide(1000, 0), slide(13000, 1)]).v2()[8],
+        Some(2.0)
+    );
+    // A wrong slide by id (slide 2, or another song's slide 1) stays wrong to the end.
+    assert_eq!(
+        screen_time(&t, &[slide(1000, 0), slide(11000, 2)]).0,
+        10_000
+    );
+    assert_eq!(
+        screen_time(&t, &[slide(1000, 0), song(11000, 1, 1)]).0,
+        10_000
+    );
+    // Nothing shown at all: wrong from the first row to 10 s after the last.
+    assert_eq!(screen_time(&t, &[]), (20_000, 0));
+    assert_eq!(screen_time(&[], &[slide(1000, 0)]), (0, 0));
+    // An unblank shows the last slide again.
+    let acts = [slide(1000, 0), blank(3000), unblank(3500), slide(11000, 1)];
+    assert_eq!(screen_time(&t, &acts), (500, 0));
+}
+
+#[test]
+fn hidden_mid_song_counts_blanks_over_1_s_that_start_while_a_slide_is_sung() {
+    let t = [slide(1000, 0), slide(11000, 1), blank(21000)];
+    // 0.9 s blank: not hidden; 6 s blank: hidden once; the prayer blank is the operator's.
+    let acts = [
+        slide(1000, 0),
+        blank(3000),
+        unblank(3900),
+        blank(5000),
+        slide(11000, 1),
+        blank(21000),
+    ];
+    assert_eq!(screen_time(&t, &acts), (900 + 6000, 1));
+    assert_eq!(score(&t, &acts).v2()[5], Some(1.0));
+    // Before the first goto the screen is blank: a late start, not a hide.
+    assert_eq!(screen_time(&[slide(1000, 0)], &[slide(4000, 0)]), (3000, 0));
+    // A blank that outlives the prayer into the next song is a late start too.
+    let t = [song(1000, 0, 0), blank(10000), song(20000, 1, 0)];
+    let acts = [song(1000, 0, 0), blank(10000), song(23000, 1, 0)];
+    assert_eq!(screen_time(&t, &acts), (3000, 0));
+    // A blank after the last truth row: the song may have ended (no song-end
+    // row until truth v2, V6), so not hidden, but still wrong-slide time.
+    assert_eq!(
+        screen_time(&[slide(1000, 0)], &[slide(1000, 0), blank(5000)]),
+        (6000, 0)
+    );
+}
+
+#[test]
+fn an_actions_file_is_scored_like_voxxad_output_and_a_bad_line_names_the_file() {
+    // The committed session log as the actions file (its action lines are
+    // what replay prints): the same eight numbers as the replay row.
+    let from = Path::new("../fixtures/recordings/prayer-then-reprise");
+    let text = fs::read_to_string("../fixtures/baseline.json").unwrap();
+    let mut limits: Value = serde_json::from_str(&text).unwrap();
+    limits["total"] = limits["prayer-then-reprise"].clone();
+    let dir = tempfile::tempdir().unwrap();
+    let baseline = dir.path().join("baseline.json");
+    fs::write(&baseline, limits.to_string()).unwrap();
+    let actions = from.join("session.jsonl");
+    let args = [
+        "--actions",
+        actions.to_str().unwrap(),
+        from.to_str().unwrap(),
+    ];
+    let (out, code) = eval(&[&args[..], &["--baseline", baseline.to_str().unwrap()]].concat());
+    assert_eq!(code, 0, "{out}");
+    let row = out
+        .lines()
+        .find(|l| l.starts_with("prayer-then-reprise"))
+        .unwrap();
+    let cells: Vec<&str> = row.split_whitespace().take(13).collect();
+    assert_eq!(
+        cells.join(" "),
+        "prayer-then-reprise 3 3 3 0 1.00 1.00 2900 2900 0 0 200 1500"
+    );
+    // A bad line: exit 2, the file and the line number, never the line.
+    let bad = dir.path().join("bad.jsonl");
+    fs::write(
+        &bad,
+        "{\"v\":1,\"t\":1,\"type\":\"action\",\"action\":\"goto\"}\nalpha bravo\n",
+    )
+    .unwrap();
+    let out = Command::new(eval_exe())
+        .args(["--actions", bad.to_str().unwrap()])
+        .arg(from)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(2), "{stderr}");
+    assert!(
+        stderr.contains("bad.jsonl") && stderr.contains("line 1"),
+        "{stderr}"
+    );
+    assert!(!stderr.contains("alpha"), "{stderr}");
+    // An error line in the actions file (a saved --full run) is named by its
+    // number, never quoted: its message may hold what Whisper heard.
+    let noisy = dir.path().join("noisy.jsonl");
+    let goto = r#"{"v":1,"t":5000,"type":"action","action":"goto","song":0,"slide":0,"global":0,"title":"x"}"#;
+    let error = r#"{"v":1,"t":1,"type":"error","message":"alpha bravo"}"#;
+    fs::write(&noisy, format!("{error}\n{goto}\n")).unwrap();
+    let out = Command::new(eval_exe())
+        .args(["--actions", noisy.to_str().unwrap()])
+        .arg(from)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "scored, below the baseline: {stderr}"
+    );
+    assert!(stderr.contains("an error on its line 1"), "{stderr}");
+    assert!(!stderr.contains("alpha"), "{stderr}");
+    // A missing value is an error, not a silent default.
+    let out = Command::new(eval_exe()).arg("--actions").output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+}
+
+#[test]
+fn a_screen_truth_scores_the_correct_bar_and_prints_n_a_for_timing() {
+    // A made-up log (plan task 7, FA-66): two read-back positions as `screen`
+    // trace lines carrying extra fields V8c may add, and voxxad's two moves,
+    // 0.5 and 0.2 s after them. The setlist beside it has 4, 4 and 5 slides.
+    let dir = tempfile::tempdir().unwrap();
+    let from = Path::new("../fixtures/recordings/prayer-then-reprise");
+    fs::copy(from.join("setlist.json"), dir.path().join("setlist.json")).unwrap();
+    let log = [
+        r#"{"v":1,"t":0,"type":"status","state":"start"}"#,
+        r#"{"v":1,"t":2000,"type":"trace","kind":"screen","slide":0,"hash":7,"source":2}"#,
+        r#"{"v":1,"t":2500,"type":"action","action":"goto","song":0,"slide":0,"global":0,"title":"x"}"#,
+        r#"{"v":1,"t":16000,"type":"trace","kind":"screen","slide":1}"#,
+        r#"{"v":1,"t":16200,"type":"action","action":"goto","song":0,"slide":1,"global":1,"title":"x"}"#,
+    ]
+    .join("\n");
+    let path = dir.path().join("session.jsonl");
+    fs::write(&path, &log).unwrap();
+    let (out, code) = eval(&["--truth-from-screen", path.to_str().unwrap()]);
+    assert_eq!(code, 0, "{out}");
+    assert!(out.starts_with("truth: operator-timed\n"), "{out}");
+    let cells: Vec<&str> = out.lines().nth(2).unwrap().split_whitespace().collect();
+    assert_eq!(
+        cells[..7],
+        ["screen", "2", "2", "2", "0", "1.00", "1.00"],
+        "{out}"
+    );
+    // Every timing cell is n/a: median, p95, blank, unblank, on_time_1500,
+    // tight_300, early_300, early_1000, the song-start percentiles.
+    for i in [7, 8, 11, 12, 13, 14, 15, 16, 19, 20] {
+        assert_eq!(cells[i], "n/a", "cell {i}: {out}");
+    }
+    // The Correct bar still scores: false, double, wrong moves, hidden, wrong-slide seconds.
+    assert_eq!(cells[9..11], ["0", "0"], "{out}");
+    assert_eq!(
+        (cells[17], cells[18], cells[21]),
+        ("0.00", "0", "0.70"),
+        "{out}"
+    );
+    assert_eq!(cells.len(), 22, "{out}");
+    // The parser: only t and slide are read; slide is the global index.
+    let songs = [
+        ("a".to_string(), 4),
+        ("b".to_string(), 4),
+        ("c".to_string(), 5),
+    ];
+    assert_eq!(
+        parse_screen(&log, &songs).unwrap(),
+        [slide(2000, 0), slide(16000, 1)]
+    );
+    let line = r#"{"v":1,"t":1,"type":"trace","kind":"screen","slide":5}"#;
+    assert_eq!(parse_screen(line, &songs).unwrap(), [song(1, 1, 1)]);
+    let past = r#"{"v":1,"t":1,"type":"trace","kind":"screen","slide":13}"#;
+    assert_eq!(parse_screen(past, &songs).unwrap_err(), "session line 1");
+    let other = r#"{"v":1,"t":1,"type":"trace","kind":"level","slide":99}"#;
+    assert_eq!(parse_screen(other, &songs).unwrap(), []);
 }
