@@ -1,0 +1,5 @@
+# ADR-029 § 3 (plan V5 step 5, built in V5a): the founder reviews every change to the kit's
+# prompts, skills and binding profiles. The `budgets` job's kit_check line comes with V5b.
+/kit/prompts/**            @nategroks
+/kit/skills/**             @nategroks
+/kit/templates/bindings/** @nategroks

@@ -43,3 +43,21 @@ __pycache__/
 *.mp3
 *.m4a
 fixtures/private/
+
+# Church data never enters the public repo (ADR-029 § 3; plan V5 step 4, the .gitignore half, in V5a;
+# the media-guard test and CI job follow in V5b). The kit's templates carry other names
+# (`*.template.*`, `truth-v2.example.jsonl`) and stay tracked; the public fixtures' truth files and
+# the voxxad test log are re-included by path.
+church-profile.json
+layout.json
+*.service.json
+songs.csv
+practice/
+sessions/
+session-*.jsonl
+truth.jsonl
+*.sqlite3*
+manifests/
+reports/
+!fixtures/recordings/*/truth.jsonl
+!src-tauri/tests/fixtures/voxxad/session-*.jsonl
