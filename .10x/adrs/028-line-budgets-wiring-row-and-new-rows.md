@@ -66,7 +66,7 @@ Follows the precedent of ADR-019 § 10 (discovery row) and ADR-020 § 5 (updater
 - Plan steps: V7 (row split), then each step's own row.
 
 ## Review trigger
-Any row reaches 95% of its cap; the follower port measures > 500 lines; a church needs the deferred library editor or bindings executor. Added by amendment 1: a tripled row passes its original estimate (onset 250, input chain 200, position 300, health check 150).
+Any row reaches 95% of its cap; the follower port measures > 500 lines (**reached 2026-11-27: the V3d port plan estimates about 860 at a measured 2.37 × factor; FA-78 open**); a church needs the deferred library editor or bindings executor. Added by amendment 1: a tripled row passes its original estimate (onset 250, input chain 200, position 300, health check 150).
 
 ## Amendment 1 (Accepted 2026-11-27, V7; founder answers FA-10, FA-54, FA-65, FA-74 and FA-77)
 
