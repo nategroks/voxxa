@@ -63,6 +63,17 @@ operator's moves cannot be the score. Each shadow service is scored like this:
    recording's clock, so it never gives the score. It may only confirm that the live run and the replay saw the
    same service (for example, the same songs started).
 
+**The service report (plan step V2 task 6, deferred to step V13s pending founder item FA-79; not in this build).** After
+every rehearsal and service the tech lead will also run `voxxa-eval --service-report sessions\session-<date>-<time>.jsonl
+--truth recordings\<date>-<slot>\truth.jsonl --out reports` (no `--truth` when the service was not tapped). It writes
+`reports\service-<date>-<slot>.json` and appends one row to `reports\trend.csv`, numbers only: the run's version and
+setlist fingerprint, and the SLO rows S1–S10 of the readiness review; a value of `null` means the input is not logged
+yet (hops, levels, dispatch times, holds), not that it was fine. The review then reads S1–S4 against the bar above and
+the trend row against last week's. Until V13s ships the flag, the review reads the `voxxa-eval --actions` table from step 4
+(the eight columns, then `on_time_1500`, `tight_300`, `early_300`, `early_1000`, `wrong_per_10_songs`,
+`hidden_mid_song`, the song-start delays and `wrong_slide_s`); the partial-scoring and Monday-number wording stays for
+the training kit (V18). Both report files stay in `reports\`, which never leaves the booth PC.
+
 "Shown during talk" is checked against the talk spans. If the `voxxa-eval` in use does not report it yet, the
 tech lead counts the replay's song moves and unblanks inside the talk spans (the span times from
 `source.md`, written here in milliseconds); the command prints one number and no text:
