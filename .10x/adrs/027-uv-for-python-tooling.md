@@ -1,6 +1,6 @@
 # ADR-027: uv runs voxxa's Python tools; PEP 723 headers, no root project, no CI change; the dead Python prototype is deleted
 
-**Status:** Proposed (2026-11-24) · **Date:** 2026-11-24 · **Feature:** church-autoadvance · **Reversibility:** Easy (comment headers; a deleted folder stays in git history) · **Owner:** nategroks · **Author:** 10x-Team synthesiser, from drafts 12, 14 and review 21
+**Status:** Accepted 2026-11-27 (V5a; amendment 1 below: FA-03) · Proposed 2026-11-24 · **Date:** 2026-11-24 · **Feature:** church-autoadvance · **Reversibility:** Easy (comment headers; a deleted folder stays in git history) · **Owner:** nategroks · **Author:** 10x-Team synthesiser, from drafts 12, 14 and review 21
 
 ## Context
 - The founder asked to "make this work with uv package manager" (brief § 1). The booth PC has Python 3.9 and no uv (brief § 3).
@@ -42,3 +42,7 @@
 
 ## Review trigger
 A repo tool needs a third-party package in CI; the public draft-truth lab is approved; uv changes PEP 723 handling.
+
+## Amendment 1 (2026-11-27, V5a): accepted
+- Accepted on FA-03 (done: uv 0.13.10 is on the booth PC and is the minimum version in `kit/README.md`, `specs/2026-11-24-founder-action-items.md:16-17`).
+- Built in V5a: Decision 5's template, `kit/templates/lab/pyproject.template.toml` (the lab itself stays private). Decision 6's kit tools are V5b.

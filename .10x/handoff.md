@@ -21,10 +21,50 @@
   ADR-036 is at revision 1 (the lab's hash probe: 64-bit whole-frame hashes collide on lyric slides; 256-bit text-region hashes separate).
 - **Lab (private, never committed), done 2026-11-27:** the V3d break-gate arm (gate alone loses at the live lag; on by default only with `head_min_words` = 2: ADR-031 amendment 4, `reviews/2026-11-27-lab-v3d-break-gate.md`); the R14 must-fixes, the `reanchor(slide, t)` hook with 18 pytests (ADR-031 amendment 3)
   and the capture probe for V8c task 0 (`reviews/2026-11-27-lab-r14-reanchor-lag.md`); lanes receive edit lists and numbers only. **Measured:** the
-  live read lag is 2,148 ms median against the 1,000 ms replays assume; V3b task 8 breaks it down; offline follower numbers are optimistic by ≈ 1.15 s.
+  live read lag is 2,148 ms median against the 1,000 ms replays assume; V3b task 8 breaks it down; offline follower numbers are optimistic by ≈ 1.15 s. **V3d port plan recorded** (`reviews/2026-11-27-v3d-port-plan.md` + addendum; PR #191 at 79388b6 and PR #192 at 3ff5302:
+  `dr_show` reproduces the plan-order follower on P1, 33 of 33 lab tests, 13 of 13 mutants caught, reference move lists in the lab);
+  **FA-78 open** (the follower row's cap).
 - **Pre-existing names in this file and `status.md`** (the pilot church and the test song in older sections) stay per FA-12 (c); new text uses
   "the pilot church" and "P1". The lane scan runs on staged files only.
 
+
+## V5a (2026-11-27/28; lanes `v5a/10x` and `v5a/ponytail` off 54d841e; final `v5a/final` off 3ff5302): what V3d, V11, V17 and V18 slice 1 now have
+
+- **Records:** `reviews/2026-11-28-v5a-comparator.md` (the choice, the grafts, the gates, the scan counts per commit), `reviews/2026-11-27-v5a-10x.md`
+  (the base lane; kit fix list F1–F14) and `reviews/2026-11-27-ponytail-v5a.md`. Commits on `v5a/final`: eb1d5a6 kit; 4a1fae9 guards; 893fb9e
+  importer; 9f260d5 kit text and 85677b7 test pins from the ponytail lane; 397f207 the ponytail record; the records commit. Draft PR #193; the
+  `kit-v0.1.0` tag goes on its merge commit (layout § 4).
+- **`kit/` exists** (42 files): `README.md` with the FA-47 tier table, `private-folder.md`, 27 templates (6 binding profiles, `lab/pyproject.template.toml`),
+  prompts 01–08, 5 skills. No congregation notice (FA-70). `.github/CODEOWNERS`: the founder owns `kit/prompts/**`, `kit/skills/**`,
+  `kit/templates/bindings/**`. `.gitignore` refuses `church-profile.json`, `layout.json`, `*.service.json`, `songs.csv`, `practice/`, `sessions/`,
+  `session-*.jsonl`, `truth.jsonl`, `*.sqlite3*`, `manifests/`, `reports/`; the kit templates carry other names and stay tracked;
+  `fixtures/recordings/*/truth.jsonl` and `src-tauri/tests/fixtures/voxxad/session-*.jsonl` are re-included by path (a public `truth.jsonl` or
+  `session-*.jsonl` anywhere else needs its own negation line).
+- **V3d and V11 have:** `Song.sections` filled by the `.txt` importer (`src-tauri/src/importers/txt.rs`): a label line (`Verse 1`, `Chorus`, `Refrain`,
+  `Bridge`, `Tag`, `Pre-Chorus`, `Intro`, `Outro`, `Ending`, `Interlude`, with or without a trailing number and colon) starts a `Section` covering the
+  slides up to the next label; `refrain` reads as Chorus; pre-chorus, intro, outro, ending and interlude read as `Other`; a label with no slide is
+  dropped; slides before the first label are in no section. `Slide.kind: Option<String>` (`src-tauri/src/aligner/mod.rs`) is `Some("credit")` for a
+  slide whose first line starts with `Credit:` (exact case; that slide is in no section) and is never written otherwise; `Slide::new(id, text)` is the
+  plain constructor every importer uses. Nothing reads `kind` yet: V11's credit gate and jump edges are the first readers (a `SlideKind` enum may come
+  then). Tests: `src-tauri/tests/txt_sections.rs` (3). Every committed setlist and session log serialises and replays unchanged (replay refuses a
+  setlist whose fingerprint changed, so a passing replay is the byte-for-byte proof).
+- **V17 has:** the README tier table; `church-profile.template.json` (`presentation_app_tier`, `freeshow_version`, `stage_display`, `stream_capture`,
+  `scripture_source`, `announcement_items_per_service`); `templates/bindings/*.json` (`freeshow.json` carries FA-57's 500 ms default and
+  `require_password`; V8b finalises); `templates/repertoire-inventory.template.csv` (draft); `templates/presenter-test-card.md` FS1–FS20 (FS10 skipped
+  per FA-53; FS12 and FS19 per FA-57).
+- **V18 slice 1 has:** `templates/minder-role-card.md` v0 (FA-61 wording: a manual move re-anchors, no demotion; no "AI" on any card, FA-70),
+  `templates/rota.template.csv` (columns only), `templates/incident.template.md` (a V13s draft); the README's step table and skill list to extend
+  (steps 11–12, prompts 09/10, the sixth skill); no notice template.
+- **V5b (deferred behind the first autonomous Sunday, R17) still owes:** `kit/tools/songcheck.py`, `kit/tools/kit_check.py`, the kit tools row (300),
+  the media-guard test and CI job for the church file names (a forced add still gets through `.gitignore`), `licensing.rs`'s
+  `fixtures_carry_an_allowed_licence`, the `budgets` job's `kit_check` line, the fake second church. Until then the kit's checks are the media guard,
+  the lyric-key grep `git grep -nE '"(text|lyrics|slides|words|run)"' -- 'kit/**/*.json'` and the lane scan. The other importers still write
+  `sections: Vec::new()` (ADR-016 names them as a later step).
+- **Budget after V5a** (tokei 15.0.0, 2026-11-28, `v5a/final`): conductor 1,169 / 1,200 (31 left), importers 1,373 / 1,600 (227 left), everything
+  else 894 / 904 (10 left); no other row moved; the row table below is updated (the "as of V7" sentence above it keeps V7's figures; the table is
+  current). **ADRs:** 026, 027, 029 Accepted 2026-11-27 with amendment 1 each; 022 stays Proposed (its § 7 is built).
+- **Next after V5a: V2** (eval columns), then V8-lite, V13a, V10 mock, V18 slice 1; V8c still waits on the founder's probe line (task 0).
+  **FA-78 is open** (the follower row's cap, from the V3d port plan).
 
 ## User decisions for Q10 (2026-11-23)
 - **Stop at a DRAFT release.** Tag builds create drafts only; the founder publishes the real release by hand, soon after. Agents never publish a draft.
@@ -141,15 +181,15 @@ Plan step V0 of the 2026-11-24 strategy draft (not yet committed), with the orch
 ### Numbers at the finish (Q10)
 Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double advances, median 2,310 ms, p95 4,870 ms (#84), unchanged since Q6. `baseline.json` unchanged. Tests: `cargo test --features cli` 266 passed, 1 ignored; `scripts/release` 11/11; GUI `test:gui` 18/18, e2e 209/209 with zero CSP violations.
 
-**Budget rows after V7** (measured 2026-11-27, tokei 15.0.0, `python scripts/loc_budget.py` at 0190515 + the V7 change; ADR-028 Accepted with amendment 1, which has every row's estimate, owner, step and the reason for its headroom). Caps only go down; a new module gets a new row through an ADR; stop and report at 95 %, and a tripled row reports when it passes its estimate.
+**Budget rows after V7 and V5a** (V7 measured 2026-11-27; V5a's three changed rows measured 2026-11-28 on `v5a/final`; tokei 15.0.0, `python scripts/loc_budget.py` at 0190515 + the V7 change; ADR-028 Accepted with amendment 1, which has every row's estimate, owner, step and the reason for its headroom). Caps only go down; a new module gets a new row through an ADR; stop and report at 95 %, and a tripled row reports when it passes its estimate.
 
 | Row | Used / cap | Left |
 |---|---|---|
-| everything else in src-tauri/src (`lib.rs`, `main.rs`, `audio/`, `diagnostics/`, `help/`, `hymnary/`, `net_stats/`, `tray/`) | 900 / 904 | **4** (the `lib.rs` `mod` lines for `input`, `position`, `readiness`, `practice`) |
+| everything else in src-tauri/src (`lib.rs`, `main.rs`, `audio/`, `diagnostics/`, `help/`, `hymnary/`, `net_stats/`, `tray/`) | 894 / 904 | **10** (V5a's `Slide::new` in `hymnary/` gave 6 back; 4 are still the `lib.rs` `mod` lines for `input`, `position`, `readiness`, `practice`) |
 | wiring (`dispatch.rs`, `listen.rs`, `http_api/`, `commands/`; new in V7, FA-10: measured 1,288 + 150) | 1,288 / 1,438 | **150** (ceilings below) |
 | updater (`src/updater/`) | 98 / 150 | 52 |
 | discovery (`src/discovery/`) | 223 / 250 | 27 |
-| conductor (`aligner/`, without `evidence/` and `onset/`) | 1,173 / 1,200 | 27 (V5a 3 · V11 20 + `pub mod onset;` 1) |
+| conductor (`aligner/`, without `evidence/` and `onset/`) | 1,169 / 1,200 | 31 (V5a done at −4: `Slide.kind` 2, `Slide::new` 9, its test literals −15 · V11 20 + `pub mod onset;` 1) |
 | conductor evidence (`aligner/evidence/`) | 215 / 500 | 285 |
 | onset (`aligner/onset/`; new in V7, estimate 250 × 3, FA-54; V11) | 0 / 750 | 750 |
 | recognizer (`transcription/` + `vad/`; `vad/` 125 moved in V7, headroom unchanged) | 557 / 825 | 268 (V3 60 · V4 40 · V3b gate 40) |
@@ -158,7 +198,7 @@ Replay, exit 0: 21 of 21 hits, precision and recall 1.00, 0 false and 0 double a
 | voxxad (`src/cli/voxxad/`) | 552 / 600 | 48 (V12 20 · V8b 10 · V13s 8 · V3b `Kind::Trace` 4) |
 | voxxa-eval (`src/cli/voxxa-eval/`) | 488 / 600 | 112 (V2 105) |
 | presenters (`keystroke.rs` 396 / 400) | 1,396 / 2,000 | 604 (V8b 150 · V8c 30) |
-| importers + planning_center | 1,386 / 1,600 | 214 (V5a 40) |
+| importers + planning_center | 1,373 / 1,600 | 227 (V5a done at −13: `txt.rs` +11, `Slide::new` at 8 sites −24) |
 | GUI (without `src/simple/` and `src/health/`) | 2,860 / 3,000 | 140 (V14 net +15) |
 | Simple mode (`src/simple/*`) | 450 / 600 | 150 (V9 5 · V14 60 · V13s 10) |
 | health check (`src/health/`; new in V7, estimate 150 × 3, FA-54; V13s) | 0 / 450 | 450 |

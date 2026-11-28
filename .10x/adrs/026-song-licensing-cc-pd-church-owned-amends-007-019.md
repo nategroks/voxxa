@@ -1,6 +1,6 @@
 # ADR-026: Songs are typed in by the church with a licence and credit record; Creative Commons, public domain and church-owned first, CCLI optional (amends ADR-007, ADR-019 § 7, ADR-003's file list)
 
-**Status:** Proposed (2026-11-24) · **Date:** 2026-11-24 · **Feature:** church-autoadvance · **Reversibility:** Easy (a register file and a check script; no runtime code) · **Owner:** nategroks · **Author:** 10x-Team synthesiser, from drafts 12, 13, 14 and review 20
+**Status:** Accepted 2026-11-27 (V5a; amendment 1 below: FA-13 and FA-01) · Proposed 2026-11-24 · **Date:** 2026-11-24 · **Feature:** church-autoadvance · **Reversibility:** Easy (a register file and a check script; no runtime code) · **Owner:** nategroks · **Author:** 10x-Team synthesiser, from drafts 12, 13, 14 and review 20
 
 ## Context
 - Founder decision (brief § 2): songs are Creative Commons-licensed, public domain or the church's own; lyrics are entered and managed by hand; each song records its licence and credit line; CCLI fields may stay optional.
@@ -52,3 +52,7 @@
 
 ## Review trigger
 A rights holder's complaint; a church adopts NC or ND songs and streams; the founder requires in-app entry; CCLI's answer to the written question.
+
+## Amendment 1 (2026-11-27, V5a): accepted; what V5a built
+- Accepted on FA-13 (the licence policy as recommended, `specs/2026-11-24-founder-action-items.md:429-433`; the founder closed every item on 2026-11-27, `specs/2026-11-24-founder-action-items.md:239`) and FA-01 (V5 pre-approved, `specs/2026-11-24-founder-action-items.md:14`). FA-26 (the church's own songs under CC) does not name the licence register, so it is not cited.
+- Built in V5a: Decision 1's importer side (`src-tauri/src/importers/txt.rs`: each section label fills `sections` for the slides that follow it; a slide whose first line starts with `Credit:` gets `kind: "credit"`, a new optional `Slide` field written only when set) and the kit's data files (`templates/songs.template.csv`, `templates/licence-kinds.csv`, `templates/song.template.txt`: Decisions 2–5 as data, Decision 9's PD/CC0 rule in every example). Decision 7 (`songcheck.py`) and Decision 9's `fixtures_carry_an_allowed_licence` are V5b.
